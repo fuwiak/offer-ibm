@@ -19,8 +19,8 @@ const {
 const MAX_EXCERPT_CHARS = 2200;
 
 const SHOP_DB_ENRICH_TIMEOUT_MS = Math.min(
-  60000,
-  Math.max(3000, parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 15000)
+  120000,
+  Math.max(5000, parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 60000)
 );
 
 const FEATURE_TABLES = [
@@ -307,6 +307,12 @@ async function getShopDbContext(message, options = {}) {
   try {
     return await Promise.race([runEnrich(), timeoutPromise]);
   } catch (e) {
+    if (e?.message === "SHOP_DB_TIMEOUT" && !options._retried) {
+      shopDbLog.warn("enrich timeout, retry once", {
+        timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
+      });
+      return getShopDbContext(message, { ...options, _retried: true });
+    }
     if (e?.message === "SHOP_DB_TIMEOUT") {
       shopDbLog.enrichTimeout({ timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS });
       return {

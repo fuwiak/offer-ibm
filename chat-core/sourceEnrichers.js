@@ -10,7 +10,7 @@ async function load(modulePath, fnName) {
 async function collectExternalContexts({
   message,
   workspace,
-  timeoutMs,
+  timeoutMs: _timeoutMs,
   chatHistory = null,
 }) {
   const shopFn = await load(
@@ -26,36 +26,27 @@ async function collectExternalContexts({
     return [];
   }
 
-  const shopMs =
-    parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 15000;
-  const effectiveTimeout =
-    timeoutMs ?? Math.min(120000, Math.max(8000, shopMs + 5000));
-
-  const result = await Promise.race([
-    shopFn(message, { workspace, maxDocs: 5, chatHistory }).then((r) => ({
-      kind: "shopdb",
-      contextTexts: r?.contextTexts || [],
-      sources: r?.sources || [],
-      flags: r?.flags,
-    })),
-    new Promise((resolve) =>
-      setTimeout(
-        () =>
-          resolve({
-            kind: "shopdb",
-            contextTexts: [],
-            sources: [],
-            flags: { shopDbTimeout: true },
-          }),
-        effectiveTimeout
-      )
-    ),
-  ]).catch((err) => {
+  try {
+    const r = await shopFn(message, { workspace, maxDocs: 5, chatHistory });
+    return [
+      {
+        kind: "shopdb",
+        contextTexts: r?.contextTexts || [],
+        sources: r?.sources || [],
+        flags: r?.flags,
+      },
+    ];
+  } catch (err) {
     console.warn("[ShopDB] enrich failed:", err?.message || err);
-    return { kind: "shopdb", contextTexts: [], sources: [] };
-  });
-
-  return [result];
+    return [
+      {
+        kind: "shopdb",
+        contextTexts: [],
+        sources: [],
+        flags: { shopDbError: true },
+      },
+    ];
+  }
 }
 
 function dedupeSources(sources = []) {

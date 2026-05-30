@@ -24,6 +24,7 @@ const {
   shopDbSearchAgentEnabled,
   runShopDbSearchAgent,
   parseExtendedHardwareQuery,
+  needsSearchAgentFallback,
 } = require("./searchAgent");
 const {
   TABLES,
@@ -287,24 +288,32 @@ async function runProductSearchAgent({
   }
 
   if (shopDbSearchAgentEnabled()) {
-    const agentResult = await runShopDbSearchAgent({
-      searchText,
-      parsed: {
-        ...parseExtendedHardwareQuery(searchText),
-        dinNumbers: [
-          ...new Set([
-            ...(parseExtendedHardwareQuery(searchText).standardNumbers || []),
-            ...(parsed.dinNumbers || []),
-          ]),
-        ],
-      },
-      existingProducts: products,
-      limit: limit * 3,
-      workspace,
-    });
-    if (agentResult.strategies?.length) {
-      strategies.push(...agentResult.strategies);
-      products = mergeProductHits([products, agentResult.products]);
+    const agentParsed = {
+      ...parseExtendedHardwareQuery(searchText),
+      dinNumbers: [
+        ...new Set([
+          ...(parseExtendedHardwareQuery(searchText).standardNumbers || []),
+          ...(parsed.dinNumbers || []),
+        ]),
+      ],
+    };
+    if (needsSearchAgentFallback(products, searchText, agentParsed)) {
+      const agentResult = await runShopDbSearchAgent({
+        searchText,
+        parsed: agentParsed,
+        existingProducts: products,
+        limit: limit * 3,
+        workspace,
+      });
+      if (agentResult.strategies?.length) {
+        strategies.push(...agentResult.strategies);
+        products = mergeProductHits([products, agentResult.products]);
+      }
+    } else {
+      shopDbLog.skip("search agent skipped", {
+        existing: products.length,
+        reason: "strong catalog match",
+      });
     }
   }
 

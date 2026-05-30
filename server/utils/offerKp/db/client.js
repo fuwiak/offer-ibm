@@ -94,6 +94,15 @@ function getPool() {
   }
   if (!pool) {
     pool = mysql.createPool(getPoolOptions());
+    query("SELECT 1")
+      .then(() => {
+        require("../shopDbLog").ok("MySQL pool warmed");
+      })
+      .catch((e) => {
+        require("../shopDbLog").warn("MySQL pool warm failed", {
+          error: e?.message || String(e),
+        });
+      });
   }
   return pool;
 }

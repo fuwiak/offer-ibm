@@ -162,35 +162,27 @@ async function collectExternalContexts({
   if (shopEnabledFn?.()) {
     const shopFn = await loadOptional("../offerKp/enrich", "getShopDbContext");
     if (!shopFn) return [];
-    const shopMs =
-      parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 15000;
-    const effectiveTimeout =
-      timeoutMs ?? Math.min(120000, Math.max(8000, shopMs + 5000));
-    const result = await Promise.race([
-      shopFn(message, { workspace, maxDocs: 5, chatHistory }).then((r) => ({
-        kind: "shopdb",
-        contextTexts: r?.contextTexts || [],
-        sources: r?.sources || [],
-        flags: r?.flags,
-      })),
-      new Promise((resolve) =>
-        setTimeout(
-          () =>
-            resolve({
-              kind: "shopdb",
-              contextTexts: [],
-              sources: [],
-              flags: { shopDbTimeout: true },
-            }),
-          effectiveTimeout
-        )
-      ),
-    ]).catch((err) => {
+    try {
+      const r = await shopFn(message, {
+        workspace,
+        maxDocs: 5,
+        chatHistory,
+      });
+      return [
+        {
+          kind: "shopdb",
+          contextTexts: r?.contextTexts || [],
+          sources: r?.sources || [],
+          flags: r?.flags,
+        },
+      ];
+    } catch (err) {
       const shopDbLog = require("../offerKp/shopDbLog");
       shopDbLog.enrichError(err, { phase: "collectExternalContexts" });
-      return { kind: "shopdb", contextTexts: [], sources: [] };
-    });
-    return [result];
+      return [
+        { kind: "shopdb", contextTexts: [], sources: [], flags: { shopDbError: true } },
+      ];
+    }
   }
 
   const effectiveTimeout = timeoutMs ?? defaultEnrichTimeoutMs();
@@ -487,8 +479,7 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
   const eliUsed = !!ext.eli; // task runs only in Polish mode
   const shopDbCtx = externalContexts.find((c) => c.kind === "shopdb");
   const shopDbOk = (ext.shopdb?.contexts || 0) > 0;
-  const shopDbTables =
-    shopDbCtx?.flags?.shopDbTablesUsed?.join(", ") || "";
+  const shopDbTables = shopDbCtx?.flags?.shopDbTablesUsed?.join(", ") || "";
   const searxngOk = (ext.searxng?.contexts || 0) > 0;
   const searxngUsed = !!ext.searxng; // task only runs as ГАРАНТ fallback
   const shopDbConfigured = shopDbEnrichEnabled();

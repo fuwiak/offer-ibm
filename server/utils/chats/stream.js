@@ -122,7 +122,14 @@ async function streamChatWithWorkspace(
     messageLimit,
   });
 
-  // Look for pinned documents and see if the user decided to use this feature. We will also do a vector search
+  const shopEnrichPromise = collectExternalContexts({
+    message: updatedMessage,
+    workspace,
+    language,
+    chatHistory: rawHistory,
+  });
+
+  // Look for pinned documents
   // as pinning is a supplemental tool but it should be used with caution since it can easily blow up a context window.
   // However we limit the maximum of appended context to 80% of its overall size, mostly because if it expands beyond this
   // it will undergo prompt compression anyway to make it work. If there is so much pinned that the context here is bigger than
@@ -220,12 +227,7 @@ async function streamChatWithWorkspace(
     parsedFilesCount: parsedFiles.length,
   };
 
-  externalContexts = await collectExternalContexts({
-    message: updatedMessage,
-    workspace,
-    language,
-    chatHistory: rawHistory,
-  });
+  externalContexts = await shopEnrichPromise;
   const {
     applyExternalContextsForLlm,
   } = require("../offerKp/catalogPrompt");
