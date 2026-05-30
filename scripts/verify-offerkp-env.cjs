@@ -13,10 +13,23 @@ for (const sub of ["", "models", "documents", "vector-cache"]) {
   fs.mkdirSync(path.join(storageDir, sub), { recursive: true });
 }
 
-const { isShopDbConfigured, query } = require("../server/utils/offerKp/db/client");
+const {
+  isShopDbConfigured,
+  pingShopDb,
+  getShopDbTarget,
+  formatShopDbConnectionHint,
+} = require("../server/utils/offerKp/db/client");
+const {
+  validateShopDbSchema,
+  fetchSamplePricedProduct,
+} = require("../server/utils/offerKp/db/validateSchema");
+const { LLM_CONTEXT_MARKERS } = require("../server/utils/offerKp/db/schema");
 const enrich = require("../server/utils/offerKp/enrich");
 const agent = require("../server/utils/offerKp/searchAgent");
 const shopDbLog = require("../server/utils/offerKp/shopDbLog");
+const {
+  validateLlmContextBlocks,
+} = require("../server/utils/boot/ensureShopDbEnrichBootTest");
 const {
   resolveOpenRouterApiKey,
 } = require("../server/utils/offerKpApp/openRouterEnv");
@@ -86,15 +99,51 @@ function warn(name, detail = "") {
   if (enrich.shopDbEnrichEnabled()) ok("shopDbEnrichEnabled()", "true");
   else fail("shopDbEnrichEnabled()", "false despite SHOP_DB_ENRICH=1");
 
-  try {
-    const rows = await query(
-      "SELECT COUNT(*) AS cnt FROM shop_product WHERE status = 1"
-    );
-    ok("MySQL connection", `${rows[0]?.cnt ?? 0} active products`);
-  } catch (e) {
-    fail("MySQL connection", e.message);
+  const target = getShopDbTarget();
+  ok(
+    "MySQL target",
+    `${target.host}:${target.port}/${target.database} (ssl=${target.ssl})`
+  );
+
+  const ping = await pingShopDb();
+  if (ping.ok) {
+    ok("MySQL connection", `${ping.activeProducts} active products (${ping.ms}ms)`);
+  } else {
+    fail("MySQL connection", formatShopDbConnectionHint(ping));
     printSummary();
     process.exit(1);
+  }
+
+  try {
+    const schema = await validateShopDbSchema();
+    if (schema.ok) {
+      ok("MySQL schema", `${schema.tablesChecked.length} tables, all columns OK`);
+    } else {
+      fail(
+        "MySQL schema",
+        `missing tables: ${schema.missingTables.join(", ") || "—"}; columns: ${JSON.stringify(schema.missingColumns)}`
+      );
+      printSummary();
+      process.exit(1);
+    }
+  } catch (e) {
+    fail("MySQL schema", e.message);
+    printSummary();
+    process.exit(1);
+  }
+
+  try {
+    const sample = await fetchSamplePricedProduct();
+    if (sample?.price > 0) {
+      ok(
+        "product price column",
+        `#${sample.id} ${(sample.name || "").slice(0, 40)} → ${sample.price} ${sample.currency || "RUB"}`
+      );
+    } else {
+      fail("product price column", "no active product with price > 0");
+    }
+  } catch (e) {
+    fail("product price column", e.message);
   }
 
   await runEnrichTest(SAMPLE_QUERY, "primary enrich");
@@ -138,6 +187,15 @@ async function runEnrichTest(message, testName) {
         tables: flags.shopDbTablesUsed,
         strategies: flags.shopDbMatchStrategies,
       });
+      const llmCheck = validateLlmContextBlocks(ctx.contextTexts);
+      if (llmCheck.ok) {
+        ok(
+          `${testName} → LLM context`,
+          `blocks have ${Object.keys(LLM_CONTEXT_MARKERS).join(", ")}`
+        );
+      } else {
+        fail(`${testName} → LLM context`, llmCheck.reason);
+      }
     } else {
       fail(testName, `0 products in ${ms}ms (hits=${flags.shopDbSearchHitCount ?? 0})`);
     }

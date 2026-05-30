@@ -1,6 +1,12 @@
 const fs = require("fs");
 const path = require("path");
-const { isShopDbConfigured, query } = require("../offerKp/db/client");
+const {
+  isShopDbConfigured,
+  pingShopDb,
+  formatShopDbConnectionHint,
+} = require("../offerKp/db/client");
+const { validateShopDbSchema } = require("../offerKp/db/validateSchema");
+const { LLM_CONTEXT_MARKERS } = require("../offerKp/db/schema");
 const {
   shopDbEnrichEnabled,
   getShopDbContext,
@@ -20,6 +26,19 @@ function ensureStorageDirs() {
       /* non-fatal */
     }
   }
+}
+
+function validateLlmContextBlocks(contextTexts) {
+  const blocks = Array.isArray(contextTexts) ? contextTexts : [];
+  if (!blocks.length) return { ok: false, reason: "no contextTexts" };
+  const first = blocks[0];
+  const missing = [];
+  for (const [key, marker] of Object.entries(LLM_CONTEXT_MARKERS)) {
+    if (!first.includes(marker)) missing.push(key);
+  }
+  return missing.length
+    ? { ok: false, reason: `missing markers: ${missing.join(", ")}` }
+    : { ok: true };
 }
 
 async function ensureShopDbEnrichBootTest() {
@@ -46,17 +65,40 @@ async function ensureShopDbEnrichBootTest() {
     return;
   }
 
+  const ping = await pingShopDb();
+  if (!ping.ok) {
+    shopDbLog.error("MySQL ping failed", {
+      error: ping.error,
+      code: ping.code,
+      ms: ping.ms,
+      target: ping.target,
+      hint: formatShopDbConnectionHint(ping),
+    });
+    return;
+  }
+
+  shopDbLog.ok("MySQL ping", {
+    activeProducts: ping.activeProducts,
+    ms: ping.ms,
+    target: ping.target,
+  });
+
+  if (ping.activeProducts === 0) {
+    shopDbLog.warn("catalog empty", { table: "shop_product" });
+  }
+
   try {
-    const rows = await query(
-      "SELECT COUNT(*) AS cnt FROM shop_product WHERE status = 1"
-    );
-    const active = rows[0]?.cnt ?? 0;
-    shopDbLog.ok("MySQL ping", { activeProducts: active });
-    if (active === 0) {
-      shopDbLog.warn("catalog empty", { table: "shop_product" });
+    const schema = await validateShopDbSchema();
+    if (!schema.ok) {
+      shopDbLog.error("schema validation failed", {
+        missingTables: schema.missingTables,
+        missingColumns: schema.missingColumns,
+      });
+      return;
     }
+    shopDbLog.ok("schema OK", { tables: schema.tablesChecked.length });
   } catch (e) {
-    shopDbLog.error("MySQL ping failed", { error: e.message });
+    shopDbLog.error("schema check threw", { error: e.message });
     return;
   }
 
@@ -93,6 +135,15 @@ async function ensureShopDbEnrichBootTest() {
       return;
     }
 
+    const llmCheck = validateLlmContextBlocks(ctx.contextTexts);
+    if (!llmCheck.ok) {
+      shopDbLog.error("LLM context blocks invalid", {
+        reason: llmCheck.reason,
+        preview: (ctx.contextTexts[0] || "").slice(0, 200),
+      });
+      return;
+    }
+
     shopDbLog.ok("boot enrich OK", {
       ms,
       docCount,
@@ -100,6 +151,7 @@ async function ensureShopDbEnrichBootTest() {
       tables: flags.shopDbTablesUsed,
       strategies: flags.shopDbMatchStrategies,
       products: titles,
+      llmBlocks: ctx.contextTexts.length,
     });
   } catch (e) {
     shopDbLog.error("boot enrich threw", {
@@ -109,4 +161,8 @@ async function ensureShopDbEnrichBootTest() {
   }
 }
 
-module.exports = { ensureShopDbEnrichBootTest, BOOT_SAMPLE_QUERY };
+module.exports = {
+  ensureShopDbEnrichBootTest,
+  BOOT_SAMPLE_QUERY,
+  validateLlmContextBlocks,
+};
