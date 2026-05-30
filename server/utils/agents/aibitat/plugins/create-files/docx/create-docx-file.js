@@ -23,7 +23,7 @@ module.exports.CreateDocxFile = {
           super: aibitat,
           name: this.name,
           description:
-            "Create a Microsoft Word document (.docx) from markdown or plain text content. Supports professional styling with color themes, title pages, and running headers/footers.",
+            "Create a Microsoft Word document (.docx) from markdown. REQUIRED for purolat.com commercial offers (КП/оферта): put the full proposal tables and terms in content so the user gets a download card and right-panel preview.",
           examples: [
             {
               prompt: "Create a Word document with meeting notes",

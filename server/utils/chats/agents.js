@@ -39,7 +39,20 @@ function wantsFileCreation(message = "") {
     // French
     /\bcréer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(m) ||
     /\bgénérer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(m) ||
-    /\btélécharger\s+(au\s+format\s+)?(pdf|document)\b/.test(m)
+    /\btélécharger\s+(au\s+format\s+)?(pdf|document)\b/.test(m) ||
+    // Russian — commercial offers / documents (purolat.com)
+    /коммерческ(ое|ого|ая)\s+предложен/i.test(m) ||
+    /\bкп\b/.test(m) ||
+    /оферт/i.test(m) ||
+    /сформируй.*(документ|оферт|кп|word|docx)/i.test(m) ||
+    /подготовь.*(документ|оферт|кп|word|docx)/i.test(m) ||
+    /сгенерируй.*(документ|оферт|кп|word|docx)/i.test(m) ||
+    /скачать.*(документ|оферт|word|docx)/i.test(m) ||
+    // Polish
+    /ofert[ęae]/i.test(m) ||
+    /wygeneruj.*(dokument|ofert)/i.test(m) ||
+    /przygotuj.*(dokument|ofert)/i.test(m) ||
+    /pobierz.*(dokument|ofert|word|docx)/i.test(m)
   );
 }
 

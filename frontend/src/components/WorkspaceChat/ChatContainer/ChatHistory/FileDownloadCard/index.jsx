@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
@@ -21,6 +21,31 @@ function FileDownloadCard({ props }) {
     setDocumentPanelOpen,
     setDocPreview,
   } = useOfferKp();
+  const autoPreviewedRef = useRef(null);
+
+  // Auto-open right panel doc preview (like Avelia UX after create-docx-file).
+  useEffect(() => {
+    if (!offerKpEnabled || !canPreviewDoc || !previewMarkdown) return;
+    const key = storageFilename || filename;
+    if (!key || autoPreviewedRef.current === key) return;
+    autoPreviewedRef.current = key;
+    setDocPreview({
+      filename: filename || storageFilename,
+      storageFilename,
+      markdown: previewMarkdown,
+    });
+    setDocumentPanelOpen(true);
+    setDocumentPanelView("doc");
+  }, [
+    offerKpEnabled,
+    canPreviewDoc,
+    previewMarkdown,
+    storageFilename,
+    filename,
+    setDocPreview,
+    setDocumentPanelOpen,
+    setDocumentPanelView,
+  ]);
 
   const fetchBlob = useCallback(async () => {
     if (!storageFilename) return null;
