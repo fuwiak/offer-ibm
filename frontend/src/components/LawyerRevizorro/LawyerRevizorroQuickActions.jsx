@@ -31,7 +31,7 @@ const ACTIONS = [
 ];
 
 /**
- * Carbon-style quick action grid for lawyer-revizorro home / empty chat.
+ * Carbon-style quick action grid for OfferKP home / empty chat.
  */
 export default function LawyerRevizorroQuickActions({ onAction }) {
   const { t } = useTranslation("lawyerRevizorro");

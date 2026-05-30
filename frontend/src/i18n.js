@@ -30,11 +30,11 @@ i18next
     },
   });
 
-// One-time migration to Russian default language for lawyer-revizorro UI.
-const LAWYER_REVIZORRO_LANG_MIGRATION_KEY = "lawyerRevizorroUiLangV3";
+// One-time migration to Russian default language for offer-ibm UI.
+const LAWYER_REVIZORRO_LANG_MIGRATION_KEY = "offerIbmUiLangV1";
 if (!localStorage.getItem(LAWYER_REVIZORRO_LANG_MIGRATION_KEY)) {
   const stored = localStorage.getItem("i18nextLng")?.split("-")[0];
-  if (!stored || !LAWYER_REVIZORRO_UI_LANGS.includes(stored)) {
+  if (!stored || stored === "pl" || !LAWYER_REVIZORRO_UI_LANGS.includes(stored)) {
     localStorage.setItem("i18nextLng", "ru");
     i18next.changeLanguage("ru");
   }

@@ -30,7 +30,7 @@ function lawyerRevizorroEndpoints(app) {
         process.env.LAWYER_REVIZORRO_PUBLIC_WORKSPACE || "lawyerRevizorro-public";
       const workspace = await Workspace.get({ slug });
       response.status(200).json({
-        appName: process.env.LAWYER_REVIZORRO_APP_NAME || "lawyer-revizorro",
+        appName: process.env.LAWYER_REVIZORRO_APP_NAME || "OfferKP",
         publicWorkspaceSlug: slug,
         publicWorkspaceAvailable: !!workspace,
         products: LAWYER_REVIZORRO_PRODUCTS,
