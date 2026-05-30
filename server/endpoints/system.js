@@ -15,6 +15,7 @@ const {
 const { handleAssetUpload, handlePfpUpload } = require("../utils/files/multer");
 const { v4 } = require("uuid");
 const { SystemSettings } = require("../models/systemSettings");
+const { normalizeAppName } = require("../utils/offerKp/branding");
 const { User } = require("../models/user");
 const {
   validatedRequest,
@@ -1025,13 +1026,14 @@ function systemEndpoints(app) {
   // No middleware protection in order to get this on the login page
   app.get("/system/custom-app-name", async (_, response) => {
     try {
-      const customAppName =
+      const customAppName = normalizeAppName(
         (
           await SystemSettings.get({
             label: "custom_app_name",
           })
-        )?.value ?? null;
-      response.status(200).json({ customAppName: customAppName });
+        )?.value
+      );
+      response.status(200).json({ customAppName });
     } catch (error) {
       console.error("Error fetching custom app name:", error);
       response.status(500).json({ message: "Internal server error" });

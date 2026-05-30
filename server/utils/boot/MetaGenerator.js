@@ -27,8 +27,8 @@ class MetaGenerator {
   #customConfig = null;
 
   #defaultManifest = {
-    name: "lawyer-revizorro",
-    short_name: "lawyer-revizorro",
+    name: "OfferKP",
+    short_name: "OfferKP",
     display: "standalone",
     orientation: "portrait",
     start_url: "/",
@@ -59,21 +59,21 @@ class MetaGenerator {
       {
         tag: "title",
         props: null,
-        content: "lawyer-revizorro | Your personal LLM trained on anything",
+        content: "OfferKP | Формирование коммерческих предложений",
       },
 
       {
         tag: "meta",
         props: {
           name: "title",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
       {
         tag: "meta",
         props: {
           description: "title",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
 
@@ -81,20 +81,20 @@ class MetaGenerator {
       { tag: "meta", props: { property: "og:type", content: "website" } },
       {
         tag: "meta",
-        props: { property: "og:url", content: "https://lawyerRevizorro.com" },
+        props: { property: "og:url", content: "https://offer-kp.local" },
       },
       {
         tag: "meta",
         props: {
           property: "og:title",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
       {
         tag: "meta",
         props: {
           property: "og:description",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
       {
@@ -113,20 +113,20 @@ class MetaGenerator {
       },
       {
         tag: "meta",
-        props: { property: "twitter:url", content: "https://lawyerRevizorro.com" },
+        props: { property: "twitter:url", content: "https://offer-kp.local" },
       },
       {
         tag: "meta",
         props: {
           property: "twitter:title",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
       {
         tag: "meta",
         props: {
           property: "twitter:description",
-          content: "lawyer-revizorro | Your personal LLM trained on anything",
+          content: "OfferKP | Формирование коммерческих предложений",
         },
       },
       {
@@ -229,7 +229,7 @@ class MetaGenerator {
             props: null,
             content:
               customTitle ??
-              "lawyer-revizorro | Your personal LLM trained on anything",
+              "OfferKP | Формирование коммерческих предложений",
           };
         }
         // Override meta title
@@ -240,7 +240,7 @@ class MetaGenerator {
               name: "title",
               content:
                 customTitle ??
-                "lawyer-revizorro | Your personal LLM trained on anything",
+                "OfferKP | Формирование коммерческих предложений",
             },
           };
         }
@@ -252,7 +252,7 @@ class MetaGenerator {
               property: "og:title",
               content:
                 customTitle ??
-                "lawyer-revizorro | Your personal LLM trained on anything",
+                "OfferKP | Формирование коммерческих предложений",
             },
           };
         }
@@ -264,7 +264,7 @@ class MetaGenerator {
               property: "twitter:title",
               content:
                 customTitle ??
-                "lawyer-revizorro | Your personal LLM trained on anything",
+                "OfferKP | Формирование коммерческих предложений",
             },
           };
         }
@@ -330,7 +330,7 @@ class MetaGenerator {
       const { SystemSettings } = require("../../models/systemSettings");
       const manifestName = await SystemSettings.getValueOrFallback(
         { label: "meta_page_title" },
-        "lawyer-revizorro"
+        "OfferKP"
       );
       const faviconURL = await SystemSettings.getValueOrFallback(
         { label: "meta_page_favicon" },

@@ -12,6 +12,7 @@ const { ensureMultiUserBootstrap } = require("./ensureMultiUserBootstrap");
 const {
   ensureLawyerRevizorroWorkspaceProfileColumn,
 } = require("./ensureLawyerRevizorroWorkspaceProfileColumn");
+const { ensureOfferKpBranding } = require("./ensureOfferKpBranding");
 
 // Testing SSL? You can make a self signed certificate and point the ENVs to that location
 // make a directory in server called 'sslcert' - cd into it
@@ -38,6 +39,7 @@ function bootSSL(app, port = 3001) {
     server
       .listen(port, host, async () => {
         await ensureLawyerRevizorroWorkspaceProfileColumn();
+        await ensureOfferKpBranding();
         await ensureMultiUserBootstrap();
         await markOnboarded();
         await setupTelemetry();
@@ -77,6 +79,7 @@ function bootHTTP(app, port = 3001) {
   app
     .listen(port, host, async () => {
       await ensureLawyerRevizorroWorkspaceProfileColumn();
+      await ensureOfferKpBranding();
       await ensureMultiUserBootstrap();
       await markOnboarded();
       await setupTelemetry();
