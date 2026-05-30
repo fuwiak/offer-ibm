@@ -239,6 +239,15 @@ async function streamChatWithWorkspace(
     sources = [...externalSources, ...sources];
   }
   sources = dedupeSources(sources);
+
+  const { mergeCatalogIntoUserPrompt, hasCatalogBlocks } = require("../offerKp/catalogPrompt");
+  let userPromptForLlm = updatedMessage;
+  if (hasCatalogBlocks(externalContextTexts)) {
+    userPromptForLlm = mergeCatalogIntoUserPrompt(
+      updatedMessage,
+      externalContextTexts
+    );
+  }
   ragTrace.external = externalContexts.map((ctx) => ({
     kind: ctx.kind || "external",
     contexts: Array.isArray(ctx.contextTexts) ? ctx.contextTexts.length : 0,
@@ -281,7 +290,7 @@ async function streamChatWithWorkspace(
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt: await chatPrompt(workspace, user, { conversationMemory }),
-      userPrompt: updatedMessage,
+      userPrompt: userPromptForLlm,
       contextTexts,
       chatHistory,
       attachments,

@@ -27,6 +27,9 @@ const { LLM_CONTEXT_MARKERS } = require("../server/utils/offerKp/db/schema");
 const enrich = require("../server/utils/offerKp/enrich");
 const agent = require("../server/utils/offerKp/searchAgent");
 const productAgent = require("../server/utils/offerKp/productSearchAgent");
+const {
+  mergeCatalogIntoUserPrompt,
+} = require("../server/utils/offerKp/catalogPrompt");
 const shopDbLog = require("../server/utils/offerKp/shopDbLog");
 const {
   validateLlmContextBlocks,
@@ -169,6 +172,28 @@ function warn(name, detail = "") {
       { role: "user", content: KEY_STEEL_QUERY },
     ],
   });
+
+  await runEnrichTest("какая цена?", "price follow-up enrich", {
+    chatHistory: [{ role: "user", content: KEY_STEEL_QUERY }],
+  });
+
+  const priceFollowUpCtx = await enrich.getShopDbContext("какая цена?", {
+    maxDocs: 1,
+    chatHistory: [{ role: "user", content: KEY_STEEL_QUERY }],
+  });
+  if (priceFollowUpCtx.contextTexts?.length) {
+    const merged = mergeCatalogIntoUserPrompt(
+      "какая цена?",
+      priceFollowUpCtx.contextTexts
+    );
+    if (merged.includes("=== ДАННЫЕ КАТАЛОГА") && merged.includes("30x30")) {
+      ok("catalog user prompt merge", "price follow-up includes 30x30 block");
+    } else {
+      fail("catalog user prompt merge", "missing catalog in merged prompt");
+    }
+  } else {
+    fail("catalog user prompt merge", "no context for price follow-up");
+  }
 
   if (agent.shopDbSearchAgentEnabled()) {
     await runSearchAgentTest();

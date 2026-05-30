@@ -7,11 +7,19 @@ const {
   handleDefaultStreamResponseV2,
 } = require("../helpers/chat/responses");
 const { getShopDbContext, shopDbEnrichEnabled } = require("../offerKp/enrich");
+const {
+  mergeCatalogIntoUserPrompt,
+  hasCatalogBlocks,
+} = require("../offerKp/catalogPrompt");
+const {
+  getPublicChatHistory,
+  appendPublicChatMessage,
+} = require("../offerKp/offerKpPublicSession");
 
 async function streamOfferKpPublicChat(
   response,
   message,
-  _sessionId = "public",
+  sessionId = "public",
   options = {}
 ) {
   const slug =
@@ -38,12 +46,17 @@ async function streamOfferKpPublicChat(
   const systemPrompt = await chatPrompt(workspace, null);
   const uuid = uuidv4();
 
+  const chatHistory =
+    options?.chatHistory?.length > 0
+      ? options.chatHistory
+      : getPublicChatHistory(sessionId);
+
   let contextTexts = [];
   let sources = [];
   if (shopDbEnrichEnabled()) {
     const catalog = await getShopDbContext(message, {
       maxDocs: 5,
-      chatHistory: options?.chatHistory || [],
+      chatHistory,
     }).catch((err) => {
       console.warn("[ShopDB] public chat enrich failed:", err?.message || err);
       return { contextTexts: [], sources: [] };
@@ -52,27 +65,36 @@ async function streamOfferKpPublicChat(
     sources = catalog.sources || [];
   }
 
+  let userPromptForLlm = message;
+  if (hasCatalogBlocks(contextTexts)) {
+    userPromptForLlm = mergeCatalogIntoUserPrompt(message, contextTexts);
+  }
+
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt,
-      userPrompt: message,
+      userPrompt: userPromptForLlm,
       contextTexts,
-      sources,
-      chatHistory: [],
+      chatHistory,
     },
-    []
+    chatHistory
   );
+
+  appendPublicChatMessage(sessionId, "user", message);
 
   try {
     if (LLMConnector.streamingEnabled() !== true) {
       const { textResponse } = await LLMConnector.getChatCompletion(messages, {
         temperature: workspace.openAiTemp ?? LLMConnector.defaultTemp,
       });
+      if (textResponse) {
+        appendPublicChatMessage(sessionId, "assistant", textResponse);
+      }
       writeResponseChunk(response, {
         id: uuid,
         type: "textResponse",
         textResponse,
-        sources: [],
+        sources,
         close: true,
         error: null,
       });
@@ -82,10 +104,13 @@ async function streamOfferKpPublicChat(
     const stream = await LLMConnector.streamGetChatCompletion(messages, {
       temperature: workspace.openAiTemp ?? LLMConnector.defaultTemp,
     });
-    await handleDefaultStreamResponseV2(response, stream, {
+    const assistantText = await handleDefaultStreamResponseV2(response, stream, {
       uuid,
       sources,
     });
+    if (assistantText) {
+      appendPublicChatMessage(sessionId, "assistant", assistantText);
+    }
   } catch (e) {
     writeResponseChunk(response, {
       id: uuid,
