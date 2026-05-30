@@ -127,4 +127,8 @@ async function grepAgents({
   return false;
 }
 
-module.exports = { grepAgents, getAndClearInvocationAttachments };
+module.exports = {
+  grepAgents,
+  getAndClearInvocationAttachments,
+  wantsFileCreation,
+};

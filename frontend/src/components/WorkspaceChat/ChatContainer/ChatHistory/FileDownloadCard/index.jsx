@@ -23,7 +23,7 @@ function FileDownloadCard({ props }) {
   } = useOfferKp();
   const autoPreviewedRef = useRef(null);
 
-  // Auto-open right panel doc preview (like Avelia UX after create-docx-file).
+  // Auto-open right panel doc preview (markdown/DOCX) after server or agent file card.
   useEffect(() => {
     if (!offerKpEnabled || !canPreviewDoc || !previewMarkdown) return;
     const key = storageFilename || filename;

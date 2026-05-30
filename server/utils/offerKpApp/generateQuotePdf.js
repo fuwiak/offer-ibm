@@ -1,8 +1,7 @@
 const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
-const path = require("path");
-const fs = require("fs/promises");
-const { v4: uuidv4 } = require("uuid");
+const createFilesLib = require("../agents/aibitat/plugins/create-files/lib");
 const { QUOTE_BRAND, localeForCountry } = require("./quoteBrand");
+const { toPdfSafeText } = require("./pdfText");
 
 const NAVY = rgb(0.08, 0.13, 0.28);
 const WHITE = rgb(1, 1, 1);
@@ -25,13 +24,6 @@ function fmtNum(num, decimals = 3) {
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
   return date.toLocaleDateString("fr-FR");
-}
-
-function storageDir() {
-  return path.join(
-    process.env.STORAGE_DIR || path.resolve(__dirname, "../../storage"),
-    "generated-files"
-  );
 }
 
 /**
@@ -80,7 +72,7 @@ async function generateQuotePdf(quoteData) {
 
     function txt(text, x, y, { font = regular, size = 8.5, color = DARK, maxWidth } = {}) {
       if (!text) return;
-      const str = String(text);
+      const str = toPdfSafeText(text);
       if (maxWidth) {
         // naive word-wrap
         const words = str.split(" ");
@@ -356,24 +348,23 @@ async function generateQuotePdf(quoteData) {
     { size: 6.5, color: NAVY_LIGHT }
   );
 
-  // Save to disk
-  const outDir = storageDir();
-  await fs.mkdir(outDir, { recursive: true });
-
-  const storageFilename = `quote-${reference}-${uuidv4().slice(0, 8)}.pdf`;
-  const filePath = path.join(outDir, storageFilename);
   const pdfBytes = await pdfDoc.save();
-  await fs.writeFile(filePath, pdfBytes);
-
   const friendlyName = customer.name
-    ? `Quotation_${customer.name.replace(/\s+/g, "_")}_${reference}.pdf`
+    ? `Quotation_${toPdfSafeText(customer.name).replace(/\s+/g, "_")}_${reference}.pdf`
     : `Quotation_${reference}.pdf`;
 
+  const saved = await createFilesLib.saveGeneratedFile({
+    fileType: "quote",
+    extension: "pdf",
+    buffer: Buffer.from(pdfBytes),
+    displayFilename: friendlyName,
+  });
+
   return {
-    filename: friendlyName,
-    storageFilename,
-    filePath,
-    fileSize: pdfBytes.length,
+    filename: saved.displayFilename,
+    storageFilename: saved.filename,
+    filePath: saved.storagePath,
+    fileSize: saved.fileSize,
   };
 }
 

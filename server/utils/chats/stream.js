@@ -349,6 +349,18 @@ async function streamChatWithWorkspace(
   const cost = estimateChatCost(metrics);
   metrics = { ...(metrics || {}), cost };
 
+  try {
+    const { emitAutoQuoteArtifacts } = require("../offerKp/autoQuoteArtifacts");
+    await emitAutoQuoteArtifacts({
+      response,
+      uuid,
+      message: updatedMessage,
+      catalogBlocks: llmCatalog.catalogBlocks || [],
+    });
+  } catch (e) {
+    console.error("[offerKp] auto quote artifacts:", e?.message || e);
+  }
+
   const externalLinks = buildExternalLinksSection(sources);
   if (externalLinks) {
     writeResponseChunk(response, {

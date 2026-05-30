@@ -9,6 +9,7 @@ import {
 import OfferKp from "@/models/offerKp";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
 import { mergeNotifications } from "@/utils/offerKp/notifications";
+import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 
 const OfferKpContext = createContext(null);
 
@@ -79,6 +80,19 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
     const timer = setInterval(refreshNotifications, NOTIFICATIONS_POLL_MS);
     return () => clearInterval(timer);
   }, [enabled, refreshNotifications]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onQuotePanel = (e) => {
+      const { quoteDraft: draft, documentPanelView: view } = e.detail || {};
+      if (draft) setQuoteDraft((prev) => ({ ...prev, ...draft }));
+      if (view) setDocumentPanelView(view);
+      setDocumentPanelOpen(true);
+    };
+    window.addEventListener(OFFER_KP_QUOTE_PANEL_EVENT, onQuotePanel);
+    return () =>
+      window.removeEventListener(OFFER_KP_QUOTE_PANEL_EVENT, onQuotePanel);
+  }, [enabled]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

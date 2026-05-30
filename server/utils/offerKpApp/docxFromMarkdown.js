@@ -1,6 +1,4 @@
-const path = require("path");
-const fs = require("fs/promises");
-const { v4: uuidv4 } = require("uuid");
+const createFilesLib = require("../agents/aibitat/plugins/create-files/lib");
 const {
   getTheme,
   getMargins,
@@ -8,13 +6,6 @@ const {
   htmlToDocxElements,
   DEFAULT_NUMBERING_CONFIG,
 } = require("../agents/aibitat/plugins/create-files/docx/utils");
-
-function storageDir() {
-  return path.join(
-    process.env.STORAGE_DIR || path.resolve(__dirname, "../../storage"),
-    "generated-files"
-  );
-}
 
 /**
  * Generate a clean Word (.docx) document straight from markdown so the file the
@@ -52,20 +43,20 @@ async function generateDocxFromMarkdown({ markdown = "", filename = "document.do
   });
 
   const buffer = await Packer.toBuffer(doc);
-
-  const outDir = storageDir();
-  await fs.mkdir(outDir, { recursive: true });
-
   const displayFilename = /\.docx$/i.test(filename) ? filename : `${filename}.docx`;
-  const storageFilename = `doc-${uuidv4().slice(0, 8)}.docx`;
-  const filePath = path.join(outDir, storageFilename);
-  await fs.writeFile(filePath, buffer);
+
+  const saved = await createFilesLib.saveGeneratedFile({
+    fileType: "doc",
+    extension: "docx",
+    buffer,
+    displayFilename,
+  });
 
   return {
-    filename: displayFilename,
-    storageFilename,
-    filePath,
-    fileSize: buffer.length,
+    filename: saved.displayFilename,
+    storageFilename: saved.filename,
+    filePath: saved.storagePath,
+    fileSize: saved.fileSize,
   };
 }
 

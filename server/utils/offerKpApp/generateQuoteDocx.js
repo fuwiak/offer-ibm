@@ -1,6 +1,4 @@
-const path = require("path");
-const fs = require("fs/promises");
-const { v4: uuidv4 } = require("uuid");
+const createFilesLib = require("../agents/aibitat/plugins/create-files/lib");
 const {
   Document,
   Packer,
@@ -40,13 +38,6 @@ function addDays(d, days) {
   const date = new Date(d instanceof Date ? d.getTime() : new Date(d).getTime());
   date.setDate(date.getDate() + days);
   return date;
-}
-
-function storageDir() {
-  return path.join(
-    process.env.STORAGE_DIR || path.resolve(__dirname, "../../storage"),
-    "generated-files"
-  );
 }
 
 const NONE_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
@@ -427,22 +418,22 @@ async function generateQuoteDocx(quoteData) {
   });
 
   const buffer = await Packer.toBuffer(doc);
-
-  const outDir = storageDir();
-  await fs.mkdir(outDir, { recursive: true });
-  const storageFilename = `quote-${reference}-${uuidv4().slice(0, 8)}.docx`;
-  const filePath = path.join(outDir, storageFilename);
-  await fs.writeFile(filePath, buffer);
-
   const friendlyName = customer.name
     ? `Quotation_${customer.name.replace(/\s+/g, "_")}_${reference}.docx`
     : `Quotation_${reference}.docx`;
 
+  const saved = await createFilesLib.saveGeneratedFile({
+    fileType: "quote",
+    extension: "docx",
+    buffer,
+    displayFilename: friendlyName,
+  });
+
   return {
-    filename: friendlyName,
-    storageFilename,
-    filePath,
-    fileSize: buffer.length,
+    filename: saved.displayFilename,
+    storageFilename: saved.filename,
+    filePath: saved.storagePath,
+    fileSize: saved.fileSize,
   };
 }
 

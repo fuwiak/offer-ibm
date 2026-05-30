@@ -1,6 +1,8 @@
+import { v4 } from "uuid";
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 import { emitAssistantMessageCompleteEvent } from "@/components/contexts/TTSProvider";
 import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
+import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
 
 // For handling of chat responses in the frontend by their various types.
@@ -146,6 +148,26 @@ export default function handleChat(
       });
     }
     setChatHistory([..._chatHistory]);
+  } else if (type === "fileDownloadCard" && chatResult.content) {
+    setLoadingResponse(false);
+    const card = {
+      type: "fileDownloadCard",
+      uuid: uuid || v4(),
+      content: chatResult.content,
+      role: "assistant",
+      sources: [],
+      closed: true,
+      error: null,
+      animate: false,
+      pending: false,
+      metrics,
+    };
+    setChatHistory([...remHistory, card]);
+    _chatHistory.push(card);
+  } else if (type === "offerKpQuotePanel" && chatResult.content) {
+    window.dispatchEvent(
+      new CustomEvent(OFFER_KP_QUOTE_PANEL_EVENT, { detail: chatResult.content })
+    );
   } else if (type === "agentInitWebsocketConnection") {
     setWebsocket(chatResult.websocketUUID);
   } else if (type === "stopGeneration") {

@@ -250,13 +250,25 @@ class CreateFilesManager {
    * @returns {{fileType: string, fileUUID: string, extension: string} | null}
    */
   parseFilename(filename) {
-    const match = filename.match(/^([a-z]+)-([a-f0-9-]{36})\.(\w+)$/i);
-    if (!match) return null;
-    return {
-      fileType: match[1],
-      fileUUID: match[2],
-      extension: match[3],
-    };
+    const base = path.basename(String(filename || ""));
+    const match = base.match(/^([a-z]+)-([a-f0-9-]{36})\.(\w+)$/i);
+    if (match) {
+      return {
+        fileType: match[1],
+        fileUUID: match[2],
+        extension: match[3],
+      };
+    }
+    // Legacy OfferKP filenames (quote-REF-xxx.pdf, doc-8hex.docx) before saveGeneratedFile migration
+    const legacy = base.match(/^(quote|doc|docx|pdf)-[-a-zA-Z0-9_.]+\.(\w+)$/i);
+    if (legacy) {
+      return {
+        fileType: legacy[1],
+        fileUUID: "legacy",
+        extension: legacy[2],
+      };
+    }
+    return null;
   }
 
   /**
