@@ -187,7 +187,11 @@ function tokenOverlapScore(queryNorm, nameNorm) {
 function scoreFuzzyProduct(product, parsed, searchText) {
   const nameNorm = normalizeForMatch(product.name || "");
   const hay = `${nameNorm} ${normalizeForMatch(product.summary || "")}`;
-  let score = tokenOverlapScore(parsed.normalized || normalizeForMatch(searchText), nameNorm) * 40;
+  let score =
+    tokenOverlapScore(
+      parsed.normalized || normalizeForMatch(searchText),
+      nameNorm
+    ) * 40;
 
   for (const num of parsed.standardNumbers || []) {
     if (hay.includes(num)) score += 35;
@@ -202,7 +206,11 @@ function scoreFuzzyProduct(product, parsed, searchText) {
       `${a}x${b}`,
       `${a} x ${b}`,
     ].filter(Boolean);
-    if (patterns.some((p) => hay.includes(p.replace(/\s/g, "")) || hay.includes(p))) {
+    if (
+      patterns.some(
+        (p) => hay.includes(p.replace(/\s/g, "")) || hay.includes(p)
+      )
+    ) {
       score += 45;
     } else if (hay.includes(a) && hay.includes(b)) {
       score += 15;
@@ -214,7 +222,13 @@ function scoreFuzzyProduct(product, parsed, searchText) {
     if (roots.some((r) => hay.includes(r))) score += 25;
   }
 
-  if (parsed.thread && new RegExp(`m\\s*${parsed.thread.size}\\s*x\\s*${parsed.thread.length}`, "i").test(nameNorm)) {
+  if (
+    parsed.thread &&
+    new RegExp(
+      `m\\s*${parsed.thread.size}\\s*x\\s*${parsed.thread.length}`,
+      "i"
+    ).test(nameNorm)
+  ) {
     score += 30;
   }
 
@@ -228,7 +242,10 @@ function hasStrongMatch(products, searchText, parsed, minScore = 55) {
   if (score >= minScore) return true;
 
   const queryNorm = parsed.normalized || normalizeForMatch(searchText);
-  const overlap = tokenOverlapScore(queryNorm, normalizeForMatch(top.name || ""));
+  const overlap = tokenOverlapScore(
+    queryNorm,
+    normalizeForMatch(top.name || "")
+  );
   return overlap >= 0.6 && score >= 40;
 }
 
@@ -255,7 +272,12 @@ async function searchByFuzzyRegex(searchText, parsed, limit) {
 
   const params = [];
   const likes = [];
-  const columns = [`p.${P.name}`, `p.${P.summary}`, `s.${S.sku}`, `s.${S.name}`];
+  const columns = [
+    `p.${P.name}`,
+    `p.${P.summary}`,
+    `s.${S.sku}`,
+    `s.${S.name}`,
+  ];
 
   for (const term of terms) {
     const pattern = `%${term}%`;
@@ -271,7 +293,7 @@ async function searchByFuzzyRegex(searchText, parsed, limit) {
     FROM ${TABLES.product} p
     LEFT JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
-    LEFT JOIN ${TABLES.productSkus} s ON s.product_id = p.${P.id}
+    LEFT JOIN ${TABLES.productSkus} s ON s.${S.productId} = p.${P.id}
     WHERE p.${P.status} = 1 AND (${likes.join(" OR ")})
     ORDER BY p.${P.totalSales} DESC, p.${P.id} DESC
     LIMIT ${sqlLimit(limit)}
@@ -369,7 +391,9 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
       if (product) {
         picked.push({
           ...product,
-          _matchSources: [...new Set([...(product._matchSources || []), "llm_rank"])],
+          _matchSources: [
+            ...new Set([...(product._matchSources || []), "llm_rank"]),
+          ],
         });
       }
     }
