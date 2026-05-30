@@ -495,11 +495,14 @@ class EphemeralAgentHandler extends AgentHandler {
     await this.#attachPlugins(args);
   }
 
-  startAgentCluster() {
+  async startAgentCluster() {
+    const stripped = this.#stripAgentCommand(this.#prompt);
+    const { enrichUserPromptWithShopCatalog } = require("../offerKp/catalogPrompt");
+    const content = await enrichUserPromptWithShopCatalog(stripped);
     return this.aibitat.start({
       from: USER_AGENT.name,
       to: this.channel ?? WORKSPACE_AGENT.name,
-      content: this.#stripAgentCommand(this.#prompt),
+      content,
       attachments: this.#attachments,
     });
   }

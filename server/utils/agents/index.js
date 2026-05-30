@@ -770,11 +770,14 @@ class AgentHandler {
     return stripped;
   }
 
-  startAgentCluster() {
+  async startAgentCluster() {
+    const stripped = this.#stripAgentCommand(this.invocation.prompt);
+    const { enrichUserPromptWithShopCatalog } = require("../offerKp/catalogPrompt");
+    const content = await enrichUserPromptWithShopCatalog(stripped);
     return this.aibitat.start({
       from: USER_AGENT.name,
       to: this.channel ?? WORKSPACE_AGENT.name,
-      content: this.#stripAgentCommand(this.invocation.prompt),
+      content,
       attachments: this.attachments,
     });
   }

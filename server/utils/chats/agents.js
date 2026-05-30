@@ -45,13 +45,15 @@ function wantsFileCreation(message = "") {
     /\bкп\b/.test(m) ||
     /оферт/i.test(m) ||
     /сформируй.*(документ|оферт|кп|word|docx)/i.test(m) ||
-    /подготовь.*(документ|оферт|кп|word|docx)/i.test(m) ||
+    /подготовь.*(документ|оферт|кп|word|docx|предложен|коммерческ)/i.test(m) ||
+    (/подготовь/i.test(m) && /коммерческ/i.test(m)) ||
     /сгенерируй.*(документ|оферт|кп|word|docx)/i.test(m) ||
     /скачать.*(документ|оферт|word|docx)/i.test(m) ||
     // Polish
     /ofert[ęae]/i.test(m) ||
     /wygeneruj.*(dokument|ofert)/i.test(m) ||
-    /przygotuj.*(dokument|ofert)/i.test(m) ||
+    /przygotuj.*(dokument|ofert|propozycj)/i.test(m) ||
+    (/przygotuj/i.test(m) && /ofert/i.test(m)) ||
     /pobierz.*(dokument|ofert|word|docx)/i.test(m)
   );
 }
@@ -65,15 +67,23 @@ async function grepAgents({
   thread = null,
   attachments = [],
 }) {
+  const { shopDbEnrichEnabled } = require("../offerKp/enrich");
+  // КП с каталогом MySQL: stream + auto PDF/DOCX (не агент с rag-memory без цен)
+  const routeKpViaCatalogStream =
+    shopDbEnrichEnabled() && wantsFileCreation(message);
+
   let nativeToolingEnabled = false;
 
   // If the workspace is in automatic mode, check if the workspace supports native tooling
-  if (workspace?.chatMode === "automatic")
+  if (workspace?.chatMode === "automatic" && !routeKpViaCatalogStream)
     nativeToolingEnabled = await Workspace.supportsNativeToolCalling(workspace);
 
   const agentHandles = WorkspaceAgentInvocation.parseAgents(message);
   // Auto-trigger agent when user asks for file/PDF creation without typing @agent
-  const autoAgent = agentHandles.length === 0 && wantsFileCreation(message);
+  const autoAgent =
+    agentHandles.length === 0 &&
+    wantsFileCreation(message) &&
+    !routeKpViaCatalogStream;
 
   if (agentHandles.length > 0 || nativeToolingEnabled || autoAgent) {
     const { invocation: newInvocation } = await WorkspaceAgentInvocation.new({

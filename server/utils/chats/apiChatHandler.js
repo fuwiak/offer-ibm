@@ -200,7 +200,7 @@ async function chatSync({
     const eventListener = new EphemeralEventListener();
     await agentHandler.init();
     await agentHandler.createAIbitat({ handler: eventListener });
-    agentHandler.startAgentCluster();
+    await agentHandler.startAgentCluster();
 
     // The cluster has started and now we wait for close event since
     // this is a synchronous call for an agent, so we return everything at once.
@@ -580,7 +580,7 @@ async function streamChat({
     const eventListener = new EphemeralEventListener();
     await agentHandler.init();
     await agentHandler.createAIbitat({ handler: eventListener });
-    agentHandler.startAgentCluster();
+    await agentHandler.startAgentCluster();
 
     // The cluster has started and now we wait for close event since
     // and stream back any results we get from agents as they come in.

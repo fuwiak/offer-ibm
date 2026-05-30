@@ -449,13 +449,23 @@ class Provider {
     workspace = null,
     user = null,
   }) {
-    if (!workspace?.openAiPrompt)
-      return Provider.defaultSystemPromptForProvider(provider);
-    return await SystemPromptVariables.expandSystemPromptVariables(
-      workspace.openAiPrompt,
-      user?.id || null,
-      workspace.id
-    );
+    const {
+      buildLegalSourcePriorityInstructions,
+    } = require("../../../chats/generation");
+    const sourcePriority = buildLegalSourcePriorityInstructions();
+
+    let base = !workspace?.openAiPrompt
+      ? Provider.defaultSystemPromptForProvider(provider)
+      : await SystemPromptVariables.expandSystemPromptVariables(
+          workspace.openAiPrompt,
+          user?.id || null,
+          workspace.id
+        );
+
+    if (sourcePriority) {
+      base = `${sourcePriority}\n\n${base}`;
+    }
+    return base;
   }
 
   /**

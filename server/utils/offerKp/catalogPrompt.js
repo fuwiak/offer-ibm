@@ -81,6 +81,28 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
   };
 }
 
+/**
+ * Подставляет блоки каталога в текст сообщения (чат и агент).
+ * @param {string} message
+ * @returns {Promise<string>}
+ */
+async function enrichUserPromptWithShopCatalog(message) {
+  const { shopDbEnrichEnabled, getShopDbContext } = require("./enrich");
+  if (!shopDbEnrichEnabled() || !String(message || "").trim()) {
+    return String(message || "").trim();
+  }
+  try {
+    const r = await getShopDbContext(message, { maxDocs: 5 });
+    const blocks = (r?.contextTexts || []).filter(isCatalogBlock);
+    if (!blocks.length) return String(message || "").trim();
+    return mergeCatalogIntoUserPrompt(message, blocks);
+  } catch (e) {
+    const shopDbLog = require("./shopDbLog");
+    shopDbLog.enrichError(e, { phase: "enrichUserPromptWithShopCatalog" });
+    return String(message || "").trim();
+  }
+}
+
 module.exports = {
   CATALOG_BLOCK_PREFIX,
   USER_CATALOG_HEADER,
@@ -89,4 +111,5 @@ module.exports = {
   hasCatalogBlocks,
   mergeCatalogIntoUserPrompt,
   applyExternalContextsForLlm,
+  enrichUserPromptWithShopCatalog,
 };
