@@ -49,7 +49,7 @@ const OFFER_KP_CATALOG_PROMPT = `
   _Источник: каталог purolat.com (MySQL: shop_product, shop_product_skus, shop_category)._
 
 ## Чего не делать
-- Не ссылайся на ELI, Dziennik Ustaw, ГАРАНТ, Allegro, Leroy Merlin и прочие внешние магазины — только purolat.com.
+- Ссылайся только на purolat.com (не ELI, ГАРАНТ, Allegro и другие внешние источники).
 - Не добавляй товары вне каталога (например стекло AV ELIA / LandVac) — только позиции из [Каталог · purolat.com] или явно «по запросу», если нет в каталоге.
 - Не отказывайся от ответа о цене, если в контексте есть релевантный товар.
 - Не давай «ориентировочных» цен с головы.
