@@ -31,12 +31,28 @@ function buildExternalLinksSection(sources) {
     (s) => s.docSource === "Google" || s.docSource === "Google (изображения)"
   );
   const searxngSources = arr.filter((s) => s.docSource === "SearXNG");
+  const catalogSources = arr.filter((s) => s.docSource === "Каталог");
   const parts = [];
   // Sekcja ELI (polskie akty prawne — Dziennik Ustaw / Monitor Polski).
   if (eliSources.length > 0) {
     parts.push(
       "---\n**Źródła (ELI · api.sejm.gov.pl):**\n" +
         mapLinkLines(eliSources, "Akt prawny ELI").join("\n")
+    );
+  }
+  if (catalogSources.length > 0) {
+    const tableSet = new Set();
+    for (const s of catalogSources) {
+      for (const t of s.shopDbTables || []) tableSet.add(t);
+    }
+    const tablesNote =
+      tableSet.size > 0
+        ? `\n_Таблицы БД: ${[...tableSet].sort().join(", ")}._`
+        : "";
+    parts.push(
+      "---\n**Источники каталога (MySQL):**\n" +
+        mapLinkLines(catalogSources, "Товар каталога").join("\n") +
+        tablesNote
     );
   }
   if (garantSources.length > 0) {

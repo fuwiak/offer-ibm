@@ -15,7 +15,10 @@ const {
   recentChatHistory,
   sourceIdentifier,
 } = require("./index");
-const { getGarantContext } = require("../garant/enrich");
+const {
+  getCatalogEnrichContext,
+  isCatalogEnrichEnabled,
+} = require("../shopDb/enrich");
 const { getYandexSearchContext } = require("../yandexSearch/enrich");
 const { getGoogleSearchContext } = require("../googleCustomSearch/enrich");
 const {
@@ -248,25 +251,24 @@ async function streamChatWithWorkspace(
 
   // Enrich: ГАРАНТ → Яндекс → Google CSE (параллельно).
   if (updatedMessage?.trim()) {
-    const hadGarantToken = !!process.env.GARANT_TOKEN;
-    const garantPromise =
-      process.env.GARANT_TOKEN
-        ? getGarantContext(updatedMessage, {
-            maxDocs: 3,
-            includeSutyazhnik: true,
-            sutyazhnikCount: 5,
-          }).catch((garantErr) => {
-            console.warn(
-              "[Garant] enrich failed:",
-              garantErr?.message || garantErr
-            );
-            return {
-              contextTexts: [],
-              sources: [],
-              flags: { garantEnrichError: true },
-            };
-          })
-        : Promise.resolve({ contextTexts: [], sources: [] });
+    const hadCatalogEnrich = isCatalogEnrichEnabled();
+    const garantPromise = hadCatalogEnrich
+      ? getCatalogEnrichContext(updatedMessage, {
+          maxDocs: 3,
+          includeSutyazhnik: true,
+          sutyazhnikCount: 5,
+        }).catch((catalogErr) => {
+          console.warn(
+            "[Catalog] enrich failed:",
+            catalogErr?.message || catalogErr
+          );
+          return {
+            contextTexts: [],
+            sources: [],
+            flags: { catalogEnrichError: true },
+          };
+        })
+      : Promise.resolve({ contextTexts: [], sources: [] });
     const yandexPromise = webSearchEnrichEnabled
       ? getYandexSearchContext(updatedMessage).catch((err) => {
           console.warn("[Yandex Search] enrich failed:", err?.message || err);

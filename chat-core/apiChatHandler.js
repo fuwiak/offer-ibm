@@ -21,7 +21,10 @@ const { CollectorApi } = require("../collectorApi");
 const fs = require("fs");
 const path = require("path");
 const { hotdirPath, normalizePath, isWithin } = require("../files");
-const { getGarantContext } = require("../garant/enrich");
+const {
+  getCatalogEnrichContext,
+  isCatalogEnrichEnabled,
+} = require("../shopDb/enrich");
 const { getYandexSearchContext } = require("../yandexSearch/enrich");
 const { getGoogleSearchContext } = require("../googleCustomSearch/enrich");
 const {
@@ -440,25 +443,24 @@ async function chatSync({
   let googleContextTexts = [];
   let googleSources = [];
   if (message?.trim()) {
-    const hadGarantToken = !!process.env.GARANT_TOKEN;
-    const garantPromise =
-      process.env.GARANT_TOKEN
-        ? getGarantContext(message, {
-            maxDocs: 3,
-            includeSutyazhnik: true,
-            sutyazhnikCount: 5,
-          }).catch((garantErr) => {
-            console.warn(
-              "[Garant] enrich failed:",
-              garantErr?.message || garantErr
-            );
-            return {
-              contextTexts: [],
-              sources: [],
-              flags: { garantEnrichError: true },
-            };
-          })
-        : Promise.resolve({ contextTexts: [], sources: [] });
+    const hadCatalogEnrich = isCatalogEnrichEnabled();
+    const garantPromise = hadCatalogEnrich
+      ? getCatalogEnrichContext(message, {
+          maxDocs: 3,
+          includeSutyazhnik: true,
+          sutyazhnikCount: 5,
+        }).catch((catalogErr) => {
+          console.warn(
+            "[Catalog] enrich failed:",
+            catalogErr?.message || catalogErr
+          );
+          return {
+            contextTexts: [],
+            sources: [],
+            flags: { catalogEnrichError: true },
+          };
+        })
+      : Promise.resolve({ contextTexts: [], sources: [] });
     const yandexPromise = webSearchEnrichEnabled
       ? getYandexSearchContext(message).catch((err) => {
           console.warn("[Yandex Search] enrich failed:", err?.message || err);
@@ -928,25 +930,24 @@ async function streamChat({
   let googleContextTexts = [];
   let googleSources = [];
   if (message?.trim()) {
-    const hadGarantToken = !!process.env.GARANT_TOKEN;
-    const garantPromise =
-      process.env.GARANT_TOKEN
-        ? getGarantContext(message, {
-            maxDocs: 3,
-            includeSutyazhnik: true,
-            sutyazhnikCount: 5,
-          }).catch((garantErr) => {
-            console.warn(
-              "[Garant] enrich failed:",
-              garantErr?.message || garantErr
-            );
-            return {
-              contextTexts: [],
-              sources: [],
-              flags: { garantEnrichError: true },
-            };
-          })
-        : Promise.resolve({ contextTexts: [], sources: [] });
+    const hadCatalogEnrich = isCatalogEnrichEnabled();
+    const garantPromise = hadCatalogEnrich
+      ? getCatalogEnrichContext(message, {
+          maxDocs: 3,
+          includeSutyazhnik: true,
+          sutyazhnikCount: 5,
+        }).catch((catalogErr) => {
+          console.warn(
+            "[Catalog] enrich failed:",
+            catalogErr?.message || catalogErr
+          );
+          return {
+            contextTexts: [],
+            sources: [],
+            flags: { catalogEnrichError: true },
+          };
+        })
+      : Promise.resolve({ contextTexts: [], sources: [] });
     const yandexPromise = webSearchEnrichEnabled
       ? getYandexSearchContext(message).catch((err) => {
           console.warn("[Yandex Search] enrich failed:", err?.message || err);

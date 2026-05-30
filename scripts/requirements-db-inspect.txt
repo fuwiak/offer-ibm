@@ -1,0 +1,3 @@
+# Только pymysql. .env читается встроенным парсером в inspect_mysql_db.py.
+# Установка: bash scripts/setup_db_inspect.sh
+pymysql>=1.1.0

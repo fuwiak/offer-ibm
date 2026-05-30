@@ -7,7 +7,10 @@ const {
   handleDefaultStreamResponseV2,
 } = require("../helpers/chat/responses");
 const { PUBLIC_PROMPT_APPEND } = require("../lawyerRevizorro/prompts");
-const { getGarantContext } = require("../garant/enrich");
+const {
+  getCatalogEnrichContext,
+  isCatalogEnrichEnabled,
+} = require("../offerKp/enrich");
 const { getEliContext } = require("../eli/enrich");
 const { isPolishText } = require("../lang/detectPolish");
 
@@ -74,17 +77,17 @@ async function streamLawyerRevizorroPublicChat(
     });
     contextTexts = eli.contextTexts || [];
     sources = eli.sources || [];
-  } else if ((process.env.GARANT_TOKEN || "").trim()) {
-    const garant = await getGarantContext(message, {
+  } else if (isCatalogEnrichEnabled()) {
+    const catalog = await getCatalogEnrichContext(message, {
       maxDocs: 3,
       includeSutyazhnik: true,
       sutyazhnikCount: 3,
     }).catch((err) => {
-      console.warn("[Garant] public chat enrich failed:", err?.message || err);
+      console.warn("[Catalog] public chat enrich failed:", err?.message || err);
       return { contextTexts: [], sources: [] };
     });
-    contextTexts = garant.contextTexts || [];
-    sources = garant.sources || [];
+    contextTexts = catalog.contextTexts || [];
+    sources = catalog.sources || [];
   }
 
   const messages = await LLMConnector.compressMessages(

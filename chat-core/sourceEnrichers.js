@@ -39,7 +39,14 @@ async function collectExternalContexts({ message, workspace, timeoutMs }) {
     );
   };
 
-  if ((process.env.GARANT_TOKEN || "").trim()) {
+  const shopFn = await load("../server/utils/offerKp/enrich", "getShopDbContext");
+  const shopEnabled = await load(
+    "../server/utils/offerKp/enrich",
+    "shopDbEnrichEnabled"
+  );
+  if (shopFn && shopEnabled?.()) {
+    addTask("shopdb", shopFn, { maxDocs: 3 });
+  } else if ((process.env.GARANT_TOKEN || "").trim()) {
     const fn = await load("../server/utils/garant/enrich", "getGarantContext");
     if (fn) {
       addTask("garant", fn, {

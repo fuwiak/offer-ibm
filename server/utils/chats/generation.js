@@ -189,12 +189,17 @@ async function collectExternalContexts({
     const fn = await loadOptional("../eli/enrich", "getEliContext");
     if (fn) addTask("eli", fn, { maxDocs: 5 });
   } else {
-    if (hasGarantToken()) {
+    const shopFn = await loadOptional("../offerKp/enrich", "getShopDbContext");
+    const shopEnabledFn = await loadOptional(
+      "../offerKp/enrich",
+      "shopDbEnrichEnabled"
+    );
+    if (shopFn && shopEnabledFn?.()) {
+      addTask("shopdb", shopFn, { maxDocs: 5 });
+    } else if (hasGarantToken()) {
       const fn = await loadOptional("../garant/enrich", "getGarantContext");
       if (fn)
         addTask("garant", fn, {
-          // Top-5 documents, blended by relevance + recency (see enrich.js),
-          // so answers cite the freshest of the most relevant ГАРАНТ sources.
           maxDocs: 5,
           includeSutyazhnik: true,
           sutyazhnikCount: 5,
@@ -221,7 +226,11 @@ async function collectExternalContexts({
   // ── SearXNG fallback: run ONLY when the primary legal source returned no
   // documents (ELI dla PL, w przeciwnym razie ГАРАНТ). ───────────────────────
   if (hasSearxngFallback()) {
-    const primaryKind = usePolishEli ? "eli" : "garant";
+    const primaryKind = usePolishEli
+      ? "eli"
+      : results.some((r) => r.kind === "shopdb")
+        ? "shopdb"
+        : "garant";
     const primary = results.find((r) => r.kind === primaryKind);
     const primaryHasData = (primary?.contextTexts?.length || 0) > 0;
     if (!primaryHasData) {
@@ -356,6 +365,10 @@ function startKeepAlive(response, everyMs = 15_000) {
 // ─── External links ────────────────────────────────────────────────────────────
 
 const { buildExternalLinksSection } = require("../garant/linksFooter");
+const {
+  shopDbEnrichEnabled,
+  buildShopDbTablesFooter,
+} = require("../offerKp/enrich");
 
 function appendExternalLinksSection(text, sources = []) {
   const block = buildExternalLinksSection(sources);
@@ -393,15 +406,18 @@ function buildNoSourcesNotice(externalContexts = []) {
     );
   }
 
-  // ── Tryb domyślny (ГАРАНТ). ─────────────────────────────────────────────────
+  // ── Tryb domyślny (каталог MySQL / ГАРАНТ). ─────────────────────────────────
+  const shopDbConfigured = shopDbEnrichEnabled();
   const garantConfigured = hasGarantToken();
   const searxngConfigured = hasSearxngFallback();
-  if (!garantConfigured && !searxngConfigured) return "";
+  if (!shopDbConfigured && !garantConfigured && !searxngConfigured) return "";
 
+  const shopDbHas = (counts.shopdb || 0) > 0;
   const garantHas = (counts.garant || 0) > 0;
-  if (garantHas || searxngHas) return "";
+  if (shopDbHas || garantHas || searxngHas) return "";
 
   const where = [];
+  if (shopDbConfigured) where.push("каталоге товаров (MySQL)");
   if (garantConfigured) where.push("системе ГАРАНТ");
   if (searxngConfigured) where.push("резервном веб-поиске (SearXNG)");
   if (where.length === 0) return "";
@@ -446,11 +462,16 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
 
   const eliOk = (ext.eli?.contexts || 0) > 0;
   const eliUsed = !!ext.eli; // task runs only in Polish mode
+  const shopDbCtx = externalContexts.find((c) => c.kind === "shopdb");
+  const shopDbOk = (ext.shopdb?.contexts || 0) > 0;
+  const shopDbTables =
+    shopDbCtx?.flags?.shopDbTablesUsed?.join(", ") || "";
   const garantOk = (ext.garant?.contexts || 0) > 0;
   const yandexOk = (ext.yandex?.contexts || 0) > 0;
   const googleOk = (ext.google?.contexts || 0) > 0;
   const searxngOk = (ext.searxng?.contexts || 0) > 0;
   const searxngUsed = !!ext.searxng; // task only runs as ГАРАНТ fallback
+  const shopDbConfigured = shopDbEnrichEnabled();
   const garantConfigured = hasGarantToken();
   const yandexConfigured = !!(process.env.YANDEX_SEARCH_API_KEY || "").trim();
   const googleConfigured = !!(
@@ -478,10 +499,25 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
   }
 
   // External enrichment
+  if (shopDbConfigured) {
+    items.push(
+      mark(
+        shopDbOk,
+        "Каталог MySQL",
+        shopDbOk
+          ? shopDbTables
+            ? `таблицы: ${shopDbTables}`
+            : ""
+          : "нет данных"
+      )
+    );
+  }
   items.push(
-    garantConfigured
+    garantConfigured && !shopDbConfigured
       ? mark(garantOk, "ГАРАНТ", garantOk ? "" : "нет данных")
-      : mark(false, "ГАРАНТ", "не настроен")
+      : shopDbConfigured
+        ? mark(false, "ГАРАНТ", "заменён каталогом")
+        : mark(false, "ГАРАНТ", "не настроен")
   );
   items.push(
     yandexConfigured
@@ -610,6 +646,10 @@ async function runGenerationPipeline({
 
   // ── API status footer ─────────────────────────────────────────────────────────
   finalText += buildApiStatusFooter(collectedExternalContexts, postProcessLog);
+
+  // ── Таблицы БД каталога (если enrich из MySQL) ────────────────────────────────
+  const shopDbExt = collectedExternalContexts.find((c) => c.kind === "shopdb");
+  finalText += buildShopDbTablesFooter(shopDbExt?.flags || {});
 
   return {
     text: finalText,
