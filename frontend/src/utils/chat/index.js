@@ -162,8 +162,8 @@ export default function handleChat(
       pending: false,
       metrics,
     };
-    setChatHistory([...remHistory, card]);
     _chatHistory.push(card);
+    setChatHistory([..._chatHistory]);
   } else if (type === "offerKpQuotePanel" && chatResult.content) {
     window.dispatchEvent(
       new CustomEvent(OFFER_KP_QUOTE_PANEL_EVENT, { detail: chatResult.content })

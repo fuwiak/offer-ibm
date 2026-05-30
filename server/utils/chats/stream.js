@@ -285,21 +285,6 @@ async function streamChatWithWorkspace(
     return;
   }
 
-  // КП + каталог: PDF/DOCX до ответа LLM (правая панель), не ждём create-docx-file
-  if (llmCatalog.catalogInjected) {
-    try {
-      const { emitAutoQuoteArtifacts } = require("../offerKp/autoQuoteArtifacts");
-      await emitAutoQuoteArtifacts({
-        response,
-        uuid,
-        message: updatedMessage,
-        catalogBlocks: llmCatalog.catalogBlocks || [],
-      });
-    } catch (e) {
-      console.error("[offerKp] auto quote artifacts (pre-llm):", e?.message || e);
-    }
-  }
-
   // Compress & Assemble message to ensure prompt passes token limit with room for response
   // and build system messages based on inputs and history.
   const messages = await LLMConnector.compressMessages(
@@ -374,6 +359,21 @@ async function streamChatWithWorkspace(
       close: false,
       error: false,
     });
+  }
+
+  // КП + каталог: карточки файлов после текста ответа (кнопки Preview / Download в чате)
+  if (llmCatalog.catalogInjected) {
+    try {
+      const { emitAutoQuoteArtifacts } = require("../offerKp/autoQuoteArtifacts");
+      await emitAutoQuoteArtifacts({
+        response,
+        uuid,
+        message: updatedMessage,
+        catalogBlocks: llmCatalog.catalogBlocks || [],
+      });
+    } catch (e) {
+      console.error("[offerKp] auto quote artifacts:", e?.message || e);
+    }
   }
 
   if (completeText?.length > 0) {
