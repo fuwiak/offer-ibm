@@ -489,17 +489,9 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
   const shopDbOk = (ext.shopdb?.contexts || 0) > 0;
   const shopDbTables =
     shopDbCtx?.flags?.shopDbTablesUsed?.join(", ") || "";
-  const garantOk = (ext.garant?.contexts || 0) > 0;
-  const yandexOk = (ext.yandex?.contexts || 0) > 0;
-  const googleOk = (ext.google?.contexts || 0) > 0;
   const searxngOk = (ext.searxng?.contexts || 0) > 0;
   const searxngUsed = !!ext.searxng; // task only runs as ГАРАНТ fallback
   const shopDbConfigured = shopDbEnrichEnabled();
-  const garantConfigured = hasGarantToken();
-  const yandexConfigured = !!(process.env.YANDEX_SEARCH_API_KEY || "").trim();
-  const googleConfigured = !!(
-    process.env.GOOGLE_CUSTOM_SEARCH_API_KEY || ""
-  ).trim();
   const searxngConfigured = !!(
     process.env.SEARXNG_FALLBACK_API_URL || ""
   ).trim();
@@ -535,23 +527,6 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
       )
     );
   }
-  items.push(
-    garantConfigured && !shopDbConfigured
-      ? mark(garantOk, "ГАРАНТ", garantOk ? "" : "нет данных")
-      : shopDbConfigured
-        ? mark(false, "ГАРАНТ", "заменён каталогом")
-        : mark(false, "ГАРАНТ", "не настроен")
-  );
-  items.push(
-    yandexConfigured
-      ? mark(yandexOk, "Яндекс.Поиск", yandexOk ? "" : "нет данных")
-      : mark(false, "Яндекс.Поиск", "не настроен")
-  );
-  items.push(
-    googleConfigured
-      ? mark(googleOk, "Google", googleOk ? "" : "нет данных")
-      : mark(false, "Google", "не настроен")
-  );
   if (searxngConfigured) {
     // Only meaningful as a ГАРАНТ fallback; show its state only when configured.
     items.push(
@@ -561,27 +536,6 @@ function buildApiStatusFooter(externalContexts = [], postProcessLog = {}) {
     );
   }
 
-  // Post-processing judges
-  const fc1 = postProcessLog?.yandexFactCheck;
-  items.push(
-    fc1?.configured
-      ? mark(
-          fc1.ran,
-          "Фактчек Яндекс",
-          fc1.ran ? (fc1.changed ? "изменил" : "без правок") : "не запустился"
-        )
-      : mark(false, "Фактчек Яндекс", "не настроен")
-  );
-  const fc2 = postProcessLog?.openRouterFactCheck;
-  items.push(
-    fc2?.configured
-      ? mark(
-          fc2.ran,
-          "Фактчек ГАРАНТ/OR",
-          fc2.ran ? (fc2.changed ? "изменил" : "без правок") : "не запустился"
-        )
-      : mark(false, "Фактчек ГАРАНТ/OR", "не настроен")
-  );
   const sp = postProcessLog?.stylePolish;
   items.push(
     sp?.configured
