@@ -16,6 +16,10 @@ const {
   runProductSearchAgent,
 } = require("./productSearchAgent");
 const {
+  getShopBaseUrl,
+  buildProductUrl,
+} = require("./productUrl");
+const {
   TABLES,
   ENRICH_TABLES,
   SKU_COLUMNS: S,
@@ -48,20 +52,6 @@ function htmlToPlainText(html) {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function getShopBaseUrl() {
-  const fromEnv = (process.env.SHOP_BASE_URL || "").trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  return "https://purolat.com";
-}
-
-function buildProductUrl(baseUrl, categoryFullUrl, productUrl) {
-  const slug = String(productUrl || "").replace(/^\/+|\/+$/g, "");
-  const cat = String(categoryFullUrl || "").replace(/^\/+|\/+$/g, "");
-  if (cat && slug) return `${baseUrl}/${cat}/${slug}/`;
-  if (slug) return `${baseUrl}/${slug}/`;
-  return baseUrl;
 }
 
 function formatPrice(price, currency) {
@@ -293,6 +283,7 @@ async function getShopDbContext(message, options = {}) {
       strategies: shopDbMatchStrategies,
       productIds: ranked.map((p) => p.id),
       titles: sources.map((s) => s.title),
+      urls: sources.map((s) => s.url),
     });
 
     return {

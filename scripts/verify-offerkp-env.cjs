@@ -40,6 +40,8 @@ const {
 
 const SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
 const SAMPLE_QUERY_FALLBACK = "болт DIN 933 M12";
+const EXPECTED_SHTANGA_URL =
+  "https://purolat.com/shop/stangi-spilyki/din-975/shtanga_din_975_m36x2000_zn/";
 const KEY_STEEL_QUERY =
   "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880";
 const KEY_STEEL_SKU = "087870000300030";
@@ -157,6 +159,16 @@ function warn(name, detail = "") {
   }
 
   await runEnrichTest(SAMPLE_QUERY, "primary enrich");
+
+  const shtangaCtx = await enrich.getShopDbContext(SAMPLE_QUERY, { maxDocs: 1 });
+  const shtangaUrl = shtangaCtx.sources?.[0]?.url || "";
+  if (shtangaUrl === EXPECTED_SHTANGA_URL) {
+    ok("product URL", EXPECTED_SHTANGA_URL);
+  } else if (shtangaUrl.includes("/shop/") && shtangaUrl.includes("shtanga_din_975_m36x2000_zn")) {
+    ok("product URL", shtangaUrl);
+  } else if (shtangaCtx.contextTexts?.length) {
+    fail("product URL", `got ${shtangaUrl || "(empty)"}, expected ${EXPECTED_SHTANGA_URL}`);
+  }
 
   if (results.some((r) => r.name === "primary enrich" && !r.ok)) {
     await runEnrichTest(SAMPLE_QUERY_FALLBACK, "fallback enrich query");
