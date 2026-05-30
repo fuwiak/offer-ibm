@@ -224,6 +224,7 @@ async function streamChatWithWorkspace(
     message: updatedMessage,
     workspace,
     language,
+    chatHistory: rawHistory,
   });
   const externalContextTexts = [];
   const externalSources = [];

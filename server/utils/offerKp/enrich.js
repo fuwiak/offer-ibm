@@ -563,9 +563,93 @@ const FEATURE_TABLES = [
   TABLES.productFeatures,
   TABLES.feature,
   TABLES.featureValueVarchar,
+  TABLES.productSkus,
 ];
 
-function buildProductExcerpt(product, featureLines, baseUrl) {
+const PRICE_ONLY_RE =
+  /^(jaka\s+)?cena\??$|ile\s+kosztuje|сколько\s+стоит|какая\s+цена|what('s|\s+is)\s+the\s+price/i;
+
+function historyMessageText(entry) {
+  if (!entry) return "";
+  if (typeof entry === "string") return entry;
+  return String(
+    entry.content || entry.userPrompt || entry.text || entry.message || ""
+  ).trim();
+}
+
+function hasHardwareSignals(text) {
+  const parsed = parseHardwareQuery(text);
+  return !!(
+    parsed.dinNumbers.length ||
+    parsed.productTypes.length ||
+    parsed.thread ||
+    /\bdin\s*\d{3}/i.test(text)
+  );
+}
+
+function isPriceOnlyQuery(text) {
+  const t = String(text || "").trim();
+  if (!t || hasHardwareSignals(t)) return false;
+  if (PRICE_ONLY_RE.test(t)) return true;
+  return t.length <= 30 && /cena|price|цен/i.test(t);
+}
+
+/**
+ * Для «jaka cena?» подмешивает предыдущее сообщение с названием изделия.
+ */
+function buildEnrichSearchText(message, options = {}) {
+  let text = String(message || "").trim();
+  const history = options.chatHistory || options.history || [];
+
+  if (!isPriceOnlyQuery(text)) return text;
+
+  const priorTexts = [];
+  const list = Array.isArray(history) ? history : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const entry = list[i];
+    const role = String(entry?.role || entry?.type || "").toLowerCase();
+    if (role && !["user", "human"].includes(role)) continue;
+    const content = historyMessageText(entry);
+    if (!content || content === text) continue;
+    if (hasHardwareSignals(content)) {
+      priorTexts.unshift(content);
+      break;
+    }
+  }
+
+  if (priorTexts.length) {
+    text = `${priorTexts.join("\n")}\n${text}`;
+  }
+  return text;
+}
+
+async function loadProductSkus(productIds) {
+  const map = new Map();
+  const ids = productIds
+    .map((id) => parseInt(id, 10))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  if (!ids.length) return map;
+
+  const placeholders = ids.map(() => "?").join(",");
+  const sql = `
+    SELECT ${S.productId} AS product_id, ${S.sku} AS sku, ${S.name} AS sku_name,
+           price, compare_price, count, available
+    FROM ${TABLES.productSkus}
+    WHERE ${S.productId} IN (${placeholders})
+    ORDER BY ${S.productId}, sort ASC
+    LIMIT 100
+  `;
+  const rows = await query(sql, ids);
+  for (const row of rows) {
+    const pid = row.product_id;
+    if (!map.has(pid)) map.set(pid, []);
+    const arr = map.get(pid);
+    if (arr.length < 5) arr.push(row);
+  }
+  return map;
+}
+
+function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
   const name = product.name || `Товар #${product.id}`;
   const url = buildProductUrl(
     baseUrl,
@@ -573,6 +657,10 @@ function buildProductExcerpt(product, featureLines, baseUrl) {
     product.product_url
   );
   const priceStr = formatPrice(product.price, product.currency);
+  const compareStr =
+    product.compare_price && Number(product.compare_price) > 0
+      ? formatPrice(product.compare_price, product.currency)
+      : "";
   const summary = htmlToPlainText(product.summary || "");
   const description = htmlToPlainText(product.description || "");
   let body = summary || description || name;
@@ -582,15 +670,30 @@ function buildProductExcerpt(product, featureLines, baseUrl) {
 
   const lines = [
     `[Каталог · ${baseUrl.replace(/^https?:\/\//, "")}] ${name}`,
+    `ID товара (shop_product.id): ${product.id}`,
     product.category_name ? `Категория: ${product.category_name}` : null,
     priceStr ? `Цена: ${priceStr}` : null,
+    compareStr ? `Старая цена: ${compareStr}` : null,
+    product.currency ? `Валюта: ${product.currency}` : null,
     `Ссылка: ${url}`,
   ].filter(Boolean);
 
-  if (featureLines.length) {
-    lines.push("Характеристики:", ...featureLines.map((l) => `  · ${l}`));
+  if (skuRows?.length) {
+    lines.push("SKU (shop_product_skus):");
+    for (const sk of skuRows) {
+      const skuPrice = formatPrice(sk.price, product.currency);
+      lines.push(
+        `  · ${sk.sku || sk.sku_name}${skuPrice ? ` — ${skuPrice}` : ""}` +
+          (sk.count != null ? `, остаток: ${sk.count}` : "")
+      );
+    }
   }
-  lines.push(body);
+
+  if (featureLines.length) {
+    lines.push("Характеристики (shop_product_features):");
+    lines.push(...featureLines.map((l) => `  · ${l}`));
+  }
+  if (body && body !== name) lines.push(`Описание: ${body}`);
   return { name, url, excerpt: lines.join("\n"), body };
 }
 
@@ -637,13 +740,15 @@ async function getShopDbContext(message, options = {}) {
   );
 
   const runEnrich = async () => {
-    const parsed = parseHardwareQuery(message);
-    const terms = extractSearchTerms(message);
+    const searchText = buildEnrichSearchText(message, options);
+    const parsed = parseHardwareQuery(searchText);
+    const terms = extractSearchTerms(searchText);
     const searchTerms =
-      terms.length > 0 ? terms : [String(message).trim().slice(0, 80)];
+      terms.length > 0 ? terms : [String(searchText).trim().slice(0, 120)];
 
     console.log("[ShopDB] enrich start", {
       messageLen: message.length,
+      searchTextLen: searchText.length,
       terms: searchTerms,
       parsed,
       maxDocs,
@@ -655,7 +760,11 @@ async function getShopDbContext(message, options = {}) {
       0,
       maxDocs
     );
-    const featureMap = await loadFeatureLines(ranked.map((p) => p.id));
+    const productIds = ranked.map((p) => p.id);
+    const [featureMap, skuMap] = await Promise.all([
+      loadFeatureLines(productIds),
+      loadProductSkus(productIds),
+    ]);
     const baseUrl = getShopBaseUrl();
 
     const allTablesUsed = new Set(searchTables);
@@ -666,6 +775,7 @@ async function getShopDbContext(message, options = {}) {
 
     for (const product of ranked) {
       const featureLines = featureMap.get(product.id) || [];
+      const skuRows = skuMap.get(product.id) || [];
       const productTables = [
         ...new Set([...product.shopDbTables, ...FEATURE_TABLES]),
       ].sort();
@@ -674,6 +784,7 @@ async function getShopDbContext(message, options = {}) {
       const { name, url, excerpt, body } = buildProductExcerpt(
         product,
         featureLines,
+        skuRows,
         baseUrl
       );
       const id = `shop-${product.id}-${uuidv4().slice(0, 8)}`;
@@ -749,26 +860,10 @@ async function getShopDbContext(message, options = {}) {
   }
 }
 
-async function getCatalogEnrichContext(message, options = {}) {
-  if (shopDbEnrichEnabled()) {
-    return getShopDbContext(message, options);
-  }
-  const { getGarantContext } = require("../garant/enrich");
-  if ((process.env.GARANT_TOKEN || "").trim()) {
-    return getGarantContext(message, options);
-  }
-  return { contextTexts: [], sources: [], flags: {} };
-}
-
-function isCatalogEnrichEnabled() {
-  return shopDbEnrichEnabled() || !!(process.env.GARANT_TOKEN || "").trim();
-}
-
 module.exports = {
   shopDbEnrichEnabled,
   getShopDbContext,
-  getCatalogEnrichContext,
-  isCatalogEnrichEnabled,
+  buildEnrichSearchText,
   extractSearchTerms,
   buildShopDbTablesFooter,
   ENRICH_TABLES,

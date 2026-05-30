@@ -15,12 +15,7 @@ const {
   recentChatHistory,
   sourceIdentifier,
 } = require("./index");
-const {
-  getCatalogEnrichContext,
-  isCatalogEnrichEnabled,
-} = require("../shopDb/enrich");
-const { getYandexSearchContext } = require("../yandexSearch/enrich");
-const { getGoogleSearchContext } = require("../googleCustomSearch/enrich");
+const { getShopDbContext, shopDbEnrichEnabled } = require("../shopDb/enrich");
 const {
   buildExternalLinksSection,
   sourcesForResponse,
@@ -249,74 +244,31 @@ async function streamChatWithWorkspace(
   sources = [...sources, ...vectorSearchResults.sources];
   logStep("9/12 fillSourceWindow done", `contextBlocks=${contextTexts?.length ?? 0}`, Date.now() - t0);
 
-  // Enrich: ГАРАНТ → Яндекс → Google CSE (параллельно).
-  if (updatedMessage?.trim()) {
-    const hadCatalogEnrich = isCatalogEnrichEnabled();
-    const garantPromise = hadCatalogEnrich
-      ? getCatalogEnrichContext(updatedMessage, {
-          maxDocs: 3,
-          includeSutyazhnik: true,
-          sutyazhnikCount: 5,
-        }).catch((catalogErr) => {
-          console.warn(
-            "[Catalog] enrich failed:",
-            catalogErr?.message || catalogErr
-          );
-          return {
-            contextTexts: [],
-            sources: [],
-            flags: { catalogEnrichError: true },
-          };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const yandexPromise = webSearchEnrichEnabled
-      ? getYandexSearchContext(updatedMessage).catch((err) => {
-          console.warn("[Yandex Search] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const googlePromise = webSearchEnrichEnabled
-      ? getGoogleSearchContext(updatedMessage).catch((err) => {
-          console.warn("[Google CSE] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const [garantResult, yandexResult, googleResult] = await Promise.all([
-      garantPromise,
-      yandexPromise,
-      googlePromise,
-    ]);
-    garantEnrichFlags = garantFlagsFromEnrichResult(
-      garantResult,
-      hadGarantToken
-    );
-    const garantContextTexts = garantResult.contextTexts || [];
-    const garantSources = garantResult.sources || [];
-    const yandexContextTexts = yandexResult.contextTexts || [];
-    const yandexSources = yandexResult.sources || [];
-    const googleContextTexts = googleResult.contextTexts || [];
-    const googleSources = googleResult.sources || [];
-    const enrichPrefix = [
-      ...garantContextTexts,
-      ...yandexContextTexts,
-      ...googleContextTexts,
-    ];
-    if (enrichPrefix.length) {
-      contextTexts = [...enrichPrefix, ...contextTexts];
+  // Enrich: каталог MySQL (purolat.com).
+  if (updatedMessage?.trim() && shopDbEnrichEnabled()) {
+    const shopResult = await getShopDbContext(updatedMessage, {
+      maxDocs: 5,
+      chatHistory: rawHistory,
+    }).catch((err) => {
+      console.warn("[ShopDB] enrich failed:", err?.message || err);
+      return { contextTexts: [], sources: [], flags: { shopDbError: true } };
+    });
+    garantEnrichFlags = shopResult.flags || {};
+    const shopContextTexts = shopResult.contextTexts || [];
+    const shopSources = shopResult.sources || [];
+    if (shopContextTexts.length) {
+      contextTexts = [...shopContextTexts, ...contextTexts];
     }
-    sources = [
-      ...garantSources,
-      ...yandexSources,
-      ...googleSources,
-      ...sources,
-    ];
+    if (shopSources.length) {
+      sources = [...shopSources, ...sources];
+    }
     logStep(
-      "10/12 Garant+Yandex+Google enrich done",
-      webSearchEnrichEnabled ? "" : "yandex+google=off",
+      "10/12 ShopDB enrich done",
+      `chunks=${shopContextTexts.length}`,
       Date.now() - t0
     );
   } else {
-    logStep("10/12 Garant+Yandex+Google skip", "(empty message)", Date.now() - t0);
+    logStep("10/12 ShopDB skip", "(off or empty message)", Date.now() - t0);
   }
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not

@@ -21,12 +21,7 @@ const { CollectorApi } = require("../collectorApi");
 const fs = require("fs");
 const path = require("path");
 const { hotdirPath, normalizePath, isWithin } = require("../files");
-const {
-  getCatalogEnrichContext,
-  isCatalogEnrichEnabled,
-} = require("../shopDb/enrich");
-const { getYandexSearchContext } = require("../yandexSearch/enrich");
-const { getGoogleSearchContext } = require("../googleCustomSearch/enrich");
+const { getShopDbContext, shopDbEnrichEnabled } = require("../shopDb/enrich");
 const {
   buildExternalLinksSection,
   sourcesForResponse,
@@ -435,73 +430,26 @@ async function chatSync({
   contextTexts = [...contextTexts, ...filledSources.contextTexts];
   sources = [...sources, ...vectorSearchResults.sources];
 
-  // Enrich: ГАРАНТ → Яндекс (выше Google) → Google CSE. Prepend so compressMessages keeps them longer.
-  let garantContextTexts = [];
-  let garantSources = [];
-  let yandexContextTexts = [];
-  let yandexSources = [];
-  let googleContextTexts = [];
-  let googleSources = [];
-  if (message?.trim()) {
-    const hadCatalogEnrich = isCatalogEnrichEnabled();
-    const garantPromise = hadCatalogEnrich
-      ? getCatalogEnrichContext(message, {
-          maxDocs: 3,
-          includeSutyazhnik: true,
-          sutyazhnikCount: 5,
-        }).catch((catalogErr) => {
-          console.warn(
-            "[Catalog] enrich failed:",
-            catalogErr?.message || catalogErr
-          );
-          return {
-            contextTexts: [],
-            sources: [],
-            flags: { catalogEnrichError: true },
-          };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const yandexPromise = webSearchEnrichEnabled
-      ? getYandexSearchContext(message).catch((err) => {
-          console.warn("[Yandex Search] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const googlePromise = webSearchEnrichEnabled
-      ? getGoogleSearchContext(message).catch((err) => {
-          console.warn("[Google CSE] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const [garantResult, yandexResult, googleResult] = await Promise.all([
-      garantPromise,
-      yandexPromise,
-      googlePromise,
-    ]);
-    garantEnrichFlags = garantFlagsFromEnrichResult(
-      garantResult,
-      hadGarantToken
-    );
-    garantContextTexts = garantResult.contextTexts || [];
-    garantSources = garantResult.sources || [];
-    yandexContextTexts = yandexResult.contextTexts || [];
-    yandexSources = yandexResult.sources || [];
-    googleContextTexts = googleResult.contextTexts || [];
-    googleSources = googleResult.sources || [];
-    const enrichPrefix = [
-      ...garantContextTexts,
-      ...yandexContextTexts,
-      ...googleContextTexts,
-    ];
-    if (enrichPrefix.length) {
-      contextTexts = [...enrichPrefix, ...contextTexts];
+  // Enrich: каталог MySQL (purolat.com).
+  let shopContextTexts = [];
+  let shopSources = [];
+  if (message?.trim() && shopDbEnrichEnabled()) {
+    const shopResult = await getShopDbContext(message, {
+      maxDocs: 5,
+      chatHistory: rawHistory,
+    }).catch((err) => {
+      console.warn("[ShopDB] enrich failed:", err?.message || err);
+      return { contextTexts: [], sources: [], flags: { shopDbError: true } };
+    });
+    garantEnrichFlags = shopResult.flags || {};
+    shopContextTexts = shopResult.contextTexts || [];
+    shopSources = shopResult.sources || [];
+    if (shopContextTexts.length) {
+      contextTexts = [...shopContextTexts, ...contextTexts];
     }
-    sources = [
-      ...garantSources,
-      ...yandexSources,
-      ...googleSources,
-      ...sources,
-    ];
+    if (shopSources.length) {
+      sources = [...shopSources, ...sources];
+    }
   }
 
   logLLMContext(workspace?.slug, contextTexts, sources);
@@ -922,73 +870,26 @@ async function streamChat({
   contextTexts = [...contextTexts, ...filledSources.contextTexts];
   sources = [...sources, ...vectorSearchResults.sources];
 
-  // Enrich: ГАРАНТ → Яндекс (выше Google) → Google CSE. Prepend so compressMessages keeps them longer.
-  let garantContextTexts = [];
-  let garantSources = [];
-  let yandexContextTexts = [];
-  let yandexSources = [];
-  let googleContextTexts = [];
-  let googleSources = [];
-  if (message?.trim()) {
-    const hadCatalogEnrich = isCatalogEnrichEnabled();
-    const garantPromise = hadCatalogEnrich
-      ? getCatalogEnrichContext(message, {
-          maxDocs: 3,
-          includeSutyazhnik: true,
-          sutyazhnikCount: 5,
-        }).catch((catalogErr) => {
-          console.warn(
-            "[Catalog] enrich failed:",
-            catalogErr?.message || catalogErr
-          );
-          return {
-            contextTexts: [],
-            sources: [],
-            flags: { catalogEnrichError: true },
-          };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const yandexPromise = webSearchEnrichEnabled
-      ? getYandexSearchContext(message).catch((err) => {
-          console.warn("[Yandex Search] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const googlePromise = webSearchEnrichEnabled
-      ? getGoogleSearchContext(message).catch((err) => {
-          console.warn("[Google CSE] enrich failed:", err?.message || err);
-          return { contextTexts: [], sources: [] };
-        })
-      : Promise.resolve({ contextTexts: [], sources: [] });
-    const [garantResult, yandexResult, googleResult] = await Promise.all([
-      garantPromise,
-      yandexPromise,
-      googlePromise,
-    ]);
-    garantEnrichFlags = garantFlagsFromEnrichResult(
-      garantResult,
-      hadGarantToken
-    );
-    garantContextTexts = garantResult.contextTexts || [];
-    garantSources = garantResult.sources || [];
-    yandexContextTexts = yandexResult.contextTexts || [];
-    yandexSources = yandexResult.sources || [];
-    googleContextTexts = googleResult.contextTexts || [];
-    googleSources = googleResult.sources || [];
-    const enrichPrefix = [
-      ...garantContextTexts,
-      ...yandexContextTexts,
-      ...googleContextTexts,
-    ];
-    if (enrichPrefix.length) {
-      contextTexts = [...enrichPrefix, ...contextTexts];
+  // Enrich: каталог MySQL (purolat.com).
+  let shopContextTexts = [];
+  let shopSources = [];
+  if (message?.trim() && shopDbEnrichEnabled()) {
+    const shopResult = await getShopDbContext(message, {
+      maxDocs: 5,
+      chatHistory: rawHistory,
+    }).catch((err) => {
+      console.warn("[ShopDB] enrich failed:", err?.message || err);
+      return { contextTexts: [], sources: [], flags: { shopDbError: true } };
+    });
+    garantEnrichFlags = shopResult.flags || {};
+    shopContextTexts = shopResult.contextTexts || [];
+    shopSources = shopResult.sources || [];
+    if (shopContextTexts.length) {
+      contextTexts = [...shopContextTexts, ...contextTexts];
     }
-    sources = [
-      ...garantSources,
-      ...yandexSources,
-      ...googleSources,
-      ...sources,
-    ];
+    if (shopSources.length) {
+      sources = [...shopSources, ...sources];
+    }
   }
 
   console.log("[Chat] context formed", {
@@ -996,10 +897,8 @@ async function streamChat({
     messageLen: message?.length ?? 0,
     contextChunks: contextTexts.length,
     sourcesCount: sources.length,
-    hasGarant: !!process.env.GARANT_TOKEN,
-    garantChunks: garantContextTexts.length,
-    yandexChunks: yandexContextTexts.length,
-    googleChunks: googleContextTexts.length,
+    shopDb: shopDbEnrichEnabled(),
+    shopDbChunks: shopContextTexts.length,
   });
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not

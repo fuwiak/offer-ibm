@@ -6,35 +6,8 @@ const {
   writeResponseChunk,
   handleDefaultStreamResponseV2,
 } = require("../helpers/chat/responses");
-const { PUBLIC_PROMPT_APPEND } = require("../lawyerRevizorro/prompts");
-const {
-  getCatalogEnrichContext,
-  isCatalogEnrichEnabled,
-} = require("../offerKp/enrich");
-const { getEliContext } = require("../eli/enrich");
-const { isPolishText } = require("../lang/detectPolish");
-
-function isPolishLanguageCode(language) {
-  if (!language || typeof language !== "string") return false;
-  return /^pl(\b|[-_])/i.test(language.trim());
-}
-
-function eliEnabled() {
-  const v = (process.env.ELI_DISABLED || "").trim().toLowerCase();
-  return !["1", "true", "yes", "on"].includes(v);
-}
-
-/**
- * Wybór polskiego źródła ELI: jawny język UI ma pierwszeństwo, w przeciwnym
- * razie autodetekcja treści. ELI_FORCE=1 wymusza ELI.
- */
-function shouldUseEli(message, language) {
-  if (!eliEnabled()) return false;
-  const force = (process.env.ELI_FORCE || "").trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(force)) return true;
-  if (language && String(language).trim()) return isPolishLanguageCode(language);
-  return isPolishText(message);
-}
+const { OFFER_KP_CATALOG_PROMPT } = require("../offerKp/prompts");
+const { getShopDbContext, shopDbEnrichEnabled } = require("../offerKp/enrich");
 
 async function streamLawyerRevizorroPublicChat(
   response,
@@ -42,8 +15,8 @@ async function streamLawyerRevizorroPublicChat(
   _sessionId = "public",
   options = {}
 ) {
-  const language = options?.language || null;
-  const slug = process.env.LAWYER_REVIZORRO_PUBLIC_WORKSPACE || "lawyerRevizorro-public";
+  const slug =
+    process.env.LAWYER_REVIZORRO_PUBLIC_WORKSPACE || "lawyerRevizorro-public";
   const workspace = await Workspace.get({ slug });
 
   if (!workspace) {
@@ -64,26 +37,17 @@ async function streamLawyerRevizorroPublicChat(
   });
 
   const basePrompt = await chatPrompt(workspace, null);
-  const systemPrompt = `${basePrompt}\n\n${PUBLIC_PROMPT_APPEND}`;
+  const systemPrompt = `${basePrompt}\n\n${OFFER_KP_CATALOG_PROMPT}`;
   const uuid = uuidv4();
 
   let contextTexts = [];
   let sources = [];
-  if (shouldUseEli(message, language)) {
-    // Tryb polski — źródłem jest ELI API (Dziennik Ustaw / Monitor Polski).
-    const eli = await getEliContext(message, { maxDocs: 3 }).catch((err) => {
-      console.warn("[ELI] public chat enrich failed:", err?.message || err);
-      return { contextTexts: [], sources: [] };
-    });
-    contextTexts = eli.contextTexts || [];
-    sources = eli.sources || [];
-  } else if (isCatalogEnrichEnabled()) {
-    const catalog = await getCatalogEnrichContext(message, {
-      maxDocs: 3,
-      includeSutyazhnik: true,
-      sutyazhnikCount: 3,
+  if (shopDbEnrichEnabled()) {
+    const catalog = await getShopDbContext(message, {
+      maxDocs: 5,
+      chatHistory: options?.chatHistory || [],
     }).catch((err) => {
-      console.warn("[Catalog] public chat enrich failed:", err?.message || err);
+      console.warn("[ShopDB] public chat enrich failed:", err?.message || err);
       return { contextTexts: [], sources: [] };
     });
     contextTexts = catalog.contextTexts || [];

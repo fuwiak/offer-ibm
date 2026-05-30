@@ -84,6 +84,15 @@ function shouldUseEli(message, language = null) {
 }
 
 function buildLegalSourcePriorityInstructions() {
+  const { shopDbEnrichEnabled } = require("../offerKp/enrich");
+  if (shopDbEnrichEnabled()) {
+    return [
+      "Правила источников:",
+      "- Единственный внешний источник номенклатуры и цен: блоки [Каталог · purolat.com] из MySQL.",
+      "- Не используй ELI, ГАРАНТ, веб-поиск и сторонние магазины.",
+    ].join("\n");
+  }
+
   const hasGarant = hasGarantToken();
   const hasWeb =
     !!process.env.YANDEX_SEARCH_API_KEY ||
@@ -147,10 +156,47 @@ async function collectExternalContexts({
   workspace,
   timeoutMs,
   language = null,
+  chatHistory = null,
 }) {
+  const shopEnabledFn = await loadOptional(
+    "../offerKp/enrich",
+    "shopDbEnrichEnabled"
+  );
+  if (shopEnabledFn?.()) {
+    const shopFn = await loadOptional("../offerKp/enrich", "getShopDbContext");
+    if (!shopFn) return [];
+    const shopMs =
+      parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 15000;
+    const effectiveTimeout =
+      timeoutMs ?? Math.min(120000, Math.max(8000, shopMs + 5000));
+    const result = await Promise.race([
+      shopFn(message, { workspace, maxDocs: 5, chatHistory }).then((r) => ({
+        kind: "shopdb",
+        contextTexts: r?.contextTexts || [],
+        sources: r?.sources || [],
+        flags: r?.flags,
+      })),
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              kind: "shopdb",
+              contextTexts: [],
+              sources: [],
+              flags: { shopDbTimeout: true },
+            }),
+          effectiveTimeout
+        )
+      ),
+    ]).catch((err) => {
+      console.warn("[ShopDB] enrich failed:", err?.message || err);
+      return { kind: "shopdb", contextTexts: [], sources: [] };
+    });
+    return [result];
+  }
+
   const effectiveTimeout = timeoutMs ?? defaultEnrichTimeoutMs();
 
-  // Wraps an enricher in a timeout race + error guard, returning a shaped result.
   const runEnrichTask = (kind, fn, fnOptions = {}) =>
     Promise.race([
       fn(message, { workspace, ...fnOptions }).then((result) => ({
@@ -180,31 +226,19 @@ async function collectExternalContexts({
   const addTask = (kind, fn, fnOptions = {}) =>
     tasks.push(runEnrichTask(kind, fn, fnOptions));
 
-  // Dla języka polskiego pierwotnym źródłem prawnym jest ELI API
-  // (api.sejm.gov.pl) — zastępuje ГАРАНТ oraz rosyjsko-języczne wyszukiwarki.
-  // Jawny język interfejsu (language) ma pierwszeństwo przed autodetekcją.
   const usePolishEli = shouldUseEli(message, language);
 
   if (usePolishEli) {
     const fn = await loadOptional("../eli/enrich", "getEliContext");
     if (fn) addTask("eli", fn, { maxDocs: 5 });
-  } else {
-    const shopFn = await loadOptional("../offerKp/enrich", "getShopDbContext");
-    const shopEnabledFn = await loadOptional(
-      "../offerKp/enrich",
-      "shopDbEnrichEnabled"
-    );
-    if (shopFn && shopEnabledFn?.()) {
-      addTask("shopdb", shopFn, { maxDocs: 5 });
-    } else if (hasGarantToken()) {
-      const fn = await loadOptional("../garant/enrich", "getGarantContext");
-      if (fn)
-        addTask("garant", fn, {
-          maxDocs: 5,
-          includeSutyazhnik: true,
-          sutyazhnikCount: 5,
-        });
-    }
+  } else if (hasGarantToken()) {
+    const fn = await loadOptional("../garant/enrich", "getGarantContext");
+    if (fn)
+      addTask("garant", fn, {
+        maxDocs: 5,
+        includeSutyazhnik: true,
+        sutyazhnikCount: 5,
+      });
     if (process.env.YANDEX_SEARCH_API_KEY) {
       const fn = await loadOptional(
         "../yandexSearch/enrich",
@@ -223,22 +257,13 @@ async function collectExternalContexts({
 
   const results = tasks.length ? await Promise.all(tasks) : [];
 
-  // ── SearXNG fallback: run ONLY when the primary legal source returned no
-  // documents (ELI dla PL, w przeciwnym razie ГАРАНТ). ───────────────────────
   if (hasSearxngFallback()) {
-    const primaryKind = usePolishEli
-      ? "eli"
-      : results.some((r) => r.kind === "shopdb")
-        ? "shopdb"
-        : "garant";
+    const primaryKind = usePolishEli ? "eli" : "garant";
     const primary = results.find((r) => r.kind === primaryKind);
     const primaryHasData = (primary?.contextTexts?.length || 0) > 0;
     if (!primaryHasData) {
       const fn = await loadOptional("../searxng/enrich", "getSearxngContext");
       if (fn) {
-        console.log(
-          "[SearXNG] ГАРАНТ без результатов — запускаем резервный веб-поиск."
-        );
         results.push(await runEnrichTask("searxng", fn, { maxResults: 5 }));
       }
     }
