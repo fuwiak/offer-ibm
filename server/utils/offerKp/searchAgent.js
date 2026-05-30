@@ -5,6 +5,7 @@
  */
 
 const { getLLMProvider } = require("../helpers");
+const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
 const { query } = require("./db/client");
 const {
@@ -399,7 +400,7 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
     }
     return picked;
   } catch (err) {
-    console.warn("[ShopDB Agent] LLM pick failed:", err?.message || err);
+    shopDbLog.warn("LLM pick failed", { error: err?.message || String(err) });
     return [];
   }
 }
@@ -465,8 +466,17 @@ async function runShopDbSearchAgent({
   let products = [...existingProducts];
 
   if (!needsSearchAgentFallback(products, searchText, parsed)) {
+    shopDbLog.skip("search agent not needed", {
+      existing: products.length,
+      strongMatch: hasStrongMatch(products, searchText, parsed),
+    });
     return { products, strategies };
   }
+
+  shopDbLog.agentRun({
+    existing: products.length,
+    searchTextLen: String(searchText || "").length,
+  });
 
   const fuzzyHits = await searchByFuzzyRegex(searchText, parsed, limit * 2);
   if (fuzzyHits.length) {

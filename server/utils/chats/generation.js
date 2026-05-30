@@ -186,7 +186,8 @@ async function collectExternalContexts({
         )
       ),
     ]).catch((err) => {
-      console.warn("[ShopDB] enrich failed:", err?.message || err);
+      const shopDbLog = require("../offerKp/shopDbLog");
+      shopDbLog.enrichError(err, { phase: "collectExternalContexts" });
       return { kind: "shopdb", contextTexts: [], sources: [] };
     });
     return [result];

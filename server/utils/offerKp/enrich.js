@@ -8,6 +8,7 @@ const {
   shopDbSearchAgentEnabled,
   runShopDbSearchAgent,
 } = require("./searchAgent");
+const shopDbLog = require("./shopDbLog");
 const {
   TABLES,
   ENRICH_TABLES,
@@ -759,6 +760,10 @@ async function getShopDbContext(message, options = {}) {
   const maxDocs = Math.min(10, Math.max(1, parseInt(options.maxDocs, 10) || 5));
 
   if (!shopDbEnrichEnabled()) {
+    shopDbLog.skip("enrich disabled", {
+      configured: isShopDbConfigured(),
+      SHOP_DB_ENRICH: process.env.SHOP_DB_ENRICH || "(unset)",
+    });
     return {
       contextTexts: [],
       sources: [],
@@ -767,6 +772,7 @@ async function getShopDbContext(message, options = {}) {
   }
 
   if (!message || typeof message !== "string" || !message.trim()) {
+    shopDbLog.skip("enrich empty message");
     return {
       contextTexts: [],
       sources: [],
@@ -788,12 +794,13 @@ async function getShopDbContext(message, options = {}) {
     const searchTerms =
       terms.length > 0 ? terms : [String(searchText).trim().slice(0, 120)];
 
-    console.log("[ShopDB] enrich start", {
+    shopDbLog.enrichStart({
       messageLen: message.length,
       searchTextLen: searchText.length,
       terms: searchTerms,
       parsed,
       maxDocs,
+      searchAgent: shopDbSearchAgentEnabled(),
     });
 
     let { products: rawMerged, tablesUsed: searchTables } =
@@ -808,6 +815,13 @@ async function getShopDbContext(message, options = {}) {
         limit: maxDocs * 3,
         workspace: options.workspace || null,
       });
+      if (agentResult.strategies?.length) {
+        shopDbLog.agentDone({
+          strategies: agentResult.strategies,
+          products: agentResult.products.length,
+          before: rawMerged.length,
+        });
+      }
       if (agentResult.products.length) {
         rawMerged = agentResult.products;
         agentStrategies = agentResult.strategies || [];
@@ -873,10 +887,13 @@ async function getShopDbContext(message, options = {}) {
       ...agentStrategies,
     ];
 
-    console.log("[ShopDB] enrich done", {
+    shopDbLog.enrichDone({
       hits: rawMerged.length,
       selected: ranked.length,
       tables: shopDbTablesUsed,
+      strategies: shopDbMatchStrategies,
+      productIds: ranked.map((p) => p.id),
+      titles: sources.map((s) => s.title),
     });
 
     return {
@@ -897,9 +914,7 @@ async function getShopDbContext(message, options = {}) {
     return await Promise.race([runEnrich(), timeoutPromise]);
   } catch (e) {
     if (e?.message === "SHOP_DB_TIMEOUT") {
-      console.warn("[ShopDB] enrich timeout", {
-        timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
-      });
+      shopDbLog.enrichTimeout({ timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS });
       return {
         contextTexts: [],
         sources: [],
@@ -910,7 +925,7 @@ async function getShopDbContext(message, options = {}) {
         },
       };
     }
-    console.warn("[ShopDB] enrich error:", e?.message || e);
+    shopDbLog.enrichError(e);
     return {
       contextTexts: [],
       sources: [],

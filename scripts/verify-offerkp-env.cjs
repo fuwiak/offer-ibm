@@ -1,38 +1,48 @@
 #!/usr/bin/env node
 "use strict";
 
+const fs = require("fs");
 const path = require("path");
 
 process.chdir(path.resolve(__dirname, "../server"));
 const { loadEnv } = require("../server/config/loadEnv");
 loadEnv();
 
+const storageDir = process.env.STORAGE_DIR || path.join(process.cwd(), "storage");
+for (const sub of ["", "models", "documents", "vector-cache"]) {
+  fs.mkdirSync(path.join(storageDir, sub), { recursive: true });
+}
+
 const { isShopDbConfigured, query } = require("../server/utils/offerKp/db/client");
 const enrich = require("../server/utils/offerKp/enrich");
 const agent = require("../server/utils/offerKp/searchAgent");
+const shopDbLog = require("../server/utils/offerKp/shopDbLog");
 const {
   resolveOpenRouterApiKey,
 } = require("../server/utils/lawyerRevizorro/openRouterEnv");
+
+const SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
+const SAMPLE_QUERY_FALLBACK = "болт DIN 933 M12";
 
 const results = [];
 
 function ok(name, detail = "") {
   results.push({ ok: true, name, detail });
-  console.log(`✓ ${name}${detail ? `: ${detail}` : ""}`);
+  shopDbLog.testPass(name, detail);
 }
 
 function fail(name, detail = "") {
   results.push({ ok: false, name, detail });
-  console.error(`✗ ${name}${detail ? `: ${detail}` : ""}`);
+  shopDbLog.testFail(name, detail);
 }
 
 function warn(name, detail = "") {
   results.push({ ok: true, name, detail, warn: true });
-  console.log(`! ${name}${detail ? `: ${detail}` : ""}`);
+  shopDbLog.testWarn(name, detail);
 }
 
 (async () => {
-  console.log("OfferKP env verification\n");
+  shopDbLog.testBanner("OfferKP DB enrich verification");
 
   if (process.env.LLM_PROVIDER === "openrouter") ok("LLM_PROVIDER", "openrouter");
   else fail("LLM_PROVIDER", process.env.LLM_PROVIDER || "(unset)");
@@ -87,38 +97,91 @@ function warn(name, detail = "") {
     process.exit(1);
   }
 
-  try {
-    const ctx = await enrich.getShopDbContext(
-      "Штанга DIN 975 M36x2000 4.8 оцинк",
-      { maxDocs: 1 }
-    );
-    const count = ctx.flags?.shopDbDocCount || 0;
-    if (count > 0) {
-      ok("Catalog enrich", `${count} product block(s)`);
-    } else {
-      fail("Catalog enrich", "no products returned");
-    }
-  } catch (e) {
-    fail("Catalog enrich", e.message);
+  await runEnrichTest(SAMPLE_QUERY, "primary enrich");
+
+  if (results.some((r) => r.name === "primary enrich" && !r.ok)) {
+    await runEnrichTest(SAMPLE_QUERY_FALLBACK, "fallback enrich query");
+  }
+
+  if (agent.shopDbSearchAgentEnabled()) {
+    await runSearchAgentTest();
   }
 
   printSummary();
   process.exit(results.some((r) => !r.ok) ? 1 : 0);
 })().catch((e) => {
-  console.error(e);
+  shopDbLog.error("verify script crashed", { error: e.message, stack: e.stack });
   process.exit(1);
 });
+
+async function runEnrichTest(message, testName) {
+  const t0 = Date.now();
+  try {
+    const ctx = await enrich.getShopDbContext(message, { maxDocs: 2 });
+    const ms = Date.now() - t0;
+    const flags = ctx.flags || {};
+    const count = flags.shopDbDocCount || 0;
+    const titles = (ctx.sources || []).map((s) => s.title).join(" | ");
+
+    if (flags.shopDbTimeout) {
+      fail(testName, `timeout after ${ms}ms`);
+      return;
+    }
+    if (flags.shopDbError) {
+      fail(testName, flags.shopDbMessage || "shopDbError");
+      return;
+    }
+    if (count > 0) {
+      ok(testName, `${count} block(s) in ${ms}ms — ${titles}`);
+      shopDbLog.info("enrich flags", {
+        hits: flags.shopDbSearchHitCount,
+        tables: flags.shopDbTablesUsed,
+        strategies: flags.shopDbMatchStrategies,
+      });
+    } else {
+      fail(testName, `0 products in ${ms}ms (hits=${flags.shopDbSearchHitCount ?? 0})`);
+    }
+  } catch (e) {
+    fail(testName, e.message);
+  }
+}
+
+async function runSearchAgentTest() {
+  const parsed = agent.parseExtendedHardwareQuery(SAMPLE_QUERY);
+  const needs = agent.needsSearchAgentFallback([], SAMPLE_QUERY, parsed);
+  ok("search agent needs fallback", needs ? "yes for empty hits" : "no");
+
+  try {
+    const { products, strategies } = await agent.runShopDbSearchAgent({
+      searchText: SAMPLE_QUERY,
+      parsed,
+      existingProducts: [],
+      limit: 3,
+    });
+    if (products.length > 0) {
+      ok(
+        "search agent run",
+        `${products.length} products, strategies: ${(strategies || []).join(", ") || "—"}`
+      );
+    } else {
+      warn("search agent run", "0 products (regex/LLM miss)");
+    }
+  } catch (e) {
+    fail("search agent run", e.message);
+  }
+}
 
 function printSummary() {
   const failed = results.filter((r) => !r.ok);
   const warned = results.filter((r) => r.warn);
-  console.log("");
+  const passed = results.filter((r) => r.ok && !r.warn).length;
+  shopDbLog.testSummary({
+    passed,
+    failed: failed.length,
+    warned: warned.length,
+  });
   if (failed.length) {
-    console.log(`Failed: ${failed.length}`);
-  } else {
-    console.log("All required checks passed.");
-  }
-  if (warned.length) {
-    console.log(`Warnings: ${warned.length}`);
+    console.log("Failed checks:");
+    for (const r of failed) console.log(`  - ${r.name}: ${r.detail}`);
   }
 }

@@ -15,7 +15,8 @@
     "lint": "eslint --fix .",
     "lint:check": "eslint .",
     "swagger": "node ./swagger/init.js",
-    "verify:offerkp-env": "node ../scripts/verify-offerkp-env.cjs"
+    "verify:offerkp-env": "node ../scripts/verify-offerkp-env.cjs",
+    "test:shopdb-enrich": "node ../scripts/verify-offerkp-env.cjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
