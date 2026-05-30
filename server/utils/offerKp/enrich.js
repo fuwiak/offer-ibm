@@ -88,7 +88,75 @@ function htmlToPlainText(html) {
     .trim();
 }
 
+function normalizeForMatch(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/×/g, "x")
+    .replace(/\s+/g, " ")
+    .replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
+    .trim();
+}
+
+/** Ключевые слова типа изделия (корни для поиска в названии). */
+const PRODUCT_TYPE_ROOTS = {
+  штанга: ["штанг", "sztyc", "stud"],
+  болт: ["болт", "bolt"],
+  гайка: ["гайк", "nut"],
+  винт: ["винт", "screw"],
+  штифт: ["штифт", "pin"],
+  шайба: ["шайб", "washer"],
+  анкер: ["анкер", "anchor"],
+};
+
+/**
+ * Разбор технического запроса крепежа.
+ * @param {string} message
+ */
+function parseHardwareQuery(message) {
+  const raw = String(message || "");
+  const lower = raw.toLowerCase();
+  const normalized = normalizeForMatch(raw);
+
+  const dinNumbers = [];
+  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,4})\b/gi)) {
+    if (!dinNumbers.includes(m[1])) dinNumbers.push(m[1]);
+  }
+  for (const m of raw.matchAll(/\bgost\s*[- ]?\s*(\d{4,5})/gi)) {
+    const g = m[1];
+    if (!dinNumbers.includes(g)) dinNumbers.push(g);
+  }
+
+  let thread = null;
+  const threadMatch =
+    normalized.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i) ||
+    lower.match(/\bm\s*(\d+)\s*[x×]\s*(\d+)/i);
+  if (threadMatch) {
+    thread = { size: threadMatch[1], length: threadMatch[2] };
+  }
+
+  let strengthClass = null;
+  const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
+  if (strengthMatch) strengthClass = strengthMatch[1];
+
+  const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;
+
+  const productTypes = [];
+  for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
+    if (roots.some((r) => lower.includes(r))) productTypes.push(type);
+  }
+
+  return {
+    dinNumbers,
+    thread,
+    strengthClass,
+    coating,
+    productTypes,
+    normalized,
+  };
+}
+
 function extractSearchTerms(message) {
+  const parsed = parseHardwareQuery(message);
   const words = String(message || "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s./-]/gu, " ")
@@ -96,15 +164,106 @@ function extractSearchTerms(message) {
     .map((w) => w.replace(/^-+|-+$/g, ""))
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
 
+  const phrases = [];
+  for (const din of parsed.dinNumbers) {
+    phrases.push(`din ${din}`);
+    phrases.push(din);
+  }
+  if (parsed.thread) {
+    phrases.push(`m ${parsed.thread.size}x${parsed.thread.length}`);
+    phrases.push(`m${parsed.thread.size}x${parsed.thread.length}`);
+  }
+  for (const type of parsed.productTypes) {
+    const roots = PRODUCT_TYPE_ROOTS[type] || [type];
+    phrases.push(roots[0]);
+  }
+
   const seen = new Set();
   const unique = [];
-  for (const w of words) {
-    if (seen.has(w)) continue;
-    seen.add(w);
+  for (const w of [...phrases, ...words]) {
+    const key = w.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
     unique.push(w);
   }
   unique.sort((a, b) => b.length - a.length);
-  return unique.slice(0, 6);
+  return unique.slice(0, 8);
+}
+
+function nameMatchesThread(nameNorm, thread) {
+  if (!thread) return false;
+  const re = new RegExp(`m\\s*${thread.size}\\s*x\\s*${thread.length}\\b`, "i");
+  return re.test(nameNorm);
+}
+
+function nameMatchesDin(nameNorm, dinNumbers) {
+  if (!dinNumbers.length) return false;
+  return dinNumbers.some(
+    (d) =>
+      nameNorm.includes(`din ${d}`) ||
+      nameNorm.includes(`din${d}`) ||
+      new RegExp(`\\bdin\\s*[- ]?\\s*${d}\\b`).test(nameNorm)
+  );
+}
+
+function scoreProduct(product, parsed, terms) {
+  const nameNorm = normalizeForMatch(product.name || "");
+  const hay = `${nameNorm} ${normalizeForMatch(product.summary || "")}`;
+  let score = 0;
+
+  if (parsed.dinNumbers.length) {
+    if (nameMatchesDin(nameNorm, parsed.dinNumbers)) score += 80;
+    else score -= 50;
+  }
+
+  if (parsed.productTypes.length) {
+    let typeHit = false;
+    for (const type of parsed.productTypes) {
+      const roots = PRODUCT_TYPE_ROOTS[type] || [];
+      if (roots.some((r) => hay.includes(r))) {
+        typeHit = true;
+        score += 40;
+      }
+    }
+    if (!typeHit) {
+      for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
+        if (parsed.productTypes.includes(type)) continue;
+        if (roots.some((r) => nameNorm.includes(r))) score -= 35;
+      }
+    }
+  }
+
+  if (parsed.thread) {
+    if (nameMatchesThread(nameNorm, parsed.thread)) score += 50;
+    else if (nameNorm.includes(`m ${parsed.thread.size}`)) score += 15;
+    else score -= 20;
+  }
+
+  if (parsed.strengthClass && hay.includes(parsed.strengthClass)) score += 15;
+
+  if (parsed.coating && /оцинк|zn|цинк/.test(hay)) score += 10;
+
+  for (const t of terms) {
+    const tl = t.toLowerCase();
+    if (tl.length < 4 && tl !== "975") continue;
+    if (tl === "din") continue;
+    if (hay.includes(normalizeForMatch(t))) score += 5;
+  }
+
+  score += (product.shopMatchSources?.length || 0) * 2;
+  score += Math.min(Number(product.total_sales) || 0, 5) * 0.1;
+
+  return score;
+}
+
+function rankProducts(products, terms, parsed) {
+  const scored = products.map((p, index) => ({
+    p,
+    score: scoreProduct(p, parsed, terms),
+    index,
+  }));
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map((s) => s.p);
 }
 
 function getShopBaseUrl() {
@@ -142,6 +301,66 @@ function buildTermClause(columns, terms, params) {
 
 function sqlLimit(limit) {
   return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
+}
+
+/** Точный поиск: AND по DIN, типу изделия, резьбе M×L */
+async function searchByStructuredQuery(parsed, limit) {
+  const conditions = [`p.${P.status} = 1`];
+  const params = [];
+
+  if (
+    !parsed.dinNumbers.length &&
+    !parsed.productTypes.length &&
+    !parsed.thread
+  ) {
+    return [];
+  }
+
+  if (parsed.dinNumbers.length) {
+    const dinParts = parsed.dinNumbers.map(() => `p.${P.name} LIKE ?`);
+    params.push(...parsed.dinNumbers.map((d) => `%${d}%`));
+    conditions.push(`(${dinParts.join(" OR ")})`);
+  }
+
+  if (parsed.productTypes.length) {
+    const typeParts = [];
+    for (const type of parsed.productTypes) {
+      for (const root of PRODUCT_TYPE_ROOTS[type] || [type]) {
+        typeParts.push(`p.${P.name} LIKE ?`);
+        params.push(`%${root}%`);
+      }
+    }
+    if (typeParts.length) conditions.push(`(${typeParts.join(" OR ")})`);
+  }
+
+  if (parsed.thread) {
+    const { size, length } = parsed.thread;
+    conditions.push(
+      `(p.${P.name} LIKE ? OR p.${P.name} LIKE ? OR p.${P.name} LIKE ? OR p.${P.name} LIKE ?)`
+    );
+    params.push(
+      `%M ${size}x${length}%`,
+      `%M ${size} x ${length}%`,
+      `%M${size}x${length}%`,
+      `%M ${size}×${length}%`
+    );
+  }
+
+  const sql = `
+    SELECT ${PRODUCT_SELECT}, 'structured' AS match_source
+    FROM ${TABLES.product} p
+    LEFT JOIN ${TABLES.category} c
+      ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY p.${P.totalSales} DESC, p.${P.id} DESC
+    LIMIT ${sqlLimit(limit)}
+  `;
+  const rows = await query(sql, params);
+  return rows.map((r) => ({
+    ...r,
+    _tables: [TABLES.product, TABLES.category],
+    _matchSources: ["structured"],
+  }));
 }
 
 /** Поиск по названию/описанию товара */
@@ -288,24 +507,27 @@ function mergeSearchHits(batches, maxProducts) {
     for (const t of p.shopDbTables) tablesUsed.add(t);
   }
 
+  const cap = maxProducts > 0 ? maxProducts : products.length;
   return {
-    products: products.slice(0, maxProducts),
+    products: cap > 0 ? products.slice(0, cap) : products,
     tablesUsed: [...tablesUsed].sort(),
   };
 }
 
-async function searchProductsExtended(terms, limit) {
-  const perStrategy = sqlLimit(limit * 2);
-  const [byProduct, bySku, byCategory, byIndex] = await Promise.all([
-    searchByProductFields(terms, perStrategy),
-    searchBySku(terms, perStrategy),
-    searchByCategory(terms, perStrategy),
-    searchBySearchIndex(terms, perStrategy),
-  ]);
+async function searchProductsExtended(terms, parsed, limit) {
+  const perStrategy = sqlLimit(Math.max(limit, 10));
+  const [byStructured, byProduct, bySku, byCategory, byIndex] =
+    await Promise.all([
+      searchByStructuredQuery(parsed, perStrategy),
+      searchByProductFields(terms, perStrategy),
+      searchBySku(terms, perStrategy),
+      searchByCategory(terms, perStrategy),
+      searchBySearchIndex(terms, perStrategy),
+    ]);
 
   return mergeSearchHits(
-    [byProduct, bySku, byCategory, byIndex],
-    sqlLimit(limit * 3)
+    [byStructured, byProduct, bySku, byCategory, byIndex],
+    0
   );
 }
 
@@ -342,20 +564,6 @@ const FEATURE_TABLES = [
   TABLES.feature,
   TABLES.featureValueVarchar,
 ];
-
-function rankProducts(products, terms) {
-  const scored = products.map((p, index) => {
-    const hay = `${p.name || ""} ${p.summary || ""}`.toLowerCase();
-    let hits = 0;
-    for (const t of terms) {
-      if (hay.includes(t)) hits++;
-    }
-    const sourceBonus = (p.shopMatchSources?.length || 0) * 0.25;
-    return { p, score: hits + sourceBonus, index };
-  });
-  scored.sort((a, b) => b.score - a.score || a.index - b.index);
-  return scored.map((s) => s.p);
-}
 
 function buildProductExcerpt(product, featureLines, baseUrl) {
   const name = product.name || `Товар #${product.id}`;
@@ -429,6 +637,7 @@ async function getShopDbContext(message, options = {}) {
   );
 
   const runEnrich = async () => {
+    const parsed = parseHardwareQuery(message);
     const terms = extractSearchTerms(message);
     const searchTerms =
       terms.length > 0 ? terms : [String(message).trim().slice(0, 80)];
@@ -436,12 +645,16 @@ async function getShopDbContext(message, options = {}) {
     console.log("[ShopDB] enrich start", {
       messageLen: message.length,
       terms: searchTerms,
+      parsed,
       maxDocs,
     });
 
     const { products: rawMerged, tablesUsed: searchTables } =
-      await searchProductsExtended(searchTerms, maxDocs * 3);
-    const ranked = rankProducts(rawMerged, searchTerms).slice(0, maxDocs);
+      await searchProductsExtended(searchTerms, parsed, maxDocs * 3);
+    const ranked = rankProducts(rawMerged, searchTerms, parsed).slice(
+      0,
+      maxDocs
+    );
     const featureMap = await loadFeatureLines(ranked.map((p) => p.id));
     const baseUrl = getShopBaseUrl();
 
@@ -483,6 +696,7 @@ async function getShopDbContext(message, options = {}) {
 
     const shopDbTablesUsed = [...allTablesUsed].sort();
     const shopDbMatchStrategies = [
+      "structured",
       "product_fields",
       "sku",
       "category",
