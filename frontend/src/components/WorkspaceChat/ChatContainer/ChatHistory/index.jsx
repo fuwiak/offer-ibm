@@ -317,7 +317,11 @@ function buildMessages({
     if (props.type === "rechartVisualize" && !!props.content) {
       acc.push(<Chartable key={props.uuid} props={props} />);
     } else if (props.type === "fileDownloadCard" && !!props.content) {
-      acc.push(<FileDownloadCard key={props.uuid} props={props} />);
+      acc.push(
+        <div key={props.uuid} className="flex flex-col gap-2 mt-4">
+          <FileDownloadCard props={props} />
+        </div>
+      );
     } else if (isLastBotReply && props.animate) {
       acc.push(
         <PromptReply
