@@ -26,6 +26,7 @@ const {
 const { LLM_CONTEXT_MARKERS } = require("../server/utils/offerKp/db/schema");
 const enrich = require("../server/utils/offerKp/enrich");
 const agent = require("../server/utils/offerKp/searchAgent");
+const productAgent = require("../server/utils/offerKp/productSearchAgent");
 const shopDbLog = require("../server/utils/offerKp/shopDbLog");
 const {
   validateLlmContextBlocks,
@@ -36,6 +37,9 @@ const {
 
 const SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
 const SAMPLE_QUERY_FALLBACK = "болт DIN 933 M12";
+const KEY_STEEL_QUERY =
+  "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880";
+const KEY_STEEL_SKU = "087870000300030";
 
 const results = [];
 
@@ -152,8 +156,23 @@ function warn(name, detail = "") {
     await runEnrichTest(SAMPLE_QUERY_FALLBACK, "fallback enrich query");
   }
 
+  await runEnrichTest(KEY_STEEL_QUERY, "key steel enrich");
+
+  if (productAgent.extractSkuCodes(KEY_STEEL_SKU).includes(KEY_STEEL_SKU)) {
+    ok("product agent SKU parse", KEY_STEEL_SKU);
+  } else {
+    fail("product agent SKU parse", KEY_STEEL_SKU);
+  }
+
+  await runEnrichTest(`Арт. ${KEY_STEEL_SKU}`, "exact SKU enrich", {
+    chatHistory: [
+      { role: "user", content: KEY_STEEL_QUERY },
+    ],
+  });
+
   if (agent.shopDbSearchAgentEnabled()) {
     await runSearchAgentTest();
+    await runProductAgentTest();
   }
 
   printSummary();
@@ -163,10 +182,13 @@ function warn(name, detail = "") {
   process.exit(1);
 });
 
-async function runEnrichTest(message, testName) {
+async function runEnrichTest(message, testName, options = {}) {
   const t0 = Date.now();
   try {
-    const ctx = await enrich.getShopDbContext(message, { maxDocs: 2 });
+    const ctx = await enrich.getShopDbContext(message, {
+      maxDocs: 2,
+      ...options,
+    });
     const ms = Date.now() - t0;
     const flags = ctx.flags || {};
     const count = flags.shopDbDocCount || 0;
@@ -201,6 +223,35 @@ async function runEnrichTest(message, testName) {
     }
   } catch (e) {
     fail(testName, e.message);
+  }
+}
+
+async function runProductAgentTest() {
+  try {
+    const { products, strategies } = await productAgent.runProductSearchAgent({
+      message: KEY_STEEL_QUERY,
+      limit: 3,
+    });
+    const top = products[0];
+    const okMatch =
+      top &&
+      String(top.name || "").includes("30x30") &&
+      String(top.name || "").toLowerCase().includes("шпон");
+    if (okMatch) {
+      ok(
+        "product search agent",
+        `#${top.id} ${(top.name || "").slice(0, 50)} · ${(strategies || []).join(", ")}`
+      );
+    } else {
+      fail(
+        "product search agent",
+        products.length
+          ? `top: ${(top?.name || "").slice(0, 60)}`
+          : "0 products"
+      );
+    }
+  } catch (e) {
+    fail("product search agent", e.message);
   }
 }
 
