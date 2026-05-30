@@ -5,6 +5,10 @@
 const { v4: uuidv4 } = require("uuid");
 const { query, isShopDbConfigured } = require("./db/client");
 const {
+  shopDbSearchAgentEnabled,
+  runShopDbSearchAgent,
+} = require("./searchAgent");
+const {
   TABLES,
   ENRICH_TABLES,
   PRODUCT_COLUMNS: P,
@@ -106,6 +110,11 @@ const PRODUCT_TYPE_ROOTS = {
   штифт: ["штифт", "pin"],
   шайба: ["шайб", "washer"],
   анкер: ["анкер", "anchor"],
+  шпоночная: ["шпоночн", "шпонк", "keyway", "key steel"],
+  сталь: ["сталь", "steel"],
+  полоса: ["полос", "strip", "flat bar"],
+  квадрат: ["квадрат", "square"],
+  круг: ["круг", "round", "bar", "rod"],
 };
 
 /**
@@ -124,6 +133,22 @@ function parseHardwareQuery(message) {
   for (const m of raw.matchAll(/\bgost\s*[- ]?\s*(\d{4,5})/gi)) {
     const g = m[1];
     if (!dinNumbers.includes(g)) dinNumbers.push(g);
+  }
+  for (const m of raw.matchAll(/\b(\d{4,5})\s*[-–]\s*\d{2}\b/g)) {
+    const g = m[1];
+    if (!dinNumbers.includes(g)) dinNumbers.push(g);
+  }
+
+  let dimensions = null;
+  const dimMatch =
+    normalized.match(/\b(\d+)\s*x\s*(\d+)\s*x\s*(\d+)\b/i) ||
+    normalized.match(/\b(\d+)\s*x\s*(\d+)\b/i);
+  if (dimMatch && !normalized.match(/\bm\s*\d+\s*x\s*\d+/i)) {
+    dimensions = {
+      a: dimMatch[1],
+      b: dimMatch[2],
+      c: dimMatch[3] || null,
+    };
   }
 
   let thread = null;
@@ -148,6 +173,7 @@ function parseHardwareQuery(message) {
   return {
     dinNumbers,
     thread,
+    dimensions,
     strengthClass,
     coating,
     productTypes,
@@ -172,6 +198,11 @@ function extractSearchTerms(message) {
   if (parsed.thread) {
     phrases.push(`m ${parsed.thread.size}x${parsed.thread.length}`);
     phrases.push(`m${parsed.thread.size}x${parsed.thread.length}`);
+  }
+  if (parsed.dimensions) {
+    const { a, b, c } = parsed.dimensions;
+    phrases.push(`${a}x${b}`);
+    if (c) phrases.push(`${a}x${b}x${c}`);
   }
   for (const type of parsed.productTypes) {
     const roots = PRODUCT_TYPE_ROOTS[type] || [type];
@@ -237,6 +268,17 @@ function scoreProduct(product, parsed, terms) {
     if (nameMatchesThread(nameNorm, parsed.thread)) score += 50;
     else if (nameNorm.includes(`m ${parsed.thread.size}`)) score += 15;
     else score -= 20;
+  }
+
+  if (parsed.dimensions) {
+    const { a, b, c } = parsed.dimensions;
+    const dimHay = hay.replace(/\s/g, "");
+    const dimPatterns = [c ? `${a}x${b}x${c}` : null, `${a}x${b}`].filter(
+      Boolean
+    );
+    if (dimPatterns.some((p) => dimHay.includes(p))) score += 45;
+    else if (dimHay.includes(a) && dimHay.includes(b)) score += 12;
+    else score -= 15;
   }
 
   if (parsed.strengthClass && hay.includes(parsed.strengthClass)) score += 15;
@@ -754,8 +796,24 @@ async function getShopDbContext(message, options = {}) {
       maxDocs,
     });
 
-    const { products: rawMerged, tablesUsed: searchTables } =
+    let { products: rawMerged, tablesUsed: searchTables } =
       await searchProductsExtended(searchTerms, parsed, maxDocs * 3);
+
+    let agentStrategies = [];
+    if (shopDbSearchAgentEnabled()) {
+      const agentResult = await runShopDbSearchAgent({
+        searchText,
+        parsed,
+        existingProducts: rawMerged,
+        limit: maxDocs * 3,
+        workspace: options.workspace || null,
+      });
+      if (agentResult.products.length) {
+        rawMerged = agentResult.products;
+        agentStrategies = agentResult.strategies || [];
+      }
+    }
+
     const ranked = rankProducts(rawMerged, searchTerms, parsed).slice(
       0,
       maxDocs
@@ -812,6 +870,7 @@ async function getShopDbContext(message, options = {}) {
       "sku",
       "category",
       "search_index",
+      ...agentStrategies,
     ];
 
     console.log("[ShopDB] enrich done", {
