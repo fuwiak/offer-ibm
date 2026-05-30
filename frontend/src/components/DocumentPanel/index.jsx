@@ -1,8 +1,18 @@
 import { useTranslation } from "react-i18next";
 import { useOfferKp } from "@/contexts/OfferKpContext";
-import { X, Plus, FilePdf, FileDoc, FileHtml, DownloadSimple } from "@phosphor-icons/react";
+import {
+  X,
+  Plus,
+  FilePdf,
+  FileDoc,
+  FileHtml,
+  DownloadSimple,
+  CaretLeft,
+  CaretRight,
+  NotePencil,
+} from "@phosphor-icons/react";
 import { saveAs } from "file-saver";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import Workspace from "@/models/workspace";
 import { safeJsonParse } from "@/utils/request";
@@ -154,6 +164,56 @@ export default function DocumentPanel() {
   const [memory, setMemory] = useState("");
   const [userMemoryNotes, setUserMemoryNotes] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [contextWidgetOpen, setContextWidgetOpen] = useState(false);
+
+  const PANEL_MIN_WIDTH = 280;
+  const PANEL_WIDTH_STORAGE_KEY = "offerKp_doc_panel_width";
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const stored = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY));
+    return Number.isFinite(stored) && stored >= PANEL_MIN_WIDTH ? stored : 380;
+  });
+  const panelWidthRef = useRef(panelWidth);
+  const resizingRef = useRef(false);
+
+  useEffect(() => {
+    panelWidthRef.current = panelWidth;
+  }, [panelWidth]);
+
+  useEffect(() => {
+    function onMove(e) {
+      if (!resizingRef.current) return;
+      e.preventDefault();
+      const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 360);
+      const next = Math.min(
+        maxWidth,
+        Math.max(PANEL_MIN_WIDTH, window.innerWidth - e.clientX)
+      );
+      setPanelWidth(next);
+    }
+    function onUp() {
+      if (!resizingRef.current) return;
+      resizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.localStorage.setItem(
+        PANEL_WIDTH_STORAGE_KEY,
+        String(Math.round(panelWidthRef.current))
+      );
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  function startResize(e) {
+    e.preventDefault();
+    resizingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }
 
   useEffect(() => {
     if (!activeWorkspaceSlug) {
@@ -219,62 +279,41 @@ export default function DocumentPanel() {
   const showQuotePreview =
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
   const showDocPreview = documentPanelView === "doc" && !!docPreview?.markdown;
+  const hasFilePreview = showPdfPreview || showDocPreview;
   const hasQuotePanel =
     showQuoteBuilder || showPdfPreview || showQuotePreview || showDocPreview;
   const shouldRenderPanel = isHome || showAdminThreadContext || hasQuotePanel;
 
   useEffect(() => {
+    if (hasFilePreview) setDocumentPanelOpen(true);
+  }, [hasFilePreview, setDocumentPanelOpen]);
+
+  useEffect(() => {
     if (!hasQuotePanel || showAdminThreadContext) return;
     if (documentPanelView === "pdf" && showPdfPreview) return;
+    if (documentPanelView === "doc" && showDocPreview) return;
     if (documentPanelView !== "docs") return;
-    setDocumentPanelView(showQuoteBuilder ? "builder" : "pdf");
+    if (showDocPreview) setDocumentPanelView("doc");
+    else if (showQuoteBuilder) setDocumentPanelView("builder");
+    else if (showPdfPreview) setDocumentPanelView("pdf");
   }, [
     hasQuotePanel,
     showAdminThreadContext,
     documentPanelView,
     showQuoteBuilder,
     showPdfPreview,
+    showDocPreview,
     setDocumentPanelView,
   ]);
 
-  if (!shouldRenderPanel) return null;
-
-  if (!documentPanelOpen) {
-    return (
-      <button
-        type="button"
-        onClick={() => setDocumentPanelOpen(true)}
-        className="offerKp-doc-panel-reopen hidden xl:flex"
-        aria-label={t("layout.conversationContext")}
-      >
-        {t("layout.conversationContext")}
-      </button>
-    );
+  function panelEyebrow() {
+    if (isHome) return t("home.examplePrompts.panelLabel");
+    if (hasFilePreview) return t("layout.documentPanel");
+    return t("layout.conversationContext");
   }
 
-  return (
-    <aside
-      className="offerKp-document-panel hidden xl:flex flex-col w-[340px] shrink-0 h-full"
-      aria-label={t("layout.conversationContext")}
-    >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0">
-        <span className="offerKp-document-panel__eyebrow">
-          {isHome
-            ? t("home.examplePrompts.panelLabel")
-            : t("layout.conversationContext")}
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setDocumentPanelOpen(false)}
-            className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer"
-            aria-label="Close panel"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-
+  const panelBody = (
+    <>
       {!isHome && activeWorkspaceSlug && (
         <div className="px-4 py-2 border-b border-theme-sidebar-border shrink-0">
           <CurrentWorkspaceIndicator
@@ -284,7 +323,7 @@ export default function DocumentPanel() {
         </div>
       )}
 
-      {(showQuoteBuilder || showPdfPreview || showQuotePreview) && (
+      {hasQuotePanel && (
         <div className="flex border-b border-theme-sidebar-border shrink-0">
           {showAdminThreadContext && (
             <button
@@ -295,13 +334,15 @@ export default function DocumentPanel() {
               {t("layout.conversationContext")}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setDocumentPanelView("builder")}
-            className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
-          >
-            {t("layout.tabQuote")}
-          </button>
+          {showQuoteBuilder && (
+            <button
+              type="button"
+              onClick={() => setDocumentPanelView("builder")}
+              className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
+            >
+              {t("layout.tabQuote")}
+            </button>
+          )}
           {quoteDraft?.preview && (
             <button
               type="button"
@@ -309,6 +350,16 @@ export default function DocumentPanel() {
               className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "quotePreview" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.tabPreview", { defaultValue: "Preview" })}
+            </button>
+          )}
+          {showDocPreview && (
+            <button
+              type="button"
+              onClick={() => setDocumentPanelView("doc")}
+              className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "doc" ? "offerKp-doc-tab--active" : ""}`}
+            >
+              <FileDoc size={13} weight="fill" />
+              {t("layout.tabDocument", { defaultValue: "Document" })}
             </button>
           )}
           {quotePdfUrl && (
@@ -330,7 +381,11 @@ export default function DocumentPanel() {
           onClose={() => {
             setDocPreview(null);
             setDocumentPanelView(
-              showAdminThreadContext ? "docs" : quoteDraft?.reference ? "builder" : "docs"
+              showAdminThreadContext
+                ? "docs"
+                : quoteDraft?.reference
+                  ? "builder"
+                  : "docs"
             );
           }}
         />
@@ -340,7 +395,11 @@ export default function DocumentPanel() {
           onClose={() => {
             setQuotePdfUrl(null);
             setDocumentPanelView(
-              showAdminThreadContext ? "docs" : quoteDraft?.reference ? "builder" : "docs"
+              showAdminThreadContext
+                ? "docs"
+                : quoteDraft?.reference
+                  ? "builder"
+                  : "docs"
             );
           }}
         />
@@ -378,11 +437,135 @@ export default function DocumentPanel() {
           />
         </div>
       ) : null}
+    </>
+  );
+
+  if (!shouldRenderPanel) return null;
+
+  const isPureAdminContext =
+    showAdminThreadContext && !isHome && !hasQuotePanel;
+
+  if (isPureAdminContext) {
+    return (
+      <div className="offerKp-context-widget fixed bottom-4 right-4 z-40 hidden xl:flex flex-col items-end gap-2">
+        {contextWidgetOpen && (
+          <div className="offerKp-context-widget__panel flex flex-col w-[360px] max-h-[70vh] rounded-xl border border-theme-sidebar-border bg-theme-bg-chat-input shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0">
+              <span className="offerKp-document-panel__eyebrow">
+                {t("layout.conversationContext")}
+              </span>
+              <button
+                type="button"
+                onClick={() => setContextWidgetOpen(false)}
+                className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer"
+                aria-label={t("layout.collapsePanel", { defaultValue: "Collapse" })}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {activeWorkspaceSlug && (
+              <div className="px-4 py-2 border-b border-theme-sidebar-border shrink-0">
+                <CurrentWorkspaceIndicator
+                  workspaceSlug={activeWorkspaceSlug}
+                  variant="compact"
+                />
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4 min-h-0">
+              <OfferKpThreadPanelSection
+                title={t("layout.memory")}
+                value={memory}
+                onSave={persistMemory}
+                placeholder={t("layout.memoryPlaceholder")}
+                showPrivateBadge
+                rows={10}
+              />
+              <OfferKpThreadPanelSection
+                title={t("layout.instructions")}
+                value={instructions}
+                onSave={persistInstructions}
+                placeholder={t("layout.instructionsPlaceholder")}
+                rows={6}
+              />
+              <ThreadFilesSection
+                workspaceSlug={activeWorkspaceSlug}
+                threadSlug={activeThreadSlug}
+                onAttach={handleAttach}
+              />
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setContextWidgetOpen((prev) => !prev)}
+          className="flex items-center gap-2 h-10 px-4 rounded-full border border-theme-sidebar-border bg-theme-bg-chat-input text-theme-text-primary shadow-lg hover:bg-theme-sidebar-item-hover transition-colors"
+          aria-expanded={contextWidgetOpen}
+          title={t("layout.conversationContext")}
+        >
+          {contextWidgetOpen ? <X size={16} /> : <NotePencil size={16} />}
+          <span className="text-xs font-medium">
+            {t("layout.conversationContext")}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <aside
+      className={`offerKp-document-panel relative hidden xl:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
+        documentPanelOpen ? "" : "w-12 items-center"
+      }`}
+      style={documentPanelOpen ? { width: panelWidth } : undefined}
+      aria-label={panelEyebrow()}
+    >
+      {documentPanelOpen && (
+        <div
+          className="offerKp-document-panel__resizer"
+          onMouseDown={startResize}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panel"
+          title="Drag to resize"
+        />
+      )}
+
+      {documentPanelOpen ? (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0 w-full">
+          <span className="offerKp-document-panel__eyebrow">{panelEyebrow()}</span>
+          <button
+            type="button"
+            onClick={() => setDocumentPanelOpen(false)}
+            className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer"
+            aria-label={t("layout.collapsePanel", { defaultValue: "Collapse panel" })}
+            aria-expanded={true}
+            title={t("layout.collapsePanel", { defaultValue: "Collapse panel" })}
+          >
+            <CaretRight size={18} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setDocumentPanelOpen(true)}
+          className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-2 mt-3 cursor-pointer"
+          aria-label={t("layout.expandPanel", { defaultValue: "Expand panel" })}
+          aria-expanded={false}
+          title={t("layout.expandPanel", { defaultValue: "Expand panel" })}
+        >
+          <CaretLeft size={18} />
+        </button>
+      )}
+
+      {documentPanelOpen && (
+        <div className="flex flex-col flex-1 min-h-0 w-full">{panelBody}</div>
+      )}
     </aside>
   );
 }
 
 function PdfPreviewPane({ quotePdfUrl, onClose }) {
+  const { t } = useTranslation("offerKp");
   const [exporting, setExporting] = useState(false);
 
   async function handleExport() {
@@ -401,7 +584,6 @@ function PdfPreviewPane({ quotePdfUrl, onClose }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary gap-2">
         <span
           className="text-xs text-theme-text-secondary truncate min-w-0"
@@ -410,7 +592,6 @@ function PdfPreviewPane({ quotePdfUrl, onClose }) {
           {quotePdfUrl?.filename || "document.pdf"}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Export as PDF button */}
           <button
             type="button"
             onClick={handleExport}
@@ -418,27 +599,39 @@ function PdfPreviewPane({ quotePdfUrl, onClose }) {
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <DownloadSimple size={13} weight="bold" />
-            {exporting ? "Exporting…" : "Export as PDF"}
+            {exporting ? "…" : t("layout.downloadPdf")}
           </button>
-          {/* Close */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-theme-text-secondary hover:text-theme-text-primary p-0.5 rounded"
-            title="Close preview"
-          >
-            <X size={14} />
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-theme-text-secondary hover:text-theme-text-primary p-0.5 rounded"
+              title="Close preview"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* PDF iframe */}
       <iframe
         src={quotePdfUrl?.url}
         title="PDF Preview"
         className="flex-1 w-full border-0 bg-white"
         style={{ minHeight: 0 }}
       />
+
+      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-t border-theme-sidebar-border bg-theme-bg-secondary">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary-button hover:opacity-90 text-white text-xs font-medium transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <DownloadSimple size={14} weight="bold" />
+          {exporting ? "…" : t("layout.downloadPdf")}
+        </button>
+      </div>
     </div>
   );
 }

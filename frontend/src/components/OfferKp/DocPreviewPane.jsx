@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import MarkdownIt from "markdown-it";
 import { saveAs } from "file-saver";
 import { X, DownloadSimple, CircleNotch } from "@phosphor-icons/react";
@@ -12,6 +13,7 @@ const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
  * Renders an agent-generated document (markdown) as a paper-like preview.
  */
 export default function DocPreviewPane({ docPreview, onClose }) {
+  const { t } = useTranslation("offerKp");
   const [downloading, setDownloading] = useState(false);
   const html = useMemo(
     () => md.render(docPreview?.markdown || ""),
@@ -72,7 +74,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
             ) : (
               <DownloadSimple size={12} weight="bold" />
             )}
-            Download
+            {t("layout.downloadDocx", { defaultValue: "Download DOCX" })}
           </button>
           {onClose && (
             <button
@@ -87,12 +89,28 @@ export default function DocPreviewPane({ docPreview, onClose }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#525659] p-3" translate="no">
+      <div className="flex-1 overflow-y-auto bg-[#525659] p-3 min-h-0" translate="no">
         <div
           className="offerKp-doc-preview notranslate"
           translate="no"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+      </div>
+
+      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-t border-theme-sidebar-border bg-theme-bg-secondary">
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary-button hover:opacity-90 text-white text-xs font-medium transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {downloading ? (
+            <CircleNotch size={14} weight="bold" className="animate-spin" />
+          ) : (
+            <DownloadSimple size={14} weight="bold" />
+          )}
+          {downloading ? "…" : t("layout.downloadDocx", { defaultValue: "Download DOCX" })}
+        </button>
       </div>
     </div>
   );

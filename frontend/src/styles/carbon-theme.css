@@ -968,6 +968,49 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   background: #262626;
 }
 
+.offerKp-document-panel__resizer {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+  background: transparent;
+}
+
+.offerKp-document-panel__resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.offerKp-document-panel__resizer:hover::after,
+.offerKp-document-panel__resizer:active::after {
+  background: var(--offerKp-profile-accent, var(--primary-button, #0f62fe));
+  width: 2px;
+}
+
+.offerKp-context-widget__panel {
+  animation: offerKp-panel-slide-up 0.2s ease-out;
+}
+
+@keyframes offerKp-panel-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .offerKp-document-panel__eyebrow {
   font-size: 12px;
   font-weight: 600;
