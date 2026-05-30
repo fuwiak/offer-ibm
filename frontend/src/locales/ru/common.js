@@ -128,7 +128,7 @@ const TRANSLATIONS = {
   },
   login: {
     "multi-user": {
-      welcome: "Добро пожаловать в",
+      welcome: "Добро пожаловать в OfferKP",
       "placeholder-username": "Имя пользователя",
       "placeholder-password": "Пароль",
       login: "Войти",
@@ -136,7 +136,7 @@ const TRANSLATIONS = {
       "forgot-pass": "Забыли пароль",
       reset: "Сбросить",
     },
-    "sign-in": "Войти в ваш {{appName}} аккаунт.",
+    "sign-in": "Войдите в {{appName}} для обработки заявок и формирования коммерческих предложений.",
     "password-reset": {
       title: "Сброс пароля",
       description:
