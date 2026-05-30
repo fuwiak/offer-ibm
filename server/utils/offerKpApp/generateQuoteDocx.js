@@ -14,44 +14,18 @@ const {
   AlignmentType,
   VerticalAlign,
 } = require("docx");
+const {
+  QUOTE_BRAND,
+  localeForCountry,
+  makeMoneyFormatter,
+} = require("./quoteBrand");
 
-// ── Brand palette (AV ELIA Glass Solutions) ─────────────────────────────
 const GREEN = "0C7D69";
 const GREEN_LIGHT = "E8F5F4";
 const NAVY = "1B2F5A";
 const GRAY = "475569";
 const WHITE = "FFFFFF";
 const BORDER = "D1DBDB";
-
-const SENDER = {
-  name: "AV ELIA GLASS SOLUTIONS",
-  address: "14 allée du Nautilus",
-  city: "80440 Glisy, France",
-  email: "info@alliaverre.com",
-  phone: "+33 3 22 47 47 55",
-  registration: "SIRET: 851 792 169 00012 — VAT: FR12 851792169",
-};
-
-/** Country → currency / VAT defaults so Polish quotes read in PLN @ 23%. */
-function localeForCountry(country = "") {
-  const c = String(country).trim().toLowerCase();
-  if (["poland", "polska", "pologne", "pl"].includes(c)) {
-    return { currency: "PLN", locale: "pl-PL", vatRate: 0.23 };
-  }
-  return { currency: "EUR", locale: "fr-FR", vatRate: 0.2 };
-}
-
-function makeMoneyFormatter(currency, locale) {
-  return (num) => {
-    const formatted = new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(num) || 0);
-    return formatted.replace(/[\u202f\u00a0]/g, " ");
-  };
-}
 
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
@@ -120,7 +94,7 @@ function cell(children, opts = {}) {
 }
 
 /**
- * Generate a professional AV ELIA quotation as an editable Word (.docx) file.
+ * Generate a purolat.com quotation as an editable Word (.docx) file.
  *
  * @param {object} quoteData
  * @param {string} quoteData.reference
@@ -136,9 +110,9 @@ function cell(children, opts = {}) {
  */
 async function generateQuoteDocx(quoteData) {
   const {
-    reference = "QT-0000",
+    reference = QUOTE_BRAND.defaultReference,
     customer = {},
-    contact = {},
+    contact = QUOTE_BRAND.defaultContact,
     lines = [],
     shipping = 0,
     subtotal = 0,
@@ -167,21 +141,17 @@ async function generateQuoteDocx(quoteData) {
         children: [
           cell(
             [
-              para(run(SENDER.name, { bold: true, size: 30, color: GREEN }), {
+              para(run(QUOTE_BRAND.companyName, { bold: true, size: 30, color: GREEN }), {
                 after: 20,
               }),
-              para(
-                run("Vacuum Insulating Glazing — Tempered", {
-                  size: 15,
-                  color: GRAY,
-                })
-              ),
+              para(run(QUOTE_BRAND.tagline, { size: 15, color: GRAY })),
+              para(run(QUOTE_BRAND.website, { size: 14, color: GRAY })),
             ],
             { width: 55, borders: NO_BORDERS }
           ),
           cell(
             [
-              para(run("QUOTATION", { bold: true, size: 40, color: NAVY }), {
+              para(run("OFFER", { bold: true, size: 40, color: NAVY }), {
                 after: 20,
                 alignment: AlignmentType.RIGHT,
               }),
@@ -218,11 +188,13 @@ async function generateQuoteDocx(quoteData) {
           cell(
             [
               para(run("FROM", { bold: true, size: 15, color: GREEN })),
-              para(run(SENDER.name, { bold: true, size: 19 })),
-              para(run(SENDER.address, { size: 17, color: GRAY })),
-              para(run(SENDER.city, { size: 17, color: GRAY })),
-              para(run(SENDER.email, { size: 17, color: GRAY })),
-              para(run(SENDER.phone, { size: 17, color: GRAY })),
+              para(run(QUOTE_BRAND.companyName, { bold: true, size: 19 })),
+              para(run(QUOTE_BRAND.address, { size: 17, color: GRAY })),
+              para(run(QUOTE_BRAND.website, { size: 17, color: GRAY })),
+              para(run(QUOTE_BRAND.email, { size: 17, color: GRAY })),
+              ...(QUOTE_BRAND.phone
+                ? [para(run(QUOTE_BRAND.phone, { size: 17, color: GRAY }))]
+                : []),
             ],
             { width: 50, borders: NO_BORDERS }
           ),
@@ -265,7 +237,7 @@ async function generateQuoteDocx(quoteData) {
         fill: headerFill,
         borders: NO_BORDERS,
       }),
-      cell(para(run("DIMENSIONS (MM)", { bold: true, size: 16, color: WHITE })), {
+      cell(para(run("D × L (MM)", { bold: true, size: 16, color: WHITE })), {
         width: 20,
         fill: headerFill,
         borders: NO_BORDERS,
@@ -297,7 +269,7 @@ async function generateQuoteDocx(quoteData) {
     return new TableRow({
       children: [
         cell(para(run(String(i + 1), { size: 17 })), { width: 6, fill }),
-        cell(para(run(ql.productName || ql.productId || "Glass", { size: 17 })), {
+        cell(para(run(ql.productName || ql.productId || "—", { size: 17 })), {
           width: 40,
           fill,
         }),
@@ -373,21 +345,17 @@ async function generateQuoteDocx(quoteData) {
     ...new Set(lines.map((l) => `${l.lengthMm} x ${l.heightMm}`)),
   ].join(" · ");
   const specs = [
-    ["Glass Type", productNames || "Clear Float Glass"],
-    ["Shape", "As per attached file"],
-    ["Dimensions", dimsList || "—"],
-    ["Quantity", `${totalQty} pieces`],
+    ["Catalog", QUOTE_BRAND.catalogLabel],
+    ["Products", productNames || "—"],
+    ["Dimensions (D × L)", dimsList || "—"],
+    ["Quantity", `${totalQty} pcs`],
     ["Delivery", customer.country ? `Delivery to ${customer.country}` : "To be confirmed"],
-    ["Lead Time", "4 - 6 weeks"],
   ];
 
   const terms = [
-    "Payment Terms: 50% deposit at order, balance before delivery.",
-    "This quotation is valid until the date mentioned above.",
-    `All prices are in ${currency}${vatRate ? " and include VAT where stated" : ""}.`,
-    "Any modification may affect the price and delivery time.",
-    "Goods travel at the risk of the buyer; transport claims within 48h of receipt.",
-    "24-month manufacturer warranty on vacuum insulating glazing.",
+    ...(QUOTE_BRAND.termsDocx || QUOTE_BRAND.terms),
+    `Prices in ${currency}. Valid until the date above.`,
+    QUOTE_BRAND.warrantyNoteDocx || QUOTE_BRAND.warrantyNote,
   ];
 
   function sectionHeading(text) {
@@ -399,8 +367,8 @@ async function generateQuoteDocx(quoteData) {
 
   const doc = new Document({
     title: `Quotation ${reference}`,
-    creator: SENDER.name,
-    description: `AV ELIA quotation ${reference}`,
+    creator: QUOTE_BRAND.companyName,
+    description: `purolat.com quotation ${reference}`,
     sections: [
       {
         properties: {
@@ -442,17 +410,17 @@ async function generateQuoteDocx(quoteData) {
           ),
           new Paragraph({ spacing: { before: 240 }, children: [] }),
           para(run("Best regards,", { bold: true, size: 18 })),
-          para(run(`${SENDER.name} Team`, { bold: true, size: 18, color: GREEN })),
+          para(run(`${QUOTE_BRAND.companyName}`, { bold: true, size: 18, color: GREEN })),
           new Paragraph({
             spacing: { before: 200 },
             children: [
-              run(`${SENDER.name} — ${SENDER.address}, ${SENDER.city}`, {
-                size: 14,
-                color: GRAY,
-              }),
+              run(
+                `${QUOTE_BRAND.companyName} — ${QUOTE_BRAND.website}`,
+                { size: 14, color: GRAY }
+              ),
             ],
           }),
-          para(run(SENDER.registration, { size: 13, color: GRAY })),
+          para(run(QUOTE_BRAND.catalogLabel, { size: 13, color: GRAY })),
         ],
       },
     ],

@@ -2,6 +2,7 @@ const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
 const path = require("path");
 const fs = require("fs/promises");
 const { v4: uuidv4 } = require("uuid");
+const { QUOTE_BRAND, localeForCountry } = require("./quoteBrand");
 
 const NAVY = rgb(0.08, 0.13, 0.28);
 const WHITE = rgb(1, 1, 1);
@@ -13,15 +14,6 @@ const NAVY_LIGHT = rgb(0.55, 0.62, 0.78);
 const AMBER = rgb(0.72, 0.38, 0.04);
 const AMBER_BG = rgb(1, 0.97, 0.9);
 const TABLE_HEADER_TEXT = rgb(0.82, 0.86, 0.93);
-
-function fmtEur(num) {
-  return (
-    new Intl.NumberFormat("fr-FR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num) + " €"
-  );
-}
 
 function fmtNum(num, decimals = 3) {
   return new Intl.NumberFormat("fr-FR", {
@@ -58,19 +50,19 @@ function storageDir() {
  */
 async function generateQuotePdf(quoteData) {
   const {
-    reference = "AV-0000",
+    reference = QUOTE_BRAND.defaultReference,
     customer = {},
-    contact = {
-      name: "Dorothée Benamar",
-      email: "dorothee.benamar@alliaverre.com",
-      phone: "+33 3 22 47 47 55",
-    },
+    contact = QUOTE_BRAND.defaultContact,
     lines = [],
     shipping = 0,
     subtotal = 0,
     total = 0,
     createdAt = new Date(),
   } = quoteData;
+
+  const { currency } = localeForCountry(customer.country);
+  // PDF standard fonts (WinAnsi) — ASCII-only amounts + ISO currency code
+  const fmtMoney = (num) => `${Number(num || 0).toFixed(2)} ${currency}`;
 
   const pdfDoc = await PDFDocument.create();
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -140,13 +132,16 @@ async function generateQuotePdf(quoteData) {
 
   // Company info — top right
   const companyX = R - 180;
-  txt("Alliaverre Glass Tech", companyX, y, { font: bold, size: 8, color: DARK });
-  txt("14 allée du Nautilus — 80440 Glisy, France", companyX, y - 11, { size: 7.5, color: GRAY });
-  txt("info@alliaverre.com", companyX, y - 21, { size: 7.5, color: GRAY });
+  txt(QUOTE_BRAND.companyNameLatin, companyX, y, { font: bold, size: 8, color: DARK });
+  txt(QUOTE_BRAND.address, companyX, y - 11, { size: 7.5, color: GRAY });
+  txt(QUOTE_BRAND.website, companyX, y - 21, { size: 7.5, color: GRAY });
+  if (QUOTE_BRAND.email) {
+    txt(QUOTE_BRAND.email, companyX, y - 31, { size: 7.5, color: GRAY });
+  }
 
-  // OFFER_KP logo — top left
-  txt("OFFER_KP", L, y, { font: bold, size: 24, color: NAVY });
-  txt("VACUUM INSULATING GLAZING — TEMPERED", L, y - 16, { size: 6, color: GRAY });
+  txt("PUROLAT", L, y, { font: bold, size: 22, color: NAVY });
+  txt(QUOTE_BRAND.taglineLatin.toUpperCase(), L, y - 14, { size: 6, color: GRAY });
+  txt(QUOTE_BRAND.catalogLabel, L, y - 22, { size: 6, color: GRAY });
 
   y -= 38;
   line(L, y, R, y, { thickness: 0.8, color: NAVY });
@@ -155,8 +150,8 @@ async function generateQuotePdf(quoteData) {
   // ── QUOTATION banner ──────────────────────────────────────────────
   const bannerH = 30;
   rect(L, y - bannerH, CW, bannerH, { color: NAVY });
-  txt("QUOTATION", L + 14, y - 19, { font: bold, size: 15, color: WHITE });
-  txt("offer-kp · Vacuum Insulating Glazing — Tempered", L + 14, y - 27, {
+  txt("COMMERCIAL OFFER", L + 14, y - 19, { font: bold, size: 14, color: WHITE });
+  txt(`${QUOTE_BRAND.catalogLabel} · ${QUOTE_BRAND.taglineLatin}`, L + 14, y - 27, {
     size: 7,
     color: TABLE_HEADER_TEXT,
   });
@@ -226,8 +221,8 @@ async function generateQuotePdf(quoteData) {
     const COL = tableColumns(L, R);
     txt("N°", COL.num + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
     txt("PRODUCT", COL.product + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("L × H (MM)", COL.dims + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("AREA (M²)", COL.area + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
+    txt("D × L (MM)", COL.dims + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
+    txt("SPEC", COL.area + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
     txt("QTY", COL.qty + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
     txt("UNIT PRICE", COL.unitPrice + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
     txt("TOTAL", COL.total + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
@@ -240,39 +235,20 @@ async function generateQuotePdf(quoteData) {
       const isEven = rowNum % 2 === 0;
       if (isEven) rect(L, y - rowH, CW, rowH, { color: LIGHT_GRAY });
 
-      const areaPerUnit = (ql.lengthMm / 1000) * (ql.heightMm / 1000);
-      const unitPriceEur = areaPerUnit * ql.unitPricePerM2;
+      const qty = ql.quantity || 1;
+      const unitPrice = ql.unitPrice ?? (qty > 0 ? (ql.lineTotal || 0) / qty : 0);
       const dims = `${ql.lengthMm} × ${ql.heightMm}`;
+      const spec = ql.spec || "DIN/GOST";
 
-      // Expand rows when qty > 1 to match image style
-      if (ql.quantity > 1) {
-        for (let i = 0; i < ql.quantity; i++) {
-          const ri = rowH;
-          if ((rowNum + i) % 2 === 0) rect(L, y - ri, CW, ri, { color: LIGHT_GRAY });
-          txt(String(rowNum + i), COL.num + 4, y - 10, { size: 8 });
-          txt(ql.productName || productName, COL.product + 2, y - 10, { size: 8 });
-          txt(dims, COL.dims + 2, y - 10, { size: 8 });
-          txt(fmtNum(areaPerUnit), COL.area + 2, y - 10, { size: 8 });
-          txt("1", COL.qty + 2, y - 10, { size: 8 });
-          rightAlign(fmtEur(unitPriceEur), COL.total - 2, y - 10, { size: 8 });
-          rightAlign(fmtEur(unitPriceEur), R - 4, y - 10, { size: 8 });
-          y -= ri;
-          if (y < 120) {
-            // TODO: add page break if needed
-          }
-        }
-        rowNum += ql.quantity;
-      } else {
-        txt(String(rowNum), COL.num + 4, y - 10, { size: 8 });
-        txt(ql.productName || productName, COL.product + 2, y - 10, { size: 8 });
-        txt(dims, COL.dims + 2, y - 10, { size: 8 });
-        txt(fmtNum(ql.surfaceM2 ?? areaPerUnit), COL.area + 2, y - 10, { size: 8 });
-        txt(String(ql.quantity), COL.qty + 2, y - 10, { size: 8 });
-        rightAlign(fmtEur(unitPriceEur), COL.total - 2, y - 10, { size: 8 });
-        rightAlign(fmtEur(ql.lineTotal), R - 4, y - 10, { size: 8 });
-        y -= rowH;
-        rowNum++;
-      }
+      txt(String(rowNum), COL.num + 4, y - 10, { size: 8 });
+      txt(ql.productName || productName, COL.product + 2, y - 10, { size: 8 });
+      txt(dims, COL.dims + 2, y - 10, { size: 8 });
+      txt(spec, COL.area + 2, y - 10, { size: 7 });
+      txt(String(qty), COL.qty + 2, y - 10, { size: 8 });
+      rightAlign(fmtMoney(unitPrice), COL.total - 2, y - 10, { size: 8 });
+      rightAlign(fmtMoney(ql.lineTotal), R - 4, y - 10, { size: 8 });
+      y -= rowH;
+      rowNum++;
     }
     y -= 8;
   }
@@ -284,7 +260,7 @@ async function generateQuotePdf(quoteData) {
   y -= 4;
 
   // Footnote annotations left
-  const footNoteLines = buildFootnotes(lines, groups);
+  const footNoteLines = buildFootnotes(lines);
   let fnY = y;
   for (const fn of footNoteLines) {
     txt(fn, L, fnY, { size: 7, color: GRAY });
@@ -293,16 +269,15 @@ async function generateQuotePdf(quoteData) {
 
   // Subtotal row
   txt("Subtotal excl. VAT", totalsX, y, { size: 8.5, color: GRAY });
-  rightAlign(fmtEur(subtotal), R - 4, y, { font: bold, size: 8.5 });
+  rightAlign(fmtMoney(subtotal), R - 4, y, { font: bold, size: 8.5 });
   y -= 13;
 
   // Shipping row
-  const shippingLabel =
-    customer.country && customer.country !== "France"
-      ? `Transport to ${customer.country}`
-      : "Transport / Livraison";
+  const shippingLabel = customer.country
+    ? `Delivery to ${customer.country}`
+    : "Delivery";
   txt(shippingLabel, totalsX, y, { size: 8.5, color: GRAY });
-  rightAlign(fmtEur(shipping), R - 4, y, { size: 8.5 });
+  rightAlign(fmtMoney(shipping), R - 4, y, { size: 8.5 });
   y -= 6;
 
   line(totalsX, y, R, y, { thickness: 0.5, color: NAVY });
@@ -311,7 +286,7 @@ async function generateQuotePdf(quoteData) {
   // TOTAL row
   rect(totalsX, y - 18, totalsW, 18, { color: NAVY });
   txt("TOTAL excl. VAT", totalsX + 8, y - 12, { font: bold, size: 9, color: WHITE });
-  rightAlign(fmtEur(total), R - 6, y - 12, { font: bold, size: 11, color: WHITE });
+  rightAlign(fmtMoney(total), R - 6, y - 12, { font: bold, size: 11, color: WHITE });
   y -= 28;
 
   // No VAT note
@@ -335,7 +310,7 @@ async function generateQuotePdf(quoteData) {
     borderWidth: 1,
     color: AMBER_BG,
   });
-  txt("⚠ IMPORTANT:", L + 8, y - 12, { font: bold, size: 8, color: AMBER });
+  txt("IMPORTANT:", L + 8, y - 12, { font: bold, size: 8, color: AMBER });
   txt(
     "Please carefully verify all dimensions and quantities in this document before confirming your order. Once the order is validated, the responsibility for dimensions and quantities lies with the customer.",
     L + 8,
@@ -362,12 +337,7 @@ async function generateQuotePdf(quoteData) {
   // ── Terms & Conditions Extract ────────────────────────────────────
   txt("General Terms & Conditions (Extract)", L, y, { font: bold, size: 8.5 });
   y -= 12;
-  const terms = [
-    "1. PRODUCT — Vacuum insulating glazing tempered offer-kp by LandVac. Ug = 0.4 W/m²·K. CSTB n° ESE 24 34149 · SIREN 851 792 169.",
-    "2. DIMENSIONS — Buyer is solely responsible for verifying all measurements before order confirmation.",
-    "3. DELIVERY & TRANSPORT — Goods travel at the risk of the buyer. Any transport claim must be filed with the carrier within 48h of receipt.",
-    "4. PAYMENT — 50% deposit at order, 50% balance before shipment. Late payment incurs a 10% penalty on unpaid amounts plus suspension of production and deliveries.",
-  ];
+  const terms = QUOTE_BRAND.terms;
   for (const t of terms) {
     txt(t, L, y, { size: 7, color: GRAY, maxWidth: CW });
     y -= 14;
@@ -376,12 +346,12 @@ async function generateQuotePdf(quoteData) {
 
   // ── Bottom footer bar ─────────────────────────────────────────────
   rect(L, y - 20, CW, 20, { color: NAVY });
-  const footerText = "ALLIAVERRE GLASS TECH  ·  Exclusive LandVac Distributor — France, Italy, Switzerland";
+  const footerText = QUOTE_BRAND.footerLine;
   const ftW = regular.widthOfTextAtSize(footerText, 7.5);
   txt(footerText, L + CW / 2 - ftW / 2, y - 13, { size: 7.5, color: TABLE_HEADER_TEXT });
   txt(
-    "offer-kp by LandVac  ·  Ug = 0.4 W/m²·K  ·  CSTB n° ESE 24 34149  ·  SIREN 851 792 169",
-    L + CW / 2 - regular.widthOfTextAtSize("offer-kp by LandVac  ·  Ug = 0.4 W/m²·K  ·  CSTB n° ESE 24 34149  ·  SIREN 851 792 169", 6.5) / 2,
+    QUOTE_BRAND.website,
+    L + CW / 2 - regular.widthOfTextAtSize(QUOTE_BRAND.website, 6.5) / 2,
     y - 21 + 4,
     { size: 6.5, color: NAVY_LIGHT }
   );
@@ -435,14 +405,15 @@ function groupLinesByProduct(lines) {
   return Array.from(map.values());
 }
 
-function buildFootnotes(lines, groups) {
+function buildFootnotes(lines) {
   const fns = [];
-  const totalArea = lines.reduce((s, l) => s + (l.surfaceM2 ?? 0), 0);
   const totalQty = lines.reduce((s, l) => s + (l.quantity || 1), 0);
   const productNames = [...new Set(lines.map((l) => l.productName || l.productId))].join(", ");
-  fns.push(`Total area: ${fmtNum(totalArea)} m² · ${totalQty} glazing units · ${productNames}`);
-  fns.push("Quote valid 30 days · Payment: 50% deposit, balance before shipment · Bank transfer");
-  fns.push("Prices EXW — Delivery to customer country included in transport flat rate");
+  fns.push(
+    `Catalog: ${QUOTE_BRAND.catalogLabel} · ${totalQty} pcs · ${productNames}`
+  );
+  fns.push("Offer valid 30 days · Prices per catalog at quote date");
+  fns.push(QUOTE_BRAND.warrantyNote);
   return fns;
 }
 

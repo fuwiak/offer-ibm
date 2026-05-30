@@ -10,9 +10,9 @@ export const QUOTE_STEPS = [
 ];
 
 export const EMPTY_QUOTE_LINE = {
-  productId: "one-8-3",
-  lengthMm: 1000,
-  heightMm: 1000,
+  productId: "din-975",
+  lengthMm: 36,
+  heightMm: 2000,
   quantity: 1,
 };
 
@@ -31,7 +31,7 @@ export const INITIAL_QUOTE_DRAFT = {
   reference: null,
   customer: { name: "", country: "" },
   priceMode: "public",
-  lines: [{ productId: "one-8-3", lengthMm: 1000, heightMm: 1000, quantity: 1 }],
+  lines: [{ productId: "din-975", lengthMm: 36, heightMm: 2000, quantity: 1 }],
   shipping: 0,
   preview: null,
 };

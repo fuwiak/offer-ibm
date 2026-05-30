@@ -67,7 +67,7 @@ export default function QuoteStepper() {
   function addLine() {
     updateLines([
       ...quoteDraft.lines,
-      { productId: "one-8-3", lengthMm: 1000, heightMm: 1000, quantity: 1 },
+      { productId: "din-975", lengthMm: 36, heightMm: 2000, quantity: 1 },
     ]);
   }
 
@@ -329,7 +329,9 @@ function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode 
 function DimensionsStep({ lines, setDim, addLine, removeLine }) {
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-white/40 light:text-slate-400">Enter dimensions in mm</p>
+      <p className="text-[10px] text-white/40 light:text-slate-400">
+        Diameter × length (mm) — purolat.com catalog
+      </p>
       {lines.map((line, i) => {
         const product = OFFER_KP_PRODUCTS.find((p) => p.id === line.productId);
         return (
@@ -346,8 +348,8 @@ function DimensionsStep({ lines, setDim, addLine, removeLine }) {
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { field: "lengthMm", label: "L (mm)" },
-                { field: "heightMm", label: "H (mm)" },
+                { field: "lengthMm", label: "D (mm)" },
+                { field: "heightMm", label: "L (mm)" },
                 { field: "quantity", label: "Qty" },
               ].map(({ field, label }) => (
                 <label key={field} className="block">
@@ -390,24 +392,24 @@ function PreviewStep({ preview, step, reference }) {
           <li key={i} className="bg-white/5 light:bg-slate-100 p-2">
             <div className="font-medium text-white/80 light:text-slate-800 text-[11px]">{line.productName}</div>
             <div className="text-[10px] text-white/50 light:text-slate-500 mt-0.5">
-              {line.lengthMm}×{line.heightMm} mm · ×{line.quantity} · {line.surfaceM2} m²
-              {line.surchargeMultiplier > 1 && ` · ×${line.surchargeMultiplier} surcharge`}
+              {line.lengthMm}×{line.heightMm} mm · ×{line.quantity} шт
+              {line.spec ? ` · ${line.spec}` : ""}
             </div>
             <div className="text-right font-mono text-[11px] text-white/70 light:text-slate-700 mt-1">
-              {line.lineTotal} €
+              {line.lineTotal}
             </div>
           </li>
         ))}
       </ul>
       <div className="border-t border-white/10 light:border-slate-200 pt-2 space-y-1 text-[10px] font-mono">
         <div className="flex justify-between text-white/50 light:text-slate-500">
-          <span>{t("quote.subtotal")}</span><span>{preview.subtotal} €</span>
+          <span>{t("quote.subtotal")}</span><span>{preview.subtotal}</span>
         </div>
         <div className="flex justify-between text-white/50 light:text-slate-500">
-          <span>{t("quote.shipping")}</span><span>{preview.shipping} €</span>
+          <span>{t("quote.shipping")}</span><span>{preview.shipping}</span>
         </div>
         <div className="flex justify-between font-semibold text-white light:text-slate-900">
-          <span>{t("quote.total")}</span><span>{preview.total} €</span>
+          <span>{t("quote.total")}</span><span>{preview.total}</span>
         </div>
       </div>
       {step >= 4 && (

@@ -4,26 +4,10 @@ import { FilePdf, FileDoc, CircleNotch } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
-
-/** Country → currency / VAT defaults (mirrors server generateQuoteDocx). */
-function localeForCountry(country = "") {
-  const c = String(country).trim().toLowerCase();
-  if (["poland", "polska", "pologne", "pl"].includes(c)) {
-    return { currency: "PLN", locale: "pl-PL", vatRate: 0.23 };
-  }
-  return { currency: "EUR", locale: "fr-FR", vatRate: 0.2 };
-}
-
-const SENDER = {
-  name: "AV ELIA GLASS SOLUTIONS",
-  address: "14 allée du Nautilus",
-  city: "80440 Glisy, France",
-  email: "info@alliaverre.com",
-  phone: "+33 3 22 47 47 55",
-};
+import { QUOTE_BRAND, localeForCountry } from "@/utils/offerKp/quoteBrand";
 
 function fmtDate(d) {
-  return new Date(d).toLocaleDateString("en-GB", {
+  return new Date(d).toLocaleDateString("ru-RU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -37,7 +21,7 @@ function addDays(d, days) {
 }
 
 /**
- * Rendered, paper-like preview of the current quotation draft.
+ * HTML-превью коммерческого предложения purolat.com.
  */
 export default function QuotePreview() {
   const { quoteDraft } = useOfferKp();
@@ -47,7 +31,7 @@ export default function QuotePreview() {
   if (!preview) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-theme-text-secondary">
-        Complete the quote steps to see a live document preview here.
+        Пройдите шаги конструктора, чтобы увидеть превью оферты purolat.com.
       </div>
     );
   }
@@ -112,8 +96,8 @@ export default function QuotePreview() {
       <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary">
         <span className="text-xs text-theme-text-secondary truncate min-w-0">
           {customer.name
-            ? `Quotation — ${customer.name}`
-            : `Quotation ${reference}`}
+            ? `Оферта — ${customer.name}`
+            : `Оферта ${reference}`}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -149,16 +133,15 @@ export default function QuotePreview() {
         <div className="offerKp-quote-doc notranslate" translate="no">
           <div className="offerKp-quote-doc__head">
             <div>
-              <div className="offerKp-quote-doc__brand">{SENDER.name}</div>
-              <div className="offerKp-quote-doc__brand-sub">
-                Vacuum Insulating Glazing — Tempered
-              </div>
+              <div className="offerKp-quote-doc__brand">{QUOTE_BRAND.companyName}</div>
+              <div className="offerKp-quote-doc__brand-sub">{QUOTE_BRAND.tagline}</div>
+              <div className="offerKp-quote-doc__brand-sub">{QUOTE_BRAND.website}</div>
             </div>
             <div className="offerKp-quote-doc__meta">
-              <div className="offerKp-quote-doc__title">QUOTATION</div>
-              <div>Quote No: {reference}</div>
-              <div>Date: {fmtDate(createdAt)}</div>
-              <div>Valid until: {fmtDate(addDays(createdAt, 30))}</div>
+              <div className="offerKp-quote-doc__title">КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</div>
+              <div>№ {reference}</div>
+              <div>Дата: {fmtDate(createdAt)}</div>
+              <div>Действительно до: {fmtDate(addDays(createdAt, 30))}</div>
             </div>
           </div>
 
@@ -166,15 +149,15 @@ export default function QuotePreview() {
 
           <div className="offerKp-quote-doc__parties">
             <div>
-              <div className="offerKp-quote-doc__label">FROM</div>
-              <div className="offerKp-quote-doc__strong">{SENDER.name}</div>
-              <div>{SENDER.address}</div>
-              <div>{SENDER.city}</div>
-              <div>{SENDER.email}</div>
-              <div>{SENDER.phone}</div>
+              <div className="offerKp-quote-doc__label">ПОСТАВЩИК</div>
+              <div className="offerKp-quote-doc__strong">{QUOTE_BRAND.companyName}</div>
+              <div>{QUOTE_BRAND.address}</div>
+              <div>{QUOTE_BRAND.website}</div>
+              {QUOTE_BRAND.email && <div>{QUOTE_BRAND.email}</div>}
+              {QUOTE_BRAND.phone && <div>{QUOTE_BRAND.phone}</div>}
             </div>
             <div>
-              <div className="offerKp-quote-doc__label">TO</div>
+              <div className="offerKp-quote-doc__label">ПОКУПАТЕЛЬ</div>
               <div className="offerKp-quote-doc__strong">
                 {customer.name || "—"}
               </div>
@@ -183,17 +166,17 @@ export default function QuotePreview() {
           </div>
 
           <div className="offerKp-quote-doc__label offerKp-quote-doc__section">
-            ITEMS
+            ПОЗИЦИИ КАТАЛОГА {QUOTE_BRAND.catalogLabel.toUpperCase()}
           </div>
           <table className="offerKp-quote-doc__table">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Description</th>
-                <th>Dimensions (mm)</th>
-                <th className="num">Qty</th>
-                <th className="num">Unit Price</th>
-                <th className="num">Total</th>
+                <th>Наименование</th>
+                <th>D × L (мм)</th>
+                <th className="num">Кол-во</th>
+                <th className="num">Цена/шт</th>
+                <th className="num">Сумма</th>
               </tr>
             </thead>
             <tbody>
@@ -207,7 +190,7 @@ export default function QuotePreview() {
                     <td>
                       {line.lengthMm} × {line.heightMm}
                     </td>
-                    <td className="num">{qty} pcs</td>
+                    <td className="num">{qty} шт</td>
                     <td className="num">{money(unit)}</td>
                     <td className="num strong">{money(line.lineTotal)}</td>
                   </tr>
@@ -218,36 +201,38 @@ export default function QuotePreview() {
 
           <div className="offerKp-quote-doc__totals">
             <div>
-              <span>Subtotal</span>
+              <span>Подытог</span>
               <span>{money(preview.subtotal)}</span>
             </div>
             <div>
-              <span>Delivery</span>
+              <span>Доставка</span>
               <span>{money(preview.shipping)}</span>
             </div>
             <div>
-              <span>VAT ({Math.round(vatRate * 100)}%)</span>
+              <span>НДС ({Math.round(vatRate * 100)}%)</span>
               <span>{money(vat)}</span>
             </div>
             <div className="offerKp-quote-doc__grand">
-              <span>Total (incl. VAT)</span>
+              <span>Итого с НДС</span>
               <span>{money(grandTotal)}</span>
             </div>
           </div>
 
           <div className="offerKp-quote-doc__label offerKp-quote-doc__section">
-            TERMS &amp; CONDITIONS
+            УСЛОВИЯ
           </div>
           <ul className="offerKp-quote-doc__terms">
-            <li>Payment Terms: 50% deposit at order, balance before delivery.</li>
-            <li>This quotation is valid until the date mentioned above.</li>
-            <li>All prices are in {currency}.</li>
-            <li>24-month manufacturer warranty on vacuum insulating glazing.</li>
+            <li>Оплата и отгрузка — по согласованию с менеджером purolat.com.</li>
+            <li>Оферта действительна 30 дней с даты документа.</li>
+            <li>Цены в {currency}; позиции из каталога {QUOTE_BRAND.catalogLabel}.</li>
+            <li>{QUOTE_BRAND.warrantyNote || "Сертифицированная продукция."}</li>
           </ul>
 
           <div className="offerKp-quote-doc__sign">
-            <div className="offerKp-quote-doc__strong">Best regards,</div>
-            <div className="offerKp-quote-doc__brand-sub">{SENDER.name} Team</div>
+            <div className="offerKp-quote-doc__strong">С уважением,</div>
+            <div className="offerKp-quote-doc__brand-sub">
+              {QUOTE_BRAND.companyName}
+            </div>
           </div>
         </div>
       </div>
