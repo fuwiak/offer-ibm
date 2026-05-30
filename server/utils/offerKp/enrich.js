@@ -258,8 +258,12 @@ function mergeSearchHits(batches, maxProducts) {
       const sources = row._matchSources || [];
 
       if (!byId.has(id)) {
-        const { _tables, _matchSources, match_source: _matchSource, ...product } =
-          row;
+        const {
+          _tables,
+          _matchSources,
+          match_source: _matchSource,
+          ...product
+        } = row;
         byId.set(id, {
           ...product,
           _tables: new Set(tables),
