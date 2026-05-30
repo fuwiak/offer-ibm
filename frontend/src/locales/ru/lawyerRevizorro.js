@@ -1,8 +1,10 @@
 const TRANSLATIONS = {
   brand: {
-    name: "OfferKP",
+    name: "Offer KP",
+    subtitle: "Формирование КП",
     tagline: "Автоматизированная система формирования коммерческих предложений",
     distributor: "ИИ-платформа для обработки заявок на крепёж и выпуска КП.",
+    newConversation: "Новая беседа",
   },
   nav: {
     capabilities: "Возможности",

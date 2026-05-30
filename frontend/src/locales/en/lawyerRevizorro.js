@@ -1,8 +1,10 @@
 const TRANSLATIONS = {
   brand: {
-    name: "AI Lawyer & Auditor Assistant",
-    tagline: "Legal and audit intelligence platform",
-    distributor: "AI assistant platform for legal, compliance, and audit workflows.",
+    name: "Offer KP",
+    subtitle: "Commercial proposals",
+    tagline: "Automated commercial proposal generation for fasteners",
+    distributor: "AI platform for processing fastener requests and generating proposals.",
+    newConversation: "New conversation",
   },
   nav: {
     capabilities: "Capabilities",

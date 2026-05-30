@@ -18,8 +18,8 @@ export default function LawyerRevizorroAdminSidebar() {
   return (
     <aside className="lawyerRevizorro-suite-admin-sidebar">
       <Link to={paths.home()} className="block mb-4 no-underline">
-        <div className="lawyerRevizorro-brand__title">lawyer-revizorro</div>
-        <div className="lawyerRevizorro-brand__subtitle">Enterprise Suite</div>
+        <div className="lawyerRevizorro-brand__title">{t("brand.name")}</div>
+        <div className="lawyerRevizorro-brand__subtitle">{t("brand.subtitle")}</div>
       </Link>
 
       <button
