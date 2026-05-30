@@ -2,12 +2,12 @@ const { reqBody } = require("../utils/http");
 const { PartnerRequest } = require("../models/partnerRequest");
 const { OfferKpQuote } = require("../models/offerKpQuote");
 const { Workspace } = require("../models/workspace");
-const { calculateQuote, OFFER_KP_PRODUCTS } = require("../utils/offerKp/pricing");
+const { calculateQuote, OFFER_KP_PRODUCTS } = require("../utils/offerKpApp/pricing");
 const { offerKpRoleGuard } = require("../utils/middleware/offerKpRoleGuard");
 const { validatedRequest } = require("../utils/middleware/validatedRequest");
 const { streamOfferKpPublicChat } = require("../utils/chats/offerKpPublic");
 const { OfferKpNotifications } = require("../models/offerKpNotifications");
-const { buildDashboardStats } = require("../utils/offerKp/buildDashboardStats");
+const { buildDashboardStats } = require("../utils/offerKpApp/buildDashboardStats");
 
 const NOTIFICATIONS_POLL_MS = Number(
   process.env.OFFER_KP_NOTIFICATIONS_POLL_MS || 20 * 60 * 1000
@@ -19,7 +19,7 @@ const { v4: uuidv4 } = require("uuid");
 const {
   writeResponseChunk,
 } = require("../utils/helpers/chat/responses");
-const { generateQuotePdf } = require("../utils/offerKp/generateQuotePdf");
+const { generateQuotePdf } = require("../utils/offerKpApp/generateQuotePdf");
 
 function offerKpEndpoints(app) {
   if (!app) return;
