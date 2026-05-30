@@ -384,24 +384,25 @@ async function chatSync({
   const externalContexts = await collectExternalContexts({
     message,
     workspace,
+    chatHistory: rawHistory,
   });
-  const externalContextTexts = [];
-  const externalSources = [];
-  for (const ext of externalContexts) {
-    if (Array.isArray(ext?.contextTexts)) externalContextTexts.push(...ext.contextTexts);
-    if (Array.isArray(ext?.sources)) externalSources.push(...ext.sources);
+  const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
+  const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.contextTexts.length) {
+    contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
-  if (externalContextTexts.length) {
-    contextTexts = [...externalContextTexts, ...contextTexts];
-  }
-  if (externalSources.length) {
-    sources = [...externalSources, ...sources];
+  if (llmCatalog.sources.length) {
+    sources = [...llmCatalog.sources, ...sources];
   }
   sources = dedupeSources(sources);
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
-  if (chatMode === "query" && contextTexts.length === 0) {
+  if (
+    chatMode === "query" &&
+    contextTexts.length === 0 &&
+    !llmCatalog.catalogInjected
+  ) {
     const textResponse =
       workspace?.queryRefusalResponse ??
       "There is no relevant information in this workspace to answer your query.";
@@ -438,7 +439,7 @@ async function chatSync({
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt: await chatPrompt(workspace, user),
-      userPrompt: message,
+      userPrompt: llmCatalog.userPrompt,
       contextTexts,
       sources,
       chatHistory,
@@ -775,24 +776,25 @@ async function streamChat({
   const externalContexts = await collectExternalContexts({
     message,
     workspace,
+    chatHistory: rawHistory,
   });
-  const externalContextTexts = [];
-  const externalSources = [];
-  for (const ext of externalContexts) {
-    if (Array.isArray(ext?.contextTexts)) externalContextTexts.push(...ext.contextTexts);
-    if (Array.isArray(ext?.sources)) externalSources.push(...ext.sources);
+  const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
+  const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.contextTexts.length) {
+    contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
-  if (externalContextTexts.length) {
-    contextTexts = [...externalContextTexts, ...contextTexts];
-  }
-  if (externalSources.length) {
-    sources = [...externalSources, ...sources];
+  if (llmCatalog.sources.length) {
+    sources = [...llmCatalog.sources, ...sources];
   }
   sources = dedupeSources(sources);
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
-  if (chatMode === "query" && contextTexts.length === 0) {
+  if (
+    chatMode === "query" &&
+    contextTexts.length === 0 &&
+    !llmCatalog.catalogInjected
+  ) {
     const textResponse =
       workspace?.queryRefusalResponse ??
       "There is no relevant information in this workspace to answer your query.";
@@ -829,7 +831,7 @@ async function streamChat({
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt: await chatPrompt(workspace, user),
-      userPrompt: message,
+      userPrompt: llmCatalog.userPrompt,
       contextTexts,
       sources,
       chatHistory,

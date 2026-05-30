@@ -139,25 +139,22 @@ async function streamResponse({
   const externalContexts = await collectExternalContexts({
     message,
     workspace,
+    chatHistory: rawHistory,
   });
-  const externalContextTexts = [];
-  const externalSources = [];
-  for (const ext of externalContexts) {
-    if (Array.isArray(ext?.contextTexts)) externalContextTexts.push(...ext.contextTexts);
-    if (Array.isArray(ext?.sources)) externalSources.push(...ext.sources);
+  const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
+  const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.contextTexts.length) {
+    contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
-  if (externalContextTexts.length) {
-    contextTexts = [...externalContextTexts, ...contextTexts];
-  }
-  if (externalSources.length) {
-    sources = [...externalSources, ...sources];
+  if (llmCatalog.sources.length) {
+    sources = [...llmCatalog.sources, ...sources];
   }
   sources = dedupeSources(sources);
 
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt: await chatPrompt(workspace),
-      userPrompt: message,
+      userPrompt: llmCatalog.userPrompt,
       contextTexts,
       sources,
       chatHistory,

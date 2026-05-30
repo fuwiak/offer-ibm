@@ -4,6 +4,7 @@ const {
   mergeCatalogIntoUserPrompt,
   hasCatalogBlocks,
   isCatalogBlock,
+  applyExternalContextsForLlm,
 } = require("../../../utils/offerKp/catalogPrompt");
 
 describe("catalogPrompt", () => {
@@ -27,5 +28,20 @@ describe("catalogPrompt", () => {
 
   it("returns user prompt unchanged when no catalog blocks", () => {
     expect(mergeCatalogIntoUserPrompt("какая цена?", [])).toBe("какая цена?");
+  });
+
+  it("puts catalog only in user prompt via applyExternalContextsForLlm", () => {
+    const result = applyExternalContextsForLlm("цена", [
+      {
+        kind: "shopdb",
+        contextTexts: [sampleBlock],
+        sources: [{ id: "1" }],
+        flags: { shopDbDocCount: 1 },
+      },
+    ]);
+    expect(result.catalogInjected).toBe(true);
+    expect(result.userPrompt).toContain("=== ДАННЫЕ КАТАЛОГА");
+    expect(result.contextTexts).toEqual([]);
+    expect(result.sources).toHaveLength(1);
   });
 });

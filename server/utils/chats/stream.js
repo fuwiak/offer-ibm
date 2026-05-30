@@ -226,37 +226,35 @@ async function streamChatWithWorkspace(
     language,
     chatHistory: rawHistory,
   });
-  const externalContextTexts = [];
-  const externalSources = [];
-  for (const ext of externalContexts) {
-    if (Array.isArray(ext?.contextTexts)) externalContextTexts.push(...ext.contextTexts);
-    if (Array.isArray(ext?.sources)) externalSources.push(...ext.sources);
+  const {
+    applyExternalContextsForLlm,
+  } = require("../offerKp/catalogPrompt");
+  const llmCatalog = applyExternalContextsForLlm(
+    updatedMessage,
+    externalContexts
+  );
+  if (llmCatalog.contextTexts.length) {
+    contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
-  if (externalContextTexts.length) {
-    contextTexts = [...externalContextTexts, ...contextTexts];
-  }
-  if (externalSources.length) {
-    sources = [...externalSources, ...sources];
+  if (llmCatalog.sources.length) {
+    sources = [...llmCatalog.sources, ...sources];
   }
   sources = dedupeSources(sources);
-
-  const { mergeCatalogIntoUserPrompt, hasCatalogBlocks } = require("../offerKp/catalogPrompt");
-  let userPromptForLlm = updatedMessage;
-  if (hasCatalogBlocks(externalContextTexts)) {
-    userPromptForLlm = mergeCatalogIntoUserPrompt(
-      updatedMessage,
-      externalContextTexts
-    );
-  }
+  const userPromptForLlm = llmCatalog.userPrompt;
   ragTrace.external = externalContexts.map((ctx) => ({
     kind: ctx.kind || "external",
     contexts: Array.isArray(ctx.contextTexts) ? ctx.contextTexts.length : 0,
     sources: Array.isArray(ctx.sources) ? ctx.sources.length : 0,
+    catalogInjected: ctx.kind === "shopdb" ? llmCatalog.catalogInjected : undefined,
   }));
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
-  if (chatMode === "query" && contextTexts.length === 0) {
+  if (
+    chatMode === "query" &&
+    contextTexts.length === 0 &&
+    !llmCatalog.catalogInjected
+  ) {
     const textResponse =
       workspace?.queryRefusalResponse ??
       "There is no relevant information in this workspace to answer your query.";

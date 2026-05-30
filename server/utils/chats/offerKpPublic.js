@@ -7,10 +7,7 @@ const {
   handleDefaultStreamResponseV2,
 } = require("../helpers/chat/responses");
 const { getShopDbContext, shopDbEnrichEnabled } = require("../offerKp/enrich");
-const {
-  mergeCatalogIntoUserPrompt,
-  hasCatalogBlocks,
-} = require("../offerKp/catalogPrompt");
+const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
 const {
   getPublicChatHistory,
   appendPublicChatMessage,
@@ -51,30 +48,33 @@ async function streamOfferKpPublicChat(
       ? options.chatHistory
       : getPublicChatHistory(sessionId);
 
-  let contextTexts = [];
-  let sources = [];
+  let externalContexts = [];
   if (shopDbEnrichEnabled()) {
     const catalog = await getShopDbContext(message, {
       maxDocs: 5,
       chatHistory,
     }).catch((err) => {
       console.warn("[ShopDB] public chat enrich failed:", err?.message || err);
-      return { contextTexts: [], sources: [] };
+      return { contextTexts: [], sources: [], flags: { shopDbError: true } };
     });
-    contextTexts = catalog.contextTexts || [];
-    sources = catalog.sources || [];
+    externalContexts = [
+      {
+        kind: "shopdb",
+        contextTexts: catalog.contextTexts || [],
+        sources: catalog.sources || [],
+        flags: catalog.flags,
+      },
+    ];
   }
 
-  let userPromptForLlm = message;
-  if (hasCatalogBlocks(contextTexts)) {
-    userPromptForLlm = mergeCatalogIntoUserPrompt(message, contextTexts);
-  }
+  const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  const sources = llmCatalog.sources;
 
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt,
-      userPrompt: userPromptForLlm,
-      contextTexts,
+      userPrompt: llmCatalog.userPrompt,
+      contextTexts: llmCatalog.contextTexts,
       chatHistory,
     },
     chatHistory
