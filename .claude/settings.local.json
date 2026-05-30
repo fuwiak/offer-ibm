@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/user/elia_front status)",
+      "Bash(git -C /Users/user/elia_front diff)",
+      "Bash(git -C /Users/user/elia_front add docker/Dockerfile docker/docker-entrypoint.sh)",
+      "Bash(git -C /Users/user/elia_front commit -m ' *)",
+      "Bash(git -C /Users/user/elia_front push)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

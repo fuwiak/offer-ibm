@@ -1,0 +1,53 @@
+import { createContext, useEffect, useState } from "react";
+import AVEliaBot from "./media/logo/av-elia-bot.png";
+import AVEliaBotDark from "./media/logo/av-elia-bot-dark.png";
+import System from "./models/system";
+
+const DEFAULT_LOGIN_LOGO = "/favicon.png";
+
+export const REFETCH_LOGO_EVENT = "refetch-logo";
+
+function isLightMode() {
+  return document.documentElement.getAttribute("data-theme") === "light";
+}
+export const LogoContext = createContext();
+
+export function LogoProvider({ children }) {
+  const [logo, setLogo] = useState("");
+  const [loginLogo, setLoginLogo] = useState("");
+  const [isCustomLogo, setIsCustomLogo] = useState(false);
+
+  async function fetchInstanceLogo() {
+    try {
+      const { isCustomLogo, logoURL } = await System.fetchLogo();
+      if (logoURL) {
+        setLogo(logoURL);
+        setLoginLogo(isCustomLogo ? logoURL : DEFAULT_LOGIN_LOGO);
+        setIsCustomLogo(isCustomLogo);
+      } else {
+        isLightMode() ? setLogo(AVEliaBotDark) : setLogo(AVEliaBot);
+        setLoginLogo(DEFAULT_LOGIN_LOGO);
+        setIsCustomLogo(false);
+      }
+    } catch (err) {
+      isLightMode() ? setLogo(AVEliaBotDark) : setLogo(AVEliaBot);
+      setLoginLogo(DEFAULT_LOGIN_LOGO);
+      setIsCustomLogo(false);
+      console.error("Failed to fetch logo:", err);
+    }
+  }
+
+  useEffect(() => {
+    fetchInstanceLogo();
+    window.addEventListener(REFETCH_LOGO_EVENT, fetchInstanceLogo);
+    return () => {
+      window.removeEventListener(REFETCH_LOGO_EVENT, fetchInstanceLogo);
+    };
+  }, []);
+
+  return (
+    <LogoContext.Provider value={{ logo, setLogo, loginLogo, isCustomLogo }}>
+      {children}
+    </LogoContext.Provider>
+  );
+}

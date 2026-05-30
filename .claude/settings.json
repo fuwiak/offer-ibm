@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(mv /Users/user/elia_front/frontend/public/embed/anythingllm-chat-widget.min.css /Users/user/elia_front/frontend/public/embed/avelia-chat-widget.min.css && grep -rn \"anythingllm-chat-widget.min.css\\\\|avelia-chat-widget.min.css\" /Users/user/elia_front --include=\"*.js\" --include=\"*.jsx\" --include=\"*.ts\" --include=\"*.tsx\" 2>/dev/null | grep -v node_modules)",
+      "Bash(git -C /Users/user/elia_front add -A)",
+      "Bash(git -C /Users/user/elia_front commit -m ' *)",
+      "Bash(which node *)",
+      "Read(//usr/local/bin/**)",
+      "Bash(git -C /Users/user/elia_front log --oneline -5)",
+      "Bash(git -C /Users/user/elia_front diff --stat)",
+      "Bash(git -C /Users/user/elia_front add frontend/src/components/Avelia/AveliaSidebarExtras.jsx frontend/src/components/Avelia/AveliaOnboarding.jsx frontend/src/components/Avelia/CrossSectionViewer.jsx frontend/src/components/Avelia/NotificationsPanel.jsx frontend/src/components/Avelia/OrdersPanel.jsx frontend/src/components/Avelia/QuoteStepper.jsx frontend/src/components/Avelia/SavModal.jsx frontend/src/components/DocumentPanel/index.jsx frontend/src/contexts/AveliaContext.jsx frontend/src/layouts/AveliaLayout/index.jsx frontend/src/locales/en/avelia.js frontend/src/locales/fr/avelia.js frontend/src/locales/it/avelia.js frontend/src/main.jsx frontend/src/pages/Admin/AveliaDashboard/index.jsx frontend/src/pages/Avelia/SupplierWorkflow/index.jsx)",
+      "Bash(git -C /Users/user/elia_front push origin main)",
+      "Bash(ls -lt ~/Downloads/*.png 2>/dev/null | head -5; ls -lt ~/Desktop/*.png 2>/dev/null | head -5)",
+      "Read(//Users/user/Downloads/**)",
+      "Read(//Users/user/Desktop/**)",
+      "Bash(cp ~/Downloads/favicon.png /Users/user/elia_front/frontend/src/media/logo/av-elia-bot.png)",
+      "Bash(cp ~/Downloads/favicon.png /Users/user/elia_front/frontend/src/media/logo/av-elia-bot-dark.png)",
+      "Bash(cp ~/Downloads/favicon.png /Users/user/elia_front/frontend/public/favicon.png)",
+      "Bash(magick /Users/user/elia_front/frontend/public/favicon.png -resize 32x32 /Users/user/elia_front/frontend/public/favicon.ico)",
+      "Bash(cp ~/Downloads/favicon.png /Users/user/elia_front/frontend/src/media/logo/av-elia-bot-icon.png)",
+      "Bash(cp ~/Downloads/favicon.png /Users/user/elia_front/frontend/src/media/logo/av-elia-bot-infinity.png)",
+      "Bash(xargs cat)",
+      "Bash(node -e ' *)",
+      "Bash(npm run *)",
+      "Bash(/usr/local/bin/node --version)",
+      "Bash(/opt/homebrew/bin/node --version)",
+      "Bash(~/.nvm/versions/node/*/bin/node --version)",
+      "Bash(/opt/homebrew/bin/node node_modules/.bin/vite build)",
+      "Bash(git -C /Users/user/elia_front diff --stat HEAD)",
+      "Bash(git -C /Users/user/elia_front add frontend/src/components/DocumentPanel/index.jsx frontend/src/contexts/AveliaContext.jsx frontend/src/styles/carbon-theme.css)",
+      "Bash(awk '/^[[:space:]]*<button/ {start=NR; found=0} NR==start && /onClick|type=\"submit\"|type=\"reset\"/ {found=1} NR>start && NR<=start+15 && /onClick|type=\"submit\"|type=\"reset\"/ {found=1} NR==start+15 {if \\(!found\\) print FILENAME\":\"start}' /Users/user/elia_front/frontend/src/pages/Admin/CreateWorkspaceWizard/index.jsx)"
+    ],
+    "additionalDirectories": [
+      "/Users/user/elia_front/frontend/public/embed"
+    ]
+  }
+}

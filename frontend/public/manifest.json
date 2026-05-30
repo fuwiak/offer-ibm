@@ -1,0 +1,13 @@
+{
+  "name": "lawyer-revizorro",
+  "short_name": "lawyer-revizorro",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any"
+    }
+  ]
+}

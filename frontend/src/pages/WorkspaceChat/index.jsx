@@ -1,0 +1,159 @@
+import React, { useEffect, useState } from "react";
+import { default as WorkspaceChatContainer } from "@/components/WorkspaceChat";
+import Sidebar from "@/components/Sidebar";
+import { useParams } from "react-router-dom";
+import Workspace from "@/models/workspace";
+import PasswordModal, { usePasswordModal } from "@/components/Modals/Password";
+import { isMobile } from "react-device-detect";
+import { FullScreenLoader } from "@/components/Preloader";
+import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
+import LawyerRevizorroLayout from "@/layouts/LawyerRevizorroLayout";
+import LawyerRevizorroProfileShell from "@/components/LawyerRevizorro/LawyerRevizorroProfileShell";
+import { shouldUseLawyerRevizorroLayout as shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+import { useLocation, useNavigate } from "react-router-dom";
+import paths from "@/utils/paths";
+import { PENDING_HOME_MESSAGE } from "@/utils/constants";
+import { LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT } from "@/utils/lawyerRevizorro/startNewConversation";
+
+export default function WorkspaceChat() {
+  const { loading, requiresAuth, mode } = usePasswordModal();
+
+  if (loading) return <FullScreenLoader />;
+  if (requiresAuth !== false) {
+    return <>{requiresAuth !== null && <PasswordModal mode={mode} />}</>;
+  }
+
+  const { pathname } = useLocation();
+  const lawyerRevizorroBotRoute = pathname.startsWith("/bot");
+
+  if (lawyerRevizorroBotRoute) {
+    return <ShowWorkspaceChat />;
+  }
+
+  const lawyerRevizorroShell = shouldUseLawyerRevizorroLayout({ pathname });
+
+  const shell = (
+    <>
+      {!isMobile && <Sidebar />}
+      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+        <ShowWorkspaceChat />
+      </div>
+    </>
+  );
+
+  if (!lawyerRevizorroShell) {
+    return (
+      <div className="w-screen h-screen overflow-hidden flex bg-zinc-950 light:bg-slate-50">
+        {shell}
+      </div>
+    );
+  }
+
+  return (
+    <LawyerRevizorroProfileShell className="w-screen h-screen overflow-hidden flex bg-theme-bg-container">
+      {shell}
+    </LawyerRevizorroProfileShell>
+  );
+}
+
+function ShowWorkspaceChat() {
+  const { slug, threadSlug = null } = useParams();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [workspace, setWorkspace] = useState(null);
+  const [chatHistory, setChatHistory] = useState(null);
+  // Tracks which workspace `workspace` belongs to. While a new workspace's
+  // data is in flight, we keep the previous workspace's chat mounted
+  // (Slack/Linear-style transition) instead of flashing a skeleton.
+  const [loadedSlug, setLoadedSlug] = useState(null);
+
+  useEffect(() => {
+    async function getWorkspace() {
+      if (!slug) return;
+      const _workspace = await Workspace.bySlug(slug);
+      if (!_workspace) {
+        setWorkspace(null);
+        setLoadedSlug(slug);
+        return;
+      }
+
+      const [suggestedMessages, { showAgentCommand }] = await Promise.all([
+        Workspace.getSuggestedMessages(slug),
+        Workspace.agentCommandAvailable(slug),
+      ]);
+      setWorkspace({
+        ..._workspace,
+        suggestedMessages,
+        showAgentCommand,
+      });
+      setLoadedSlug(slug);
+
+      const history = threadSlug
+        ? await Workspace.threads.chatHistory(slug, threadSlug)
+        : await Workspace.chatHistory(slug);
+      setChatHistory(history ?? []);
+
+      localStorage.setItem(
+        LAST_VISITED_WORKSPACE,
+        JSON.stringify({
+          slug: _workspace.slug,
+          name: _workspace.name,
+        })
+      );
+    }
+    getWorkspace();
+  }, [slug, threadSlug]);
+
+  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({
+    workspaceSlug: workspace?.slug,
+    pathname,
+  });
+
+  const isWorkspaceRoot =
+    !!slug && /^\/workspace\/[^/]+$/.test(pathname) && !threadSlug;
+  const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
+
+  useEffect(() => {
+    function goHome() {
+      navigate({ pathname: paths.home(), search: `?new=${Date.now()}` }, {
+        replace: true,
+      });
+    }
+    window.addEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, goHome);
+    return () => window.removeEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, goHome);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!lawyerRevizorroMode || !isWorkspaceRoot || hasPendingMessage) return;
+    if (loadedSlug !== slug || chatHistory === null) return;
+    if (chatHistory.length > 0) return;
+    navigate(paths.home(), { replace: true });
+  }, [
+    lawyerRevizorroMode,
+    isWorkspaceRoot,
+    hasPendingMessage,
+    loadedSlug,
+    slug,
+    chatHistory,
+    navigate,
+  ]);
+
+  const chat = (
+    <WorkspaceChatContainer
+      loading={loadedSlug !== slug}
+      workspace={workspace}
+    />
+  );
+
+  if (!lawyerRevizorroMode) return chat;
+
+  return (
+    <LawyerRevizorroLayout
+      enabled={lawyerRevizorroMode}
+      workspaceSlug={slug}
+      threadSlug={threadSlug}
+    >
+      {chat}
+    </LawyerRevizorroLayout>
+  );
+}

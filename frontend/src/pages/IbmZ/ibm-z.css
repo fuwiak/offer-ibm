@@ -1,0 +1,805 @@
+/* IBM Carbon design tokens — see /DESIGN.md */
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;600&display=swap");
+
+/* Isolate Carbon page from app dark theme */
+body:has(.ibm-z-page),
+body:has(.ibm-z-page) #root {
+  background: #ffffff;
+  color: #161616;
+  min-height: 100%;
+  height: auto;
+}
+
+.ibm-z-page {
+  --ibm-canvas: #ffffff;
+  --ibm-surface-1: #f4f4f4;
+  --ibm-surface-2: #e0e0e0;
+  --ibm-hairline: #e0e0e0;
+  --ibm-hairline-strong: #161616;
+  --ibm-ink: #161616;
+  --ibm-ink-muted: #525252;
+  --ibm-ink-subtle: #8c8c8c;
+  --ibm-primary: #0f62fe;
+  --ibm-blue-60: #0043ce;
+  --ibm-blue-80: #002d9c;
+  --ibm-blue-hover: #0353e9;
+  --ibm-on-primary: #ffffff;
+  --ibm-inverse-canvas: #161616;
+  --ibm-inverse-surface-1: #262626;
+  --ibm-inverse-ink: #ffffff;
+  --ibm-inverse-ink-muted: #c6c6c6;
+  --ibm-semantic-success: #24a148;
+  --ibm-semantic-error: #da1e28;
+
+  --ibm-spacing-xxs: 4px;
+  --ibm-spacing-xs: 8px;
+  --ibm-spacing-sm: 12px;
+  --ibm-spacing-md: 16px;
+  --ibm-spacing-lg: 24px;
+  --ibm-spacing-xl: 32px;
+  --ibm-spacing-xxl: 48px;
+  --ibm-spacing-section: 96px;
+
+  --ibm-max-width: 1584px;
+
+  font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.16px;
+  color: var(--ibm-ink);
+  background: var(--ibm-canvas);
+  min-height: 100vh;
+}
+
+.ibm-z-page *,
+.ibm-z-page *::before,
+.ibm-z-page *::after {
+  box-sizing: border-box;
+}
+
+.ibm-z-container {
+  width: 100%;
+  max-width: var(--ibm-max-width);
+  margin: 0 auto;
+  padding-left: var(--ibm-spacing-md);
+  padding-right: var(--ibm-spacing-md);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-container {
+    padding-left: var(--ibm-spacing-lg);
+    padding-right: var(--ibm-spacing-lg);
+  }
+}
+
+/* Utility bar */
+.ibm-z-utility-bar {
+  background: var(--ibm-surface-1);
+  color: var(--ibm-ink-muted);
+  font-size: 12px;
+  line-height: 1.33;
+  letter-spacing: 0.32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.ibm-z-utility-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--ibm-spacing-lg);
+  width: 100%;
+}
+
+.ibm-z-utility-bar a {
+  color: var(--ibm-ink-muted);
+  text-decoration: none;
+}
+
+.ibm-z-utility-bar a:hover {
+  color: var(--ibm-primary);
+  text-decoration: underline;
+}
+
+/* Top nav */
+.ibm-z-top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--ibm-canvas);
+  border-bottom: 1px solid var(--ibm-hairline);
+  height: 48px;
+}
+
+.ibm-z-top-nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  gap: var(--ibm-spacing-md);
+}
+
+.ibm-z-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--ibm-spacing-sm);
+  text-decoration: none;
+  color: var(--ibm-ink);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.16px;
+  flex-shrink: 0;
+}
+
+.ibm-z-logo__mark {
+  width: 38px;
+  height: 14px;
+  background: var(--ibm-ink);
+}
+
+.ibm-z-logo__product {
+  font-weight: 400;
+  color: var(--ibm-ink-muted);
+}
+
+.ibm-z-nav-links {
+  display: none;
+  align-items: center;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 672px) {
+  .ibm-z-nav-links {
+    display: flex;
+  }
+}
+
+.ibm-z-nav-links a {
+  color: var(--ibm-ink);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  padding: 0 var(--ibm-spacing-md);
+  height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.ibm-z-nav-links a:hover {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ibm-spacing-xs);
+}
+
+.ibm-z-nav-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ibm-ink);
+  padding: var(--ibm-spacing-sm);
+  font-size: 14px;
+  letter-spacing: 0.16px;
+}
+
+.ibm-z-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ibm-ink);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-hamburger {
+    display: none;
+  }
+}
+
+/* Buttons */
+.ibm-z-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ibm-spacing-xs);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  padding: 12px 16px;
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.11s ease;
+  min-height: 48px;
+}
+
+.ibm-z-btn--primary {
+  background: var(--ibm-primary);
+  color: var(--ibm-on-primary);
+}
+
+.ibm-z-btn--primary:hover {
+  background: var(--ibm-blue-hover);
+}
+
+.ibm-z-btn--primary:active {
+  background: var(--ibm-blue-80);
+}
+
+.ibm-z-btn--secondary {
+  background: var(--ibm-ink);
+  color: var(--ibm-inverse-ink);
+}
+
+.ibm-z-btn--secondary:hover {
+  background: #393939;
+}
+
+.ibm-z-btn--tertiary {
+  background: var(--ibm-canvas);
+  color: var(--ibm-primary);
+  border: 1px solid var(--ibm-primary);
+}
+
+.ibm-z-btn--tertiary:hover {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-btn--ghost {
+  background: transparent;
+  color: var(--ibm-primary);
+  padding-left: 0;
+  padding-right: 0;
+  min-height: auto;
+}
+
+.ibm-z-btn--ghost:hover {
+  text-decoration: underline;
+}
+
+.ibm-z-btn__chevron::after {
+  content: "→";
+  margin-left: var(--ibm-spacing-xs);
+}
+
+/* Hero */
+.ibm-z-hero {
+  padding: var(--ibm-spacing-section) 0 var(--ibm-spacing-xxl);
+  position: relative;
+  overflow: hidden;
+}
+
+.ibm-z-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(15, 98, 254, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ibm-z-hero__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ibm-spacing-xxl);
+  align-items: center;
+  position: relative;
+}
+
+@media (min-width: 1056px) {
+  .ibm-z-hero__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ibm-z-eyebrow {
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  color: var(--ibm-ink-muted);
+  margin: 0 0 var(--ibm-spacing-md);
+}
+
+.ibm-z-display-xl {
+  font-size: clamp(32px, 6vw, 76px);
+  font-weight: 300;
+  line-height: 1.17;
+  letter-spacing: -0.5px;
+  margin: 0 0 var(--ibm-spacing-lg);
+  color: var(--ibm-ink);
+}
+
+.ibm-z-body-lg {
+  font-size: 18px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--ibm-ink-muted);
+  margin: 0 0 var(--ibm-spacing-xl);
+  max-width: 36rem;
+}
+
+.ibm-z-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ibm-spacing-md);
+}
+
+.ibm-z-hero-card {
+  border: 1px solid var(--ibm-hairline);
+  background: var(--ibm-canvas);
+  padding: var(--ibm-spacing-xxl);
+}
+
+.ibm-z-hero-card__pattern {
+  height: 200px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--ibm-surface-2) 0,
+      var(--ibm-surface-2) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      var(--ibm-surface-2) 0,
+      var(--ibm-surface-2) 1px,
+      transparent 1px,
+      transparent 24px
+    );
+  margin-bottom: var(--ibm-spacing-lg);
+}
+
+.ibm-z-display-md {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 300;
+  line-height: 1.2;
+  margin: 0 0 var(--ibm-spacing-md);
+}
+
+/* Section bands */
+.ibm-z-section {
+  padding: var(--ibm-spacing-section) 0;
+}
+
+.ibm-z-section--surface {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-headline {
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0 0 var(--ibm-spacing-xl);
+}
+
+.ibm-z-display-lg {
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 300;
+  line-height: 1.17;
+  letter-spacing: -0.4px;
+  margin: 0 0 var(--ibm-spacing-lg);
+}
+
+/* Feature cards */
+.ibm-z-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ibm-spacing-md);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1056px) {
+  .ibm-z-card-grid--4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .ibm-z-card-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.ibm-z-feature-card {
+  background: var(--ibm-canvas);
+  border: 1px solid var(--ibm-hairline);
+  padding: var(--ibm-spacing-lg);
+  height: 100%;
+  transition: background 0.11s ease;
+}
+
+.ibm-z-feature-card:hover {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-feature-card--elevated {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-feature-card--elevated:hover {
+  background: var(--ibm-surface-2);
+}
+
+.ibm-z-card-title {
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.33;
+  margin: 0 0 var(--ibm-spacing-sm);
+}
+
+.ibm-z-card-body {
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  color: var(--ibm-ink-muted);
+  margin: 0 0 var(--ibm-spacing-md);
+}
+
+.ibm-z-link {
+  color: var(--ibm-primary);
+  font-size: 14px;
+  letter-spacing: 0.16px;
+  text-decoration: none;
+}
+
+.ibm-z-link:hover {
+  color: var(--ibm-blue-60);
+  text-decoration: underline;
+}
+
+/* Logo marquee */
+.ibm-z-marquee {
+  display: flex;
+  gap: var(--ibm-spacing-md);
+  overflow-x: auto;
+  padding-bottom: var(--ibm-spacing-sm);
+  scrollbar-width: thin;
+}
+
+.ibm-z-logo-tile {
+  flex: 0 0 160px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ibm-hairline);
+  background: var(--ibm-canvas);
+  padding: var(--ibm-spacing-lg);
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  color: var(--ibm-ink-muted);
+  font-weight: 600;
+}
+
+/* Tabs */
+.ibm-z-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--ibm-hairline);
+  overflow-x: auto;
+  margin-bottom: var(--ibm-spacing-xl);
+}
+
+.ibm-z-tab {
+  background: var(--ibm-canvas);
+  border: none;
+  border-bottom: 1px solid var(--ibm-hairline);
+  color: var(--ibm-ink-muted);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  padding: var(--ibm-spacing-md) 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 48px;
+}
+
+.ibm-z-tab--selected {
+  color: var(--ibm-ink);
+  font-weight: 600;
+  border-bottom: 2px solid var(--ibm-primary);
+  margin-bottom: -1px;
+}
+
+/* Product row */
+.ibm-z-product-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ibm-spacing-md);
+}
+
+@media (min-width: 1056px) {
+  .ibm-z-product-row {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+}
+
+.ibm-z-product-card {
+  border: 1px solid var(--ibm-hairline);
+  padding: var(--ibm-spacing-xl);
+  background: var(--ibm-canvas);
+}
+
+.ibm-z-subhead {
+  font-size: 20px;
+  line-height: 1.4;
+  margin: 0 0 var(--ibm-spacing-md);
+}
+
+/* Training list */
+.ibm-z-resource-list {
+  display: grid;
+  gap: var(--ibm-spacing-md);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-resource-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.ibm-z-resource-tile {
+  border: 1px solid var(--ibm-hairline);
+  padding: var(--ibm-spacing-md);
+  background: var(--ibm-canvas);
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.11s ease;
+}
+
+.ibm-z-resource-tile:hover {
+  background: var(--ibm-surface-1);
+}
+
+.ibm-z-resource-tile__meta {
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  color: var(--ibm-ink-subtle);
+  margin-bottom: var(--ibm-spacing-xs);
+}
+
+.ibm-z-resource-tile__title {
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* CTA banner */
+.ibm-z-cta-banner {
+  background: var(--ibm-primary);
+  color: var(--ibm-on-primary);
+  padding: var(--ibm-spacing-xxl);
+  margin: var(--ibm-spacing-section) 0;
+}
+
+.ibm-z-cta-banner .ibm-z-headline {
+  color: var(--ibm-on-primary);
+  margin-bottom: var(--ibm-spacing-md);
+}
+
+.ibm-z-cta-banner p {
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 0 0 var(--ibm-spacing-xl);
+  opacity: 0.95;
+  max-width: 40rem;
+}
+
+.ibm-z-cta-banner .ibm-z-btn--secondary {
+  background: var(--ibm-canvas);
+  color: var(--ibm-ink);
+}
+
+.ibm-z-cta-banner .ibm-z-btn--secondary:hover {
+  background: var(--ibm-surface-1);
+}
+
+/* Newsletter */
+.ibm-z-newsletter {
+  display: grid;
+  gap: var(--ibm-spacing-xl);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-newsletter {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+  }
+}
+
+.ibm-z-input-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  max-width: 480px;
+}
+
+.ibm-z-text-input {
+  flex: 1;
+  min-width: 200px;
+  background: var(--ibm-surface-1);
+  border: none;
+  border-bottom: 1px solid var(--ibm-hairline);
+  color: var(--ibm-ink);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0.16px;
+  padding: 11px 16px;
+  border-radius: 0;
+  outline: none;
+}
+
+.ibm-z-text-input:focus {
+  border-bottom: 2px solid var(--ibm-primary);
+  outline: 2px solid var(--ibm-primary);
+  outline-offset: -2px;
+}
+
+.ibm-z-text-input::placeholder {
+  color: var(--ibm-ink-subtle);
+}
+
+/* Footer */
+.ibm-z-footer {
+  background: var(--ibm-inverse-canvas);
+  color: var(--ibm-inverse-ink-muted);
+  padding: 64px var(--ibm-spacing-xl);
+  font-size: 14px;
+  line-height: 1.29;
+  letter-spacing: 0.16px;
+}
+
+.ibm-z-footer__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ibm-spacing-xxl);
+}
+
+@media (min-width: 672px) {
+  .ibm-z-footer__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1056px) {
+  .ibm-z-footer__grid {
+    grid-template-columns: 1.5fr repeat(5, 1fr);
+  }
+}
+
+.ibm-z-footer__brand {
+  color: var(--ibm-inverse-ink);
+}
+
+.ibm-z-footer__brand .ibm-z-logo__mark {
+  background: var(--ibm-inverse-ink);
+}
+
+.ibm-z-footer h4 {
+  color: var(--ibm-inverse-ink);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 var(--ibm-spacing-md);
+}
+
+.ibm-z-footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ibm-z-footer li {
+  margin-bottom: var(--ibm-spacing-sm);
+}
+
+.ibm-z-footer a {
+  color: var(--ibm-inverse-ink-muted);
+  text-decoration: none;
+}
+
+.ibm-z-footer a:hover {
+  color: var(--ibm-inverse-ink);
+  text-decoration: underline;
+}
+
+.ibm-z-footer__legal {
+  margin-top: var(--ibm-spacing-xxl);
+  padding-top: var(--ibm-spacing-lg);
+  border-top: 1px solid var(--ibm-inverse-surface-1);
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  color: var(--ibm-ink-subtle);
+}
+
+@media (max-width: 671px) {
+  .ibm-z-utility-bar {
+    display: none;
+  }
+}
+
+.ibm-z-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Carbon Gray-100 — marketing page dark variant */
+@media (prefers-color-scheme: dark) {
+  body:has(.ibm-z-page),
+  body:has(.ibm-z-page) #root {
+    background: #161616;
+    color: #f4f4f4;
+  }
+
+  .ibm-z-page {
+    --ibm-canvas: #161616;
+    --ibm-surface-1: #262626;
+    --ibm-surface-2: #393939;
+    --ibm-hairline: #393939;
+    --ibm-hairline-strong: #6f6f6f;
+    --ibm-ink: #f4f4f4;
+    --ibm-ink-muted: #c6c6c6;
+    --ibm-ink-subtle: #6f6f6f;
+    --ibm-primary: #78a9ff;
+    --ibm-blue-60: #a6c8ff;
+    --ibm-blue-80: #4589ff;
+    --ibm-blue-hover: #a6c8ff;
+    --ibm-on-primary: #161616;
+    --ibm-inverse-canvas: #f4f4f4;
+    --ibm-inverse-surface-1: #e0e0e0;
+    --ibm-inverse-ink: #161616;
+    --ibm-inverse-ink-muted: #525252;
+    color: var(--ibm-ink);
+    background: var(--ibm-canvas);
+  }
+
+  .ibm-z-hero::before {
+    background: linear-gradient(
+      135deg,
+      rgba(120, 169, 255, 0.08) 0%,
+      transparent 70%
+    );
+  }
+
+  .ibm-z-btn--primary {
+    color: var(--ibm-on-primary);
+  }
+
+  .ibm-z-cta-banner .ibm-z-btn--secondary {
+    background: var(--ibm-surface-2);
+    color: var(--ibm-ink);
+  }
+}
