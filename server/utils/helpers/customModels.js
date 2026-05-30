@@ -246,7 +246,7 @@ async function openAiModels(apiKey = null) {
 async function anthropicModels(_apiKey = null) {
   const {
     resolveAnthropicApiKey,
-  } = require("../lawyerRevizorro/anthropicEnv");
+  } = require("../offerKpApp/anthropicEnv");
   const apiKey =
     _apiKey === true
       ? resolveAnthropicApiKey()

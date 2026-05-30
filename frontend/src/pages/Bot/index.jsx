@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import LawyerRevizorroLayout from "@/layouts/LawyerRevizorroLayout";
-import LawyerRevizorroProfileShell from "@/components/LawyerRevizorro/LawyerRevizorroProfileShell";
-import PartnerRequestModal from "@/components/LawyerRevizorro/PartnerRequestModal";
-import LanguageSwitcher from "@/components/LawyerRevizorro/LanguageSwitcher";
-import useLawyerRevizorroLanguage from "@/hooks/useLawyerRevizorroLanguage";
-import LawyerRevizorro from "@/models/lawyerRevizorro";
-import { useLawyerRevizorro } from "@/contexts/LawyerRevizorroContext";
-import { advanceQuoteDraft, INITIAL_QUOTE_DRAFT } from "@/utils/lawyerRevizorro/quoteFlow";
-import { PUBLIC_SLUG } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+import OfferKpLayout from "@/layouts/OfferKpLayout";
+import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
+import PartnerRequestModal from "@/components/OfferKp/PartnerRequestModal";
+import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
+import useOfferKpLanguage from "@/hooks/useOfferKpLanguage";
+import OfferKp from "@/models/offerKp";
+import { useOfferKp } from "@/contexts/OfferKpContext";
+import { advanceQuoteDraft, INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
+import { PUBLIC_SLUG } from "@/utils/offerKp/detectOfferKpMode";
 import Workspace from "@/models/workspace";
 import WorkspaceChat from "@/components/WorkspaceChat";
 import { FullScreenLoader } from "@/components/Preloader";
@@ -17,8 +17,8 @@ import System from "@/models/system";
 import { AUTH_TOKEN } from "@/utils/constants";
 
 function PublicBotChat() {
-  const { t } = useTranslation("lawyerRevizorro");
-  const { setQuoteDraft, setDocumentPreview } = useLawyerRevizorro();
+  const { t } = useTranslation("offerKp");
+  const { setQuoteDraft, setDocumentPreview } = useOfferKp();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -37,7 +37,7 @@ function PublicBotChat() {
     setStreaming(true);
 
     let assistantText = "";
-    LawyerRevizorro.streamPublicChat(
+    OfferKp.streamPublicChat(
       text,
       sessionId,
       (chunk) => {
@@ -56,18 +56,18 @@ function PublicBotChat() {
     const draft = advanceQuoteDraft(INITIAL_QUOTE_DRAFT);
     setQuoteDraft(draft);
     if (draft.preview) setDocumentPreview(draft.preview);
-    sendMessage("I would like to start a guided quote for lawyer-revizorro One 8.3");
+    sendMessage("I would like to start a guided quote for offer-kp One 8.3");
   }
 
   return (
-    <div className="flex flex-col h-full bg-theme-bg-primary lawyerRevizorro-chat-shell">
+    <div className="flex flex-col h-full bg-theme-bg-primary offerKp-chat-shell">
       <header className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0">
         <div>
           <Link
-            to="/lawyerRevizorro"
+            to="/offerKp"
             className="text-xs text-primary-button hover:underline no-underline"
           >
-            lawyer-revizorro
+            offer-kp
           </Link>
           <h1 className="text-sm font-semibold text-theme-text-primary">
             {t("bot.title")}
@@ -134,7 +134,7 @@ function PublicBotChat() {
           onChange={(e) => setInput(e.target.value)}
           disabled={streaming}
           className="flex-1 bg-white/10 text-white light:bg-slate-100 light:text-slate-900 px-3 py-2 text-sm border-0 focus:outline focus:outline-2 focus:outline-blue-500"
-          placeholder="Message lawyer-revizorro…"
+          placeholder="Message offer-kp…"
         />
         <button
           type="submit"
@@ -173,7 +173,7 @@ function AuthenticatedBotWorkspace() {
 }
 
 export default function BotPage() {
-  useLawyerRevizorroLanguage();
+  useOfferKpLanguage();
   const [useWorkspace, setUseWorkspace] = useState(null);
 
   useEffect(() => {
@@ -190,13 +190,13 @@ export default function BotPage() {
   if (useWorkspace === null) return <FullScreenLoader />;
 
   return (
-    <LawyerRevizorroProfileShell
+    <OfferKpProfileShell
       workspaceSlug={PUBLIC_SLUG}
       className="w-screen h-screen overflow-hidden bg-theme-bg-container flex"
     >
-      <LawyerRevizorroLayout enabled forceRole="public" standalone>
+      <OfferKpLayout enabled forceRole="public" standalone>
         {useWorkspace ? <AuthenticatedBotWorkspace /> : <PublicBotChat />}
-      </LawyerRevizorroLayout>
-    </LawyerRevizorroProfileShell>
+      </OfferKpLayout>
+    </OfferKpProfileShell>
   );
 }

@@ -22,10 +22,10 @@ async function ensureCreateFilesSkillEnabled() {
       default_agent_skills: JSON.stringify(updated),
     });
     console.log(
-      `[lawyerRevizorro] Enabled agent skills: ${missing.join(", ")}`
+      `[offerKp] Enabled agent skills: ${missing.join(", ")}`
     );
   } catch (e) {
-    console.error("[lawyerRevizorro] ensureCreateFilesSkillEnabled error:", e.message);
+    console.error("[offerKp] ensureCreateFilesSkillEnabled error:", e.message);
   }
 }
 

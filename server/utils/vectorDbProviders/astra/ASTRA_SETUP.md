@@ -1,4 +1,4 @@
-# How to setup Astra Vector Database for lawyer-revizorro
+# How to setup Astra Vector Database for offer-kp
 
 [Official Astra DB Docs](https://docs.datastax.com/en/astra/astra-db-vector/get-started/quickstart.html) for reference.
 

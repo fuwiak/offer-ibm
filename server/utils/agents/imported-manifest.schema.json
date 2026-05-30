@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "lawyer-revizorro Agent Skill Plugin Manifest Schema",
+  "title": "offer-kp Agent Skill Plugin Manifest Schema",
   "type": "object",
   "properties": {
     "active": {
@@ -13,7 +13,7 @@
     },
     "name": {
       "type": "string",
-      "description": "The human-readable name of the skill displayed in the lawyer-revizorro UI."
+      "description": "The human-readable name of the skill displayed in the offer-kp UI."
     },
     "schema": {
       "type": "string",

@@ -1,24 +1,24 @@
 import { Navigate } from "react-router-dom";
-import LawyerRevizorroPageShell from "@/components/LawyerRevizorro/LawyerRevizorroPageShell";
-import AccountUsersPanel from "@/components/LawyerRevizorro/AccountUsersPanel";
-import useLawyerRevizorroRole from "@/hooks/useLawyerRevizorroRole";
+import OfferKpPageShell from "@/components/OfferKp/OfferKpPageShell";
+import AccountUsersPanel from "@/components/OfferKp/AccountUsersPanel";
+import useOfferKpRole from "@/hooks/useOfferKpRole";
 import paths from "@/utils/paths";
 import { useTranslation } from "react-i18next";
 
 export default function AccountUsersPage() {
-  const { t } = useTranslation("lawyerRevizorro");
-  const { isAdmin } = useLawyerRevizorroRole();
+  const { t } = useTranslation("offerKp");
+  const { isAdmin } = useOfferKpRole();
 
   if (!isAdmin) {
-    return <Navigate to={paths.lawyerRevizorro.profile()} replace />;
+    return <Navigate to={paths.offerKp.profile()} replace />;
   }
 
   return (
-    <LawyerRevizorroPageShell
+    <OfferKpPageShell
       title={t("account.usersTitle")}
       subtitle={t("account.usersSubtitle")}
     >
       <AccountUsersPanel />
-    </LawyerRevizorroPageShell>
+    </OfferKpPageShell>
   );
 }

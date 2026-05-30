@@ -35,7 +35,7 @@ const {
   canManagerDeleteWorkspace,
   canUserManageWorkspaceMembers,
   filterWorkspacesForUser,
-} = require("../utils/lawyerRevizorro/workspaceVisibility");
+} = require("../utils/offerKpApp/workspaceVisibility");
 
 async function loadWorkspaceForAccess(workspaceId) {
   return prisma.workspaces.findFirst({

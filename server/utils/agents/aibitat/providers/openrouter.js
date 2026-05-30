@@ -23,8 +23,8 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
       apiKey: process.env.OPENROUTER_API_KEY,
       maxRetries: 3,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-Title": "lawyer-revizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-Title": "offer-kp",
       },
     });
 

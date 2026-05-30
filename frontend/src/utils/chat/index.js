@@ -1,6 +1,6 @@
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 import { emitAssistantMessageCompleteEvent } from "@/components/contexts/TTSProvider";
-import { isHiddenAgentStatusMessage } from "@/utils/lawyerRevizorro/threadPanelAccess";
+import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
 
 // For handling of chat responses in the frontend by their various types.

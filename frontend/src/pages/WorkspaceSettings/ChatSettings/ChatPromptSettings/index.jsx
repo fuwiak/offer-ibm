@@ -9,8 +9,8 @@ import ChatPromptHistory from "./ChatPromptHistory";
 import PublishEntityModal from "@/components/CommunityHub/PublishEntityModal";
 import { useModal } from "@/hooks/useModal";
 import System from "@/models/system";
-import { LAWYER_REVIZORRO_BOT_PROFILES } from "@/config/lawyerRevizorroBotProfilePrompts";
-import { resolveProfilePromptChange } from "@/utils/lawyerRevizorro/workspaceProfilePrompt";
+import { OFFER_KP_BOT_PROFILES } from "@/config/offerKpBotProfilePrompts";
+import { resolveProfilePromptChange } from "@/utils/offerKp/workspaceProfilePrompt";
 
 export default function ChatPromptSettings({
   workspace,
@@ -18,11 +18,11 @@ export default function ChatPromptSettings({
   hasChanges,
 }) {
   const { t } = useTranslation();
-  const { t: tLawyerRevizorro } = useTranslation("lawyerRevizorro");
+  const { t: tOfferKp } = useTranslation("offerKp");
   const [searchParams] = useSearchParams();
 
   const initialPrompt = getWorkspaceSystemPrompt(workspace);
-  const initialProfile = workspace?.lawyerRevizorroUserProfile || "";
+  const initialProfile = workspace?.offerKpUserProfile || "";
 
   const [prompt, setPrompt] = useState(initialPrompt);
   const [savedPrompt, setSavedPrompt] = useState(initialPrompt);
@@ -84,10 +84,10 @@ export default function ChatPromptSettings({
     const p = getWorkspaceSystemPrompt(workspace);
     setPrompt(p);
     setSavedPrompt(p);
-    const profile = workspace?.lawyerRevizorroUserProfile || "";
+    const profile = workspace?.offerKpUserProfile || "";
     setUserProfile(profile);
     setSavedProfile(profile);
-  }, [workspace?.slug, workspace?.openAiPrompt, workspace?.lawyerRevizorroUserProfile]);
+  }, [workspace?.slug, workspace?.openAiPrompt, workspace?.offerKpUserProfile]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -116,7 +116,7 @@ export default function ChatPromptSettings({
       userProfile,
       prompt,
       newProfile,
-      tLawyerRevizorro
+      tOfferKp
     );
     if (!apply) {
       e.target.value = userProfile;
@@ -160,21 +160,21 @@ export default function ChatPromptSettings({
       />
       <div>
         <div className="flex flex-col">
-          <label htmlFor="lawyerRevizorro-user-profile" className="block input-label">
-            {tLawyerRevizorro("admin.fields.userProfile")}
+          <label htmlFor="offerKp-user-profile" className="block input-label">
+            {tOfferKp("admin.fields.userProfile")}
           </label>
           <p className="text-white text-opacity-60 text-xs font-medium py-1.5">
-            {tLawyerRevizorro("admin.fields.userProfileHint")}
+            {tOfferKp("admin.fields.userProfileHint")}
           </p>
           <select
-            id="lawyerRevizorro-user-profile"
-            name="lawyerRevizorroUserProfile"
+            id="offerKp-user-profile"
+            name="offerKpUserProfile"
             value={userProfile}
             onChange={handleProfileChange}
             className="border-none bg-theme-settings-input-bg text-white text-sm rounded-lg focus:outline-primary-button active:outline-primary-button outline-none block w-full p-2.5 mt-1 mb-4"
           >
-            <option value="">{tLawyerRevizorro("admin.fields.userProfilePlaceholder")}</option>
-            {LAWYER_REVIZORRO_BOT_PROFILES.map((p) => (
+            <option value="">{tOfferKp("admin.fields.userProfilePlaceholder")}</option>
+            {OFFER_KP_BOT_PROFILES.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
               </option>

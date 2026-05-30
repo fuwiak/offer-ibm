@@ -1,6 +1,6 @@
-# Setting up `PGVector` for lawyer-revizorro
+# Setting up `PGVector` for offer-kp
 
-Setting up PGVector for lawyerRevizorro to use as your vector database is quite easy. At a minimum, you will need the following:
+Setting up PGVector for offerKp to use as your vector database is quite easy. At a minimum, you will need the following:
 
 - PostgreSQL v12+
 - [`pgvector`](https://github.com/pgvector/pgvector) extension installed on DB
@@ -28,19 +28,19 @@ First, obtain a valid connection string for the user, credentials, and db you wa
 eg: `postgresql://dbuser:dbuserpass@localhost:5432/yourdb`
 
 > [!IMPORTANT]
-> If you have an existing table that you want to use as a vector database, lawyer-revizorro **requires** that the table be
+> If you have an existing table that you want to use as a vector database, offer-kp **requires** that the table be
 > at least minimally conform to the expected schema - this can be seen in the [index.js](./index.js) file.
 
-_optional_ - set a table name you wish to have lawyer-revizorro store vectors to. By default this is `lawyerRevizorro_vectors`
+_optional_ - set a table name you wish to have offer-kp store vectors to. By default this is `offerKp_vectors`
 
 ## Common Questions
 
-### I cannot connect to the DB (Running lawyer-revizorro in Docker)
+### I cannot connect to the DB (Running offer-kp in Docker)
 
-If you are running lawyer-revizorro in Docker, you will need to ensure that the DB is accessible from the container.
+If you are running offer-kp in Docker, you will need to ensure that the DB is accessible from the container.
 If you are running your DB in another Docker container **or** on the host machine, you will need to ensure that the container can access the DB.
 
-`localhost` will not work in this case as it will attempt to connect to the DB _inside the lawyer-revizorro container_ instead of the host machine or another container.
+`localhost` will not work in this case as it will attempt to connect to the DB _inside the offer-kp container_ instead of the host machine or another container.
 
 You will need to use the `host.docker.internal` (or `172.17.0.1` on Linux/Ubuntu) address.
 
@@ -54,13 +54,13 @@ postgresql://dbuser:dbuserpass@localhost:5432/yourdb => postgresql://dbuser:dbus
 
 ### Can I use an existing table as a vector database?
 
-Yes, you can use an existing table as a vector database. However, lawyer-revizorro **requires** that the table be at least minimally conform to the expected schema - this can be seen in the [index.js](./index.js) file.
+Yes, you can use an existing table as a vector database. However, offer-kp **requires** that the table be at least minimally conform to the expected schema - this can be seen in the [index.js](./index.js) file.
 
-It is **absolutely critical** that the `embedding` column's `VECTOR(XXXX)` dimensions match the dimension of the embedder in lawyer-revizorro. The default embedding model is 384 dimensions. However, if you are using a custom embedder, you will need to ensure that the dimension value is set correctly.
+It is **absolutely critical** that the `embedding` column's `VECTOR(XXXX)` dimensions match the dimension of the embedder in offer-kp. The default embedding model is 384 dimensions. However, if you are using a custom embedder, you will need to ensure that the dimension value is set correctly.
 
 ### Validate the connection to the database
 
-When setting the connection string in or table name via the lawyer-revizorro UI, the following validations will be attempted:
+When setting the connection string in or table name via the offer-kp UI, the following validations will be attempted:
 
 - Validate the connection string
 - Validate the table name
@@ -69,17 +69,17 @@ When setting the connection string in or table name via the lawyer-revizorro UI,
 
 ### My embedding table is not present in the DB
 
-The embedding storage table is created by lawyer-revizorro **on the first upsert** of a vector. If you have not yet embedding any documents, the table will not be present in the DB.
+The embedding storage table is created by offer-kp **on the first upsert** of a vector. If you have not yet embedding any documents, the table will not be present in the DB.
 
 ### How do I reset my vector database?
 
 _at the workspace level in Settings > Vector Database_
 
-You can use the "Reset Vector Database" button in the lawyer-revizorro UI to reset your vector database. This will drop all vectors within that workspace, but the table will remain in the DB.
+You can use the "Reset Vector Database" button in the offer-kp UI to reset your vector database. This will drop all vectors within that workspace, but the table will remain in the DB.
 
 _reset the vector database at the db level_
 
-For this, you will need to `DROP TABLE` from the command line or however you manage your DB. Once the table is dropped, it will be recreated by lawyer-revizorro on the next upsert.
+For this, you will need to `DROP TABLE` from the command line or however you manage your DB. Once the table is dropped, it will be recreated by offer-kp on the next upsert.
 
 ## Troubleshooting
 
@@ -96,14 +96,14 @@ For this, you will need to `DROP TABLE` from the command line or however you man
 ### Cannot insert vector
 
 - Ensure the user has `INSERT` permissions in the database
-- Ensure the table has a dimension value set and this matches the dimension of the embedder in lawyer-revizorro
+- Ensure the table has a dimension value set and this matches the dimension of the embedder in offer-kp
 - Ensure the table has a vector column set
 
 ### Cannot query vector
 
 - Ensure the user has `SELECT` permissions in the database
 - Ensure the table has a vector column set
-- Ensure the table has a dimension value set and this matches the dimension of the embedder in lawyer-revizorro
+- Ensure the table has a dimension value set and this matches the dimension of the embedder in offer-kp
 
 ### "type 'vector' does not exist" issues with PGVector
 

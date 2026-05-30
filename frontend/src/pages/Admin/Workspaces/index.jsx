@@ -5,21 +5,21 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { Plus } from "@phosphor-icons/react";
 import Admin from "@/models/admin";
 import WorkspaceRow from "./WorkspaceRow";
-import LawyerRevizorroSuiteLayout from "@/layouts/LawyerRevizorroSuiteLayout";
+import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
 import paths from "@/utils/paths";
 import { useTranslation } from "react-i18next";
 
 export default function AdminWorkspaces() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
 
   return (
-    <LawyerRevizorroSuiteLayout>
-      <h1 className="lawyerRevizorro-suite-page-title">{t("admin.workspacesTitle")}</h1>
+    <OfferKpSuiteLayout>
+      <h1 className="offerKp-suite-page-title">{t("admin.workspacesTitle")}</h1>
       <p className="text-sm text-theme-text-secondary mb-6 max-w-2xl">
         {t("admin.workspacesSubtitle")}
       </p>
       <div className="flex justify-end mb-4">
-        <Link to={paths.settings.workspacesNew()} className="lawyerRevizorro-btn-new-chat no-underline">
+        <Link to={paths.settings.workspacesNew()} className="offerKp-btn-new-chat no-underline">
           <Plus size={16} weight="bold" />
           {t("admin.newWorkspace")}
         </Link>
@@ -27,7 +27,7 @@ export default function AdminWorkspaces() {
       <div className="overflow-x-auto border border-theme-sidebar-border">
         <WorkspacesContainer />
       </div>
-    </LawyerRevizorroSuiteLayout>
+    </OfferKpSuiteLayout>
   );
 }
 

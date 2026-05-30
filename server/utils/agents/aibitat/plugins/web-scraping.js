@@ -23,8 +23,8 @@ const webScraping = {
               call: JSON.stringify({ url: "https://example.com" }),
             },
             {
-              prompt: "What is lawyerRevizorro.com about?",
-              call: JSON.stringify({ url: "https://lawyerRevizorro.com" }),
+              prompt: "What is offerKp.com about?",
+              call: JSON.stringify({ url: "https://offerKp.com" }),
             },
             {
               prompt: "Scrape https://example.com",

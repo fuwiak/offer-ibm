@@ -26,7 +26,7 @@ async function resetAllVectorStores({ vectorDbKey }) {
     });
 
     console.log(
-      "Resetting lawyerRevizorro managed vector namespaces for",
+      "Resetting offerKp managed vector namespaces for",
       vectorDbKey
     );
     const VectorDb = getVectorDbClass(vectorDbKey);

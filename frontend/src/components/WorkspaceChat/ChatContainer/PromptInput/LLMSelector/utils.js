@@ -1,5 +1,5 @@
 import { DISABLED_PROVIDERS } from "@/hooks/useGetProvidersModels";
-import { LAWYER_REVIZORRO_LLM_PROVIDERS } from "@/utils/lawyerRevizorro/llmProviders";
+import { OFFER_KP_LLM_PROVIDERS } from "@/utils/offerKp/llmProviders";
 
 export function autoScrollToSelectedLLMProvider(
   selectedLLMProvider,
@@ -45,7 +45,7 @@ export function validatedModelSelection(model) {
 
 export function hasMissingCredentials(settings, provider) {
   if (!settings) return false;
-  const providerEntry = LAWYER_REVIZORRO_LLM_PROVIDERS.find((p) => p.value === provider);
+  const providerEntry = OFFER_KP_LLM_PROVIDERS.find((p) => p.value === provider);
   if (!providerEntry) return false;
 
   for (const requiredKey of providerEntry.requiredConfig) {
@@ -55,6 +55,6 @@ export function hasMissingCredentials(settings, provider) {
   return false;
 }
 
-export const WORKSPACE_LLM_PROVIDERS = LAWYER_REVIZORRO_LLM_PROVIDERS.filter(
+export const WORKSPACE_LLM_PROVIDERS = OFFER_KP_LLM_PROVIDERS.filter(
   (provider) => !DISABLED_PROVIDERS.includes(provider.value)
 );

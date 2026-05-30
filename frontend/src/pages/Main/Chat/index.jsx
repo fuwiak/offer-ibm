@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Workspace from "@/models/workspace";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
-import { HOME_CHAT_PROMPTS } from "@/utils/lawyerRevizorro/homeActions";
-import { resolvePartnerWorkspace } from "@/utils/lawyerRevizorro/partnerWorkspace";
+import { HOME_CHAT_PROMPTS } from "@/utils/offerKp/homeActions";
+import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import paths from "@/utils/paths";
 import { FullScreenLoader } from "@/components/Preloader";
 import { useTranslation } from "react-i18next";
 
 /**
- * Starts a partner conversation in the lawyer-revizorro workspace shell (not legacy home).
+ * Starts a partner conversation in the offer-kp workspace shell (not legacy home).
  */
 export default function ChatLauncherPage() {
   const { t } = useTranslation();
@@ -39,7 +39,7 @@ export default function ChatLauncherPage() {
           HOME_CHAT_PROMPTS.technical;
 
         if (!message?.trim()) {
-          if (!cancelled) navigate(paths.lawyerRevizorro.home(), { replace: true });
+          if (!cancelled) navigate(paths.offerKp.home(), { replace: true });
           return;
         }
 
@@ -48,7 +48,7 @@ export default function ChatLauncherPage() {
           JSON.stringify({ message, attachments: [] })
         );
 
-        navigate(paths.lawyerRevizorro.thread(workspace.slug, thread.slug), { replace: true });
+        navigate(paths.offerKp.thread(workspace.slug, thread.slug), { replace: true });
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Could not start conversation");

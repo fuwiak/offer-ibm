@@ -10,7 +10,7 @@ import RecoveryCodeModal from "@/components/Modals/DisplayRecoveryCodeModal";
 import { useTranslation } from "react-i18next";
 import { t } from "i18next";
 
-const RECENT_MULTI_ACCOUNTS_KEY = "lawyerRevizorroRecentAccounts";
+const RECENT_MULTI_ACCOUNTS_KEY = "offerKpRecentAccounts";
 
 function loadRecentAccounts() {
   try {

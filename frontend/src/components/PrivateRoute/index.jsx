@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { FullScreenLoader } from "../Preloader";
 import validateSessionTokenForUser from "@/utils/session";
 import paths from "@/utils/paths";
-import { shouldSkipLegacyOnboarding } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+import { shouldSkipLegacyOnboarding } from "@/utils/offerKp/detectOfferKpMode";
 import { AUTH_TIMESTAMP, AUTH_TOKEN, AUTH_USER } from "@/utils/constants";
 import { userFromStorage } from "@/utils/request";
 import System from "@/models/system";
@@ -25,20 +25,20 @@ function useIsAuthenticated() {
       const { MultiUserMode, RequiresAuth, HasUsers } = systemKeys ?? {};
       setMultiUserMode(MultiUserMode);
 
-      // Legacy onboarding wizard redirect (skipped for lawyer-revizorro via shouldSkipLegacyOnboarding)
+      // Legacy onboarding wizard redirect (skipped for offer-kp via shouldSkipLegacyOnboarding)
       if (onboardingComplete === false) {
         setShouldRedirectToOnboarding(true);
         if (!shouldSkipLegacyOnboarding()) {
           setIsAuthed(true);
           return;
         }
-        // lawyer-revizorro: redirect to first-run setup, do not grant free access
+        // offer-kp: redirect to first-run setup, do not grant free access
         setIsAuthed(false);
         return;
       }
 
       // Single User mode without password - no auth required.
-      // lawyer-revizorro: if no users exist yet, force first-run admin setup.
+      // offer-kp: if no users exist yet, force first-run admin setup.
       if (!MultiUserMode && !RequiresAuth) {
         if (shouldSkipLegacyOnboarding() && !HasUsers) {
           setShouldRedirectToOnboarding(true);
@@ -166,7 +166,7 @@ export function AdminRoute({ Component, hideUserMenu = false }) {
   );
 }
 
-// lawyer-revizorro hardening: allow only admin to access manager-gated routes.
+// offer-kp hardening: allow only admin to access manager-gated routes.
 export function ManagerRoute({ Component }) {
   const { isAuthd, shouldRedirectToOnboarding } = useIsAuthenticated();
   const { pathname } = useLocation();
@@ -206,7 +206,7 @@ export function SingleUserRoute({ Component }) {
       : <Navigate to={paths.firstRun()} />;
   }
   if (isNativeAnythingUiPath(pathname)) {
-    return <Navigate to={paths.lawyerRevizorro.home()} replace />;
+    return <Navigate to={paths.offerKp.home()} replace />;
   }
 
   return isAuthd && !multiUserMode ? (
@@ -229,7 +229,7 @@ export default function PrivateRoute({ Component }) {
       : <Navigate to={paths.firstRun()} />;
   }
   if (isNativeAnythingUiPath(pathname)) {
-    return <Navigate to={paths.lawyerRevizorro.home()} replace />;
+    return <Navigate to={paths.offerKp.home()} replace />;
   }
 
   return isAuthd ? (

@@ -35,10 +35,10 @@ export default function MobileConnectModal({ isOpen, onClose }) {
           {/* left column */}
           <div className="flex flex-col w-1/2 gap-y-[16px]">
             <p className="text-[#FFF] text-xl font-bold">
-              Go mobile. Stay local. lawyer-revizorro Mobile.
+              Go mobile. Stay local. offer-kp Mobile.
             </p>
             <p className="text-[#FFF] text-lg">
-              lawyer-revizorro for mobile allows you to connect to your workspace's
+              offer-kp for mobile allows you to connect to your workspace's
               chats, threads, tools, and documents for you to use on the go.
               <br />
               <br />
@@ -46,7 +46,7 @@ export default function MobileConnectModal({ isOpen, onClose }) {
               directly to this instance seamlessly.
             </p>
             <Link
-              to="https://play.google.com/store/apps/details?id=com.lawyerRevizorro"
+              to="https://play.google.com/store/apps/details?id=com.offerKp"
               target="_blank"
             >
               <img
@@ -63,7 +63,7 @@ export default function MobileConnectModal({ isOpen, onClose }) {
               <ConnectionQrCode isOpen={isOpen} />
             </div>
             <p className="text-[#FFF] text-sm w-[300px] text-center">
-              Scan the QR code with the lawyer-revizorro Mobile app to enable live
+              Scan the QR code with the offer-kp Mobile app to enable live
               sync of your workspaces, chats, threads and documents.
               <br />
               <Link

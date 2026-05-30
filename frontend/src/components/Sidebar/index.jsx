@@ -16,19 +16,19 @@ import { useSidebarToggle, ToggleSidebarButton } from "./SidebarToggle";
 import SearchBox from "./SearchBox";
 import { Tooltip } from "react-tooltip";
 import { createPortal } from "react-dom";
-import LawyerRevizorroSidebarExtras from "@/components/LawyerRevizorro/LawyerRevizorroSidebarExtras";
-import LawyerRevizorroSidebarBrand from "@/components/LawyerRevizorro/LawyerRevizorroSidebarBrand";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
-import { startNewConversation } from "@/utils/lawyerRevizorro/startNewConversation";
+import OfferKpSidebarExtras from "@/components/OfferKp/OfferKpSidebarExtras";
+import OfferKpSidebarBrand from "@/components/OfferKp/OfferKpSidebarBrand";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
+import { startNewConversation } from "@/utils/offerKp/startNewConversation";
 import { useLocation, useParams } from "react-router-dom";
-import CurrentWorkspaceIndicator from "@/components/LawyerRevizorro/CurrentWorkspaceIndicator";
+import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { t: ta } = useTranslation("lawyerRevizorro");
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({ pathname, workspaceSlug: slug });
+  const { t: ta } = useTranslation("offerKp");
+  const offerKpMode = shouldUseOfferKpLayout({ pathname, workspaceSlug: slug });
   const { user } = useUser();
   const { logo } = useLogo();
   const sidebarRef = useRef(null);
@@ -57,11 +57,11 @@ export default function Sidebar() {
         <div className="overflow-hidden h-full">
           <div className="flex shrink-0 w-full justify-center my-[18px]">
             <div className="flex w-[250px] min-w-[250px] px-2">
-              {lawyerRevizorroMode ? (
+              {offerKpMode ? (
                 <div
                   className={`transition-opacity duration-500 w-full ${showSidebar ? "opacity-100" : "opacity-0"}`}
                 >
-                  <LawyerRevizorroSidebarBrand />
+                  <OfferKpSidebarBrand />
                 </div>
               ) : (
                 <Link to={paths.home()} aria-label="Home">
@@ -77,8 +77,8 @@ export default function Sidebar() {
           <div
             ref={sidebarRef}
             className={`relative m-[16px] min-w-[250px] p-[10px] h-[calc(100%-76px)] ${
-              lawyerRevizorroMode
-                ? "lawyerRevizorro-sidebar-shell"
+              offerKpMode
+                ? "offerKp-sidebar-shell"
                 : "rounded-[16px] bg-theme-bg-sidebar light:bg-slate-200 border-[2px] border-theme-sidebar-border light:border-none"
             }`}
           >
@@ -86,28 +86,28 @@ export default function Sidebar() {
               <div className="flex-grow flex flex-col min-w-[235px] min-h-0">
                 <div
                   className={`relative flex flex-col w-full pt-[10px] overflow-y-auto no-scroll ${
-                    lawyerRevizorroMode
+                    offerKpMode
                       ? "flex-1 min-h-0 h-full"
                       : "h-[calc(100%-60px)] justify-between"
                   }`}
                 >
                   <div
                     className={`flex flex-col gap-y-[14px] ${
-                      lawyerRevizorroMode ? "flex-1 min-h-0" : ""
+                      offerKpMode ? "flex-1 min-h-0" : ""
                     }`}
                   >
-                    {lawyerRevizorroMode && (
+                    {offerKpMode && (
                       <button
                         type="button"
-                        className="lawyerRevizorro-btn-new-chat mb-2"
+                        className="offerKp-btn-new-chat mb-2"
                         onClick={() => startNewConversation(navigate)}
                       >
                         <Plus size={16} weight="bold" aria-hidden />
                         {ta("home.newConversation")}
                       </button>
                     )}
-                    {lawyerRevizorroMode && <LawyerRevizorroSidebarExtras />}
-                    {!lawyerRevizorroMode && (
+                    {offerKpMode && <OfferKpSidebarExtras />}
+                    {!offerKpMode && (
                       <>
                         <SearchBox user={user} showNewWsModal={showNewWsModal} />
                         <ActiveWorkspaces />
@@ -115,7 +115,7 @@ export default function Sidebar() {
                     )}
                   </div>
                 </div>
-                {!lawyerRevizorroMode && (
+                {!offerKpMode && (
                   <div className="absolute bottom-0 left-0 right-0 pb-3 bg-theme-bg-sidebar bg-opacity-80 backdrop-filter backdrop-blur-md z-10 rounded-b-[16px] light:bg-slate-200">
                     <Footer />
                   </div>
@@ -134,7 +134,7 @@ export default function Sidebar() {
 export function SidebarMobileHeader({ workspace = null }) {
   const { pathname } = useLocation();
   const { slug } = useParams();
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({ pathname, workspaceSlug: slug ?? workspace?.slug });
+  const offerKpMode = shouldUseOfferKpLayout({ pathname, workspaceSlug: slug ?? workspace?.slug });
   const { logo } = useLogo();
   const sidebarRef = useRef(null);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -165,7 +165,7 @@ export function SidebarMobileHeader({ workspace = null }) {
     <>
       <div
         aria-label="Show sidebar"
-        className="lawyerRevizorro-mobile-header fixed top-0 left-0 right-0 z-10 flex justify-between items-center px-4 py-2 bg-theme-bg-sidebar light:bg-white text-slate-200 shadow-lg h-16"
+        className="offerKp-mobile-header fixed top-0 left-0 right-0 z-10 flex justify-between items-center px-4 py-2 bg-theme-bg-sidebar light:bg-white text-slate-200 shadow-lg h-16"
       >
         <button
           onClick={() => setShowSidebar(true)}
@@ -174,7 +174,7 @@ export function SidebarMobileHeader({ workspace = null }) {
           <List className="h-6 w-6" />
         </button>
         <div className="flex items-center justify-center flex-grow min-w-0 px-2">
-          {lawyerRevizorroMode ? (
+          {offerKpMode ? (
             <CurrentWorkspaceIndicator
               workspace={workspace}
               variant="compact"

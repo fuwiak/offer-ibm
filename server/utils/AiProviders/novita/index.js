@@ -31,8 +31,8 @@ class NovitaLLM {
       baseURL: this.basePath,
       apiKey: process.env.NOVITA_LLM_API_KEY ?? null,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-Novita-Source": "lawyerRevizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-Novita-Source": "offerKp",
       },
     });
     this.model =

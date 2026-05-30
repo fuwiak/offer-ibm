@@ -25,9 +25,9 @@ export default function Introduction({ settings, setSettings, setStep }) {
               agent-skills, system prompts, slash commands, and more!
             </p>
             <p>
-              These items are created by the lawyer-revizorro team and community, and
-              are a great way to get started with lawyer-revizorro as well as extend
-              lawyer-revizorro in a way that is customized to your needs.
+              These items are created by the offer-kp team and community, and
+              are a great way to get started with offer-kp as well as extend
+              offer-kp in a way that is customized to your needs.
             </p>
             <p>
               There are both <b>private</b> and <b>public</b> items in the

@@ -18,7 +18,7 @@ const SILENCE_INTERVAL = 3_200; // wait in seconds of silence before closing.
  * @param {(textToAppend: string, autoSubmit: boolean) => void} props.sendCommand - The function to send the command
  * @returns {React.ReactElement} The SpeechToText component
  */
-export default function SpeechToText({ sendCommand, lawyerRevizorroHome = false }) {
+export default function SpeechToText({ sendCommand, offerKpHome = false }) {
   const previousTranscriptRef = useRef("");
   const {
     transcript,
@@ -34,7 +34,7 @@ export default function SpeechToText({ sendCommand, lawyerRevizorroHome = false 
   function startSTTSession() {
     if (!isMicrophoneAvailable) {
       alert(
-        "lawyer-revizorro does not have access to microphone. Please enable for this site to use this feature."
+        "offer-kp does not have access to microphone. Please enable for this site to use this feature."
       );
       return;
     }
@@ -126,9 +126,9 @@ export default function SpeechToText({ sendCommand, lawyerRevizorroHome = false 
       aria-label={t("chat_window.microphone")}
       onClick={listening ? endSTTSession : startSTTSession}
       className={
-        lawyerRevizorroHome
-          ? `lawyerRevizorro-prompt-icon-btn lawyerRevizorro-prompt-icon-btn--wide${
-              listening ? " lawyerRevizorro-prompt-icon-btn--active" : ""
+        offerKpHome
+          ? `offerKp-prompt-icon-btn offerKp-prompt-icon-btn--wide${
+              listening ? " offerKp-prompt-icon-btn--active" : ""
             }`
           : `group border-none relative flex justify-center items-center cursor-pointer w-8 h-8 rounded-full hover:bg-zinc-700 light:hover:bg-slate-200 ${
               listening ? "bg-zinc-700 light:bg-slate-200" : ""
@@ -139,8 +139,8 @@ export default function SpeechToText({ sendCommand, lawyerRevizorroHome = false 
         weight="regular"
         size={18}
         className={
-          lawyerRevizorroHome
-            ? `lawyerRevizorro-prompt-icon-btn__glyph${listening ? " lawyerRevizorro-prompt-icon-btn__glyph--active" : ""}`
+          offerKpHome
+            ? `offerKp-prompt-icon-btn__glyph${listening ? " offerKp-prompt-icon-btn__glyph--active" : ""}`
             : `pointer-events-none text-zinc-300 light:text-slate-600 group-hover:text-white light:group-hover:text-slate-600 shrink-0 ${
                 listening
                   ? "animate-pulse-glow !text-white light:!text-slate-800"

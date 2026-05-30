@@ -16,7 +16,7 @@ const {
   agentSkillsFromSystemSettings,
 } = require("./defaults");
 const { AgentHandler } = require(".");
-const { resolveLlmProviderAndModel } = require("../lawyerRevizorro/resolveLlmProvider");
+const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
 const {
   WorkspaceAgentInvocation,
 } = require("../../models/workspaceAgentInvocation");

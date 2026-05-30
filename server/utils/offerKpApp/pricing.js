@@ -1,0 +1,71 @@
+const MIN_SURFACE_M2 = 0.3;
+const SURCHARGE_2_5M = 1.3;
+const SURCHARGE_3M = 1.8;
+const LENGTH_THRESHOLD_2_5M = 2500;
+const LENGTH_THRESHOLD_3M = 3000;
+
+const OFFER_KP_PRODUCTS = [
+  { id: "one-8-3", name: "offer-kp One 8.3", basePricePerM2: 185 },
+  { id: "diamond", name: "offer-kp Diamond", basePricePerM2: 220 },
+  { id: "hybrid", name: "offer-kp Hybrid", basePricePerM2: 245 },
+  { id: "laminated", name: "offer-kp Laminated", basePricePerM2: 265 },
+  { id: "cs-6840", name: "offer-kp CS 6840", basePricePerM2: 195 },
+];
+
+function lineSurfaceM2({ lengthMm, heightMm, quantity }) {
+  const perUnit = (lengthMm / 1000) * (heightMm / 1000);
+  const billedPerUnit = Math.max(perUnit, MIN_SURFACE_M2);
+  return billedPerUnit * quantity;
+}
+
+function lengthSurchargeMultiplier(lengthMm) {
+  if (lengthMm > LENGTH_THRESHOLD_3M) return SURCHARGE_3M;
+  if (lengthMm > LENGTH_THRESHOLD_2_5M) return SURCHARGE_2_5M;
+  return 1;
+}
+
+function calculateQuote(lines, options = {}) {
+  const shipping = options.shipping ?? 0;
+  const computedLines = lines.map((line) => {
+    const product = OFFER_KP_PRODUCTS.find((p) => p.id === line.productId);
+    const maxEdge = Math.max(line.lengthMm, line.heightMm);
+    const surfaceM2 = lineSurfaceM2(line);
+    const surcharge = lengthSurchargeMultiplier(maxEdge);
+    const unitPrice = (product?.basePricePerM2 ?? 0) * surcharge;
+    const lineTotal = surfaceM2 * unitPrice;
+    return {
+      ...line,
+      productName: product?.name ?? line.productId,
+      surfaceM2: Number(surfaceM2.toFixed(4)),
+      surchargeMultiplier: surcharge,
+      unitPricePerM2: unitPrice,
+      lineTotal: Number(lineTotal.toFixed(2)),
+    };
+  });
+
+  const subtotal = computedLines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const total = subtotal + shipping;
+
+  return {
+    lines: computedLines,
+    subtotal: Number(subtotal.toFixed(2)),
+    shipping: Number(shipping.toFixed(2)),
+    total: Number(total.toFixed(2)),
+  };
+}
+
+function generateQuoteReference(options = {}) {
+  const now = new Date();
+  const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const seq = String(Math.floor(1 + Math.random() * 99)).padStart(2, "0");
+  const prefix = options.prefix || "AV";
+  const initials = options.initials || "";
+  const suffix = initials ? `${initials}${seq}` : seq;
+  return `${prefix}-${yyyymmdd}-${suffix}`;
+}
+
+module.exports = {
+  OFFER_KP_PRODUCTS,
+  calculateQuote,
+  generateQuoteReference,
+};

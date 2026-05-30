@@ -31,8 +31,8 @@ class CometApiLLM {
       baseURL: this.basePath,
       apiKey: process.env.COMETAPI_LLM_API_KEY ?? null,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-CometAPI-Source": "lawyerRevizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-CometAPI-Source": "offerKp",
       },
     });
     this.model =

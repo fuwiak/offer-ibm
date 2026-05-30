@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "LLM 偏好",
       description:
-        "lawyer-revizorro 可以与多家 LLM 提供商合作。这将是处理聊天的服务。",
+        "offer-kp 可以与多家 LLM 提供商合作。这将是处理聊天的服务。",
     },
     userSetup: {
       title: "用户设置",
@@ -32,14 +32,14 @@ const TRANSLATIONS = {
       settingsHint: "这些设置可以随时在设置中重新配置。",
     },
     survey: {
-      title: "欢迎使用 lawyer-revizorro",
-      description: "帮助我们为你的需求打造 lawyer-revizorro。可选。",
+      title: "欢迎使用 offer-kp",
+      description: "帮助我们为你的需求打造 offer-kp。可选。",
       email: "你的电子邮件是什么？",
-      useCase: "你将如何使用 lawyer-revizorro？",
+      useCase: "你将如何使用 offer-kp？",
       useCaseWork: "用于工作",
       useCasePersonal: "用于个人使用",
       useCaseOther: "其他",
-      comment: "你是如何听说 lawyer-revizorro 的？",
+      comment: "你是如何听说 offer-kp 的？",
       commentPlaceholder:
         "Reddit，Twitter，GitHub，YouTube 等 - 让我们知道你是如何找到我们的！",
       skip: "跳过调查",
@@ -94,7 +94,7 @@ const TRANSLATIONS = {
     contact: "联系支持",
     "browser-extension": "浏览器扩展",
     "system-prompt-variables": "系统提示变量",
-    "mobile-app": "lawyer-revizorro 移动版",
+    "mobile-app": "offer-kp 移动版",
     "community-hub": {
       title: "社区中心",
       trending: "探索热门",
@@ -158,7 +158,7 @@ const TRANSLATIONS = {
       add: "添加新消息",
       save: "保存消息",
       heading: "向我解释",
-      body: "lawyer-revizorro 的好处",
+      body: "offer-kp 的好处",
     },
     delete: {
       title: "删除工作区",
@@ -706,7 +706,7 @@ const TRANSLATIONS = {
         title: "智能技能选择",
         "beta-badge": "β 版本",
         description:
-          "实现无限工具和按查询减少高达 80% 的 Token 使用量——lawyer-revizorro 能够自动选择最合适的技能，以应对每个提示。",
+          "实现无限工具和按查询减少高达 80% 的 Token 使用量——offer-kp 能够自动选择最合适的技能，以应对每个提示。",
         "max-tools": {
           title: "麦克斯工具",
           description:
@@ -731,15 +731,15 @@ const TRANSLATIONS = {
   customization: {
     interface: {
       title: "界面偏好设置",
-      description: "设置您的 lawyer-revizorro 界面偏好。",
+      description: "设置您的 offer-kp 界面偏好。",
     },
     branding: {
       title: "品牌与白标设置",
-      description: "使用自定义品牌对白标您的 lawyer-revizorro 实例。",
+      description: "使用自定义品牌对白标您的 offer-kp 实例。",
     },
     chat: {
       title: "聊天",
-      description: "设置您的 lawyer-revizorro 聊天偏好。",
+      description: "设置您的 offer-kp 聊天偏好。",
       auto_submit: {
         title: "自动提交语音输入",
         description: "在静音一段时间后自动提交语音输入",
@@ -772,7 +772,7 @@ const TRANSLATIONS = {
       },
       "display-language": {
         title: "显示语言",
-        description: "选择显示 lawyer-revizorro 界面所用的语言（若有翻译可用）。",
+        description: "选择显示 offer-kp 界面所用的语言（若有翻译可用）。",
       },
       logo: {
         title: "品牌标志",
@@ -809,7 +809,7 @@ const TRANSLATIONS = {
   },
   api: {
     title: "API 密钥",
-    description: "API 密钥允许持有者以编程方式访问和管理此 lawyer-revizorro 实例。",
+    description: "API 密钥允许持有者以编程方式访问和管理此 offer-kp 实例。",
     link: "阅读 API 文档",
     generate: "生成新的 API 密钥",
     empty: "未找到 API 密钥",
@@ -822,7 +822,7 @@ const TRANSLATIONS = {
       cancel: "取消",
       close: "关闭",
       create: "创建 API 密钥",
-      helper: "创建后，API 密钥可用于以编程方式访问并配置此 lawyer-revizorro 实例。",
+      helper: "创建后，API 密钥可用于以编程方式访问并配置此 offer-kp 实例。",
       name: {
         label: "名称",
         placeholder: "生产环境集成",
@@ -846,7 +846,7 @@ const TRANSLATIONS = {
   llm: {
     title: "LLM 首选项",
     description:
-      "这些是你首选的 LLM 聊天和嵌入提供商的凭据和设置。重要的是，确保这些密钥是最新的和正确的，否则 lawyer-revizorro 将无法正常运行。",
+      "这些是你首选的 LLM 聊天和嵌入提供商的凭据和设置。重要的是，确保这些密钥是最新的和正确的，否则 offer-kp 将无法正常运行。",
     provider: "LLM 提供商",
     providers: {
       azure_openai: {
@@ -868,7 +868,7 @@ const TRANSLATIONS = {
       "这些是你的首选转录模型提供商的凭据和设置。重要的是这些密钥是最新且正确的，否则媒体文件和音频将无法转录。",
     provider: "转录提供商",
     "warn-start":
-      "在 RAM 或 CPU 有限的计算机上使用本地耳语模型可能会在处理媒体文件时停止 lawyer-revizorro。",
+      "在 RAM 或 CPU 有限的计算机上使用本地耳语模型可能会在处理媒体文件时停止 offer-kp。",
     "warn-recommend": "我们建议至少 2GB RAM 并上传 <10Mb 的文件。",
     "warn-end": "内置模型将在首次使用时自动下载。",
   },
@@ -877,7 +877,7 @@ const TRANSLATIONS = {
     "desc-start":
       "当使用本身不支持嵌入引擎的 LLM 时，你可能需要额外指定用于嵌入文本的凭据。",
     "desc-end":
-      "嵌入是将文本转换为矢量的过程。需要这些凭据才能将你的文件和提示转换为 lawyer-revizorro 可以用来处理的格式。",
+      "嵌入是将文本转换为矢量的过程。需要这些凭据才能将你的文件和提示转换为 offer-kp 可以用来处理的格式。",
     provider: {
       title: "嵌入引擎提供商",
     },
@@ -900,7 +900,7 @@ const TRANSLATIONS = {
   vector: {
     title: "向量数据库",
     description:
-      "这些是 lawyer-revizorro 实例如何运行的凭据和设置。重要的是，这些密钥是最新的和正确的。",
+      "这些是 offer-kp 实例如何运行的凭据和设置。重要的是，这些密钥是最新的和正确的。",
     provider: {
       title: "向量数据库提供商",
       description: "LanceDB 不需要任何配置。",
@@ -943,7 +943,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "隐私和数据处理",
     description:
-      "这是你对如何处理连接的第三方提供商和lawyer-revizorro的数据的配置。",
+      "这是你对如何处理连接的第三方提供商和offer-kp的数据的配置。",
     anonymous: "启用匿名遥测",
   },
   connectors: {
@@ -1089,22 +1089,22 @@ const TRANSLATIONS = {
       fetching: "正在获取...",
       "fetch-website": "获取网站",
       "privacy-notice":
-        "这些文件将被上传到此 lawyer-revizorro 实例上的文档处理器。这些文件不会发送或共享给第三方。",
+        "这些文件将被上传到此 offer-kp 实例上的文档处理器。这些文件不会发送或共享给第三方。",
     },
     pinning: {
       what_pinning: "什么是文档固定？",
       pin_explained_block1:
-        "当您在 lawyer-revizorro 中<b>固定</b>一个文档时，我们会将整个文档内容注入到您的提示窗口中，让 LLM 能够完全理解它。",
+        "当您在 offer-kp 中<b>固定</b>一个文档时，我们会将整个文档内容注入到您的提示窗口中，让 LLM 能够完全理解它。",
       pin_explained_block2:
         "这在 <b>大上下文模型</b> 或关键的小文件中效果最佳。",
       pin_explained_block3:
-        "如果默认情况下无法从 lawyer-revizorro 获取满意的答案，固定文档是提高答案质量的好方法。",
+        "如果默认情况下无法从 offer-kp 获取满意的答案，固定文档是提高答案质量的好方法。",
       accept: "好的，知道了",
     },
     watching: {
       what_watching: "什么是监控文档？",
       watch_explained_block1:
-        "当您在 lawyer-revizorro 中<b>监控</b>一个文档时，我们会<i>自动</i>按定期间隔从其原始来源同步文档内容。系统会自动更新在所有使用该文档的工作区中的内容。",
+        "当您在 offer-kp 中<b>监控</b>一个文档时，我们会<i>自动</i>按定期间隔从其原始来源同步文档内容。系统会自动更新在所有使用该文档的工作区中的内容。",
       watch_explained_block2:
         "此功能当前仅支持在线内容，不适用于手动上传的文档。",
       watch_explained_block3_start: "您可以在 ",
@@ -1290,7 +1290,7 @@ const TRANSLATIONS = {
         unauthenticated: {
           title: "需要验证",
           description:
-            "在发布项目之前，您需要通过 lawyer-revizorro 社区中心进行验证。",
+            "在发布项目之前，您需要通过 offer-kp 社区中心进行验证。",
           button: "连接到社区中心",
         },
       },
@@ -1338,7 +1338,7 @@ const TRANSLATIONS = {
     password: {
       title: "密码保护",
       description:
-        "用密码保护你的lawyer-revizorro实例。如果你忘记了密码，那么没有恢复方法，所以请确保保存这个密码。",
+        "用密码保护你的offer-kp实例。如果你忘记了密码，那么没有恢复方法，所以请确保保存这个密码。",
       "password-label": "实例密码",
     },
   },
@@ -1352,7 +1352,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Telegram 机器人",
     description:
-      "将您的 lawyer-revizorro 实例与 Telegram 连接起来，这样您就可以从任何设备与您的工作空间进行聊天。",
+      "将您的 offer-kp 实例与 Telegram 连接起来，这样您就可以从任何设备与您的工作空间进行聊天。",
     setup: {
       step1: {
         title: "第一步：创建您的 Telegram 机器人",

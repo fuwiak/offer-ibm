@@ -20,7 +20,7 @@ const { safeJsonParse } = require("../http");
  */
 
 class PushNotifications {
-  static mailTo = "lawyerRevizorro@localhost";
+  static mailTo = "offerKp@localhost";
   /**
    * @type {PushNotifications}
    */

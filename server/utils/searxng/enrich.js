@@ -82,7 +82,7 @@ async function fetchSearxng(query) {
         method: "GET",
         headers: {
           Accept: "application/json",
-          "User-Agent": "lawyer-revizorro",
+          "User-Agent": "offer-kp",
         },
         signal: controller.signal,
       });

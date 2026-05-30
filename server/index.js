@@ -2,16 +2,16 @@ const { loadEnv } = require("./config/loadEnv");
 loadEnv();
 
 const {
-  applyLawyerRevizorroLlmDefaults,
-  syncLawyerRevizorroEnvFile,
-  defaults: lawyerRevizorroLlmDefaults,
-} = require("./config/applyLawyerRevizorroLlmDefaults");
-applyLawyerRevizorroLlmDefaults();
-if (process.env.NODE_ENV === "production") syncLawyerRevizorroEnvFile();
+  applyOfferKpLlmDefaults,
+  syncOfferKpEnvFile,
+  defaults: offerKpLlmDefaults,
+} = require("./config/applyOfferKpLlmDefaults");
+applyOfferKpLlmDefaults();
+if (process.env.NODE_ENV === "production") syncOfferKpEnvFile();
 
 require("./utils/logger")();
 console.log(
-  `\x1b[36m[LAWYER_REVIZORRO-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} · ${lawyerRevizorroLlmDefaults.LAWYER_REVIZORRO_DEFAULT_LLM_LABEL}` +
+  `\x1b[36m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} · ${offerKpLlmDefaults.OFFER_KP_DEFAULT_LLM_LABEL}` +
     (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER_TOKEN
       ? " · OpenRouter API key set"
       : "")
@@ -55,7 +55,7 @@ const {
 const {
   googleAgentSkillEndpoints,
 } = require("./endpoints/utils/googleAgentSkillEndpoints");
-const { lawyerRevizorroEndpoints } = require("./endpoints/lawyerRevizorro");
+const { offerKpEndpoints } = require("./endpoints/offerKp");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -132,7 +132,7 @@ telegramEndpoints(apiRouter);
 scheduledJobEndpoints(apiRouter);
 outlookAgentEndpoints(apiRouter);
 googleAgentSkillEndpoints(apiRouter);
-lawyerRevizorroEndpoints(apiRouter);
+offerKpEndpoints(apiRouter);
 // Externally facing embedder endpoints
 embeddedEndpoints(apiRouter);
 

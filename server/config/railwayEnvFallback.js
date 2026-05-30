@@ -1,8 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
-const { applyOpenRouterEnvAliases } = require("../utils/lawyerRevizorro/openRouterEnv");
-const { applyAnthropicEnvAliases } = require("../utils/lawyerRevizorro/anthropicEnv");
+const { applyOpenRouterEnvAliases } = require("../utils/offerKpApp/openRouterEnv");
+const { applyAnthropicEnvAliases } = require("../utils/offerKpApp/anthropicEnv");
 
 /** Ключи OfferKP / shop / LLM — подставляются из Railway, если нет в .env */
 const RAILWAY_FALLBACK_KEYS = [

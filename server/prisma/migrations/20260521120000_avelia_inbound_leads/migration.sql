@@ -1,5 +1,5 @@
 -- Inbound leads from IONOS mailbox (lead-transfer@alliaverre.fr)
-CREATE TABLE "lawyerRevizorro_inbound_leads" (
+CREATE TABLE "offerKp_inbound_leads" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "messageId" TEXT NOT NULL,
     "fromEmail" TEXT,
@@ -16,6 +16,6 @@ CREATE TABLE "lawyerRevizorro_inbound_leads" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX "lawyerRevizorro_inbound_leads_messageId_key" ON "lawyerRevizorro_inbound_leads"("messageId");
-CREATE INDEX "lawyerRevizorro_inbound_leads_receivedAt_idx" ON "lawyerRevizorro_inbound_leads"("receivedAt");
-CREATE INDEX "lawyerRevizorro_inbound_leads_status_idx" ON "lawyerRevizorro_inbound_leads"("status");
+CREATE UNIQUE INDEX "offerKp_inbound_leads_messageId_key" ON "offerKp_inbound_leads"("messageId");
+CREATE INDEX "offerKp_inbound_leads_receivedAt_idx" ON "offerKp_inbound_leads"("receivedAt");
+CREATE INDEX "offerKp_inbound_leads_status_idx" ON "offerKp_inbound_leads"("status");

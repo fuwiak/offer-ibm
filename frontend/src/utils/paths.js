@@ -15,7 +15,7 @@ export default {
   home: () => {
     return "/";
   },
-  lawyerRevizorro: {
+  offerKp: {
     home: (options = {}) => applyOptions("/", options),
     notifications: () => "/notifications",
     dashboard: () => "/dashboard",
@@ -66,16 +66,16 @@ export default {
     return "https://discord.com/invite/6UyHPeGZAC";
   },
   docs: (path = "") => {
-    return `https://docs.lawyerRevizorro.com${path}`;
+    return `https://docs.offerKp.com${path}`;
   },
   chatModes: () => {
-    return "https://docs.lawyerRevizorro.com/features/chat-modes";
+    return "https://docs.offerKp.com/features/chat-modes";
   },
   mailToMintplex: () => {
     return "mailto:team@mintplexlabs.com";
   },
   hosting: () => {
-    return "https://my.mintplexlabs.com/aio-checkout?product=lawyerRevizorro";
+    return "https://my.mintplexlabs.com/aio-checkout?product=offerKp";
   },
   workspace: {
     chat: (slug, options = {}) => {
@@ -221,7 +221,7 @@ export default {
     website: () => {
       return import.meta.env.DEV
         ? `http://localhost:5173`
-        : `https://hub.lawyerRevizorro.com`;
+        : `https://hub.offerKp.com`;
     },
     /**
      * View more items of a given type on the community hub.
@@ -248,17 +248,17 @@ export default {
       return `${this.website()}/me`;
     },
     noPrivateItems: () => {
-      return "https://docs.lawyerRevizorro.com/community-hub/faq#no-private-items";
+      return "https://docs.offerKp.com/community-hub/faq#no-private-items";
     },
   },
 
-  // TODO: Migrate all docs.lawyerRevizorro.com links to the new docs.
+  // TODO: Migrate all docs.offerKp.com links to the new docs.
   documentation: {
     mobileIntroduction: () => {
-      return "https://docs.lawyerRevizorro.com/mobile/overview";
+      return "https://docs.offerKp.com/mobile/overview";
     },
     contextWindows: () => {
-      return "https://docs.lawyerRevizorro.com/chatting-with-documents/introduction#you-exceed-the-context-window---what-now";
+      return "https://docs.offerKp.com/chatting-with-documents/introduction#you-exceed-the-context-window---what-now";
     },
   },
 

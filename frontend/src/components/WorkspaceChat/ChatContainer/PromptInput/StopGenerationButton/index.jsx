@@ -2,7 +2,7 @@ import { ABORT_STREAM_EVENT } from "@/utils/chat";
 import { Tooltip } from "react-tooltip";
 import { useTranslation } from "react-i18next";
 
-export default function StopGenerationButton({ lawyerRevizorroHome = false }) {
+export default function StopGenerationButton({ offerKpHome = false }) {
   const { t } = useTranslation();
   function emitHaltEvent() {
     window.dispatchEvent(new CustomEvent(ABORT_STREAM_EVENT));
@@ -16,8 +16,8 @@ export default function StopGenerationButton({ lawyerRevizorroHome = false }) {
         data-tooltip-id="stop-generation-button"
         data-tooltip-content={t("chat_window.stop_generating")}
         className={
-          lawyerRevizorroHome
-            ? "lawyerRevizorro-prompt-send-btn lawyerRevizorro-prompt-send-btn--active lawyerRevizorro-prompt-send-btn--stop"
+          offerKpHome
+            ? "offerKp-prompt-send-btn offerKp-prompt-send-btn--active offerKp-prompt-send-btn--stop"
             : "border-none inline-flex justify-center items-center rounded-full cursor-pointer w-8 h-8 bg-white light:bg-slate-800 hover:opacity-80 transition-opacity"
         }
         aria-label="Stop generating"

@@ -308,7 +308,7 @@ export function DnDFileUploaderProvider({
     // Wait for all promises to resolve in some way before dispatching the event to unlock the send button
     Promise.all(promises).finally(() => {
       window.dispatchEvent(new CustomEvent(ATTACHMENTS_PROCESSED_EVENT));
-      window.dispatchEvent(new CustomEvent("lawyerRevizorro:thread-files-changed"));
+      window.dispatchEvent(new CustomEvent("offerKp:thread-files-changed"));
     });
   }
 

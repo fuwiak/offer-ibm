@@ -12,7 +12,7 @@ import AgentSkillsTab from "./Tabs/AgentSkills";
 import SlashCommandsTab from "./Tabs/SlashCommands";
 
 export const TOOLS_MENU_KEYBOARD_EVENT = "tools-menu-keyboard";
-const LAWYER_REVIZORRO_SKILL_ROLES = [
+const OFFER_KP_SKILL_ROLES = [
   "admin",
   "manager",
   "partner",
@@ -20,7 +20,7 @@ const LAWYER_REVIZORRO_SKILL_ROLES = [
   "external_sales",
 ];
 
-function getTabs(t, user, lawyerRevizorroHome = false) {
+function getTabs(t, user, offerKpHome = false) {
   const tabs = [
     {
       key: "slash-commands",
@@ -30,10 +30,10 @@ function getTabs(t, user, lawyerRevizorroHome = false) {
   ];
 
   const canSeeAgentSkills =
-    lawyerRevizorroHome ||
+    offerKpHome ||
     !user?.hasOwnProperty("role") ||
     user.role === "admin" ||
-    LAWYER_REVIZORRO_SKILL_ROLES.includes(user?.role);
+    OFFER_KP_SKILL_ROLES.includes(user?.role);
 
   if (canSeeAgentSkills) {
     tabs.unshift({
@@ -61,12 +61,12 @@ export default function ToolsMenu({
   sendCommand,
   promptRef,
   centered = false,
-  lawyerRevizorroHome = false,
+  offerKpHome = false,
   highlightedIndexRef,
 }) {
   const { t } = useTranslation();
   const { user } = useUser();
-  const TABS = useMemo(() => getTabs(t, user, lawyerRevizorroHome), [t, user, lawyerRevizorroHome]);
+  const TABS = useMemo(() => getTabs(t, user, offerKpHome), [t, user, offerKpHome]);
   const [activeTab, setActiveTab] = useState(TABS[0].key);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [maxHeight, setMaxHeight] = useState(360);
@@ -165,8 +165,8 @@ export default function ToolsMenu({
         }}
         style={{ maxHeight }}
         className={`absolute left-2 right-2 md:left-14 md:right-auto md:w-[400px] z-50 flex flex-col gap-2.5 shadow-lg overflow-hidden ${
-          lawyerRevizorroHome
-            ? "lawyerRevizorro-tools-menu p-3"
+          offerKpHome
+            ? "offerKp-tools-menu p-3"
             : "bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg p-3"
         } ${centered ? "top-full mt-2" : "bottom-full mb-2"}`}
       >
@@ -176,7 +176,7 @@ export default function ToolsMenu({
               key={tab.key}
               active={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              lawyerRevizorroHome={lawyerRevizorroHome}
+              offerKpHome={offerKpHome}
             >
               {tab.label}
             </TabButton>
@@ -198,14 +198,14 @@ export default function ToolsMenu({
   );
 }
 
-function TabButton({ active, onClick, children, lawyerRevizorroHome = false }) {
+function TabButton({ active, onClick, children, offerKpHome = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        lawyerRevizorroHome
-          ? `lawyerRevizorro-tools-tab border-none cursor-pointer px-2 py-1 text-[12px] font-medium text-center whitespace-nowrap ${
+        offerKpHome
+          ? `offerKp-tools-tab border-none cursor-pointer px-2 py-1 text-[12px] font-medium text-center whitespace-nowrap ${
               active
                 ? "bg-theme-sidebar-item-selected text-theme-text-primary font-semibold"
                 : "bg-transparent text-theme-text-secondary hover:bg-theme-sidebar-item-hover hover:text-theme-text-primary"

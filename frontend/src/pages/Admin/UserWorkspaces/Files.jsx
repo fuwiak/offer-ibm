@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import LawyerRevizorroSuiteLayout from "@/layouts/LawyerRevizorroSuiteLayout";
+import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import DocumentSettings from "@/components/Modals/ManageWorkspace/Documents";
@@ -22,8 +22,8 @@ export default function UserWorkspaceFilesPage() {
   }, [slug]);
 
   return (
-    <LawyerRevizorroSuiteLayout>
-      <h1 className="lawyerRevizorro-suite-page-title">Manage files</h1>
+    <OfferKpSuiteLayout>
+      <h1 className="offerKp-suite-page-title">Manage files</h1>
       <p className="text-sm text-theme-text-secondary mb-4">
         {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace documents"}
       </p>
@@ -42,6 +42,6 @@ export default function UserWorkspaceFilesPage() {
           <DocumentSettings workspace={workspace} />
         </EmbeddingProgressProvider>
       )}
-    </LawyerRevizorroSuiteLayout>
+    </OfferKpSuiteLayout>
   );
 }

@@ -1,20 +1,20 @@
 import { Link } from "react-router-dom";
-import LawyerRevizorroPageShell from "@/components/LawyerRevizorro/LawyerRevizorroPageShell";
-import LanguageSwitcher from "@/components/LawyerRevizorro/LanguageSwitcher";
+import OfferKpPageShell from "@/components/OfferKp/OfferKpPageShell";
+import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import useUser from "@/hooks/useUser";
 import paths from "@/utils/paths";
 import { useTranslation } from "react-i18next";
 
 export default function AccountSettingsPage() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const { theme, setTheme, availableThemes } = useTheme();
   const { user } = useUser();
   const canUserWorkspaces =
     user?.role === "admin" || user?.role === "manager";
 
   return (
-    <LawyerRevizorroPageShell title={t("admin.settings")} subtitle={t("account.settingsSubtitle")}>
+    <OfferKpPageShell title={t("admin.settings")} subtitle={t("account.settingsSubtitle")}>
       <div className="max-w-2xl space-y-8">
         <section className="border border-theme-sidebar-border bg-theme-bg-primary p-6 space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-theme-text-primary">
@@ -33,7 +33,7 @@ export default function AccountSettingsPage() {
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="lawyerRevizorro-carbon-select"
+              className="offerKp-carbon-select"
             >
               {Object.entries(availableThemes).map(([key, label]) => (
                 <option key={key} value={key}>
@@ -54,7 +54,7 @@ export default function AccountSettingsPage() {
             </p>
             <Link
               to={paths.settings.userWorkspaces()}
-              className="lawyerRevizorro-btn-new-chat inline-flex w-auto no-underline"
+              className="offerKp-btn-new-chat inline-flex w-auto no-underline"
             >
               {t("admin.nav.userWorkspaces", { defaultValue: "User Workspaces" })}
             </Link>
@@ -65,10 +65,10 @@ export default function AccountSettingsPage() {
           <p className="text-sm text-theme-text-secondary">{t("account.settingsHint")}</p>
         )}
 
-        <Link to={paths.login(true)} className="lawyerRevizorro-btn-new-chat inline-flex w-auto no-underline">
+        <Link to={paths.login(true)} className="offerKp-btn-new-chat inline-flex w-auto no-underline">
           {t("admin.logout")}
         </Link>
       </div>
-    </LawyerRevizorroPageShell>
+    </OfferKpPageShell>
   );
 }

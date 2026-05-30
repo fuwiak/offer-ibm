@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Info } from "@phosphor-icons/react";
-import LawyerRevizorroSuiteLayout from "@/layouts/LawyerRevizorroSuiteLayout";
-import WizardRightPanel from "@/components/LawyerRevizorro/WorkspaceWizard/WizardRightPanel";
+import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
+import WizardRightPanel from "@/components/OfferKp/WorkspaceWizard/WizardRightPanel";
 import Workspace from "@/models/workspace";
 import Admin from "@/models/admin";
 import paths from "@/utils/paths";
@@ -14,13 +14,13 @@ import {
   loadWizardDraft,
   saveWizardDraft,
   clearWizardDraft,
-} from "@/utils/lawyerRevizorro/workspaceWizard";
-import { resolveProfilePromptChange } from "@/utils/lawyerRevizorro/workspaceProfilePrompt";
+} from "@/utils/offerKp/workspaceWizard";
+import { resolveProfilePromptChange } from "@/utils/offerKp/workspaceProfilePrompt";
 
 const MAX_PROMPT = 12000;
 
 export default function CreateWorkspaceWizard() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const stepFromUrl = Number(searchParams.get("step") || "1");
@@ -99,7 +99,7 @@ export default function CreateWorkspaceWizard() {
 
       const updatePayload = {
         openAiPrompt: draft.openAiPrompt?.trim() || undefined,
-        lawyerRevizorroUserProfile: draft.profileType || undefined,
+        offerKpUserProfile: draft.profileType || undefined,
       };
       if (draft.strictMode) {
         updatePayload.queryRefusalResponse =
@@ -140,26 +140,26 @@ export default function CreateWorkspaceWizard() {
   const rightPanel = <WizardRightPanel onUseTemplate={handleUseTemplate} />;
 
   return (
-    <LawyerRevizorroSuiteLayout rightPanel={rightPanel}>
-      <Link to={paths.settings.workspaces()} className="lawyerRevizorro-suite-back">
+    <OfferKpSuiteLayout rightPanel={rightPanel}>
+      <Link to={paths.settings.workspaces()} className="offerKp-suite-back">
         <ArrowLeft size={16} />
         {t("admin.backToWorkspaces")}
       </Link>
-      <h1 className="lawyerRevizorro-suite-page-title">{t("admin.createWorkspace")}</h1>
+      <h1 className="offerKp-suite-page-title">{t("admin.createWorkspace")}</h1>
 
-      <div className="lawyerRevizorro-wizard-stepper" role="tablist">
+      <div className="offerKp-wizard-stepper" role="tablist">
         {WIZARD_STEPS.map((s) => (
           <button
             key={s.id}
             type="button"
             role="tab"
             aria-selected={step === s.id}
-            className={`lawyerRevizorro-wizard-step ${
-              step === s.id ? "lawyerRevizorro-wizard-step--active" : step > s.id ? "lawyerRevizorro-wizard-step--done" : ""
+            className={`offerKp-wizard-step ${
+              step === s.id ? "offerKp-wizard-step--active" : step > s.id ? "offerKp-wizard-step--done" : ""
             }`}
             onClick={() => goTo(s.id)}
           >
-            <span className="lawyerRevizorro-wizard-step__num">{s.id}</span>
+            <span className="offerKp-wizard-step__num">{s.id}</span>
             {s.label}
           </button>
         ))}
@@ -167,36 +167,36 @@ export default function CreateWorkspaceWizard() {
 
       {step === 1 && (
         <section>
-          <label className="lawyerRevizorro-field-label" htmlFor="ws-name">
+          <label className="offerKp-field-label" htmlFor="ws-name">
             {t("admin.fields.workspaceName")}
           </label>
           <input
             id="ws-name"
-            className="lawyerRevizorro-carbon-input"
+            className="offerKp-carbon-input"
             value={draft.name}
             onChange={(e) => updateDraft({ name: e.target.value })}
             placeholder={t("admin.fields.workspaceNamePlaceholder")}
           />
-          <p className="lawyerRevizorro-field-hint">{t("admin.fields.workspaceNameHint")}</p>
+          <p className="offerKp-field-hint">{t("admin.fields.workspaceNameHint")}</p>
 
-          <label className="lawyerRevizorro-field-label mt-6 block" htmlFor="ws-desc">
+          <label className="offerKp-field-label mt-6 block" htmlFor="ws-desc">
             {t("admin.fields.description")}
           </label>
           <textarea
             id="ws-desc"
-            className="lawyerRevizorro-carbon-textarea"
+            className="offerKp-carbon-textarea"
             style={{ minHeight: 100 }}
             value={draft.description}
             onChange={(e) => updateDraft({ description: e.target.value })}
             placeholder={t("admin.fields.descriptionPlaceholder")}
           />
 
-          <label className="lawyerRevizorro-field-label mt-6 block" htmlFor="ws-profile">
+          <label className="offerKp-field-label mt-6 block" htmlFor="ws-profile">
             {t("admin.fields.profileType")}
           </label>
           <select
             id="ws-profile"
-            className="lawyerRevizorro-carbon-select"
+            className="offerKp-carbon-select"
             value={draft.profileType}
             onChange={(e) => handleProfileTypeChange(e.target.value, e.target)}
           >
@@ -206,18 +206,18 @@ export default function CreateWorkspaceWizard() {
               </option>
             ))}
           </select>
-          <p className="lawyerRevizorro-field-hint">{t("admin.fields.profileTypeHint")}</p>
+          <p className="offerKp-field-hint">{t("admin.fields.profileTypeHint")}</p>
         </section>
       )}
 
       {step === 2 && (
         <section>
-          <label className="lawyerRevizorro-field-label" htmlFor="ws-profile-prompt">
+          <label className="offerKp-field-label" htmlFor="ws-profile-prompt">
             {t("admin.fields.userProfile")}
           </label>
           <select
             id="ws-profile-prompt"
-            className="lawyerRevizorro-carbon-select mb-2"
+            className="offerKp-carbon-select mb-2"
             value={draft.profileType}
             onChange={(e) => handleProfileTypeChange(e.target.value, e.target)}
           >
@@ -227,49 +227,49 @@ export default function CreateWorkspaceWizard() {
               </option>
             ))}
           </select>
-          <p className="lawyerRevizorro-field-hint mb-4">{t("admin.fields.userProfileHint")}</p>
+          <p className="offerKp-field-hint mb-4">{t("admin.fields.userProfileHint")}</p>
 
           <div className="flex items-center gap-2 mb-2">
-            <label className="lawyerRevizorro-field-label mb-0" htmlFor="ws-prompt">
+            <label className="offerKp-field-label mb-0" htmlFor="ws-prompt">
               {t("admin.fields.systemInstructions")}
             </label>
             <Info size={16} className="text-theme-text-secondary" aria-hidden />
           </div>
-          <p className="lawyerRevizorro-field-hint mb-3">{t("admin.fields.systemInstructionsHint")}</p>
+          <p className="offerKp-field-hint mb-3">{t("admin.fields.systemInstructionsHint")}</p>
           <textarea
             id="ws-prompt"
-            className="lawyerRevizorro-carbon-textarea"
+            className="offerKp-carbon-textarea"
             maxLength={MAX_PROMPT}
             value={draft.openAiPrompt}
             onChange={(e) => updateDraft({ openAiPrompt: e.target.value })}
             placeholder={t("admin.fields.systemInstructionsPlaceholder")}
           />
-          <p className="lawyerRevizorro-char-count">
+          <p className="offerKp-char-count">
             {draft.openAiPrompt.length}/{MAX_PROMPT}
           </p>
 
-          <label className="lawyerRevizorro-field-label mt-8 block">
+          <label className="offerKp-field-label mt-8 block">
             {t("admin.fields.workspaceModels")}
           </label>
           <input
-            className="lawyerRevizorro-carbon-input"
+            className="offerKp-carbon-input"
             placeholder={t("admin.fields.workspaceModelsPlaceholder")}
             readOnly
             value=""
             onFocus={(e) => e.target.blur()}
           />
-          <div className="lawyerRevizorro-chip-row">
+          <div className="offerKp-chip-row">
             {WORKSPACE_MODEL_PRESETS.map((preset) =>
               draft.modelTags.includes(preset.id) ? (
-                <span key={preset.id} className="lawyerRevizorro-chip">
+                <span key={preset.id} className="offerKp-chip">
                   <span
-                    className="lawyerRevizorro-chip__dot"
+                    className="offerKp-chip__dot"
                     style={{ background: preset.color }}
                   />
                   {preset.label}
                   <button
                     type="button"
-                    className="lawyerRevizorro-chip__remove"
+                    className="offerKp-chip__remove"
                     onClick={() => toggleModelTag(preset.id)}
                     aria-label="Remove"
                   >
@@ -279,7 +279,7 @@ export default function CreateWorkspaceWizard() {
               ) : null
             )}
           </div>
-          <p className="lawyerRevizorro-field-hint mt-2">
+          <p className="offerKp-field-hint mt-2">
             {t("admin.fields.addModelHint")}{" "}
             {WORKSPACE_MODEL_PRESETS.filter((p) => !draft.modelTags.includes(p.id))
               .slice(0, 3)
@@ -295,53 +295,53 @@ export default function CreateWorkspaceWizard() {
               ))}
           </p>
 
-          <div className="lawyerRevizorro-info-banner--blue">
+          <div className="offerKp-info-banner--blue">
             <Info size={20} className="shrink-0 text-primary-button" />
             <span>{t("admin.visibilityBanner")}</span>
           </div>
 
           <div className="mt-6">
-            <label className="lawyerRevizorro-checkbox-row">
+            <label className="offerKp-checkbox-row">
               <input
                 type="checkbox"
                 checked={draft.suggestActions}
                 onChange={(e) => updateDraft({ suggestActions: e.target.checked })}
               />
               <span>
-                <span className="lawyerRevizorro-checkbox-row__title">
+                <span className="offerKp-checkbox-row__title">
                   {t("admin.options.suggestActions")}
                 </span>
-                <span className="lawyerRevizorro-checkbox-row__desc block">
+                <span className="offerKp-checkbox-row__desc block">
                   {t("admin.options.suggestActionsDesc")}
                 </span>
               </span>
             </label>
-            <label className="lawyerRevizorro-checkbox-row">
+            <label className="offerKp-checkbox-row">
               <input
                 type="checkbox"
                 checked={draft.contextualMemory}
                 onChange={(e) => updateDraft({ contextualMemory: e.target.checked })}
               />
               <span>
-                <span className="lawyerRevizorro-checkbox-row__title">
+                <span className="offerKp-checkbox-row__title">
                   {t("admin.options.contextualMemory")}
                 </span>
-                <span className="lawyerRevizorro-checkbox-row__desc block">
+                <span className="offerKp-checkbox-row__desc block">
                   {t("admin.options.contextualMemoryDesc")}
                 </span>
               </span>
             </label>
-            <label className="lawyerRevizorro-checkbox-row">
+            <label className="offerKp-checkbox-row">
               <input
                 type="checkbox"
                 checked={draft.strictMode}
                 onChange={(e) => updateDraft({ strictMode: e.target.checked })}
               />
               <span>
-                <span className="lawyerRevizorro-checkbox-row__title">
+                <span className="offerKp-checkbox-row__title">
                   {t("admin.options.strictMode")}
                 </span>
-                <span className="lawyerRevizorro-checkbox-row__desc block">
+                <span className="offerKp-checkbox-row__desc block">
                   {t("admin.options.strictModeDesc")}
                 </span>
               </span>
@@ -352,18 +352,18 @@ export default function CreateWorkspaceWizard() {
 
       {step === 3 && (
         <section>
-          <p className="lawyerRevizorro-field-hint mb-4">{t("admin.documentsIntro")}</p>
-          <label className="lawyerRevizorro-field-label" htmlFor="ws-docs">
+          <p className="offerKp-field-hint mb-4">{t("admin.documentsIntro")}</p>
+          <label className="offerKp-field-label" htmlFor="ws-docs">
             {t("admin.fields.documentNotes")}
           </label>
           <textarea
             id="ws-docs"
-            className="lawyerRevizorro-carbon-textarea"
+            className="offerKp-carbon-textarea"
             value={draft.documentNotes}
             onChange={(e) => updateDraft({ documentNotes: e.target.value })}
             placeholder={t("admin.fields.documentNotesPlaceholder")}
           />
-          <div className="lawyerRevizorro-info-banner--blue mt-4">
+          <div className="offerKp-info-banner--blue mt-4">
             <Info size={20} className="shrink-0 text-primary-button" />
             <span>{t("admin.documentsAfterCreate")}</span>
           </div>
@@ -372,7 +372,7 @@ export default function CreateWorkspaceWizard() {
 
       {step === 4 && (
         <section>
-          <p className="lawyerRevizorro-field-hint mb-4">{t("admin.accessIntro")}</p>
+          <p className="offerKp-field-hint mb-4">{t("admin.accessIntro")}</p>
           <div className="border border-theme-sidebar-border max-h-[400px] overflow-y-auto">
             {users.length === 0 ? (
               <p className="p-4 text-sm text-theme-text-secondary">{t("admin.noUsers")}</p>
@@ -380,7 +380,7 @@ export default function CreateWorkspaceWizard() {
               users.map((u) => (
                 <label
                   key={u.id}
-                  className="lawyerRevizorro-checkbox-row px-4 cursor-pointer hover:bg-theme-sidebar-item-hover"
+                  className="offerKp-checkbox-row px-4 cursor-pointer hover:bg-theme-sidebar-item-hover"
                 >
                   <input
                     type="checkbox"
@@ -388,46 +388,46 @@ export default function CreateWorkspaceWizard() {
                     onChange={() => toggleUser(u.id)}
                   />
                   <span>
-                    <span className="lawyerRevizorro-checkbox-row__title">
+                    <span className="offerKp-checkbox-row__title">
                       {u.username || `user #${u.id}`}
                     </span>
-                    <span className="lawyerRevizorro-checkbox-row__desc block">{u.role}</span>
+                    <span className="offerKp-checkbox-row__desc block">{u.role}</span>
                   </span>
                 </label>
               ))
             )}
           </div>
-          <p className="lawyerRevizorro-field-hint mt-3">{t("admin.accessHint")}</p>
+          <p className="offerKp-field-hint mt-3">{t("admin.accessHint")}</p>
         </section>
       )}
 
       {step === 5 && (
-        <section className="lawyerRevizorro-summary-grid">
+        <section className="offerKp-summary-grid">
           <p className="text-theme-text-secondary text-sm mb-4">{t("admin.summaryIntro")}</p>
           <dl>
-            <div className="lawyerRevizorro-summary-row">
+            <div className="offerKp-summary-row">
               <dt>{t("admin.fields.workspaceName")}</dt>
               <dd>{draft.name || "—"}</dd>
             </div>
-            <div className="lawyerRevizorro-summary-row">
+            <div className="offerKp-summary-row">
               <dt>{t("admin.fields.profileType")}</dt>
               <dd>
                 {WORKSPACE_MODEL_PRESETS.find((p) => p.id === draft.profileType)?.label ??
                   draft.profileType}
               </dd>
             </div>
-            <div className="lawyerRevizorro-summary-row">
+            <div className="offerKp-summary-row">
               <dt>{t("admin.fields.systemInstructions")}</dt>
               <dd className="truncate max-w-md">
                 {draft.openAiPrompt?.slice(0, 120) || "—"}
                 {draft.openAiPrompt?.length > 120 ? "…" : ""}
               </dd>
             </div>
-            <div className="lawyerRevizorro-summary-row">
+            <div className="offerKp-summary-row">
               <dt>{t("admin.fields.workspaceModels")}</dt>
               <dd>{draft.modelTags.join(", ") || "—"}</dd>
             </div>
-            <div className="lawyerRevizorro-summary-row">
+            <div className="offerKp-summary-row">
               <dt>{t("admin.summaryMembers")}</dt>
               <dd>{draft.userIds.length} {t("admin.usersSelected")}</dd>
             </div>
@@ -435,16 +435,16 @@ export default function CreateWorkspaceWizard() {
         </section>
       )}
 
-      <div className="lawyerRevizorro-wizard-footer">
+      <div className="offerKp-wizard-footer">
         {step > 1 && (
-          <button type="button" className="lawyerRevizorro-btn-ghost" onClick={() => goTo(step - 1)}>
+          <button type="button" className="offerKp-btn-ghost" onClick={() => goTo(step - 1)}>
             {t("admin.previous")}
           </button>
         )}
         {step < 5 ? (
           <button
             type="button"
-            className="lawyerRevizorro-btn-new-chat"
+            className="offerKp-btn-new-chat"
             style={{ width: "auto", minWidth: 120 }}
             onClick={() => goTo(step + 1)}
           >
@@ -453,7 +453,7 @@ export default function CreateWorkspaceWizard() {
         ) : (
           <button
             type="button"
-            className="lawyerRevizorro-btn-new-chat"
+            className="offerKp-btn-new-chat"
             style={{ width: "auto", minWidth: 160 }}
             disabled={submitting}
             onClick={handleCreate}
@@ -462,6 +462,6 @@ export default function CreateWorkspaceWizard() {
           </button>
         )}
       </div>
-    </LawyerRevizorroSuiteLayout>
+    </OfferKpSuiteLayout>
   );
 }

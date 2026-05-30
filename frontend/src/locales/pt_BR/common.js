@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "Preferência de LLM",
       description:
-        "lawyer-revizorro funciona com vários provedores de LLM. Este será o serviço que lidará com os chats.",
+        "offer-kp funciona com vários provedores de LLM. Este será o serviço que lidará com os chats.",
     },
     userSetup: {
       title: "Configuração do Usuário",
@@ -35,14 +35,14 @@ const TRANSLATIONS = {
         "Estas configurações podem ser alteradas a qualquer momento.",
     },
     survey: {
-      title: "Bem-vindo ao lawyer-revizorro",
-      description: "Ajude-nos a melhorar o lawyer-revizorro. Opcional.",
+      title: "Bem-vindo ao offer-kp",
+      description: "Ajude-nos a melhorar o offer-kp. Opcional.",
       email: "Qual seu email?",
-      useCase: "Como você usará o lawyer-revizorro?",
+      useCase: "Como você usará o offer-kp?",
       useCaseWork: "Para trabalho",
       useCasePersonal: "Uso pessoal",
       useCaseOther: "Outro",
-      comment: "Como você conheceu o lawyer-revizorro?",
+      comment: "Como você conheceu o offer-kp?",
       commentPlaceholder:
         "Reddit, Twitter, GitHub, YouTube, etc. - Conte como nos encontrou!",
       skip: "Pular Pesquisa",
@@ -97,7 +97,7 @@ const TRANSLATIONS = {
     "experimental-features": "Recursos Experimentais",
     contact: "Suporte",
     "browser-extension": "Extensão de Navegador",
-    "mobile-app": "lawyer-revizorro Mobile",
+    "mobile-app": "offer-kp Mobile",
     "community-hub": {
       title: "Centro Comunitário",
       trending: "Explore as tendências",
@@ -163,7 +163,7 @@ const TRANSLATIONS = {
       add: "Adicionar mensagem",
       save: "Salvar Mensagens",
       heading: "Explique para mim",
-      body: "os benefícios do lawyer-revizorro",
+      body: "os benefícios do offer-kp",
     },
     delete: {
       title: "Excluir Workspace",
@@ -764,7 +764,7 @@ const TRANSLATIONS = {
         title: "Seleção Inteligente de Habilidades",
         "beta-badge": "Beta",
         description:
-          "Permita o uso ilimitado de ferramentas e reduza o consumo de tokens em até 80% por consulta — O lawyer-revizorro seleciona automaticamente as habilidades mais adequadas para cada solicitação.",
+          "Permita o uso ilimitado de ferramentas e reduza o consumo de tokens em até 80% por consulta — O offer-kp seleciona automaticamente as habilidades mais adequadas para cada solicitação.",
         "max-tools": {
           title: "Ferramentas Max",
           description:
@@ -794,7 +794,7 @@ const TRANSLATIONS = {
     },
     branding: {
       title: "Marca & Etiqueta Branca",
-      description: "Personalize sua instância do lawyer-revizorro com sua marca.",
+      description: "Personalize sua instância do offer-kp com sua marca.",
     },
     chat: {
       title: "Chat",
@@ -885,7 +885,7 @@ const TRANSLATIONS = {
       close: "Fechar",
       create: "Criar chave de API",
       helper:
-        "Depois de criada, a chave de API pode ser usada para acessar e configurar esta instância do lawyer-revizorro programaticamente.",
+        "Depois de criada, a chave de API pode ser usada para acessar e configurar esta instância do offer-kp programaticamente.",
       name: {
         label: "Nome",
         placeholder: "Integração de produção",
@@ -932,7 +932,7 @@ const TRANSLATIONS = {
       "Credenciais e configurações do seu provedor de transcrição. Essas chaves devem estar corretas para processar arquivos de mídia.",
     provider: "Provedor de Transcrição",
     "warn-start":
-      "Usar o modelo local whisper em máquinas com RAM ou CPU limitada pode travar o lawyer-revizorro.",
+      "Usar o modelo local whisper em máquinas com RAM ou CPU limitada pode travar o offer-kp.",
     "warn-recommend": "Recomendamos pelo menos 2GB de RAM e arquivos <10Mb.",
     "warn-end":
       "O modelo interno será baixado automaticamente no primeiro uso.",
@@ -1010,7 +1010,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Privacidade & Dados",
     description:
-      "Configurações de como provedores terceiros e o lawyer-revizorro lidam com seus dados.",
+      "Configurações de como provedores terceiros e o offer-kp lidam com seus dados.",
     anonymous: "Telemetria Anônima Ativa",
   },
   connectors: {
@@ -1177,7 +1177,7 @@ const TRANSLATIONS = {
       fetching: "Buscando...",
       "fetch-website": "Buscar site",
       "privacy-notice":
-        "Esses arquivos são enviados ao processador local do lawyer-revizorro. Não são compartilhados com terceiros.",
+        "Esses arquivos são enviados ao processador local do offer-kp. Não são compartilhados com terceiros.",
     },
     pinning: {
       what_pinning: "O que é fixar documento?",
@@ -1439,7 +1439,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Bot do Telegram",
     description:
-      "Conecte sua instância do lawyer-revizorro ao Telegram para que possa conversar com seus espaços de trabalho a partir de qualquer dispositivo.",
+      "Conecte sua instância do offer-kp ao Telegram para que possa conversar com seus espaços de trabalho a partir de qualquer dispositivo.",
     setup: {
       step1: {
         title: "Passo 1: Crie seu bot do Telegram",

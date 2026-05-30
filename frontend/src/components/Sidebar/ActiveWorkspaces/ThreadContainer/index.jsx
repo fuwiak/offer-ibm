@@ -11,7 +11,7 @@ export default function ThreadContainer({
   workspace,
   isVirtualThread = false,
 }) {
-  const pinStorageKey = `lawyerRevizorro_pinned_threads_${workspace?.slug || "default"}`;
+  const pinStorageKey = `offerKp_pinned_threads_${workspace?.slug || "default"}`;
   const { threadSlug = null } = useParams();
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -24,7 +24,7 @@ import useTextSize from "@/hooks/useTextSize";
 import useChatHistoryScrollHandle from "@/hooks/useChatHistoryScrollHandle";
 import { ThoughtExpansionProvider } from "./ThoughtContainer";
 import { MessageActionsProvider } from "./MessageActionsContext";
-import { isHiddenAgentStatusMessage } from "@/utils/lawyerRevizorro/threadPanelAccess";
+import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
 
 export default forwardRef(function (
   {

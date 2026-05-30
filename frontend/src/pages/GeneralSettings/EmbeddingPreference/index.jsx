@@ -44,12 +44,12 @@ import { useTranslation } from "react-i18next";
 
 const EMBEDDERS = [
   {
-    name: "lawyer-revizorro Embedder",
+    name: "offer-kp Embedder",
     value: "native",
     logo: AVEliaBotIcon,
     options: (settings) => <NativeEmbeddingOptions settings={settings} />,
     description:
-      "Use the built-in embedding provider for lawyer-revizorro. Zero setup!",
+      "Use the built-in embedding provider for offer-kp. Zero setup!",
   },
   {
     name: "OpenAI",

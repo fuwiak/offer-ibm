@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS "lawyerRevizorro_inbound_leads";
+DROP TABLE IF EXISTS "offerKp_inbound_leads";

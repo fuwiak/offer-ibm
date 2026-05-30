@@ -23,9 +23,9 @@ const webBrowsing = {
             "Search the internet for real-time information. Look online for current news, recent updates, latest changes, or any information not available locally. Browse the web to find answers about current events, prices, weather, or live data.",
           examples: [
             {
-              prompt: "Look online for recent changes to lawyer-revizorro",
+              prompt: "Look online for recent changes to offer-kp",
               call: JSON.stringify({
-                query: "lawyer-revizorro recent changes updates",
+                query: "offer-kp recent changes updates",
               }),
             },
             {
@@ -439,7 +439,7 @@ const webBrowsing = {
               headers: {
                 Authorization: `Bearer ${process.env.AGENT_SEARCHAPI_API_KEY}`,
                 "Content-Type": "application/json",
-                "X-SearchApi-Source": "lawyer-revizorro",
+                "X-SearchApi-Source": "offer-kp",
               },
             })
               .then((res) => {

@@ -309,8 +309,8 @@ export default function AdminAgents() {
           ...server,
           config: {
             ...server.config,
-            lawyerRevizorro: {
-              ...server.config?.lawyerRevizorro,
+            offerKp: {
+              ...server.config?.offerKp,
               suppressedTools,
             },
           },
@@ -324,8 +324,8 @@ export default function AdminAgents() {
         ...prev,
         config: {
           ...prev.config,
-          lawyerRevizorro: {
-            ...prev.config?.lawyerRevizorro,
+          offerKp: {
+            ...prev.config?.offerKp,
             suppressedTools,
           },
         },

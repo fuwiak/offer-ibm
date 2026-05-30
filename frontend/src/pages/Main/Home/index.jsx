@@ -25,25 +25,25 @@ import paths from "@/utils/paths";
 import showToast from "@/utils/toast";
 import { safeJsonParse } from "@/utils/request";
 import QuickActions from "@/components/lib/QuickActions";
-import LawyerRevizorroQuickActions from "@/components/LawyerRevizorro/LawyerRevizorroQuickActions";
+import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
 import SuggestedMessages from "@/components/lib/SuggestedMessages";
 import useUser from "@/hooks/useUser";
-import { useLawyerRevizorro } from "@/contexts/LawyerRevizorroContext";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 import {
   openQuoteBuilder,
-  handleLawyerRevizorroQuickActionKey,
-} from "@/utils/lawyerRevizorro/homeActions";
-import { resolvePartnerWorkspace } from "@/utils/lawyerRevizorro/partnerWorkspace";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+  handleOfferKpQuickActionKey,
+} from "@/utils/offerKp/homeActions";
+import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import {
-  LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT,
-} from "@/utils/lawyerRevizorro/startNewConversation";
+  OFFER_KP_NEW_CONVERSATION_EVENT,
+} from "@/utils/offerKp/startNewConversation";
 import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
 import WorkspaceModelPicker from "@/components/WorkspaceChat/ChatContainer/WorkspaceModelPicker";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
 import { FullScreenLoader } from "@/components/Preloader";
-import LawyerRevizorroHomeThreadHistory from "@/components/LawyerRevizorro/LawyerRevizorroHomeThreadHistory";
-import CurrentWorkspaceIndicator from "@/components/LawyerRevizorro/CurrentWorkspaceIndicator";
+import OfferKpHomeThreadHistory from "@/components/OfferKp/OfferKpHomeThreadHistory";
+import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 
 async function getTargetWorkspace() {
   const lastVisited = safeJsonParse(
@@ -73,7 +73,7 @@ export default function Home() {
   const { t } = useTranslation();
   const { pathname, state: locationState } = useLocation();
   const navigate = useNavigate();
-  const { setActiveConversation } = useLawyerRevizorro();
+  const { setActiveConversation } = useOfferKp();
   const [workspace, setWorkspace] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [threadSlug, setThreadSlug] = useState(null);
@@ -103,9 +103,9 @@ export default function Home() {
       }
     }
 
-    window.addEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, resetConversation);
+    window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, resetConversation);
     return () => {
-      window.removeEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, resetConversation);
+      window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, resetConversation);
     };
   }, [
     pathname,
@@ -122,7 +122,7 @@ export default function Home() {
   useEffect(() => {
     async function init() {
       const preferredSlug = searchParams.get("space");
-      const ws = shouldUseLawyerRevizorroLayout({ pathname })
+      const ws = shouldUseOfferKpLayout({ pathname })
         ? await resolvePartnerWorkspace(
             t("new-workspace.placeholder"),
             preferredSlug
@@ -198,7 +198,7 @@ export default function Home() {
 
   if (workspaceLoading) {
     return (
-      <div className="flex flex-1 min-w-0 h-full w-full items-center justify-center lawyerRevizorro-chat-shell lawyerRevizorro-home-shell bg-theme-bg-primary">
+      <div className="flex flex-1 min-w-0 h-full w-full items-center justify-center offerKp-chat-shell offerKp-home-shell bg-theme-bg-primary">
         <FullScreenLoader />
       </div>
     );
@@ -248,7 +248,7 @@ export default function Home() {
 
 function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
   const { t } = useTranslation();
-  const { t: ta } = useTranslation("lawyerRevizorro");
+  const { t: ta } = useTranslation("offerKp");
   const { pathname } = useLocation();
   const { user } = useUser();
   const greetingName =
@@ -257,13 +257,13 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
     user?.username?.split?.(" ")?.[0] ||
     user?.login?.split?.(" ")?.[0] ||
     "there";
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({
+  const offerKpMode = shouldUseOfferKpLayout({
     pathname,
     workspaceSlug: workspace?.slug,
   });
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lawyerRevizorro = useLawyerRevizorro();
+  const offerKp = useOfferKp();
   const [loading, setLoading] = useState(false);
   const { files, parseAttachments } = useContext(DndUploaderContext);
 
@@ -276,12 +276,12 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
   }, []);
 
   useEffect(() => {
-    if (!lawyerRevizorroMode) return;
-    lawyerRevizorro.setDocumentPanelOpen(true);
+    if (!offerKpMode) return;
+    offerKp.setDocumentPanelOpen(true);
     if (searchParams.get("action") !== "quote") return;
-    openQuoteBuilder(lawyerRevizorro);
+    openQuoteBuilder(offerKp);
     setSearchParams({}, { replace: true });
-  }, [lawyerRevizorroMode, searchParams.get("action")]);
+  }, [offerKpMode, searchParams.get("action")]);
 
   async function submitMessage(message, attachments = []) {
     if (!message || loading) return;
@@ -291,7 +291,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
       let targetThread = threadSlug;
 
       if (!targetWorkspace) {
-        targetWorkspace = lawyerRevizorroMode
+        targetWorkspace = offerKpMode
           ? await resolvePartnerWorkspace(t("new-workspace.placeholder"))
           : await createDefaultWorkspace(t("new-workspace.placeholder"));
         if (!targetWorkspace) {
@@ -314,13 +314,13 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
 
       if (targetThread) {
         navigate(
-          lawyerRevizorroMode
-            ? paths.lawyerRevizorro.thread(targetWorkspace.slug, targetThread)
+          offerKpMode
+            ? paths.offerKp.thread(targetWorkspace.slug, targetThread)
             : paths.workspace.thread(targetWorkspace.slug, targetThread)
         );
       } else {
         navigate(
-          lawyerRevizorroMode
+          offerKpMode
             ? paths.workspace.chat(targetWorkspace.slug)
             : paths.workspace.chat(targetWorkspace.slug)
         );
@@ -375,8 +375,8 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
     navigate(paths.workspace.settings.generalAppearance(targetWorkspace.slug));
   }
 
-  function handleLawyerRevizorroQuickAction(key) {
-    handleLawyerRevizorroQuickActionKey(key, { navigate, sendCommand });
+  function handleOfferKpQuickAction(key) {
+    handleOfferKpQuickActionKey(key, { navigate, sendCommand });
   }
 
   async function handlePromptWorkspaceSelect(ws) {
@@ -401,20 +401,20 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
     );
   }
 
-  const showLawyerRevizorroHome = lawyerRevizorroMode || pathname === "/";
+  const showOfferKpHome = offerKpMode || pathname === "/";
 
   return (
     <div
       style={{ height: isMobile ? "100%" : "100%" }}
       className={`transition-all duration-500 relative w-full h-full overflow-hidden flex flex-col flex-1 min-w-0 ${
-        lawyerRevizorroMode
-          ? "lawyerRevizorro-chat-shell lawyerRevizorro-home-shell"
+        offerKpMode
+          ? "offerKp-chat-shell offerKp-home-shell"
           : "md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-zinc-900 light:bg-white border-none light:border-solid light:border light:border-theme-modal-border"
       }`}
     >
       {isMobile && <SidebarMobileHeader workspace={workspace} />}
-      {showLawyerRevizorroHome && (
-        <div className="lawyerRevizorro-space-bar shrink-0">
+      {showOfferKpHome && (
+        <div className="offerKp-space-bar shrink-0">
           <CurrentWorkspaceIndicator
             workspace={workspace}
             workspaceSlug={workspace?.slug}
@@ -427,18 +427,18 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
       <DnDFileUploaderWrapper>
         <div
           className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
-            showLawyerRevizorroHome
+            showOfferKpHome
               ? "items-start justify-start px-6 md:px-10 lg:px-14 py-8 md:py-12"
               : "items-center justify-center"
           }`}
         >
           <div
             className={`flex flex-col w-full shrink-0 ${
-              showLawyerRevizorroHome ? "max-w-[920px] items-start" : "items-center max-w-[750px] px-4"
+              showOfferKpHome ? "max-w-[920px] items-start" : "items-center max-w-[750px] px-4"
             }`}
           >
-            {showLawyerRevizorroHome ? (
-              <h1 className="lawyerRevizorro-home-greeting">
+            {showOfferKpHome ? (
+              <h1 className="offerKp-home-greeting">
                 {ta("home.greeting", {
                   name: greetingName,
                 })}
@@ -458,21 +458,21 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
               workspaceSlug={workspace?.slug}
               threadSlug={threadSlug}
               placeholder={
-                lawyerRevizorroMode ? ta("home.inputPlaceholder") : undefined
+                offerKpMode ? ta("home.inputPlaceholder") : undefined
               }
-              lawyerRevizorroHome={showLawyerRevizorroHome}
+              offerKpHome={showOfferKpHome}
               onWorkspaceSelect={
-                showLawyerRevizorroHome ? handlePromptWorkspaceSelect : undefined
+                showOfferKpHome ? handlePromptWorkspaceSelect : undefined
               }
             />
-            {showLawyerRevizorroHome && (
-              <LawyerRevizorroHomeThreadHistory
+            {showOfferKpHome && (
+              <OfferKpHomeThreadHistory
                 workspace={workspace}
                 activeThreadSlug={threadSlug}
               />
             )}
-            {showLawyerRevizorroHome ? (
-              <LawyerRevizorroQuickActions onAction={handleLawyerRevizorroQuickAction} />
+            {showOfferKpHome ? (
+              <OfferKpQuickActions onAction={handleOfferKpQuickAction} />
             ) : (
               <QuickActions
                 hasAvailableWorkspace={!!workspace}
@@ -484,7 +484,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
               />
             )}
           </div>
-          {!showLawyerRevizorroHome && (
+          {!showOfferKpHome && (
             <SuggestedMessages
               suggestedMessages={workspace?.suggestedMessages}
               sendCommand={sendCommand}
@@ -492,12 +492,12 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
           )}
         </div>
       </DnDFileUploaderWrapper>
-      {showLawyerRevizorroHome && (
-        <footer className="lawyerRevizorro-footer-bar shrink-0">
+      {showOfferKpHome && (
+        <footer className="offerKp-footer-bar shrink-0">
           <span>{ta("home.version")}</span>
           <span className="flex gap-4">
-            <a href="/lawyerRevizorro">{ta("home.privacy")}</a>
-            <a href="/lawyerRevizorro">{ta("home.terms")}</a>
+            <a href="/offerKp">{ta("home.privacy")}</a>
+            <a href="/offerKp">{ta("home.terms")}</a>
           </span>
         </footer>
       )}

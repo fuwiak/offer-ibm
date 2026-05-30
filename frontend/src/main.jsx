@@ -98,10 +98,10 @@ const router = createBrowserRouter([
             ],
       },
       {
-        path: "/lawyerRevizorro",
+        path: "/offerKp",
         lazy: async () => {
-          const { default: LawyerRevizorroPage } = await import("@/pages/LawyerRevizorro");
-          return { element: <LawyerRevizorroPage /> };
+          const { default: OfferKpPage } = await import("@/pages/OfferKp");
+          return { element: <OfferKpPage /> };
         },
       },
       {
@@ -115,7 +115,7 @@ const router = createBrowserRouter([
         path: "/ibm-z",
         lazy: async () => {
           const { Navigate } = await import("react-router-dom");
-          return { element: <Navigate to="/lawyerRevizorro" replace /> };
+          return { element: <Navigate to="/offerKp" replace /> };
         },
       },
       {
@@ -147,16 +147,16 @@ const router = createBrowserRouter([
         },
       },
       {
-        path: "/lawyerRevizorro-dashboard",
+        path: "/offerKp-dashboard",
         lazy: async () => {
-          const { default: LawyerRevizorroDashboard } = await import("@/pages/Admin/LawyerRevizorroDashboard");
-          return { element: <AdminRoute Component={LawyerRevizorroDashboard} /> };
+          const { default: OfferKpDashboard } = await import("@/pages/Admin/OfferKpDashboard");
+          return { element: <AdminRoute Component={OfferKpDashboard} /> };
         },
       },
       {
         path: "/supplier",
         lazy: async () => {
-          const { default: SupplierWorkflow } = await import("@/pages/LawyerRevizorro/SupplierWorkflow");
+          const { default: SupplierWorkflow } = await import("@/pages/OfferKp/SupplierWorkflow");
           return { element: <PrivateRoute Component={SupplierWorkflow} /> };
         },
       },

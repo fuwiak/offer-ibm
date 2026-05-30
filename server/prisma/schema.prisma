@@ -86,7 +86,7 @@ model users {
   prompt_history               prompt_history[]
   desktop_mobile_devices       desktop_mobile_devices[]
   workspace_parsed_files       workspace_parsed_files[]
-  lawyerRevizorro_quotes                lawyerRevizorro_quotes[]
+  offerKp_quotes                offerKp_quotes[]
 }
 
 model recovery_codes {
@@ -131,8 +131,8 @@ model workspaces {
   lastUpdatedAt                DateTime                       @default(now())
   // THIS IS THE SYSTEM PROMPT FOR THE WORKSPACE
   openAiPrompt                 String?
-  /// lawyer-revizorro bot user profile (admin, public, partner, internal_sales, external_sales, supplier)
-  lawyerRevizorroUserProfile            String?
+  /// offer-kp bot user profile (admin, public, partner, internal_sales, external_sales, supplier)
+  offerKpUserProfile            String?
   similarityThreshold          Float?                         @default(0.25)
   chatProvider                 String?
   chatModel                    String?
@@ -430,7 +430,7 @@ model scheduled_job_runs {
   @@index([jobId])
 }
 
-// lawyer-revizorro domain models (v5 Phase 1)
+// offer-kp domain models (v5 Phase 1)
 model partner_requests {
   id        Int      @id @default(autoincrement())
   company   String
@@ -441,7 +441,7 @@ model partner_requests {
   createdAt DateTime @default(now())
 }
 
-model lawyerRevizorro_quotes {
+model offerKp_quotes {
   id            Int                 @id @default(autoincrement())
   reference     String              @unique
   userId        Int?
@@ -454,11 +454,11 @@ model lawyerRevizorro_quotes {
   createdAt     DateTime            @default(now())
   lastUpdatedAt DateTime            @default(now())
   user          users?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-  lines         lawyerRevizorro_quote_lines[]
-  shareLinks    lawyerRevizorro_share_links[]
+  lines         offerKp_quote_lines[]
+  shareLinks    offerKp_share_links[]
 }
 
-model lawyerRevizorro_quote_lines {
+model offerKp_quote_lines {
   id                   Int           @id @default(autoincrement())
   quoteId              Int
   productId            String
@@ -468,18 +468,18 @@ model lawyerRevizorro_quote_lines {
   surfaceM2            Float?
   surchargeMultiplier  Float?        @default(1)
   lineTotal            Float?        @default(0)
-  quote                lawyerRevizorro_quotes @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote                offerKp_quotes @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@index([quoteId])
 }
 
-model lawyerRevizorro_share_links {
+model offerKp_share_links {
   id        Int           @id @default(autoincrement())
   token     String        @unique
   quoteId   Int
   expiresAt DateTime
   createdAt DateTime      @default(now())
-  quote     lawyerRevizorro_quotes @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote     offerKp_quotes @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@index([quoteId])
 }

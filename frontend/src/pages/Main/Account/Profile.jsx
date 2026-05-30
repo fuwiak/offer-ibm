@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import LawyerRevizorroPageShell from "@/components/LawyerRevizorro/LawyerRevizorroPageShell";
-import LanguageSwitcher from "@/components/LawyerRevizorro/LanguageSwitcher";
+import OfferKpPageShell from "@/components/OfferKp/OfferKpPageShell";
+import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
 import useUser from "@/hooks/useUser";
-import useLawyerRevizorroRole from "@/hooks/useLawyerRevizorroRole";
+import useOfferKpRole from "@/hooks/useOfferKpRole";
 import { useTranslation } from "react-i18next";
 import System from "@/models/system";
 import showToast from "@/utils/toast";
 import { AUTH_USER } from "@/utils/constants";
 
 export default function ProfilePage() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const { user } = useUser();
-  const { role } = useLawyerRevizorroRole();
+  const { role } = useOfferKpRole();
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
     firstName: "",
@@ -65,7 +65,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <LawyerRevizorroPageShell title={t("admin.profile")} subtitle={t("account.profileSubtitle")}>
+    <OfferKpPageShell title={t("admin.profile")} subtitle={t("account.profileSubtitle")}>
       <form
         className="max-w-2xl space-y-6 border border-theme-sidebar-border bg-theme-bg-primary p-6"
         onSubmit={saveProfile}
@@ -84,7 +84,7 @@ export default function ProfilePage() {
               First name
             </label>
             <input
-              className="lawyerRevizorro-carbon-input w-full"
+              className="offerKp-carbon-input w-full"
               value={profile.firstName}
               onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
               placeholder="John"
@@ -95,7 +95,7 @@ export default function ProfilePage() {
               Last name
             </label>
             <input
-              className="lawyerRevizorro-carbon-input w-full"
+              className="offerKp-carbon-input w-full"
               value={profile.lastName}
               onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
               placeholder="Macron"
@@ -107,7 +107,7 @@ export default function ProfilePage() {
             Company name
           </label>
           <input
-            className="lawyerRevizorro-carbon-input w-full"
+            className="offerKp-carbon-input w-full"
             value={profile.companyName}
             onChange={(e) => setProfile((p) => ({ ...p, companyName: e.target.value }))}
             placeholder="Entreprise Dupont"
@@ -118,7 +118,7 @@ export default function ProfilePage() {
             Company address
           </label>
           <input
-            className="lawyerRevizorro-carbon-input w-full"
+            className="offerKp-carbon-input w-full"
             value={profile.companyAddress}
             onChange={(e) =>
               setProfile((p) => ({ ...p, companyAddress: e.target.value }))
@@ -132,7 +132,7 @@ export default function ProfilePage() {
               Contact email
             </label>
             <input
-              className="lawyerRevizorro-carbon-input w-full"
+              className="offerKp-carbon-input w-full"
               value={profile.contactEmail}
               onChange={(e) =>
                 setProfile((p) => ({ ...p, contactEmail: e.target.value }))
@@ -145,7 +145,7 @@ export default function ProfilePage() {
               Contact phone
             </label>
             <input
-              className="lawyerRevizorro-carbon-input w-full"
+              className="offerKp-carbon-input w-full"
               value={profile.contactPhone}
               onChange={(e) =>
                 setProfile((p) => ({ ...p, contactPhone: e.target.value }))
@@ -170,12 +170,12 @@ export default function ProfilePage() {
         </div>
         <button
           type="submit"
-          className="lawyerRevizorro-btn-new-chat w-auto"
+          className="offerKp-btn-new-chat w-auto"
           disabled={saving}
         >
           {saving ? "Saving..." : "Save profile"}
         </button>
       </form>
-    </LawyerRevizorroPageShell>
+    </OfferKpPageShell>
   );
 }

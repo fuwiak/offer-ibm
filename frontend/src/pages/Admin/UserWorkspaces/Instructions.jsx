@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import LawyerRevizorroSuiteLayout from "@/layouts/LawyerRevizorroSuiteLayout";
+import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import showToast from "@/utils/toast";
@@ -39,8 +39,8 @@ export default function UserWorkspaceInstructionsPage() {
   }
 
   return (
-    <LawyerRevizorroSuiteLayout>
-      <h1 className="lawyerRevizorro-suite-page-title">Edit instructions</h1>
+    <OfferKpSuiteLayout>
+      <h1 className="offerKp-suite-page-title">Edit instructions</h1>
       <p className="text-sm text-theme-text-secondary mb-4">
         {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace instructions"}
       </p>
@@ -57,20 +57,20 @@ export default function UserWorkspaceInstructionsPage() {
       ) : (
         <form onSubmit={saveInstructions} className="max-w-4xl">
           <textarea
-            className="lawyerRevizorro-carbon-textarea w-full min-h-[360px]"
+            className="offerKp-carbon-textarea w-full min-h-[360px]"
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
             placeholder="Write workspace instructions..."
           />
           <button
             type="submit"
-            className="lawyerRevizorro-btn-new-chat w-auto mt-4"
+            className="offerKp-btn-new-chat w-auto mt-4"
             disabled={saving}
           >
             {saving ? "Saving..." : "Save instructions"}
           </button>
         </form>
       )}
-    </LawyerRevizorroSuiteLayout>
+    </OfferKpSuiteLayout>
   );
 }

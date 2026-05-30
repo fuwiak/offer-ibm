@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "LLM-i eelistus",
       description:
-        "lawyer-revizorro töötab paljude LLM-teenusepakkujatega. See teenus haldab vestlust.",
+        "offer-kp töötab paljude LLM-teenusepakkujatega. See teenus haldab vestlust.",
     },
     userSetup: {
       title: "Kasutaja seadistus",
@@ -34,15 +34,15 @@ const TRANSLATIONS = {
       settingsHint: "Neid sätteid saab igal ajal seadetes muuta.",
     },
     survey: {
-      title: "Tere tulemast lawyer-revizorro-i",
+      title: "Tere tulemast offer-kp-i",
       description:
-        "Aita meil lawyer-revizorro sinu vajadustele vastavaks kujundada. Valikuline.",
+        "Aita meil offer-kp sinu vajadustele vastavaks kujundada. Valikuline.",
       email: "Mis on su e-post?",
-      useCase: "Milleks kasutad lawyer-revizorro-i?",
+      useCase: "Milleks kasutad offer-kp-i?",
       useCaseWork: "Töö jaoks",
       useCasePersonal: "Isiklikuks kasutuseks",
       useCaseOther: "Muu",
-      comment: "Kust kuulsid lawyer-revizorro-ist?",
+      comment: "Kust kuulsid offer-kp-ist?",
       commentPlaceholder:
         "Reddit, Twitter, GitHub, YouTube jne – anna meile teada!",
       skip: "Jäta vahele",
@@ -97,7 +97,7 @@ const TRANSLATIONS = {
     "experimental-features": "Eksperimentaalsed funktsioonid",
     contact: "Tugi",
     "browser-extension": "Brauserilaiend",
-    "mobile-app": "lawyer-revizorro mobiilversioon",
+    "mobile-app": "offer-kp mobiilversioon",
     "community-hub": {
       title: "Kogukonna keskpunkt",
       trending: "Avasta populaarseid",
@@ -161,7 +161,7 @@ const TRANSLATIONS = {
       add: "Lisa uus sõnum",
       save: "Salvesta sõnumid",
       heading: "Selgita mulle",
-      body: "lawyer-revizorro eeliseid",
+      body: "offer-kp eeliseid",
     },
     delete: {
       title: "Kustuta tööruum",
@@ -739,7 +739,7 @@ const TRANSLATIONS = {
         title: "Nutikad oskuste valiku meetodid",
         "beta-badge": "Beeta",
         description:
-          "Lubage piiramatu hulga tööriistade kasutamist ning vähendage küsimuse kohta kasutatavate tokenide arv kuni 80% – lawyer-revizorro valib automaatselt iga küsimuse jaoks sobivad oskused.",
+          "Lubage piiramatu hulga tööriistade kasutamist ning vähendage küsimuse kohta kasutatavate tokenide arv kuni 80% – offer-kp valib automaatselt iga küsimuse jaoks sobivad oskused.",
         "max-tools": {
           title: "Max Tools",
           description:
@@ -765,11 +765,11 @@ const TRANSLATIONS = {
   customization: {
     interface: {
       title: "Kasutajaliidese eelistused",
-      description: "Sea lawyer-revizorro-i UI eelistused.",
+      description: "Sea offer-kp-i UI eelistused.",
     },
     branding: {
       title: "Bränding ja valgesildistamine",
-      description: "Valgesildista oma lawyer-revizorro kohandatud brändinguga.",
+      description: "Valgesildista oma offer-kp kohandatud brändinguga.",
     },
     chat: {
       title: "Vestlus",
@@ -809,7 +809,7 @@ const TRANSLATIONS = {
       "display-language": {
         title: "Kuvakeel",
         description:
-          "Vali keel, milles lawyer-revizorro UI kuvatakse (kui tõlge on olemas).",
+          "Vali keel, milles offer-kp UI kuvatakse (kui tõlge on olemas).",
       },
       logo: {
         title: "Brändi logo",
@@ -848,7 +848,7 @@ const TRANSLATIONS = {
   api: {
     title: "API võtmed",
     description:
-      "API võtmed võimaldavad programmipõhiselt hallata seda lawyer-revizorro instantsi.",
+      "API võtmed võimaldavad programmipõhiselt hallata seda offer-kp instantsi.",
     link: "Loe API dokumentatsiooni",
     generate: "Genereeri uus API võti",
     empty: "API võtmeid ei leitud",
@@ -862,7 +862,7 @@ const TRANSLATIONS = {
       close: "Sulge",
       create: "Loo API võti",
       helper:
-        "Pärast loomist saab API võtit kasutada sellele lawyer-revizorro-i instantsile programmiga ligi pääsemiseks ja selle seadistamiseks.",
+        "Pärast loomist saab API võtit kasutada sellele offer-kp-i instantsile programmiga ligi pääsemiseks ja selle seadistamiseks.",
       name: {
         label: "Nimi",
         placeholder: "Tootmiskeskkonna integratsioon",
@@ -887,7 +887,7 @@ const TRANSLATIONS = {
   llm: {
     title: "LLM-i eelistus",
     description:
-      "Siin on sinu valitud LLM-teenusepakkuja võtmed ja seaded. Need peavad olema õiged, vastasel juhul lawyer-revizorro ei tööta.",
+      "Siin on sinu valitud LLM-teenusepakkuja võtmed ja seaded. Need peavad olema õiged, vastasel juhul offer-kp ei tööta.",
     provider: "LLM-pakkuja",
     providers: {
       azure_openai: {
@@ -919,7 +919,7 @@ const TRANSLATIONS = {
     "desc-start":
       "Kui kasutad LLM-i, mis ei sisalda embedding-mootorit, tuleb määrata täiendavad võtmed.",
     "desc-end":
-      "Embedding muudab teksti vektoriteks. Need võtmed on vajalikud, et lawyer-revizorro saaks sinu failid ja päringud töödelda.",
+      "Embedding muudab teksti vektoriteks. Need võtmed on vajalikud, et offer-kp saaks sinu failid ja päringud töödelda.",
     provider: {
       title: "Embedding-i pakkuja",
     },
@@ -942,7 +942,7 @@ const TRANSLATIONS = {
   vector: {
     title: "Vektoriandmebaas",
     description:
-      "Siin on seaded, kuidas lawyer-revizorro töötab. Vale seadistus võib põhjustada tõrkeid.",
+      "Siin on seaded, kuidas offer-kp töötab. Vale seadistus võib põhjustada tõrkeid.",
     provider: {
       title: "Vektoriandmebaasi pakkuja",
       description: "LanceDB puhul seadistust pole vaja.",
@@ -985,7 +985,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Privaatsus ja andmetöötlus",
     description:
-      "Konfiguratsioon kolmandate osapoolte ja lawyer-revizorro-i andmekäitluse kohta.",
+      "Konfiguratsioon kolmandate osapoolte ja offer-kp-i andmekäitluse kohta.",
     anonymous: "Anonüümne telemeetria lubatud",
   },
   connectors: {
@@ -1404,7 +1404,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Telegrami bot",
     description:
-      "Ühendage oma lawyer-revizorro instants Telegramiga, et saaksite vestleda oma tööruumidega igast seadmist.",
+      "Ühendage oma offer-kp instants Telegramiga, et saaksite vestleda oma tööruumidega igast seadmist.",
     setup: {
       step1: {
         title: "1. samm: Looge oma Telegrami bot",

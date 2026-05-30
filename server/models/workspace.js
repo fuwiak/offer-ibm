@@ -8,8 +8,8 @@ const { User } = require("./user");
 const { PromptHistory } = require("./promptHistory");
 const { SystemSettings } = require("./systemSettings");
 const {
-  VALID_LAWYER_REVIZORRO_BOT_PROFILE_IDS,
-} = require("../config/lawyerRevizorro.botProfilePrompts");
+  VALID_OFFER_KP_BOT_PROFILE_IDS,
+} = require("../config/offerKp.botProfilePrompts");
 
 function isNullOrNaN(value) {
   if (value === null) return true;
@@ -49,7 +49,7 @@ const Workspace = {
     "openAiHistory",
     "lastUpdatedAt",
     "openAiPrompt",
-    "lawyerRevizorroUserProfile",
+    "offerKpUserProfile",
     "similarityThreshold",
     "chatProvider",
     "chatModel",
@@ -126,10 +126,10 @@ const Workspace = {
       if (!value || typeof value !== "string") return null;
       return String(value);
     },
-    lawyerRevizorroUserProfile: (value) => {
+    offerKpUserProfile: (value) => {
       if (!value || typeof value !== "string") return null;
       const id = String(value).trim();
-      if (!VALID_LAWYER_REVIZORRO_BOT_PROFILE_IDS.includes(id)) return null;
+      if (!VALID_OFFER_KP_BOT_PROFILE_IDS.includes(id)) return null;
       return id;
     },
     vectorSearchMode: (value) => {
@@ -216,8 +216,8 @@ const Workspace = {
     const {
       resolveAnthropicApiKey,
       normalizeAnthropicModelId,
-    } = require("../utils/lawyerRevizorro/anthropicEnv");
-    const llmDefaults = require("../config/lawyerRevizorro.llm.defaults");
+    } = require("../utils/offerKpApp/anthropicEnv");
+    const llmDefaults = require("../config/offerKp.llm.defaults");
     if (resolveAnthropicApiKey()) {
       const defaultModel = normalizeAnthropicModelId(
         llmDefaults.ANTHROPIC_MODEL_PREF
@@ -278,7 +278,7 @@ const Workspace = {
     const {
       resolveAnthropicApiKey,
       normalizeAnthropicModelId,
-    } = require("../utils/lawyerRevizorro/anthropicEnv");
+    } = require("../utils/offerKpApp/anthropicEnv");
     if (resolveAnthropicApiKey()) {
       if (
         validatedUpdates.chatProvider &&
@@ -338,7 +338,7 @@ const Workspace = {
     try {
       const {
         canUserAccessWorkspace,
-      } = require("../utils/lawyerRevizorro/workspaceVisibility");
+      } = require("../utils/offerKpApp/workspaceVisibility");
       const workspace = await prisma.workspaces.findFirst({
         where: clause,
         include: {
@@ -461,7 +461,7 @@ const Workspace = {
     try {
       const {
         filterWorkspacesForUser,
-      } = require("../utils/lawyerRevizorro/workspaceVisibility");
+      } = require("../utils/offerKpApp/workspaceVisibility");
       const workspaces = await prisma.workspaces.findMany({
         where: clause,
         ...(limit !== null ? { take: limit } : {}),

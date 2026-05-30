@@ -17,8 +17,8 @@ class CometApiProvider extends InheritMultiple([Provider, UnTooled]) {
       apiKey: process.env.COMETAPI_LLM_API_KEY,
       maxRetries: 3,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-CometAPI-Source": "lawyerRevizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-CometAPI-Source": "offerKp",
       },
     });
 

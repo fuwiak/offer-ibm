@@ -7,13 +7,13 @@ import PasswordModal, { usePasswordModal } from "@/components/Modals/Password";
 import { isMobile } from "react-device-detect";
 import { FullScreenLoader } from "@/components/Preloader";
 import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
-import LawyerRevizorroLayout from "@/layouts/LawyerRevizorroLayout";
-import LawyerRevizorroProfileShell from "@/components/LawyerRevizorro/LawyerRevizorroProfileShell";
-import { shouldUseLawyerRevizorroLayout as shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+import OfferKpLayout from "@/layouts/OfferKpLayout";
+import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
+import { shouldUseOfferKpLayout as shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import { useLocation, useNavigate } from "react-router-dom";
 import paths from "@/utils/paths";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
-import { LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT } from "@/utils/lawyerRevizorro/startNewConversation";
+import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 
 export default function WorkspaceChat() {
   const { loading, requiresAuth, mode } = usePasswordModal();
@@ -24,13 +24,13 @@ export default function WorkspaceChat() {
   }
 
   const { pathname } = useLocation();
-  const lawyerRevizorroBotRoute = pathname.startsWith("/bot");
+  const offerKpBotRoute = pathname.startsWith("/bot");
 
-  if (lawyerRevizorroBotRoute) {
+  if (offerKpBotRoute) {
     return <ShowWorkspaceChat />;
   }
 
-  const lawyerRevizorroShell = shouldUseLawyerRevizorroLayout({ pathname });
+  const offerKpShell = shouldUseOfferKpLayout({ pathname });
 
   const shell = (
     <>
@@ -41,7 +41,7 @@ export default function WorkspaceChat() {
     </>
   );
 
-  if (!lawyerRevizorroShell) {
+  if (!offerKpShell) {
     return (
       <div className="w-screen h-screen overflow-hidden flex bg-zinc-950 light:bg-slate-50">
         {shell}
@@ -50,9 +50,9 @@ export default function WorkspaceChat() {
   }
 
   return (
-    <LawyerRevizorroProfileShell className="w-screen h-screen overflow-hidden flex bg-theme-bg-container">
+    <OfferKpProfileShell className="w-screen h-screen overflow-hidden flex bg-theme-bg-container">
       {shell}
-    </LawyerRevizorroProfileShell>
+    </OfferKpProfileShell>
   );
 }
 
@@ -104,7 +104,7 @@ function ShowWorkspaceChat() {
     getWorkspace();
   }, [slug, threadSlug]);
 
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({
+  const offerKpMode = shouldUseOfferKpLayout({
     workspaceSlug: workspace?.slug,
     pathname,
   });
@@ -119,17 +119,17 @@ function ShowWorkspaceChat() {
         replace: true,
       });
     }
-    window.addEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, goHome);
-    return () => window.removeEventListener(LAWYER_REVIZORRO_NEW_CONVERSATION_EVENT, goHome);
+    window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, goHome);
+    return () => window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, goHome);
   }, [navigate]);
 
   useEffect(() => {
-    if (!lawyerRevizorroMode || !isWorkspaceRoot || hasPendingMessage) return;
+    if (!offerKpMode || !isWorkspaceRoot || hasPendingMessage) return;
     if (loadedSlug !== slug || chatHistory === null) return;
     if (chatHistory.length > 0) return;
     navigate(paths.home(), { replace: true });
   }, [
-    lawyerRevizorroMode,
+    offerKpMode,
     isWorkspaceRoot,
     hasPendingMessage,
     loadedSlug,
@@ -145,15 +145,15 @@ function ShowWorkspaceChat() {
     />
   );
 
-  if (!lawyerRevizorroMode) return chat;
+  if (!offerKpMode) return chat;
 
   return (
-    <LawyerRevizorroLayout
-      enabled={lawyerRevizorroMode}
+    <OfferKpLayout
+      enabled={offerKpMode}
       workspaceSlug={slug}
       threadSlug={threadSlug}
     >
       {chat}
-    </LawyerRevizorroLayout>
+    </OfferKpLayout>
   );
 }

@@ -6,7 +6,7 @@ import paths from "@/utils/paths";
 import showToast from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LAWYER_REVIZORRO_LLM_PROVIDERS } from "@/utils/lawyerRevizorro/llmProviders";
+import { OFFER_KP_LLM_PROVIDERS } from "@/utils/offerKp/llmProviders";
 
 export default function LLMPreference({
   setHeader,
@@ -15,7 +15,7 @@ export default function LLMPreference({
 }) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredLLMs, setFilteredLLMs] = useState(LAWYER_REVIZORRO_LLM_PROVIDERS);
+  const [filteredLLMs, setFilteredLLMs] = useState(OFFER_KP_LLM_PROVIDERS);
   const [selectedLLM, setSelectedLLM] = useState("anthropic");
   const [settings, setSettings] = useState(null);
   const formRef = useRef(null);
@@ -74,7 +74,7 @@ export default function LLMPreference({
   }, []);
 
   useEffect(() => {
-    const filtered = LAWYER_REVIZORRO_LLM_PROVIDERS.filter((llm) =>
+    const filtered = OFFER_KP_LLM_PROVIDERS.filter((llm) =>
       llm.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredLLMs(filtered);
@@ -122,7 +122,7 @@ export default function LLMPreference({
         </div>
         <div className="mt-4 flex flex-col gap-y-1">
           {selectedLLM &&
-            LAWYER_REVIZORRO_LLM_PROVIDERS.find((llm) => llm.value === selectedLLM)?.options(
+            OFFER_KP_LLM_PROVIDERS.find((llm) => llm.value === selectedLLM)?.options(
               settings
             )}
         </div>

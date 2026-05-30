@@ -7,11 +7,11 @@ import SystemPromptVariable from "./systemPromptVariable";
 
 const System = {
   cacheKeys: {
-    footerIcons: "lawyerRevizorro_footer_links",
-    supportEmail: "lawyerRevizorro_support_email",
-    customAppName: "lawyerRevizorro_custom_app_name",
-    canViewChatHistory: "lawyerRevizorro_can_view_chat_history",
-    deploymentVersion: "lawyerRevizorro_deployment_version",
+    footerIcons: "offerKp_footer_links",
+    supportEmail: "offerKp_support_email",
+    customAppName: "offerKp_custom_app_name",
+    canViewChatHistory: "offerKp_can_view_chat_history",
+    deploymentVersion: "offerKp_deployment_version",
   },
   ping: async function () {
     return await fetch(`${API_BASE}/ping`)

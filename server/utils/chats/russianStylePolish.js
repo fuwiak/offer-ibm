@@ -206,7 +206,7 @@ async function polishWithOpenRouter(text, apiKey) {
     headers: {
       Authorization: "Bearer " + apiKey,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://lawyer-revizorro.ru",
+      "HTTP-Referer": "https://offer-kp.ru",
       "X-Title": "LegalRAG StylePolish",
     },
     body: JSON.stringify({

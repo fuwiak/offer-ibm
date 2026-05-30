@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LAWYER_REVIZORRO_LLM_PROVIDERS } from "@/utils/lawyerRevizorro/llmProviders";
+import { OFFER_KP_LLM_PROVIDERS } from "@/utils/offerKp/llmProviders";
 import { useTranslation } from "react-i18next";
 import Sidebar from "@/components/SettingsSidebar";
 import { isMobile } from "react-device-detect";
@@ -472,7 +472,7 @@ export default function GeneralLLMPreference() {
       setSettings(_settings);
       const provider = _settings?.LLMProvider;
       setSelectedLLM(
-        LAWYER_REVIZORRO_LLM_PROVIDERS.some((p) => p.value === provider)
+        OFFER_KP_LLM_PROVIDERS.some((p) => p.value === provider)
           ? provider
           : "anthropic"
       );
@@ -497,13 +497,13 @@ export default function GeneralLLMPreference() {
   }, []);
 
   useEffect(() => {
-    const filtered = LAWYER_REVIZORRO_LLM_PROVIDERS.filter((llm) =>
+    const filtered = OFFER_KP_LLM_PROVIDERS.filter((llm) =>
       llm.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredLLMs(filtered);
   }, [searchQuery, selectedLLM]);
 
-  const selectedLLMObject = LAWYER_REVIZORRO_LLM_PROVIDERS.find(
+  const selectedLLMObject = OFFER_KP_LLM_PROVIDERS.find(
     (llm) => llm.value === selectedLLM
   );
   return (
@@ -635,7 +635,7 @@ export default function GeneralLLMPreference() {
                 className="mt-4 flex flex-col gap-y-1"
               >
                 {selectedLLM &&
-                  LAWYER_REVIZORRO_LLM_PROVIDERS.find((llm) => llm.value === selectedLLM)
+                  OFFER_KP_LLM_PROVIDERS.find((llm) => llm.value === selectedLLM)
                     ?.options?.(settings)}
               </div>
             </div>

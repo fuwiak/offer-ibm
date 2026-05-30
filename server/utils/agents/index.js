@@ -14,8 +14,8 @@ const { AgentFlows } = require("../agentFlows");
 const MCPCompatibilityLayer = require("../MCP");
 const { getAndClearInvocationAttachments } = require("../chats/agents");
 const { DocumentManager } = require("../DocumentManager");
-const { resolveAnthropicApiKey } = require("../lawyerRevizorro/anthropicEnv");
-const { resolveLlmProviderAndModel } = require("../lawyerRevizorro/resolveLlmProvider");
+const { resolveAnthropicApiKey } = require("../offerKpApp/anthropicEnv");
+const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
 
 class AgentHandler {
   #invocationUUID;

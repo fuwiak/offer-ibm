@@ -10,7 +10,7 @@ CREATE TABLE "partner_requests" (
 );
 
 -- CreateTable
-CREATE TABLE "lawyerRevizorro_quotes" (
+CREATE TABLE "offerKp_quotes" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "reference" TEXT NOT NULL,
     "userId" INTEGER,
@@ -22,11 +22,11 @@ CREATE TABLE "lawyerRevizorro_quotes" (
     "previewJson" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastUpdatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "lawyerRevizorro_quotes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "offerKp_quotes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "lawyerRevizorro_quote_lines" (
+CREATE TABLE "offerKp_quote_lines" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "quoteId" INTEGER NOT NULL,
     "productId" TEXT NOT NULL,
@@ -36,27 +36,27 @@ CREATE TABLE "lawyerRevizorro_quote_lines" (
     "surfaceM2" REAL,
     "surchargeMultiplier" REAL DEFAULT 1,
     "lineTotal" REAL DEFAULT 0,
-    CONSTRAINT "lawyerRevizorro_quote_lines_quoteId_fkey" FOREIGN KEY ("quoteId") REFERENCES "lawyerRevizorro_quotes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "offerKp_quote_lines_quoteId_fkey" FOREIGN KEY ("quoteId") REFERENCES "offerKp_quotes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "lawyerRevizorro_share_links" (
+CREATE TABLE "offerKp_share_links" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "token" TEXT NOT NULL,
     "quoteId" INTEGER NOT NULL,
     "expiresAt" DATETIME NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "lawyerRevizorro_share_links_quoteId_fkey" FOREIGN KEY ("quoteId") REFERENCES "lawyerRevizorro_quotes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "offerKp_share_links_quoteId_fkey" FOREIGN KEY ("quoteId") REFERENCES "offerKp_quotes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "lawyerRevizorro_quotes_reference_key" ON "lawyerRevizorro_quotes"("reference");
+CREATE UNIQUE INDEX "offerKp_quotes_reference_key" ON "offerKp_quotes"("reference");
 
 -- CreateIndex
-CREATE INDEX "lawyerRevizorro_quote_lines_quoteId_idx" ON "lawyerRevizorro_quote_lines"("quoteId");
+CREATE INDEX "offerKp_quote_lines_quoteId_idx" ON "offerKp_quote_lines"("quoteId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "lawyerRevizorro_share_links_token_key" ON "lawyerRevizorro_share_links"("token");
+CREATE UNIQUE INDEX "offerKp_share_links_token_key" ON "offerKp_share_links"("token");
 
 -- CreateIndex
-CREATE INDEX "lawyerRevizorro_share_links_quoteId_idx" ON "lawyerRevizorro_share_links"("quoteId");
+CREATE INDEX "offerKp_share_links_quoteId_idx" ON "offerKp_share_links"("quoteId");

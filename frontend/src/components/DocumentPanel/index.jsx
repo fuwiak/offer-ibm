@@ -1,19 +1,19 @@
 import { useTranslation } from "react-i18next";
-import { useLawyerRevizorro } from "@/contexts/LawyerRevizorroContext";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 import { X, Plus, FilePdf, FileDoc, FileHtml, DownloadSimple } from "@phosphor-icons/react";
 import { saveAs } from "file-saver";
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Workspace from "@/models/workspace";
 import { safeJsonParse } from "@/utils/request";
-import { getThreadMeta, setThreadMeta } from "@/utils/lawyerRevizorro/threadMeta";
-import { extractUserMemoryNotes } from "@/utils/lawyerRevizorro/leadsInboxContext";
-import LawyerRevizorroThreadPanelSection from "@/components/LawyerRevizorro/LawyerRevizorroThreadPanelSection";
-import ExamplePromptsPanel from "@/components/LawyerRevizorro/ExamplePromptsPanel";
-import QuoteStepper from "@/components/LawyerRevizorro/QuoteStepper";
-import CurrentWorkspaceIndicator from "@/components/LawyerRevizorro/CurrentWorkspaceIndicator";
-import useLawyerRevizorroRole from "@/hooks/useLawyerRevizorroRole";
-import { canShowAdminThreadContextPanel } from "@/utils/lawyerRevizorro/threadPanelAccess";
+import { getThreadMeta, setThreadMeta } from "@/utils/offerKp/threadMeta";
+import { extractUserMemoryNotes } from "@/utils/offerKp/leadsInboxContext";
+import OfferKpThreadPanelSection from "@/components/OfferKp/OfferKpThreadPanelSection";
+import ExamplePromptsPanel from "@/components/OfferKp/ExamplePromptsPanel";
+import QuoteStepper from "@/components/OfferKp/QuoteStepper";
+import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
+import useOfferKpRole from "@/hooks/useOfferKpRole";
+import { canShowAdminThreadContextPanel } from "@/utils/offerKp/threadPanelAccess";
 
 function fileExtension(filename = "") {
   const parts = filename.split(".");
@@ -27,7 +27,7 @@ function fileIcon(ext) {
 }
 
 function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const [files, setFiles] = useState([]);
   const [capacityPct, setCapacityPct] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,18 +56,18 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
 
   useEffect(() => {
     const refresh = () => loadFiles();
-    window.addEventListener("lawyerRevizorro:thread-files-changed", refresh);
+    window.addEventListener("offerKp:thread-files-changed", refresh);
     return () =>
-      window.removeEventListener("lawyerRevizorro:thread-files-changed", refresh);
+      window.removeEventListener("offerKp:thread-files-changed", refresh);
   }, [loadFiles]);
 
   return (
-    <section className="lawyerRevizorro-thread-panel-section lawyerRevizorro-thread-panel-section--files">
-      <div className="lawyerRevizorro-thread-panel-section__head">
-        <h3 className="lawyerRevizorro-thread-panel-section__title">{t("layout.files")}</h3>
+    <section className="offerKp-thread-panel-section offerKp-thread-panel-section--files">
+      <div className="offerKp-thread-panel-section__head">
+        <h3 className="offerKp-thread-panel-section__title">{t("layout.files")}</h3>
         <button
           type="button"
-          className="lawyerRevizorro-thread-panel-section__edit"
+          className="offerKp-thread-panel-section__edit"
           onClick={onAttach}
           aria-label={t("layout.attachFile")}
         >
@@ -75,51 +75,51 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
         </button>
       </div>
       {threadSlug && capacityPct > 0 && (
-        <div className="lawyerRevizorro-thread-files__capacity">
+        <div className="offerKp-thread-files__capacity">
           <div
-            className="lawyerRevizorro-thread-files__capacity-bar"
+            className="offerKp-thread-files__capacity-bar"
             style={{ width: `${capacityPct}%` }}
           />
-          <span className="lawyerRevizorro-thread-files__capacity-label">
+          <span className="offerKp-thread-files__capacity-label">
             {t("layout.capacityUsed", { pct: capacityPct })}
           </span>
         </div>
       )}
       {loading ? (
-        <p className="lawyerRevizorro-thread-panel-section__body text-theme-text-secondary">
+        <p className="offerKp-thread-panel-section__body text-theme-text-secondary">
           …
         </p>
       ) : !threadSlug ? (
-        <p className="lawyerRevizorro-thread-panel-section__body text-theme-text-secondary">
+        <p className="offerKp-thread-panel-section__body text-theme-text-secondary">
           {t("layout.selectConversation")}
         </p>
       ) : files.length === 0 ? (
-        <p className="lawyerRevizorro-thread-panel-section__body text-theme-text-secondary">
+        <p className="offerKp-thread-panel-section__body text-theme-text-secondary">
           {t("layout.filesEmpty")}
         </p>
       ) : (
-        <ul className="lawyerRevizorro-thread-files__grid">
+        <ul className="offerKp-thread-files__grid">
           {files.map((file) => {
             const meta = safeJsonParse(file.metadata, {});
             const ext = fileExtension(file.filename);
             const Icon = fileIcon(ext);
             const lines = meta?.lines ?? meta?.lineCount;
             return (
-              <li key={file.id} className="lawyerRevizorro-thread-files__card">
+              <li key={file.id} className="offerKp-thread-files__card">
                 <Icon
                   size={22}
                   weight="duotone"
-                  className="lawyerRevizorro-thread-files__card-icon"
+                  className="offerKp-thread-files__card-icon"
                 />
-                <span className="lawyerRevizorro-thread-files__card-name">
+                <span className="offerKp-thread-files__card-name">
                   {file.filename}
                 </span>
                 {lines != null && (
-                  <span className="lawyerRevizorro-thread-files__card-meta">
+                  <span className="offerKp-thread-files__card-meta">
                     {t("layout.fileLines", { count: lines })}
                   </span>
                 )}
-                <span className="lawyerRevizorro-thread-files__card-type">{ext}</span>
+                <span className="offerKp-thread-files__card-type">{ext}</span>
               </li>
             );
           })}
@@ -130,7 +130,7 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
 }
 
 export default function DocumentPanel() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const { pathname } = useLocation();
   const isHome = pathname === "/";
   const {
@@ -143,9 +143,9 @@ export default function DocumentPanel() {
     quoteDraft,
     quotePdfUrl,
     setQuotePdfUrl,
-  } = useLawyerRevizorro();
+  } = useOfferKp();
 
-  const { role } = useLawyerRevizorroRole();
+  const { role } = useOfferKpRole();
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [memory, setMemory] = useState("");
   const [userMemoryNotes, setUserMemoryNotes] = useState("");
@@ -236,7 +236,7 @@ export default function DocumentPanel() {
       <button
         type="button"
         onClick={() => setDocumentPanelOpen(true)}
-        className="lawyerRevizorro-doc-panel-reopen hidden xl:flex"
+        className="offerKp-doc-panel-reopen hidden xl:flex"
         aria-label={t("layout.conversationContext")}
       >
         {t("layout.conversationContext")}
@@ -246,11 +246,11 @@ export default function DocumentPanel() {
 
   return (
     <aside
-      className="lawyerRevizorro-document-panel hidden xl:flex flex-col w-[340px] shrink-0 h-full"
+      className="offerKp-document-panel hidden xl:flex flex-col w-[340px] shrink-0 h-full"
       aria-label={t("layout.conversationContext")}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0">
-        <span className="lawyerRevizorro-document-panel__eyebrow">
+        <span className="offerKp-document-panel__eyebrow">
           {isHome
             ? t("home.examplePrompts.panelLabel")
             : t("layout.conversationContext")}
@@ -282,7 +282,7 @@ export default function DocumentPanel() {
             <button
               type="button"
               onClick={() => setDocumentPanelView("docs")}
-              className={`lawyerRevizorro-doc-tab ${documentPanelView === "docs" ? "lawyerRevizorro-doc-tab--active" : ""}`}
+              className={`offerKp-doc-tab ${documentPanelView === "docs" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.conversationContext")}
             </button>
@@ -291,7 +291,7 @@ export default function DocumentPanel() {
             <button
               type="button"
               onClick={() => setDocumentPanelView("builder")}
-              className={`lawyerRevizorro-doc-tab ${documentPanelView === "builder" ? "lawyerRevizorro-doc-tab--active" : ""}`}
+              className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.tabQuote")}
             </button>
@@ -300,7 +300,7 @@ export default function DocumentPanel() {
             <button
               type="button"
               onClick={() => setDocumentPanelView("pdf")}
-              className={`lawyerRevizorro-doc-tab flex items-center gap-1 ${documentPanelView === "pdf" ? "lawyerRevizorro-doc-tab--active" : ""}`}
+              className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "pdf" ? "offerKp-doc-tab--active" : ""}`}
             >
               <FilePdf size={13} weight="fill" />
               PDF
@@ -329,7 +329,7 @@ export default function DocumentPanel() {
         </div>
       ) : showAdminThreadContext ? (
         <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4">
-          <LawyerRevizorroThreadPanelSection
+          <OfferKpThreadPanelSection
             title={t("layout.memory")}
             value={memory}
             onSave={persistMemory}
@@ -337,7 +337,7 @@ export default function DocumentPanel() {
             showPrivateBadge
             rows={10}
           />
-          <LawyerRevizorroThreadPanelSection
+          <OfferKpThreadPanelSection
             title={t("layout.instructions")}
             value={instructions}
             onSave={persistInstructions}

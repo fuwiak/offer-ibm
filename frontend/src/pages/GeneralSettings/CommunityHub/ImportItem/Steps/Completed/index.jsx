@@ -14,7 +14,7 @@ export default function Completed({ settings, setSettings, setStep }) {
           <div className="flex flex-col gap-y-[25px] text-theme-text-secondary text-sm">
             <p>
               The "{settings.item.name}" {settings.item.itemType} has been
-              imported successfully! It is now available in your lawyer-revizorro
+              imported successfully! It is now available in your offer-kp
               instance.
             </p>
             {settings.item.itemType === "agent-flow" && (

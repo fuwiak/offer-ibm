@@ -80,7 +80,7 @@ async function sendPairingRequest(bot, msg, pendingPairings) {
 
 Your pairing code is: <code>${code}</code>
 
-In lawyer-revizorro, go to Settings → Connections → Telegram and approve your request.
+In offer-kp, go to Settings → Connections → Telegram and approve your request.
 
 Make sure the pairing code shown here matches what is displayed in the settings page.
 

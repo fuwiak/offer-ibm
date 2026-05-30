@@ -53,7 +53,7 @@ class FilesystemManager {
     const storageRoot =
       process.env.STORAGE_DIR ||
       path.resolve(__dirname, "../../../../../storage");
-    return path.join(storageRoot, "lawyerRevizorro-fs");
+    return path.join(storageRoot, "offerKp-fs");
   }
 
   /**

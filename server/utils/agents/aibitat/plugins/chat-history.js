@@ -2,7 +2,7 @@ const { WorkspaceChats } = require("../../../../models/workspaceChats");
 const { WorkspaceThread } = require("../../../../models/workspaceThread");
 
 /**
- * Plugin to save chat history to lawyer-revizorro DB.
+ * Plugin to save chat history to offer-kp DB.
  */
 const chatHistory = {
   name: "chat-history",

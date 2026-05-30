@@ -28,7 +28,7 @@ class Milvus extends VectorDatabase {
   normalize(inputString) {
     let normalized = inputString.replace(/[^a-zA-Z0-9_]/g, "_");
     if (new RegExp(/^[a-zA-Z_]/).test(normalized.slice(0, 1)))
-      normalized = `lawyerRevizorro_${normalized}`;
+      normalized = `offerKp_${normalized}`;
     return normalized;
   }
 

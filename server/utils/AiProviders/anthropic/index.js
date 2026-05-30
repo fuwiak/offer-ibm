@@ -10,7 +10,7 @@ const {
   LLMPerformanceMonitor,
 } = require("../../helpers/chat/LLMPerformanceMonitor");
 const { getAVEliaBotUserAgent } = require("../../../endpoints/utils");
-const { resolveAnthropicApiKey } = require("../../lawyerRevizorro/anthropicEnv");
+const { resolveAnthropicApiKey } = require("../../offerKpApp/anthropicEnv");
 
 class AnthropicLLM {
   constructor(embedder = null, modelPreference = null) {

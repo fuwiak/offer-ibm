@@ -246,7 +246,7 @@ module.exports.CreatePptxPresentation = {
 
               pptx.title = title;
               if (author) pptx.author = author;
-              pptx.company = "lawyer-revizorro";
+              pptx.company = "offer-kp";
 
               const totalSlideCount = allSlides.length;
 

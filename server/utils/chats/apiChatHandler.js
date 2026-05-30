@@ -45,7 +45,7 @@ const {
 /**
  * Users can pass in documents as attachments to the chat API.
  * The name of the document is the name of the attachment and must include the file extension.
- * the mime type for documents is `application/lawyerRevizorro-document` - anything else is assumed to be an image.
+ * the mime type for documents is `application/offerKp-document` - anything else is assumed to be an image.
  * @param {{name: string, mime: string, contentString: string}[]} attachments
  * @returns {Promise<{parsedDocuments: Object[], imageAttachments: {name: string; mime: string; contentString: string}[]}>}
  */
@@ -59,7 +59,7 @@ async function processDocumentAttachments(attachments = []) {
       attachment &&
       attachment.contentString &&
       attachment.mime &&
-      attachment.mime.toLowerCase() === "application/lawyerRevizorro-document"
+      attachment.mime.toLowerCase() === "application/offerKp-document"
     )
       documentAttachments.push(attachment);
     else imageAttachments.push(attachment);

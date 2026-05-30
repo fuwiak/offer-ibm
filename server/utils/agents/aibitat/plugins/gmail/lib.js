@@ -207,7 +207,7 @@ async function handleAttachments(context, messages) {
 
 /**
  * Gmail Bridge Library
- * Handles communication with the lawyer-revizorro Gmail Google Apps Script deployment.
+ * Handles communication with the offer-kp Gmail Google Apps Script deployment.
  */
 class GmailBridge {
   #deploymentId = null;
@@ -347,7 +347,7 @@ class GmailBridge {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-lawyer-revizorro-UA": "lawyer-revizorro-Gmail-Agent/1.0",
+          "X-offer-kp-UA": "offer-kp-Gmail-Agent/1.0",
         },
         body: JSON.stringify({
           key: this.#apiKey,

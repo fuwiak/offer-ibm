@@ -19,7 +19,7 @@ const agent = require("../server/utils/offerKp/searchAgent");
 const shopDbLog = require("../server/utils/offerKp/shopDbLog");
 const {
   resolveOpenRouterApiKey,
-} = require("../server/utils/lawyerRevizorro/openRouterEnv");
+} = require("../server/utils/offerKpApp/openRouterEnv");
 
 const SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
 const SAMPLE_QUERY_FALLBACK = "болт DIN 933 M12";

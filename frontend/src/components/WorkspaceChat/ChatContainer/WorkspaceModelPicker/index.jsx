@@ -13,8 +13,8 @@ import {
 import Workspace from "@/models/workspace";
 import System from "@/models/system";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
-import LawyerRevizorroAnthropicModelPicker from "../LawyerRevizorroAnthropicModelPicker";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
+import OfferKpAnthropicModelPicker from "../OfferKpAnthropicModelPicker";
 
 function fetchModelName(slug, setModelName) {
   if (!slug) return;
@@ -31,7 +31,7 @@ export default function WorkspaceModelPicker({ workspaceSlug = null }) {
   const { pathname } = useLocation();
   const { slug: urlSlug } = useParams();
   const slug = urlSlug ?? workspaceSlug;
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({ pathname, workspaceSlug: slug });
+  const offerKpMode = shouldUseOfferKpLayout({ pathname, workspaceSlug: slug });
   const { user } = useUser();
   const [showSelector, setShowSelector] = useState(false);
   const [modelName, setModelName] = useState("");
@@ -43,7 +43,7 @@ export default function WorkspaceModelPicker({ workspaceSlug = null }) {
   const [config, setConfig] = useState({ settings: {}, provider: null });
   const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(
-    () => window.localStorage.getItem("lawyerRevizorro_sidebar_toggle") !== "closed"
+    () => window.localStorage.getItem("offerKp_sidebar_toggle") !== "closed"
   );
 
   useEffect(() => {
@@ -78,11 +78,11 @@ export default function WorkspaceModelPicker({ workspaceSlug = null }) {
       window.removeEventListener(PROVIDER_SETUP_EVENT, handleProviderSetup);
   }, []);
 
-  // lawyer-revizorro: Anthropic models only for admins; end users use server default (Opus)
-  if (lawyerRevizorroMode) {
+  // offer-kp: Anthropic models only for admins; end users use server default (Opus)
+  if (offerKpMode) {
     if (!!user && user.role !== "admin") return null;
     if (!slug || isMobile) return null;
-    return <LawyerRevizorroAnthropicModelPicker workspaceSlug={slug} />;
+    return <OfferKpAnthropicModelPicker workspaceSlug={slug} />;
   }
 
   if (!!user && user.role !== "admin") return null;
@@ -98,7 +98,7 @@ export default function WorkspaceModelPicker({ workspaceSlug = null }) {
       )}
       <div
         className={`hidden md:block absolute z-30 transition-all duration-500 ${
-          lawyerRevizorroMode ? "top-[56px] md:top-[62px]" : "top-2"
+          offerKpMode ? "top-[56px] md:top-[62px]" : "top-2"
         } ${
           sidebarOpen ? "left-3" : "left-11"
         }`}

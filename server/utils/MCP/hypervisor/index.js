@@ -19,17 +19,17 @@ const { patchShellEnvironmentPath } = require("../../helpers/shell");
 
 /**
  * @class MCPHypervisor
- * @description A class that manages MCP servers found in the storage/plugins/lawyerRevizorro_mcp_servers.json file.
+ * @description A class that manages MCP servers found in the storage/plugins/offerKp_mcp_servers.json file.
  * This class is responsible for booting, stopping, and reloading MCP servers - it is the user responsibility for the MCP server definitions
  * to me correct and also functioning tools depending on their deployment (docker vs local) as well as the security of said tools
  * since MCP is basically arbitrary code execution.
  *
  * @notice This class is a singleton.
  * @notice Each MCP tool has dependencies specific to it and this call WILL NOT check for them.
- * For example, if the tools requires `npx` then the context in which lawyer-revizorro mains process is running will need to access npx.
+ * For example, if the tools requires `npx` then the context in which offer-kp mains process is running will need to access npx.
  * This is typically not common in our pre-built image so may not function. But this is the case anywhere MCP is used.
  *
- * lawyer-revizorro will take care of porting MCP servers to agent-callable functions via @agent directive.
+ * offer-kp will take care of porting MCP servers to agent-callable functions via @agent directive.
  * @see MCPCompatibilityLayer.convertServerToolsToPlugins
  */
 class MCPHypervisor {
@@ -69,12 +69,12 @@ class MCPHypervisor {
       process.env.NODE_ENV === "development"
         ? path.resolve(
             __dirname,
-            `../../../storage/plugins/lawyerRevizorro_mcp_servers.json`
+            `../../../storage/plugins/offerKp_mcp_servers.json`
           )
         : path.resolve(
             process.env.STORAGE_DIR ??
               path.resolve(__dirname, `../../../storage`),
-            `plugins/lawyerRevizorro_mcp_servers.json`
+            `plugins/offerKp_mcp_servers.json`
           );
 
     if (!fs.existsSync(this.mcpServerJSONPath)) {
@@ -152,11 +152,11 @@ class MCPHypervisor {
     }
 
     const server = servers.mcpServers[serverName];
-    if (!server.lawyerRevizorro) server.lawyerRevizorro = {};
-    if (!Array.isArray(server.lawyerRevizorro.suppressedTools))
-      server.lawyerRevizorro.suppressedTools = [];
+    if (!server.offerKp) server.offerKp = {};
+    if (!Array.isArray(server.offerKp.suppressedTools))
+      server.offerKp.suppressedTools = [];
 
-    const suppressedTools = server.lawyerRevizorro.suppressedTools;
+    const suppressedTools = server.offerKp.suppressedTools;
 
     if (enabled) {
       const index = suppressedTools.indexOf(toolName);
@@ -165,7 +165,7 @@ class MCPHypervisor {
       if (!suppressedTools.includes(toolName)) suppressedTools.push(toolName);
     }
 
-    server.lawyerRevizorro.suppressedTools = suppressedTools;
+    server.offerKp.suppressedTools = suppressedTools;
     servers.mcpServers[serverName] = server;
 
     fs.writeFileSync(
@@ -187,7 +187,7 @@ class MCPHypervisor {
    */
   getSuppressedTools(serverName) {
     const config = this.mcpServerConfigs.find((s) => s.name === serverName);
-    return config?.server?.lawyerRevizorro?.suppressedTools || [];
+    return config?.server?.offerKp?.suppressedTools || [];
   }
 
   /**
@@ -500,15 +500,15 @@ class MCPHypervisor {
     const serverDefinitions = this.mcpServerConfigs;
     for (const { name, server } of serverDefinitions) {
       if (
-        server.lawyerRevizorro?.hasOwnProperty("autoStart") &&
-        server.lawyerRevizorro.autoStart === false
+        server.offerKp?.hasOwnProperty("autoStart") &&
+        server.offerKp.autoStart === false
       ) {
         this.log(
-          `MCP server ${name} has lawyerRevizorro.autoStart property set to false, skipping boot!`
+          `MCP server ${name} has offerKp.autoStart property set to false, skipping boot!`
         );
         this.mcpLoadingResults[name] = {
           status: "failed",
-          message: `MCP server ${name} has lawyerRevizorro.autoStart property set to false, boot skipped!`,
+          message: `MCP server ${name} has offerKp.autoStart property set to false, boot skipped!`,
         };
         continue;
       }

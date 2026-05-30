@@ -1,15 +1,15 @@
-import LawyerRevizorroPageShell from "@/components/LawyerRevizorro/LawyerRevizorroPageShell";
-import NotificationsView from "@/components/LawyerRevizorro/NotificationsView";
+import OfferKpPageShell from "@/components/OfferKp/OfferKpPageShell";
+import NotificationsView from "@/components/OfferKp/NotificationsView";
 import { useTranslation } from "react-i18next";
 
 export default function NotificationsPage() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   return (
-    <LawyerRevizorroPageShell
+    <OfferKpPageShell
       title={t("layout.notifications")}
       subtitle={t("notifications.subtitle")}
     >
       <NotificationsView />
-    </LawyerRevizorroPageShell>
+    </OfferKpPageShell>
   );
 }

@@ -2,8 +2,8 @@ const DEFAULT_APP_NAME = "OfferKP";
 const DEFAULT_META_TITLE = "OfferKP | Формирование коммерческих предложений";
 
 const LEGACY_APP_NAMES = new Set([
-  "lawyer-revizorro",
-  "lawyerRevizorro",
+  "offer-kp",
+  "offerKp",
   "AI Lawyer & Auditor Assistant",
   "AI Lawyer",
   "ИИ Юрист и Аудитор",
@@ -21,7 +21,7 @@ function normalizeMetaTitle(title) {
   if (
     !trimmed ||
     LEGACY_APP_NAMES.has(trimmed) ||
-    trimmed.includes("lawyer-revizorro") ||
+    trimmed.includes("offer-kp") ||
     trimmed.includes("Your personal LLM trained on anything")
   ) {
     return DEFAULT_META_TITLE;

@@ -3,17 +3,17 @@ const TRANSLATIONS = {
   onboarding: {
     survey: {
       email: "Adresse e-mail",
-      useCase: "Pour quel usage utiliserez-vous lawyer-revizorro ?",
+      useCase: "Pour quel usage utiliserez-vous offer-kp ?",
       useCaseWork: "Pour le travail",
       useCasePersonal: "Pour un usage personnel",
       useCaseOther: "Autre",
-      comment: "Comment avez-vous découvert lawyer-revizorro ?",
+      comment: "Comment avez-vous découvert offer-kp ?",
       commentPlaceholder: "Recherche, recommandation, Twitter, YouTube, etc.",
       skip: "Ignorer l'enquête",
       thankYou: "Merci pour votre retour !",
       title: "Bienvenue",
       description:
-        "Aidez-nous à améliorer lawyer-revizorro en répondant à quelques questions.",
+        "Aidez-nous à améliorer offer-kp en répondant à quelques questions.",
     },
     home: {
       getStarted: "Commencer",
@@ -22,7 +22,7 @@ const TRANSLATIONS = {
     llm: {
       title: "Préférence LLM",
       description:
-        "lawyer-revizorro peut fonctionner avec de nombreux fournisseurs LLM. Ce sera le service qui traitera vos discussions.",
+        "offer-kp peut fonctionner avec de nombreux fournisseurs LLM. Ce sera le service qui traitera vos discussions.",
     },
     userSetup: {
       title: "Configuration utilisateur",
@@ -44,7 +44,7 @@ const TRANSLATIONS = {
     data: {
       title: "Gestion des données",
       description:
-        "Configurez comment lawyer-revizorro stocke et traite vos données.",
+        "Configurez comment offer-kp stocke et traite vos données.",
       settingsHint:
         "Ces paramètres peuvent être modifiés ultérieurement dans les paramètres.",
     },
@@ -97,7 +97,7 @@ const TRANSLATIONS = {
     interface: "Interface",
     branding: "Personnalisation",
     chat: "Chat",
-    "mobile-app": "lawyer-revizorro Mobile",
+    "mobile-app": "offer-kp Mobile",
     "community-hub": {
       title: "Centre communautaire",
       trending: "Découvrez les tendances",
@@ -157,7 +157,7 @@ const TRANSLATIONS = {
       add: "Ajouter un nouveau message",
       save: "Enregistrer les messages",
       heading: "Expliquez-moi",
-      body: "les avantages de lawyer-revizorro",
+      body: "les avantages de offer-kp",
     },
     delete: {
       title: "Supprimer l'Espace de Travail",
@@ -768,7 +768,7 @@ const TRANSLATIONS = {
         title: "Sélection de compétences basée sur l'intelligence",
         "beta-badge": "Bêta",
         description:
-          "Permettez l'utilisation illimitée d'outils et réduisez la consommation de jetons jusqu'à 80 % par requête – lawyer-revizorro sélectionne automatiquement les compétences appropriées pour chaque requête.",
+          "Permettez l'utilisation illimitée d'outils et réduisez la consommation de jetons jusqu'à 80 % par requête – offer-kp sélectionne automatiquement les compétences appropriées pour chaque requête.",
         "max-tools": {
           title: "Max Tools",
           description:
@@ -794,7 +794,7 @@ const TRANSLATIONS = {
   api: {
     title: "Clés API",
     description:
-      "Les clés API permettent au titulaire d'accéder et de gérer de manière programmatique cette instance lawyer-revizorro.",
+      "Les clés API permettent au titulaire d'accéder et de gérer de manière programmatique cette instance offer-kp.",
     link: "Lisez la documentation de l'API",
     generate: "Générer une nouvelle clé API",
     empty: "Aucune clé API trouvée",
@@ -808,7 +808,7 @@ const TRANSLATIONS = {
       close: "Fermer",
       create: "Créer une clé API",
       helper:
-        "Une fois créée, la clé API peut être utilisée pour accéder à cette instance lawyer-revizorro et la configurer de manière programmatique.",
+        "Une fois créée, la clé API peut être utilisée pour accéder à cette instance offer-kp et la configurer de manière programmatique.",
       name: {
         label: "Nom",
         placeholder: "Intégration de production",
@@ -833,7 +833,7 @@ const TRANSLATIONS = {
   llm: {
     title: "Préférence LLM",
     description:
-      "Voici les identifiants et les paramètres de votre fournisseur LLM de chat et d'intégration préféré. Il est important que ces clés soient actuelles et correctes, sinon lawyer-revizorro ne fonctionnera pas correctement.",
+      "Voici les identifiants et les paramètres de votre fournisseur LLM de chat et d'intégration préféré. Il est important que ces clés soient actuelles et correctes, sinon offer-kp ne fonctionnera pas correctement.",
     provider: "Fournisseur LLM",
     providers: {
       azure_openai: {
@@ -855,7 +855,7 @@ const TRANSLATIONS = {
       "Voici les identifiants et les paramètres de votre fournisseur de modèle de transcription préféré. Il est important que ces clés soient actuelles et correctes, sinon les fichiers multimédias et audio ne seront pas transcrits.",
     provider: "Fournisseur de transcription",
     "warn-start":
-      "L'utilisation du modèle local whisper sur des machines avec une RAM ou un CPU limités peut bloquer lawyer-revizorro lors du traitement des fichiers multimédias.",
+      "L'utilisation du modèle local whisper sur des machines avec une RAM ou un CPU limités peut bloquer offer-kp lors du traitement des fichiers multimédias.",
     "warn-recommend":
       "Nous recommandons au moins 2 Go de RAM et des fichiers téléchargés <10 Mo.",
     "warn-end":
@@ -866,7 +866,7 @@ const TRANSLATIONS = {
     "desc-start":
       "Lorsque vous utilisez un LLM qui ne supporte pas nativement un moteur d'intégration - vous devrez peut-être spécifier en plus des identifiants pour intégrer le texte.",
     "desc-end":
-      "L'intégration est le processus de transformation du texte en vecteurs. Ces identifiants sont nécessaires pour transformer vos fichiers et invites en un format que lawyer-revizorro peut utiliser pour traiter.",
+      "L'intégration est le processus de transformation du texte en vecteurs. Ces identifiants sont nécessaires pour transformer vos fichiers et invites en un format que offer-kp peut utiliser pour traiter.",
     provider: {
       title: "Fournisseur d'intégration",
     },
@@ -892,7 +892,7 @@ const TRANSLATIONS = {
   vector: {
     title: "Base de données vectorielle",
     description:
-      "Voici les identifiants et les paramètres de fonctionnement de votre instance lawyer-revizorro. Il est important que ces clés soient actuelles et correctes.",
+      "Voici les identifiants et les paramètres de fonctionnement de votre instance offer-kp. Il est important que ces clés soient actuelles et correctes.",
     provider: {
       title: "Fournisseur de base de données vectorielle",
       description: "Aucune configuration n'est nécessaire pour LanceDB.",
@@ -937,7 +937,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Confidentialité et gestion des données",
     description:
-      "Voici votre configuration pour la gestion des données et des fournisseurs tiers connectés avec lawyer-revizorro.",
+      "Voici votre configuration pour la gestion des données et des fournisseurs tiers connectés avec offer-kp.",
     anonymous: "Télémétrie anonyme activée",
   },
   connectors: {
@@ -1095,12 +1095,12 @@ const TRANSLATIONS = {
       fetching: "Récupération...",
       "fetch-website": "Récupérer le site web",
       "privacy-notice":
-        "Ces fichiers seront téléchargés sur cette instance lawyer-revizorro uniquement.",
+        "Ces fichiers seront téléchargés sur cette instance offer-kp uniquement.",
     },
     pinning: {
       what_pinning: "Qu'est-ce que l'épinglage de documents ?",
       pin_explained_block1:
-        "Lorsque vous épinglez un document, lawyer-revizorro injectera le contenu intégral du document dans votre fenêtre de prompt comme contexte préalable pour chaque interaction.",
+        "Lorsque vous épinglez un document, offer-kp injectera le contenu intégral du document dans votre fenêtre de prompt comme contexte préalable pour chaque interaction.",
       pin_explained_block2:
         "Ceci est idéal pour les documents que vous souhaitez référencer fréquemment ou pour fournir un contexte constant à l'IA.",
       pin_explained_block3:
@@ -1110,7 +1110,7 @@ const TRANSLATIONS = {
     watching: {
       what_watching: "Qu'est-ce que la surveillance de documents ?",
       watch_explained_block1:
-        "Lorsque vous surveillez un document, lawyer-revizorro re-synchronisera automatiquement le contenu du document depuis sa source de manière périodique.",
+        "Lorsque vous surveillez un document, offer-kp re-synchronisera automatiquement le contenu du document depuis sa source de manière périodique.",
       watch_explained_block2:
         "Cela gardera le contenu à jour si le fichier source change.",
       watch_explained_block3_start:
@@ -1404,7 +1404,7 @@ const TRANSLATIONS = {
         unauthenticated: {
           title: "Connexion requise",
           description:
-            "Vous devez vous connecter à votre compte lawyer-revizorro pour publier sur le Community Hub.",
+            "Vous devez vous connecter à votre compte offer-kp pour publier sur le Community Hub.",
           button: "Se connecter",
         },
       },
@@ -1454,7 +1454,7 @@ const TRANSLATIONS = {
     password: {
       title: "Protection par mot de passe",
       description:
-        "Protégez votre instance lawyer-revizorro avec un mot de passe. Si vous oubliez ce mot de passe, il n'y a pas de méthode de récupération, donc assurez-vous de le sauvegarder.",
+        "Protégez votre instance offer-kp avec un mot de passe. Si vous oubliez ce mot de passe, il n'y a pas de méthode de récupération, donc assurez-vous de le sauvegarder.",
       "password-label": "Mot de passe de l'instance",
     },
   },
@@ -1469,7 +1469,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Bot Telegram",
     description:
-      "Connectez votre instance de lawyer-revizorro à Telegram afin de pouvoir communiquer avec vos espaces de travail depuis n'importe quel appareil.",
+      "Connectez votre instance de offer-kp à Telegram afin de pouvoir communiquer avec vos espaces de travail depuis n'importe quel appareil.",
     setup: {
       step1: {
         title: "Étape 1 : Créez votre bot Telegram",

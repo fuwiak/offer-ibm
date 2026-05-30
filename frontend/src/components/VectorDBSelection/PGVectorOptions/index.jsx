@@ -78,7 +78,7 @@ export default function PGVectorOptions({ settings }) {
                 store the vectors.
                 <br />
                 <br />
-                By default, the table name is <code>lawyerRevizorro_vectors</code>.
+                By default, the table name is <code>offerKp_vectors</code>.
                 <br />
                 <br />
                 <b>

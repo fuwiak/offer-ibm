@@ -22,7 +22,7 @@ const PROVIDERS = [
     description: "Leverage the OpenAI Whisper-large model using your API key.",
   },
   {
-    name: "lawyer-revizorro Built-In",
+    name: "offer-kp Built-In",
     value: "local",
     logo: AVEliaBotIcon,
     options: (settings) => <NativeTranscriptionOptions settings={settings} />,

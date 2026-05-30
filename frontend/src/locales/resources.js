@@ -1,4 +1,4 @@
-// Looking for a language to translate AI Lawyer & Auditor Assistant to?
+// Looking for a language to translate Offer KP to?
 // Create a `common.js` file in the language's ISO code https://www.w3.org/International/O-charset-lang.html
 // eg: Spanish => es/common.js
 // eg: French => fr/common.js
@@ -40,19 +40,19 @@ import Romanian from "./ro/common.js";
 import Czech from "./cs/common.js";
 import Lithuanian from "./lt/common.js";
 import Catalan from "./ca/common.js";
-import LawyerRevizorroEn from "./en/lawyerRevizorro.js";
-import LawyerRevizorroFr from "./fr/lawyerRevizorro.js";
-import LawyerRevizorroIt from "./it/lawyerRevizorro.js";
-import LawyerRevizorroRu from "./ru/lawyerRevizorro.js";
-import LawyerRevizorroDe from "./de/lawyerRevizorro.js";
-import LawyerRevizorroPl from "./pl/lawyerRevizorro.js";
-import LawyerRevizorroKk from "./kk/lawyerRevizorro.js";
+import OfferKpEn from "./en/offerKp.js";
+import OfferKpFr from "./fr/offerKp.js";
+import OfferKpIt from "./it/offerKp.js";
+import OfferKpRu from "./ru/offerKp.js";
+import OfferKpDe from "./de/offerKp.js";
+import OfferKpPl from "./pl/offerKp.js";
+import OfferKpKk from "./kk/offerKp.js";
 
 export const defaultNS = "common";
 export const resources = {
   en: {
     common: English,
-    lawyerRevizorro: LawyerRevizorroEn,
+    offerKp: OfferKpEn,
   },
   zh: {
     common: Mandarin,
@@ -65,11 +65,11 @@ export const resources = {
   },
   de: {
     common: German,
-    lawyerRevizorro: LawyerRevizorroDe,
+    offerKp: OfferKpDe,
   },
   fr: {
     common: French,
-    lawyerRevizorro: LawyerRevizorroFr,
+    offerKp: OfferKpFr,
   },
   ko: {
     common: Korean,
@@ -79,11 +79,11 @@ export const resources = {
   },
   ru: {
     common: Russian,
-    lawyerRevizorro: LawyerRevizorroRu,
+    offerKp: OfferKpRu,
   },
   it: {
     common: Italian,
-    lawyerRevizorro: LawyerRevizorroIt,
+    offerKp: OfferKpIt,
   },
   pt: {
     common: Portuguese,
@@ -117,11 +117,11 @@ export const resources = {
   },
   pl: {
     common: Polish,
-    lawyerRevizorro: LawyerRevizorroPl,
+    offerKp: OfferKpPl,
   },
   kk: {
     common: Kazakh,
-    lawyerRevizorro: LawyerRevizorroKk,
+    offerKp: OfferKpKk,
   },
   ro: {
     common: Romanian,

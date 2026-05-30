@@ -1,17 +1,17 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || "/api";
-export const ONBOARDING_SURVEY_URL = "https://onboarding.lawyerRevizorro.com";
+export const ONBOARDING_SURVEY_URL = "https://onboarding.offerKp.com";
 
-export const AUTH_USER = "lawyerRevizorro_user";
-export const AUTH_TOKEN = "lawyerRevizorro_authToken";
-export const AUTH_TIMESTAMP = "lawyerRevizorro_authTimestamp";
-export const COMPLETE_QUESTIONNAIRE = "lawyerRevizorro_completed_questionnaire";
-export const SEEN_DOC_PIN_ALERT = "lawyerRevizorro_pinned_document_alert";
-export const SEEN_WATCH_ALERT = "lawyerRevizorro_watched_document_alert";
-export const LAST_VISITED_WORKSPACE = "lawyerRevizorro_last_visited_workspace";
-export const USER_PROMPT_INPUT_MAP = "lawyerRevizorro_user_prompt_input_map";
-export const PENDING_HOME_MESSAGE = "lawyerRevizorro_pending_home_message";
+export const AUTH_USER = "offerKp_user";
+export const AUTH_TOKEN = "offerKp_authToken";
+export const AUTH_TIMESTAMP = "offerKp_authTimestamp";
+export const COMPLETE_QUESTIONNAIRE = "offerKp_completed_questionnaire";
+export const SEEN_DOC_PIN_ALERT = "offerKp_pinned_document_alert";
+export const SEEN_WATCH_ALERT = "offerKp_watched_document_alert";
+export const LAST_VISITED_WORKSPACE = "offerKp_last_visited_workspace";
+export const USER_PROMPT_INPUT_MAP = "offerKp_user_prompt_input_map";
+export const PENDING_HOME_MESSAGE = "offerKp_pending_home_message";
 
-export const APPEARANCE_SETTINGS = "lawyerRevizorro_appearance_settings";
+export const APPEARANCE_SETTINGS = "offerKp_appearance_settings";
 
 export const OLLAMA_COMMON_URLS = [
   "http://127.0.0.1:11434",

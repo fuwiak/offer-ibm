@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "Preferencje modeli językowych",
       description:
-        "lawyer-revizorro może współpracować z wieloma dostawcami modeli językowych",
+        "offer-kp może współpracować z wieloma dostawcami modeli językowych",
     },
     userSetup: {
       title: "Konfiguracja użytkownika",
@@ -35,15 +35,15 @@ const TRANSLATIONS = {
         "Ustawienia te można zmienić w dowolnym momencie w ustawieniach.",
     },
     survey: {
-      title: "Witamy w lawyer-revizorro",
+      title: "Witamy w offer-kp",
       description:
-        "Pomóż nam stworzyć lawyer-revizorro dostosowany do Twoich potrzeb. Opcjonalnie.",
+        "Pomóż nam stworzyć offer-kp dostosowany do Twoich potrzeb. Opcjonalnie.",
       email: "Jaki jest Twój adres e-mail?",
-      useCase: "Do czego będziesz używać lawyer-revizorro?",
+      useCase: "Do czego będziesz używać offer-kp?",
       useCaseWork: "Do pracy",
       useCasePersonal: "Do użytku osobistego",
       useCaseOther: "Inne",
-      comment: "Skąd dowiedziałeś się o lawyer-revizorro?",
+      comment: "Skąd dowiedziałeś się o offer-kp?",
       commentPlaceholder:
         "Reddit, Twitter, GitHub, YouTube itp. - Daj nam znać, jak nas znalazłeś!",
       skip: "Pomiń ankietę",
@@ -98,7 +98,7 @@ const TRANSLATIONS = {
     "experimental-features": "Funkcje eksperymentalne",
     contact: "Kontakt z pomocą techniczną",
     "browser-extension": "Rozszerzenie przeglądarki",
-    "mobile-app": "lawyer-revizorro Mobile",
+    "mobile-app": "offer-kp Mobile",
     "community-hub": {
       title: "Centrum Społeczności",
       trending: "Odkryj popularne",
@@ -163,7 +163,7 @@ const TRANSLATIONS = {
       add: "Dodaj nową wiadomość",
       save: "Zapisz wiadomości",
       heading: "Wyjaśnij mi",
-      body: "Korzyści z lawyer-revizorro",
+      body: "Korzyści z offer-kp",
     },
     delete: {
       title: "Usuń obszar roboczy",
@@ -793,16 +793,16 @@ const TRANSLATIONS = {
   customization: {
     interface: {
       title: "Preferencje interfejsu użytkownika",
-      description: "Ustaw preferencje interfejsu użytkownika dla lawyer-revizorro.",
+      description: "Ustaw preferencje interfejsu użytkownika dla offer-kp.",
     },
     branding: {
       title: "Branding i white-labeling",
       description:
-        "Oznakuj swoją instancję lawyer-revizorro niestandardowym brandingiem.",
+        "Oznakuj swoją instancję offer-kp niestandardowym brandingiem.",
     },
     chat: {
       title: "Czat",
-      description: "Ustaw preferencje czatu dla lawyer-revizorro.",
+      description: "Ustaw preferencje czatu dla offer-kp.",
       auto_submit: {
         title: "Automatyczne przesyłanie mowy",
         description: "Automatyczne przesyłanie mowy po wykryciu ciszy.",
@@ -839,7 +839,7 @@ const TRANSLATIONS = {
       "display-language": {
         title: "Język",
         description:
-          "Wybierz preferowany język interfejsu użytkownika lawyer-revizorro - jeśli dostępne są tłumaczenia.",
+          "Wybierz preferowany język interfejsu użytkownika offer-kp - jeśli dostępne są tłumaczenia.",
       },
       logo: {
         title: "Logo",
@@ -881,7 +881,7 @@ const TRANSLATIONS = {
   api: {
     title: "Klucze API",
     description:
-      "Klucze API umożliwiają dostęp do instancji lawyer-revizorro i zarządzanie nią.",
+      "Klucze API umożliwiają dostęp do instancji offer-kp i zarządzanie nią.",
     link: "Przeczytaj dokumentację API",
     generate: "Generuj nowy klucz API",
     empty: "Nie znaleziono kluczy API",
@@ -895,7 +895,7 @@ const TRANSLATIONS = {
       close: "Zamknij",
       create: "Utwórz klucz API",
       helper:
-        "Po utworzeniu klucz API może być używany do programowego dostępu do tej instancji lawyer-revizorro i jej konfiguracji.",
+        "Po utworzeniu klucz API może być używany do programowego dostępu do tej instancji offer-kp i jej konfiguracji.",
       name: {
         label: "Nazwa",
         placeholder: "Integracja produkcyjna",
@@ -920,7 +920,7 @@ const TRANSLATIONS = {
   llm: {
     title: "Preferencje LLM",
     description:
-      "Tutaj skonfigurujesz dostawcę modeli językowych używanych do czatów i embeddingów. Upewnij się, że wszystkie klucze są aktualne i poprawne - bez tego lawyer-revizorro nie będzie działać.",
+      "Tutaj skonfigurujesz dostawcę modeli językowych używanych do czatów i embeddingów. Upewnij się, że wszystkie klucze są aktualne i poprawne - bez tego offer-kp nie będzie działać.",
     provider: "Dostawca LLM",
     providers: {
       azure_openai: {
@@ -942,7 +942,7 @@ const TRANSLATIONS = {
       "Tutaj skonfigurujesz dostawcę modeli używanych do transkrypcji plików audio i wideo. Upewnij się, że klucze są poprawne - bez tego pliki audio nie będą transkrybowane.",
     provider: "Dostawca usług transkrypcji",
     "warn-start":
-      "Korzystanie z lokalnego modelu Whisper na komputerach z ograniczoną pamięcią RAM lub procesorem może spowodować przerwanie pracy lawyer-revizorro podczas przetwarzania plików multimedialnych.",
+      "Korzystanie z lokalnego modelu Whisper na komputerach z ograniczoną pamięcią RAM lub procesorem może spowodować przerwanie pracy offer-kp podczas przetwarzania plików multimedialnych.",
     "warn-recommend":
       "Zalecana konfiguracja to co najmniej 2 GB pamięci RAM, przesyłaj pliki <10 MB.",
     "warn-end":
@@ -979,7 +979,7 @@ const TRANSLATIONS = {
   vector: {
     title: "Wektorowa baza danych",
     description:
-      "Tutaj skonfigurujesz wektorową bazę danych dla lawyer-revizorro. Upewnij się, że wszystkie ustawienia są poprawne.",
+      "Tutaj skonfigurujesz wektorową bazę danych dla offer-kp. Upewnij się, że wszystkie ustawienia są poprawne.",
     provider: {
       title: "Wektorowa baza danych",
       description: "LanceDB nie wymaga żadnej konfiguracji.",
@@ -1023,7 +1023,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Prywatność i obsługa danych",
     description:
-      "Jest to konfiguracja sposobu, w jaki połączeni dostawcy zewnętrzni i lawyer-revizorro przetwarzają dane użytkownika.",
+      "Jest to konfiguracja sposobu, w jaki połączeni dostawcy zewnętrzni i offer-kp przetwarzają dane użytkownika.",
     anonymous: "Włączona anonimowa telemetria",
   },
   connectors: {
@@ -1195,22 +1195,22 @@ const TRANSLATIONS = {
       fetching: "Pobieranie...",
       "fetch-website": "Pobierz zawartość strony",
       "privacy-notice":
-        "Pliki zostaną przetworzone w obrębie danej instancji lawyer-revizorro. Pliki te nie będą udostępniane innym podmiotom.",
+        "Pliki zostaną przetworzone w obrębie danej instancji offer-kp. Pliki te nie będą udostępniane innym podmiotom.",
     },
     pinning: {
       what_pinning: "Czym jest przypinanie dokumentów?",
       pin_explained_block1:
-        "Kiedy <b>przypinasz</b> dokument w lawyer-revizorro, dodamy całą zawartość dokumentu do okna promptu, aby LLM mógł w pełni zrozumieć jego treść.",
+        "Kiedy <b>przypinasz</b> dokument w offer-kp, dodamy całą zawartość dokumentu do okna promptu, aby LLM mógł w pełni zrozumieć jego treść.",
       pin_explained_block2:
         "Działa to najlepiej w przypadku <b>dużych modeli kontekstowych</b> lub małych plików, które są krytyczne dla bazy wiedzy.",
       pin_explained_block3:
-        "Jeśli domyślnie nie otrzymujesz pożądanych odpowiedzi z lawyer-revizorro, przypinanie jest świetnym sposobem na uzyskanie wyższej jakości odpowiedzi za jednym kliknięciem.",
+        "Jeśli domyślnie nie otrzymujesz pożądanych odpowiedzi z offer-kp, przypinanie jest świetnym sposobem na uzyskanie wyższej jakości odpowiedzi za jednym kliknięciem.",
       accept: "Ok, rozumiem",
     },
     watching: {
       what_watching: "Do czego służy oglądanie dokumentu?",
       watch_explained_block1:
-        "Podczas <b>obserwowania</b> dokumentu w lawyer-revizorro będziemy <i>automatycznie</i> synchronizować zawartość dokumentu z jego oryginalnym źródłem w regularnych odstępach czasu. Spowoduje to automatyczną aktualizację zawartości w każdym obszarze roboczym, w którym ten plik jest zarządzany.",
+        "Podczas <b>obserwowania</b> dokumentu w offer-kp będziemy <i>automatycznie</i> synchronizować zawartość dokumentu z jego oryginalnym źródłem w regularnych odstępach czasu. Spowoduje to automatyczną aktualizację zawartości w każdym obszarze roboczym, w którym ten plik jest zarządzany.",
       watch_explained_block2:
         "Ta funkcja obsługuje obecnie treści online i nie będzie dostępna dla dokumentów przesyłanych ręcznie.",
       watch_explained_block3_start:
@@ -1426,7 +1426,7 @@ const TRANSLATIONS = {
         unauthenticated: {
           title: "Wymagane uwierzytelnienie",
           description:
-            "Przed opublikowaniem elementów należy uwierzytelnić się w centrum społeczności lawyer-revizorro.",
+            "Przed opublikowaniem elementów należy uwierzytelnić się w centrum społeczności offer-kp.",
           button: "Połączenie z centrum społeczności",
         },
       },
@@ -1450,7 +1450,7 @@ const TRANSLATIONS = {
     password: {
       title: "Ochrona hasłem",
       description:
-        "Chroń swoją instancję lawyer-revizorro hasłem. Jeśli go zapomnisz, nie ma metody odzyskiwania, więc upewnij się, że zapisałeś to hasło.",
+        "Chroń swoją instancję offer-kp hasłem. Jeśli go zapomnisz, nie ma metody odzyskiwania, więc upewnij się, że zapisałeś to hasło.",
       "password-label": "Hasło instancji",
     },
   },
@@ -1464,7 +1464,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Bot na Telegramie",
     description:
-      "Połącz swoją instancję lawyer-revizorro z Telegramem, aby móc rozmawiać z przestrzeniami roboczymi z dowolnego urządzenia.",
+      "Połącz swoją instancję offer-kp z Telegramem, aby móc rozmawiać z przestrzeniami roboczymi z dowolnego urządzenia.",
     setup: {
       step1: {
         title: "Krok 1: Utwórz swojego bota w Telegramie",

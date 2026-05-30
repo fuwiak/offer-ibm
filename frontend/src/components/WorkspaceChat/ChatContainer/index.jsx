@@ -30,18 +30,18 @@ import { safeJsonParse } from "@/utils/request";
 import { useTranslation } from "react-i18next";
 import paths from "@/utils/paths";
 import QuickActions from "@/components/lib/QuickActions";
-import LawyerRevizorroQuickActions from "@/components/LawyerRevizorro/LawyerRevizorroQuickActions";
+import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
 import SuggestedMessages from "@/components/lib/SuggestedMessages";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
-import { getThreadMeta } from "@/utils/lawyerRevizorro/threadMeta";
-import { extractUserMemoryNotes } from "@/utils/lawyerRevizorro/leadsInboxContext";
-import { handleLawyerRevizorroQuickActionKey } from "@/utils/lawyerRevizorro/homeActions";
-import { useLawyerRevizorro } from "@/contexts/LawyerRevizorroContext";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
+import { getThreadMeta } from "@/utils/offerKp/threadMeta";
+import { extractUserMemoryNotes } from "@/utils/offerKp/leadsInboxContext";
+import { handleOfferKpQuickActionKey } from "@/utils/offerKp/homeActions";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 import useUser from "@/hooks/useUser";
 import TextSizeMenu from "./TextSizeMenu";
 import WorkspaceModelPicker from "./WorkspaceModelPicker";
-import CurrentWorkspaceIndicator from "@/components/LawyerRevizorro/CurrentWorkspaceIndicator";
-import { switchToWorkspace } from "@/utils/lawyerRevizorro/switchWorkspace";
+import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
+import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
 import SourcesSidebar, { SourcesSidebarProvider } from "./SourcesSidebar";
 
 export default function ChatContainer({
@@ -52,7 +52,7 @@ export default function ChatContainer({
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t } = useTranslation();
-  const { t: ta } = useTranslation("lawyerRevizorro");
+  const { t: ta } = useTranslation("offerKp");
   const { user } = useUser();
   const greetingName =
     user?.firstName ||
@@ -60,15 +60,15 @@ export default function ChatContainer({
     user?.username?.split?.(" ")?.[0] ||
     user?.login?.split?.(" ")?.[0] ||
     "there";
-  const lawyerRevizorro = useLawyerRevizorro();
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({
+  const offerKp = useOfferKp();
+  const offerKpMode = shouldUseOfferKpLayout({
     pathname,
     workspaceSlug: workspace?.slug,
   });
 
   useEffect(() => {
-    if (lawyerRevizorroMode) lawyerRevizorro.setDocumentPanelOpen(true);
-  }, [lawyerRevizorroMode, lawyerRevizorro]);
+    if (offerKpMode) offerKp.setDocumentPanelOpen(true);
+  }, [offerKpMode, offerKp]);
 
   const [loadingResponse, setLoadingResponse] = useState(false);
   const [chatHistory, setChatHistory] = useState(knownHistory);
@@ -416,14 +416,14 @@ export default function ChatContainer({
       <div
         style={{ height: isMobile ? "100%" : "100%" }}
         className={`transition-all duration-500 relative w-full h-full overflow-hidden flex flex-col flex-1 min-w-0 ${
-          lawyerRevizorroMode
-            ? "lawyerRevizorro-chat-shell lawyerRevizorro-home-shell"
+          offerKpMode
+            ? "offerKp-chat-shell offerKp-home-shell"
             : "md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-zinc-900 light:bg-white border-none light:border-solid light:border light:border-theme-modal-border"
         }`}
       >
         {isMobile && <SidebarMobileHeader workspace={workspace} />}
-        {lawyerRevizorroMode && (
-          <div className="lawyerRevizorro-space-bar shrink-0">
+        {offerKpMode && (
+          <div className="offerKp-space-bar shrink-0">
             <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
           </div>
         )}
@@ -432,18 +432,18 @@ export default function ChatContainer({
         <DnDFileUploaderWrapper>
           <div
             className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
-              lawyerRevizorroMode
+              offerKpMode
                 ? "items-start justify-start px-6 md:px-10 lg:px-14 py-8 md:py-12"
                 : "items-center justify-center"
             }`}
           >
             <div
               className={`flex flex-col w-full shrink-0 ${
-                lawyerRevizorroMode ? "max-w-[920px] items-start" : "items-center max-w-[750px]"
+                offerKpMode ? "max-w-[920px] items-start" : "items-center max-w-[750px]"
               }`}
             >
-              {lawyerRevizorroMode ? (
-                <h1 className="lawyerRevizorro-home-greeting">
+              {offerKpMode ? (
+                <h1 className="offerKp-home-greeting">
                   {ta("home.greeting", { name: greetingName })}
                 </h1>
               ) : (
@@ -460,20 +460,20 @@ export default function ChatContainer({
                 centered={true}
                 workspaceSlug={workspace?.slug}
                 threadSlug={threadSlug}
-                placeholder={lawyerRevizorroMode ? ta("home.inputPlaceholder") : undefined}
-                lawyerRevizorroHome={lawyerRevizorroMode}
+                placeholder={offerKpMode ? ta("home.inputPlaceholder") : undefined}
+                offerKpHome={offerKpMode}
                 onWorkspaceSelect={
-                  lawyerRevizorroMode
+                  offerKpMode
                     ? (ws) => switchToWorkspace(navigate, ws)
                     : undefined
                 }
               />
-              {lawyerRevizorroMode ? (
-                <LawyerRevizorroQuickActions
+              {offerKpMode ? (
+                <OfferKpQuickActions
                   onAction={(key) =>
-                    handleLawyerRevizorroQuickActionKey(key, {
+                    handleOfferKpQuickActionKey(key, {
                       navigate,
-                      lawyerRevizorro,
+                      offerKp,
                       sendCommand,
                     })
                   }
@@ -493,7 +493,7 @@ export default function ChatContainer({
                 />
               )}
             </div>
-            {!lawyerRevizorroMode && (
+            {!offerKpMode && (
               <SuggestedMessages
                 suggestedMessages={workspace?.suggestedMessages}
                 sendCommand={sendCommand}
@@ -501,12 +501,12 @@ export default function ChatContainer({
             )}
           </div>
         </DnDFileUploaderWrapper>
-        {lawyerRevizorroMode && (
-          <footer className="lawyerRevizorro-footer-bar shrink-0">
+        {offerKpMode && (
+          <footer className="offerKp-footer-bar shrink-0">
             <span>{ta("home.version")}</span>
             <span className="flex gap-4">
-              <a href="/lawyerRevizorro">{ta("home.privacy")}</a>
-              <a href="/lawyerRevizorro">{ta("home.terms")}</a>
+              <a href="/offerKp">{ta("home.privacy")}</a>
+              <a href="/offerKp">{ta("home.terms")}</a>
             </span>
           </footer>
         )}
@@ -524,8 +524,8 @@ export default function ChatContainer({
         <TextSizeMenu />
         <div className="flex-1 min-w-0 transition-all duration-500 relative md:rounded-[16px] bg-zinc-900 light:bg-white text-white light:text-slate-900 h-full overflow-hidden border-none light:border-solid light:border light:border-theme-modal-border">
           {isMobile && <SidebarMobileHeader workspace={workspace} />}
-          {lawyerRevizorroMode && (
-            <div className="lawyerRevizorro-space-bar shrink-0">
+          {offerKpMode && (
+            <div className="offerKp-space-bar shrink-0">
               <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
             </div>
           )}

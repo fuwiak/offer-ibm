@@ -60,7 +60,7 @@ async function _request(path, opts = {}) {
     try {
       const res = await fetch(url, {
         method: "GET",
-        headers: { Accept: accept, "User-Agent": "lawyer-revizorro-eli" },
+        headers: { Accept: accept, "User-Agent": "offer-kp-eli" },
         signal: controller.signal,
       });
       lastStatus = res.status;

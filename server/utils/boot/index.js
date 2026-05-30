@@ -10,8 +10,8 @@ const { TelegramBotService } = require("../telegramBot");
 const { ensureCreateFilesSkillEnabled } = require("./ensureCreateFilesSkill");
 const { ensureMultiUserBootstrap } = require("./ensureMultiUserBootstrap");
 const {
-  ensureLawyerRevizorroWorkspaceProfileColumn,
-} = require("./ensureLawyerRevizorroWorkspaceProfileColumn");
+  ensureOfferKpWorkspaceProfileColumn,
+} = require("./ensureOfferKpWorkspaceProfileColumn");
 const { ensureOfferKpBranding } = require("./ensureOfferKpBranding");
 const {
   ensureShopDbEnrichBootTest,
@@ -41,7 +41,7 @@ function bootSSL(app, port = 3001) {
     const host = process.env.HOST || "0.0.0.0";
     server
       .listen(port, host, async () => {
-        await ensureLawyerRevizorroWorkspaceProfileColumn();
+        await ensureOfferKpWorkspaceProfileColumn();
         await ensureOfferKpBranding();
         await ensureShopDbEnrichBootTest();
         await ensureMultiUserBootstrap();
@@ -82,7 +82,7 @@ function bootHTTP(app, port = 3001) {
   const host = process.env.HOST || "0.0.0.0";
   app
     .listen(port, host, async () => {
-      await ensureLawyerRevizorroWorkspaceProfileColumn();
+      await ensureOfferKpWorkspaceProfileColumn();
       await ensureOfferKpBranding();
       await ensureShopDbEnrichBootTest();
       await ensureMultiUserBootstrap();
@@ -94,11 +94,11 @@ function bootHTTP(app, port = 3001) {
       await eagerLoadContextWindows();
       try {
         const {
-          normalizeLawyerRevizorroWorkspaceLlms,
-        } = require("../lawyerRevizorro/normalizeWorkspaceLlms");
-        await normalizeLawyerRevizorroWorkspaceLlms();
+          normalizeOfferKpWorkspaceLlms,
+        } = require("../offerKpApp/normalizeWorkspaceLlms");
+        await normalizeOfferKpWorkspaceLlms();
       } catch (e) {
-        console.error("[LAWYER_REVIZORRO-LLM] workspace normalize failed", e.message);
+        console.error("[OFFER_KP-LLM] workspace normalize failed", e.message);
       }
       await PushNotifications.setupPushNotificationService();
       await TelegramBotService.bootIfActive();

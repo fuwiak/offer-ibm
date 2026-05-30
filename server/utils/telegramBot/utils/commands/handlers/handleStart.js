@@ -12,7 +12,7 @@ async function handleStart(ctx, chatId) {
 
   await ctx.bot.sendMessage(
     chatId,
-    `Welcome to lawyer-revizorro!\n\nYour messages go to the "${name}" workspace. Use /switch to change workspaces or threads, and /help to see all commands.`
+    `Welcome to offer-kp!\n\nYour messages go to the "${name}" workspace. Use /switch to change workspaces or threads, and /help to see all commands.`
   );
 }
 

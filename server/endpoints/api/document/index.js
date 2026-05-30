@@ -51,7 +51,7 @@ function apiDocumentEndpoints(app) {
     async (request, response) => {
       /*
     #swagger.tags = ['Documents']
-    #swagger.description = 'Upload a new file to lawyer-revizorro to be parsed and prepared for embedding, with optional metadata.'
+    #swagger.description = 'Upload a new file to offer-kp to be parsed and prepared for embedding, with optional metadata.'
     #swagger.requestBody = {
       description: 'File to be uploaded.',
       required: true,
@@ -91,14 +91,14 @@ function apiDocumentEndpoints(app) {
               error: null,
               documents: [
                 {
-                  "location": "custom-documents/lawyerRevizorro.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
-                  "name": "lawyerRevizorro.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
-                  "url": "file:///Users/tim/Documents/av-elia-bot/collector/hotdir/lawyerRevizorro.txt",
-                  "title": "lawyerRevizorro.txt",
+                  "location": "custom-documents/offerKp.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
+                  "name": "offerKp.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
+                  "url": "file:///Users/tim/Documents/av-elia-bot/collector/hotdir/offerKp.txt",
+                  "title": "offerKp.txt",
                   "docAuthor": "Unknown",
                   "description": "Unknown",
                   "docSource": "a text file uploaded by the user.",
-                  "chunkSource": "lawyerRevizorro.txt",
+                  "chunkSource": "offerKp.txt",
                   "published": "1/16/2024, 3:07:00 PM",
                   "wordCount": 93,
                   "token_count_estimate": 115,
@@ -176,7 +176,7 @@ function apiDocumentEndpoints(app) {
     async (request, response) => {
       /*
       #swagger.tags = ['Documents']
-      #swagger.description = 'Upload a new file to a specific folder in lawyer-revizorro to be parsed and prepared for embedding. If the folder does not exist, it will be created.'
+      #swagger.description = 'Upload a new file to a specific folder in offer-kp to be parsed and prepared for embedding. If the folder does not exist, it will be created.'
       #swagger.parameters['folderName'] = {
         in: 'path',
         description: 'Target folder path (defaults to \"custom-documents\" if not provided)',
@@ -221,14 +221,14 @@ function apiDocumentEndpoints(app) {
                 success: true,
                 error: null,
                 documents: [{
-                  "location": "custom-documents/lawyerRevizorro.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
-                  "name": "lawyerRevizorro.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
-                  "url": "file:///Users/tim/Documents/av-elia-bot/collector/hotdir/lawyerRevizorro.txt",
-                  "title": "lawyerRevizorro.txt",
+                  "location": "custom-documents/offerKp.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
+                  "name": "offerKp.txt-6e8be64c-c162-4b43-9997-b068c0071e8b.json",
+                  "url": "file:///Users/tim/Documents/av-elia-bot/collector/hotdir/offerKp.txt",
+                  "title": "offerKp.txt",
                   "docAuthor": "Unknown",
                   "description": "Unknown",
                   "docSource": "a text file uploaded by the user.",
-                  "chunkSource": "lawyerRevizorro.txt",
+                  "chunkSource": "offerKp.txt",
                   "published": "1/16/2024, 3:07:00 PM",
                   "wordCount": 93,
                   "token_count_estimate": 115
@@ -357,7 +357,7 @@ function apiDocumentEndpoints(app) {
     async (request, response) => {
       /*
     #swagger.tags = ['Documents']
-    #swagger.description = 'Upload a valid URL for lawyer-revizorro to scrape and prepare for embedding. Optionally, specify a comma-separated list of workspace slugs to embed the document into post-upload.'
+    #swagger.description = 'Upload a valid URL for offer-kp to scrape and prepare for embedding. Optionally, specify a comma-separated list of workspace slugs to embed the document into post-upload.'
     #swagger.requestBody = {
       description: 'Link of web address to be scraped and optionally a comma-separated list of workspace slugs to embed the document into post-upload, and optional metadata.',
       required: true,
@@ -366,7 +366,7 @@ function apiDocumentEndpoints(app) {
             schema: {
               type: 'object',
               example: {
-                "link": "https://lawyerRevizorro.com",
+                "link": "https://offerKp.com",
                 "addToWorkspaces": "workspace1,workspace2",
                 "scraperHeaders": {
                   "Authorization": "Bearer token123",
@@ -399,10 +399,10 @@ function apiDocumentEndpoints(app) {
                   "docAuthor": "no author found",
                   "description": "No description found.",
                   "docSource": "URL link uploaded by the user.",
-                  "chunkSource": "https:lawyerRevizorro.com.html",
+                  "chunkSource": "https:offerKp.com.html",
                   "published": "1/16/2024, 3:46:33 PM",
                   "wordCount": 252,
-                  "pageContent": "lawyer-revizorro is the best....",
+                  "pageContent": "offer-kp is the best....",
                   "token_count_estimate": 447,
                   "location": "custom-documents/url-useanything_com-c530dbe6-bff1-4b9e-b87f-710d539d20bc.json"
                 }
@@ -490,7 +490,7 @@ function apiDocumentEndpoints(app) {
           schema: {
             type: 'object',
             example: {
-              "textContent": "This is the raw text that will be saved as a document in lawyer-revizorro.",
+              "textContent": "This is the raw text that will be saved as a document in offer-kp.",
               "addToWorkspaces": "workspace1,workspace2",
               "metadata": {
                 "title": "This key is required. See in /server/endpoints/api/document/index.js:287",
@@ -522,7 +522,7 @@ function apiDocumentEndpoints(app) {
                   "chunkSource": "no chunk source specified",
                   "published": "1/16/2024, 3:46:33 PM",
                   "wordCount": 252,
-                  "pageContent": "lawyer-revizorro is the best....",
+                  "pageContent": "offer-kp is the best....",
                   "token_count_estimate": 447,
                   "location": "custom-documents/raw-my-doc-text-c530dbe6-bff1-4b9e-b87f-710d539d20bc.json"
                 }
@@ -839,7 +839,7 @@ function apiDocumentEndpoints(app) {
   app.get("/v1/document/:docName", [validApiKey], async (request, response) => {
     /*
     #swagger.tags = ['Documents']
-    #swagger.description = 'Get a single document by its unique lawyer-revizorro document name'
+    #swagger.description = 'Get a single document by its unique offer-kp document name'
     #swagger.parameters['docName'] = {
         in: 'path',
         description: 'Unique document name to find (name in /documents)',

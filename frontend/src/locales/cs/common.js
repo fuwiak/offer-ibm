@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "Preferovaný LLM",
       description:
-        "lawyer-revizorro může pracovat s mnoha poskytovateli LLM. Toto bude služba, která bude zpracovávat chatování.",
+        "offer-kp může pracovat s mnoha poskytovateli LLM. Toto bude služba, která bude zpracovávat chatování.",
     },
     userSetup: {
       title: "Nastavení uživatele",
@@ -35,15 +35,15 @@ const TRANSLATIONS = {
         "Tato nastavení lze kdykoliv znovu nakonfigurovat v nastavení.",
     },
     survey: {
-      title: "Vítejte v lawyer-revizorro",
+      title: "Vítejte v offer-kp",
       description:
-        "Pomozte nám vybudovat lawyer-revizorro pro vaše potřeby. Volitelné.",
+        "Pomozte nám vybudovat offer-kp pro vaše potřeby. Volitelné.",
       email: "Jaký je váš e-mail?",
-      useCase: "K čemu budete lawyer-revizorro používat?",
+      useCase: "K čemu budete offer-kp používat?",
       useCaseWork: "Pro práci",
       useCasePersonal: "Pro osobní použití",
       useCaseOther: "Jiné",
-      comment: "Jak jste se o lawyer-revizorro dozvěděli?",
+      comment: "Jak jste se o offer-kp dozvěděli?",
       commentPlaceholder:
         "Reddit, Twitter, GitHub, YouTube atd. - Dejte nám vědět, jak jste nás našli!",
       skip: "Přeskočit průzkum",
@@ -105,7 +105,7 @@ const TRANSLATIONS = {
     "experimental-features": "Experimentální funkce",
     contact: "Kontaktovat podporu",
     "browser-extension": "Rozšíření prohlížeče",
-    "mobile-app": "lawyer-revizorro Mobile",
+    "mobile-app": "offer-kp Mobile",
     "community-hub": {
       title: "Centrální místo pro komunitu",
       trending: "Prozkoumejte aktuální trendy",
@@ -171,7 +171,7 @@ const TRANSLATIONS = {
       add: "Přidat novou zprávu",
       save: "Uložit zprávy",
       heading: "Vysvětlit mi",
-      body: "výhody lawyer-revizorro",
+      body: "výhody offer-kp",
     },
     delete: {
       title: "Smazat pracovní prostor",
@@ -761,7 +761,7 @@ const TRANSLATIONS = {
         title: "Inteligentní výběr dovedností",
         "beta-badge": "Beta",
         description:
-          "Umožněte použití libovolného počtu nástrojů a snížit využití tokenů až o 80 % pro každou dotaz — lawyer-revizorro automaticky vybírá vhodné dovednosti pro každou žádost.",
+          "Umožněte použití libovolného počtu nástrojů a snížit využití tokenů až o 80 % pro každou dotaz — offer-kp automaticky vybírá vhodné dovednosti pro každou žádost.",
         "max-tools": {
           title: "Nástroje Max",
           description:
@@ -787,16 +787,16 @@ const TRANSLATIONS = {
   customization: {
     interface: {
       title: "Předvolby rozhraní",
-      description: "Nastavte své předvolby rozhraní pro lawyer-revizorro.",
+      description: "Nastavte své předvolby rozhraní pro offer-kp.",
     },
     branding: {
       title: "Značení a bílé označení",
       description:
-        "Bílé označení instance lawyer-revizorro pomocí vlastního značení.",
+        "Bílé označení instance offer-kp pomocí vlastního značení.",
     },
     chat: {
       title: "Chat",
-      description: "Nastavte své předvolby chatu pro lawyer-revizorro.",
+      description: "Nastavte své předvolby chatu pro offer-kp.",
       auto_submit: {
         title: "Automatické odeslání hlasového vstupu",
         description: "Automaticky odeslat hlasový vstup po období ticha",
@@ -833,7 +833,7 @@ const TRANSLATIONS = {
       "display-language": {
         title: "Zobrazovací jazyk",
         description:
-          "Vyberte preferovaný jazyk pro vykreslení rozhraní lawyer-revizorro - pokud jsou k dispozici překlady.",
+          "Vyberte preferovaný jazyk pro vykreslení rozhraní offer-kp - pokud jsou k dispozici překlady.",
       },
       logo: {
         title: "Logo značky",
@@ -875,7 +875,7 @@ const TRANSLATIONS = {
   api: {
     title: "API klíče",
     description:
-      "API klíče umožňují držiteli programově přistupovat a spravovat tuto instanci lawyer-revizorro.",
+      "API klíče umožňují držiteli programově přistupovat a spravovat tuto instanci offer-kp.",
     link: "Přečíst dokumentaci API",
     generate: "Generovat nový API klíč",
     empty: "Nebyly nalezeny žádné API klíče",
@@ -889,7 +889,7 @@ const TRANSLATIONS = {
       close: "Zavřít",
       create: "Vytvořit API klíč",
       helper:
-        "Po vytvoření lze API klíč použít pro programový přístup k této instanci lawyer-revizorro a její správu.",
+        "Po vytvoření lze API klíč použít pro programový přístup k této instanci offer-kp a její správu.",
       name: {
         label: "Název",
         placeholder: "Produkční integrace",
@@ -914,7 +914,7 @@ const TRANSLATIONS = {
   llm: {
     title: "Preferovaný LLM",
     description:
-      "Toto jsou přihlašovací údaje a nastavení pro vašeho preferovaného poskytovatele chatu a embeddingu LLM. Je důležité, aby tyto klíče byly aktuální a správné, jinak lawyer-revizorro nebude fungovat správně.",
+      "Toto jsou přihlašovací údaje a nastavení pro vašeho preferovaného poskytovatele chatu a embeddingu LLM. Je důležité, aby tyto klíče byly aktuální a správné, jinak offer-kp nebude fungovat správně.",
     provider: "Poskytovatel LLM",
     providers: {
       azure_openai: {
@@ -936,7 +936,7 @@ const TRANSLATIONS = {
       "Toto jsou přihlašovací údaje a nastavení pro vašeho preferovaného poskytovatele modelu přepisu. Je důležité, aby tyto klíče byly aktuální a správné, jinak mediální soubory a audio nebudou přepisovány.",
     provider: "Poskytovatel přepisu",
     "warn-start":
-      "Použití místního modelu whisper na strojích s omezenou RAM nebo CPU může zastavit lawyer-revizorro při zpracování mediálních souborů.",
+      "Použití místního modelu whisper na strojích s omezenou RAM nebo CPU může zastavit offer-kp při zpracování mediálních souborů.",
     "warn-recommend": "Doporučujeme alespoň 2GB RAM a nahrávat soubory <10Mb.",
     "warn-end": "Vestavěný model se automaticky stáhne při prvním použití.",
   },
@@ -945,7 +945,7 @@ const TRANSLATIONS = {
     "desc-start":
       "Při použití LLM, který nativně nepodporuje engine embeddingu - možná budete muset additionally uvést přihlašovací údaje pro embeddingování textu.",
     "desc-end":
-      "Embedding je proces převodu textu na vektory. Tyto přihlašovací údaje jsou nutné k převodu vašich souborů a výzev do formátu, který lawyer-revizorro může použít ke zpracování.",
+      "Embedding je proces převodu textu na vektory. Tyto přihlašovací údaje jsou nutné k převodu vašich souborů a výzev do formátu, který offer-kp může použít ke zpracování.",
     provider: {
       title: "Poskytovatel embeddingu",
     },
@@ -971,7 +971,7 @@ const TRANSLATIONS = {
   vector: {
     title: "Vektorová databáze",
     description:
-      "Toto jsou přihlašovací údaje a nastavení, jak bude vaše instance lawyer-revizorro fungovat. Je důležité, aby tyto klíče byly aktuální a správné.",
+      "Toto jsou přihlašovací údaje a nastavení, jak bude vaše instance offer-kp fungovat. Je důležité, aby tyto klíče byly aktuální a správné.",
     provider: {
       title: "Poskytovatel vektorové databáze",
       description: "Pro LanceDB není potřeba žádná konfigurace.",
@@ -1020,7 +1020,7 @@ const TRANSLATIONS = {
     password: {
       title: "Ochrana heslem",
       description:
-        "Chraňte svou instanci lawyer-revizorro heslem. Pokud zapomenete, neexistuje způsob obnovení, proto se ujistěte, že heslo uložíte.",
+        "Chraňte svou instanci offer-kp heslem. Pokud zapomenete, neexistuje způsob obnovení, proto se ujistěte, že heslo uložíte.",
       "password-label": "Heslo instance",
     },
   },
@@ -1038,7 +1038,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Soukromí a zpracování dat",
     description:
-      "Toto je vaše konfigurace, jak připojené třetí strany a lawyer-revizorro zpracovávají vaše data.",
+      "Toto je vaše konfigurace, jak připojené třetí strany a offer-kp zpracovávají vaše data.",
     anonymous: "Anonymní telemetrie je povolena",
   },
   connectors: {
@@ -1208,22 +1208,22 @@ const TRANSLATIONS = {
       fetching: "Načítání...",
       "fetch-website": "Stáhnout webovou stránku",
       "privacy-notice":
-        "Tyto soubory budou nahrány na procesor dokumentů běžící na této instanci lawyer-revizorro. Tyto soubory nejsou odesílány nebo sdíleny s třetí stranou.",
+        "Tyto soubory budou nahrány na procesor dokumentů běžící na této instanci offer-kp. Tyto soubory nejsou odesílány nebo sdíleny s třetí stranou.",
     },
     pinning: {
       what_pinning: "Co je připínání dokumentů?",
       pin_explained_block1:
-        "Když <b>připnete</b> dokument v lawyer-revizorro, vložíme celý obsah dokumentu do vašeho okna výzvy, aby ho LLM plně pochopil.",
+        "Když <b>připnete</b> dokument v offer-kp, vložíme celý obsah dokumentu do vašeho okna výzvy, aby ho LLM plně pochopil.",
       pin_explained_block2:
         "To funguje nejlépe s <b>modely s velkým kontextem</b> nebo malými soubory, které jsou kritické pro jejich znalostní základ.",
       pin_explained_block3:
-        "Pokud nedostáváte odpovědi, které si přejete od lawyer-revizorro ve výchozím nastavení, pak připínání je skvělý způsob získání kvalitnějších odpovědí jedním kliknutím.",
+        "Pokud nedostáváte odpovědi, které si přejete od offer-kp ve výchozím nastavení, pak připínání je skvělý způsob získání kvalitnějších odpovědí jedním kliknutím.",
       accept: "OK, rozumím",
     },
     watching: {
       what_watching: "Co dělá sledování dokumentu?",
       watch_explained_block1:
-        "Když <b>sledujete</b> dokument v lawyer-revizorro, <i>automaticky</i> synchronizujeme obsah dokumentu z jeho původního zdroje v pravidelných intervalech. Tím se automaticky aktualizuje obsah v každém pracovním prostoru, kde je tento soubor spravován.",
+        "Když <b>sledujete</b> dokument v offer-kp, <i>automaticky</i> synchronizujeme obsah dokumentu z jeho původního zdroje v pravidelných intervalech. Tím se automaticky aktualizuje obsah v každém pracovním prostoru, kde je tento soubor spravován.",
       watch_explained_block2:
         "Tato funkce v současné době podporuje onlineový obsah a nebude k dispozici pro ručně nahrané dokumenty.",
       watch_explained_block3_start:
@@ -1436,7 +1436,7 @@ const TRANSLATIONS = {
         unauthenticated: {
           title: "Vyžadováno ověření",
           description:
-            "Musíte se ověřit pomocí komunitního centra lawyer-revizorro před publikováním položek.",
+            "Musíte se ověřit pomocí komunitního centra offer-kp před publikováním položek.",
           button: "Připojit se ke komunitnímu centru",
         },
       },
@@ -1445,7 +1445,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Bot pro Telegram",
     description:
-      "Propojte svůj instance lawyer-revizorro s aplikací Telegram, abyste mohli komunikovat se svými pracovními prostory odkudkoli.",
+      "Propojte svůj instance offer-kp s aplikací Telegram, abyste mohli komunikovat se svými pracovními prostory odkudkoli.",
     setup: {
       step1: {
         title: "Krok 1: Vytvořte svého Telegramového robota",

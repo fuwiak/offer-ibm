@@ -68,7 +68,7 @@ async function getDiskStorage() {
  * Returns the model tag based on the provider set in the environment.
  * This information is used to identify the parent model for the system
  * so that we can prioritize the correct model and types for future updates
- * as well as build features in lawyer-revizorro directly for a specific model or capabilities.
+ * as well as build features in offer-kp directly for a specific model or capabilities.
  *
  * Disable with  {@link https://github.com/Mintplex-Labs/av-elia-bot?tab=readme-ov-file#telemetry--privacy|Disable Telemetry}
  * @returns {string} The model tag.
@@ -197,12 +197,12 @@ function getDeploymentVersion() {
 }
 
 /**
- * Returns the user agent for the lawyer-revizorro deployment.
+ * Returns the user agent for the offer-kp deployment.
  * @returns {string} The user agent.
  */
 function getAVEliaBotUserAgent() {
   const version = getDeploymentVersion() || "unknown";
-  return `lawyer-revizorro/${version}`;
+  return `offer-kp/${version}`;
 }
 
 module.exports = {

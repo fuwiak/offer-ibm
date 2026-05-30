@@ -4,8 +4,8 @@ import PasswordModal, { usePasswordModal } from "@/components/Modals/Password";
 import { FullScreenLoader } from "@/components/Preloader";
 import { isMobile } from "react-device-detect";
 import Sidebar, { SidebarMobileHeader } from "@/components/Sidebar";
-import LawyerRevizorroLayout from "@/layouts/LawyerRevizorroLayout";
-import LawyerRevizorroProfileShell from "@/components/LawyerRevizorro/LawyerRevizorroProfileShell";
+import OfferKpLayout from "@/layouts/OfferKpLayout";
+import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
 
 export default function Main() {
   const { loading, requiresAuth, mode } = usePasswordModal();
@@ -14,11 +14,11 @@ export default function Main() {
   if (requiresAuth) return <PasswordModal mode={mode} />;
 
   return (
-    <LawyerRevizorroProfileShell className="w-screen h-screen overflow-hidden bg-theme-bg-container">
+    <OfferKpProfileShell className="w-screen h-screen overflow-hidden bg-theme-bg-container">
       {!isMobile ? <Sidebar /> : <SidebarMobileHeader />}
-      <LawyerRevizorroLayout enabled>
+      <OfferKpLayout enabled>
         <Outlet />
-      </LawyerRevizorroLayout>
-    </LawyerRevizorroProfileShell>
+      </OfferKpLayout>
+    </OfferKpProfileShell>
   );
 }

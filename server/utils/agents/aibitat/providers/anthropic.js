@@ -5,7 +5,7 @@ const Provider = require("./ai-provider.js");
 const { v4 } = require("uuid");
 const { safeJsonParse } = require("../../../http");
 const { getAVEliaBotUserAgent } = require("../../../../endpoints/utils");
-const { resolveAnthropicApiKey } = require("../../../lawyerRevizorro/anthropicEnv");
+const { resolveAnthropicApiKey } = require("../../../offerKpApp/anthropicEnv");
 
 /**
  * The agent provider for the Anthropic API.

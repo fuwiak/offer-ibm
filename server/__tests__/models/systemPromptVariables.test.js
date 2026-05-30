@@ -17,7 +17,7 @@ const mockSystemPromptVariables = [
   {
     id: 1,
     key: "mystaticvariable",
-    value: "lawyer-revizorro testing runtime",
+    value: "offer-kp testing runtime",
     description: "A test variable",
     type: "static",
     userId: null,

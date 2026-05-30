@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import LawyerRevizorroSuiteLayout from "@/layouts/LawyerRevizorroSuiteLayout";
+import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
 import paths from "@/utils/paths";
 import Admin from "@/models/admin";
 import Workspace from "@/models/workspace";
@@ -12,7 +12,7 @@ import {
   getUserWorkspaceProfile,
   isAdminWorkspace,
   USER_WORKSPACE_PROFILES,
-} from "@/utils/lawyerRevizorro/userWorkspaceProfiles";
+} from "@/utils/offerKp/userWorkspaceProfiles";
 import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
@@ -37,7 +37,7 @@ function workspaceInitials(name) {
 }
 
 export default function UserWorkspacesPage() {
-  const { t } = useTranslation("lawyerRevizorro");
+  const { t } = useTranslation("offerKp");
   const { user: sessionUser } = useUser();
   const [loading, setLoading] = useState(true);
   const [workspaces, setWorkspaces] = useState([]);
@@ -102,7 +102,7 @@ export default function UserWorkspacesPage() {
       .filter((ws) => isAdmin || !isAdminWorkspace(ws))
       .map((ws) => {
         const profile = getUserWorkspaceProfile(
-          ws.lawyerRevizorroUserProfile || "partner"
+          ws.offerKpUserProfile || "partner"
         );
         return { ws, profile };
       });
@@ -423,7 +423,7 @@ export default function UserWorkspacesPage() {
 
         await Admin.updateUsersInWorkspace(workspace.id, [user.id]);
         await Workspace.update(workspace.slug, {
-          lawyerRevizorroUserProfile: draft.profileId,
+          offerKpUserProfile: draft.profileId,
           openAiPrompt: fullInstructions,
           chatProvider: "anthropic",
           agentProvider: "anthropic",
@@ -438,7 +438,7 @@ export default function UserWorkspacesPage() {
         }
 
         await Workspace.update(workspace.slug, {
-          lawyerRevizorroUserProfile: draft.profileId,
+          offerKpUserProfile: draft.profileId,
           openAiPrompt: fullInstructions,
           chatProvider: "anthropic",
           agentProvider: "anthropic",
@@ -514,7 +514,7 @@ export default function UserWorkspacesPage() {
   const wizardPanel = (
     <section className="border-0 bg-transparent">
         {/* Stepper */}
-        <div className="lawyerRevizorro-wizard-stepper">
+        <div className="offerKp-wizard-stepper">
           {STEPS.map(({ n, label }) => {
             const isDone = step > n;
             const isActive = step === n;
@@ -524,14 +524,14 @@ export default function UserWorkspacesPage() {
                 type="button"
                 onClick={() => setStep(n)}
                 className={[
-                  "lawyerRevizorro-wizard-step",
-                  isActive ? "lawyerRevizorro-wizard-step--active" : "",
-                  isDone ? "lawyerRevizorro-wizard-step--done" : "",
+                  "offerKp-wizard-step",
+                  isActive ? "offerKp-wizard-step--active" : "",
+                  isDone ? "offerKp-wizard-step--done" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
-                <span className="lawyerRevizorro-wizard-step__num">
+                <span className="offerKp-wizard-step__num">
                   {isDone ? "✓" : n}
                 </span>
                 {label}
@@ -544,15 +544,15 @@ export default function UserWorkspacesPage() {
         <div className="px-6 pt-6 pb-2">
           {step === 1 && (
             <div>
-              <label className="lawyerRevizorro-field-label">
+              <label className="offerKp-field-label">
                 Workspace name
               </label>
-              <p className="lawyerRevizorro-field-hint mb-3">
+              <p className="offerKp-field-hint mb-3">
                 Identifies the client or entity — e.g.{" "}
                 <em>Entreprise DUPONT</em> or <em>Cabinet Legrand</em>.
               </p>
               <input
-                className="lawyerRevizorro-carbon-input w-full"
+                className="offerKp-carbon-input w-full"
                 value={draft.name}
                 onChange={(e) => updateDraft({ name: e.target.value })}
                 placeholder="Workspace name"
@@ -563,10 +563,10 @@ export default function UserWorkspacesPage() {
 
           {step === 2 && (
             <div>
-              <label className="lawyerRevizorro-field-label">
+              <label className="offerKp-field-label">
                 Access profile
               </label>
-              <p className="lawyerRevizorro-field-hint mb-4">
+              <p className="offerKp-field-hint mb-4">
                 Choose the template that defines this user's base system
                 instructions.
               </p>
@@ -600,26 +600,26 @@ export default function UserWorkspacesPage() {
 
           {step === 3 && (
             <div>
-              <label className="lawyerRevizorro-field-label">
+              <label className="offerKp-field-label">
                 Base instructions{" "}
                 <span className="font-normal text-theme-text-secondary">
                   — template from profile{" "}
                   <em>{selectedProfile.code}</em>
                 </span>
               </label>
-              <p className="lawyerRevizorro-field-hint mb-3">
+              <p className="offerKp-field-hint mb-3">
                 These instructions come from the profile template. You can edit
                 them before creating the workspace.
               </p>
               <textarea
-                className="lawyerRevizorro-carbon-textarea w-full"
+                className="offerKp-carbon-textarea w-full"
                 value={draft.baseInstructions}
                 onChange={(e) =>
                   updateDraft({ baseInstructions: e.target.value })
                 }
                 rows={12}
               />
-              <p className="lawyerRevizorro-char-count">
+              <p className="offerKp-char-count">
                 {draft.baseInstructions.length} chars
               </p>
             </div>
@@ -627,18 +627,18 @@ export default function UserWorkspacesPage() {
 
           {step === 4 && (
             <div>
-              <label className="lawyerRevizorro-field-label">
+              <label className="offerKp-field-label">
                 Custom instructions{" "}
                 <span className="font-normal text-theme-text-secondary">
                   — optional
                 </span>
               </label>
-              <p className="lawyerRevizorro-field-hint mb-3">
+              <p className="offerKp-field-hint mb-3">
                 Workspace-specific overrides: territory, negotiated pricing,
                 rate limits, special clauses…
               </p>
               <textarea
-                className="lawyerRevizorro-carbon-textarea w-full"
+                className="offerKp-carbon-textarea w-full"
                 value={draft.customInstructions}
                 onChange={(e) =>
                   updateDraft({ customInstructions: e.target.value })
@@ -646,7 +646,7 @@ export default function UserWorkspacesPage() {
                 placeholder="Leave blank to use only the base instructions."
                 rows={8}
               />
-              <p className="lawyerRevizorro-char-count">
+              <p className="offerKp-char-count">
                 {draft.customInstructions.length} chars
               </p>
             </div>
@@ -654,15 +654,15 @@ export default function UserWorkspacesPage() {
 
           {step === 5 && (
             <div>
-              <label className="lawyerRevizorro-field-label mb-4">
+              <label className="offerKp-field-label mb-4">
                 Review before creating
               </label>
-              <dl className="lawyerRevizorro-summary-grid">
-                <div className="lawyerRevizorro-summary-row">
+              <dl className="offerKp-summary-grid">
+                <div className="offerKp-summary-row">
                   <dt>Name</dt>
                   <dd>{draft.name || <em className="text-theme-text-secondary">—</em>}</dd>
                 </div>
-                <div className="lawyerRevizorro-summary-row">
+                <div className="offerKp-summary-row">
                   <dt>Profile</dt>
                   <dd>
                     <span
@@ -674,11 +674,11 @@ export default function UserWorkspacesPage() {
                     {selectedProfile.label}
                   </dd>
                 </div>
-                <div className="lawyerRevizorro-summary-row">
+                <div className="offerKp-summary-row">
                   <dt>Base instructions</dt>
                   <dd>{draft.baseInstructions.length} chars</dd>
                 </div>
-                <div className="lawyerRevizorro-summary-row">
+                <div className="offerKp-summary-row">
                   <dt>Custom instructions</dt>
                   <dd>
                     {draft.customInstructions.length > 0
@@ -686,7 +686,7 @@ export default function UserWorkspacesPage() {
                       : <em className="text-theme-text-secondary">none</em>}
                   </dd>
                 </div>
-                <div className="lawyerRevizorro-summary-row">
+                <div className="offerKp-summary-row">
                   <dt>Total prompt</dt>
                   <dd>
                     {(draft.baseInstructions + draft.customInstructions).length}{" "}
@@ -699,11 +699,11 @@ export default function UserWorkspacesPage() {
         </div>
 
         {/* Wizard footer */}
-        <div className="lawyerRevizorro-wizard-footer px-6">
+        <div className="offerKp-wizard-footer px-6">
           {step > 1 && (
             <button
               type="button"
-              className="lawyerRevizorro-btn-ghost"
+              className="offerKp-btn-ghost"
               onClick={() => setStep(step - 1)}
             >
               Back
@@ -712,7 +712,7 @@ export default function UserWorkspacesPage() {
           {step < 5 ? (
             <button
               type="button"
-              className="lawyerRevizorro-btn-new-chat w-auto"
+              className="offerKp-btn-new-chat w-auto"
               onClick={() => setStep(step + 1)}
             >
               Next
@@ -720,7 +720,7 @@ export default function UserWorkspacesPage() {
           ) : (
             <button
               type="button"
-              className="lawyerRevizorro-btn-new-chat w-auto"
+              className="offerKp-btn-new-chat w-auto"
               disabled={busy || !draft.name.trim()}
               onClick={createUserWorkspace}
             >
@@ -732,9 +732,9 @@ export default function UserWorkspacesPage() {
   );
 
   return (
-    <LawyerRevizorroSuiteLayout>
+    <OfferKpSuiteLayout>
       <div className="uw-macos-page">
-        <h1 className="lawyerRevizorro-suite-page-title !mb-2">
+        <h1 className="offerKp-suite-page-title !mb-2">
           {t("admin.nav.userWorkspaces", { defaultValue: "User Workspaces" })}
         </h1>
 
@@ -841,7 +841,7 @@ export default function UserWorkspacesPage() {
                     <div className="uw-macos-assign">
                       <input
                         type="search"
-                        className="lawyerRevizorro-carbon-input w-full"
+                        className="offerKp-carbon-input w-full"
                         placeholder="Search users…"
                         value={assignSearch}
                         onChange={(e) => setAssignSearch(e.target.value)}
@@ -983,7 +983,7 @@ export default function UserWorkspacesPage() {
         {isAdmin && (
         <details className="uw-macos-account-panel">
           <summary>Platform account (no workspace)</summary>
-          <p className="lawyerRevizorro-field-hint mt-3 mb-4">
+          <p className="offerKp-field-hint mt-3 mb-4">
             For admins or managers — without a dedicated workspace.
           </p>
           <form
@@ -991,11 +991,11 @@ export default function UserWorkspacesPage() {
             onSubmit={createPlatformAccount}
           >
             <div>
-              <label className="lawyerRevizorro-field-label text-xs">
+              <label className="offerKp-field-label text-xs">
                 Username
               </label>
               <input
-                className="lawyerRevizorro-carbon-input w-full"
+                className="offerKp-carbon-input w-full"
                 value={accountDraft.username}
                 onChange={(e) =>
                   setAccountDraft((prev) => ({
@@ -1013,12 +1013,12 @@ export default function UserWorkspacesPage() {
               />
             </div>
             <div>
-              <label className="lawyerRevizorro-field-label text-xs">
+              <label className="offerKp-field-label text-xs">
                 Password
               </label>
               <input
                 type="password"
-                className="lawyerRevizorro-carbon-input w-full"
+                className="offerKp-carbon-input w-full"
                 value={accountDraft.password}
                 onChange={(e) =>
                   setAccountDraft((prev) => ({
@@ -1034,9 +1034,9 @@ export default function UserWorkspacesPage() {
               />
             </div>
             <div>
-              <label className="lawyerRevizorro-field-label text-xs">Role</label>
+              <label className="offerKp-field-label text-xs">Role</label>
               <select
-                className="lawyerRevizorro-carbon-select w-full"
+                className="offerKp-carbon-select w-full"
                 value={accountDraft.role}
                 onChange={(e) =>
                   setAccountDraft((prev) => ({ ...prev, role: e.target.value }))
@@ -1051,7 +1051,7 @@ export default function UserWorkspacesPage() {
             <div className="sm:col-span-3 flex justify-end">
               <button
                 type="submit"
-                className="lawyerRevizorro-btn-new-chat w-auto"
+                className="offerKp-btn-new-chat w-auto"
                 disabled={busy}
               >
                 {busy ? "Creating…" : "Create account"}
@@ -1138,6 +1138,6 @@ export default function UserWorkspacesPage() {
           </div>
         </div>
       )}
-    </LawyerRevizorroSuiteLayout>
+    </OfferKpSuiteLayout>
   );
 }

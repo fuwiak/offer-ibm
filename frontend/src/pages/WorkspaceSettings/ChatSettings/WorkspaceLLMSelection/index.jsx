@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import WorkspaceLLMItem from "./WorkspaceLLMItem";
-import { LAWYER_REVIZORRO_LLM_PROVIDERS } from "@/utils/lawyerRevizorro/llmProviders";
+import { OFFER_KP_LLM_PROVIDERS } from "@/utils/offerKp/llmProviders";
 import { CaretUpDown, MagnifyingGlass, X } from "@phosphor-icons/react";
 import ChatModelSelection from "./ChatModelSelection";
 import { useTranslation } from "react-i18next";
@@ -19,8 +19,8 @@ const NO_MODEL_SELECTION = ["default", "huggingface"];
 // Some providers we just fully disable for ease of use.
 const DISABLED_PROVIDERS = [];
 
-/** lawyer-revizorro: Claude (Anthropic) only — no system-default or other providers. */
-const LLMS = LAWYER_REVIZORRO_LLM_PROVIDERS.filter(
+/** offer-kp: Claude (Anthropic) only — no system-default or other providers. */
+const LLMS = OFFER_KP_LLM_PROVIDERS.filter(
   (llm) => !DISABLED_PROVIDERS.includes(llm.value)
 );
 

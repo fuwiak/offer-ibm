@@ -111,7 +111,7 @@ export default function ServerPanel({
   onToggleTool,
 }) {
   const { t } = useTranslation();
-  const suppressedTools = server.config?.lawyerRevizorro?.suppressedTools || [];
+  const suppressedTools = server.config?.offerKp?.suppressedTools || [];
   const enabledToolCount = server.tools.filter(
     (tool) => !suppressedTools.includes(tool.name)
   ).length;

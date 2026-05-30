@@ -186,8 +186,8 @@ function inferCellType(value) {
 }
 
 /**
- * Applies lawyer-revizorro branding to an Excel workbook.
- * Adds a subtle "Created with lawyer-revizorro" text row below the data on each sheet.
+ * Applies offer-kp branding to an Excel workbook.
+ * Adds a subtle "Created with offer-kp" text row below the data on each sheet.
  * @param {import('exceljs').Workbook} workbook - The ExcelJS workbook instance
  */
 function applyBranding(workbook) {
@@ -202,7 +202,7 @@ function applyBranding(workbook) {
     }
 
     const brandingCell = worksheet.getCell(brandingRowNum, 1);
-    brandingCell.value = "Created with lawyer-revizorro";
+    brandingCell.value = "Created with offer-kp";
     brandingCell.font = {
       italic: true,
       size: 9,

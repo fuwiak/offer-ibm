@@ -154,7 +154,7 @@ class Provider {
       case "anthropic": {
         const {
           resolveAnthropicApiKey,
-        } = require("../../../lawyerRevizorro/anthropicEnv");
+        } = require("../../../offerKpApp/anthropicEnv");
         return new ChatAnthropic({
           apiKey: resolveAnthropicApiKey(),
           ...config,
@@ -181,8 +181,8 @@ class Provider {
           configuration: {
             baseURL: "https://openrouter.ai/api/v1",
             defaultHeaders: {
-              "HTTP-Referer": "https://lawyerRevizorro.com",
-              "X-Title": "lawyer-revizorro",
+              "HTTP-Referer": "https://offerKp.com",
+              "X-Title": "offer-kp",
             },
           },
           apiKey: process.env.OPENROUTER_API_KEY ?? null,
@@ -325,7 +325,7 @@ class Provider {
           ...config,
         });
       // OSS Model Runners
-      // case "lawyerRevizorro_ollama":
+      // case "offerKp_ollama":
       //   return new ChatOllama({
       //     baseUrl: process.env.PLACEHOLDER,
       //     ...config,

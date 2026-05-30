@@ -4,7 +4,7 @@ import useLoginMode from "@/hooks/useLoginMode";
 import { useTranslation } from "react-i18next";
 import { isMobile } from "react-device-detect";
 import { useLocation, useParams } from "react-router-dom";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 
 function getTextSizes(t) {
   return [
@@ -20,10 +20,10 @@ export default function TextSizeMenu() {
   const { pathname } = useLocation();
   const { slug } = useParams();
   const mode = useLoginMode();
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({ pathname, workspaceSlug: slug });
+  const offerKpMode = shouldUseOfferKpLayout({ pathname, workspaceSlug: slug });
   const [showMenu, setShowMenu] = useState(false);
   const [selectedSize, setSelectedSize] = useState(
-    window.localStorage.getItem("lawyerRevizorro_text_size") || "normal"
+    window.localStorage.getItem("offerKp_text_size") || "normal"
   );
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
@@ -46,7 +46,7 @@ export default function TextSizeMenu() {
 
   function handleTextSizeChange(size) {
     setSelectedSize(size);
-    window.localStorage.setItem("lawyerRevizorro_text_size", size);
+    window.localStorage.setItem("offerKp_text_size", size);
     window.dispatchEvent(new CustomEvent("textSizeChange", { detail: size }));
   }
 
@@ -56,8 +56,8 @@ export default function TextSizeMenu() {
   if (isMobile) return null;
   return (
     <div
-      className={`absolute z-30 ${lawyerRevizorroMode ? "top-[56px] md:top-[62px]" : "top-3 md:top-5"} ${
-        lawyerRevizorroMode && hasUserIcon
+      className={`absolute z-30 ${offerKpMode ? "top-[56px] md:top-[62px]" : "top-3 md:top-5"} ${
+        offerKpMode && hasUserIcon
           ? "right-[108px] md:right-[124px]"
           : hasUserIcon
             ? "right-[55px] md:right-[67px]"

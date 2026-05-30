@@ -5,7 +5,7 @@ const Providers = require("./providers/index.js");
 const { Telemetry } = require("../../../models/telemetry.js");
 const { v4 } = require("uuid");
 const { ToolReranker } = require("./utils/toolReranker.js");
-const { resolveLlmProviderAndModel } = require("../../lawyerRevizorro/resolveLlmProvider");
+const { resolveLlmProviderAndModel } = require("../../offerKpApp/resolveLlmProvider");
 
 /**
  * AIbitat is a class that manages the conversation between agents.
@@ -805,7 +805,7 @@ ${this.getHistory({ to: route.to })
 
 \x1b[44m[HINT]\x1b[0m: You are injecting \x1b[0;93m${functions.length} tools\x1b[0m into every request.
 Consider enabling \x1b[0;93mIntelligent Skill Selection\x1b[0m to reduce token usage from tool call bloat by up to \x1b[0;93m80% per request\x1b[0m.
-https://docs.lawyerRevizorro.com/agent/intelligent-tool-selection
+https://docs.offerKp.com/agent/intelligent-tool-selection
 
 `
         );

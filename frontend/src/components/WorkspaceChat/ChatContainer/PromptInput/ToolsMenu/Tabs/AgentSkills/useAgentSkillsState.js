@@ -133,7 +133,7 @@ export default function useAgentSkillsState(defaultSkills) {
         return prev.map((server) => {
           if (server.name !== serverName) return server;
           const currentSuppressed =
-            server.config?.lawyerRevizorro?.suppressedTools || [];
+            server.config?.offerKp?.suppressedTools || [];
           const newSuppressed = newEnabled
             ? currentSuppressed.filter((t) => t !== toolName)
             : [...currentSuppressed, toolName];
@@ -141,8 +141,8 @@ export default function useAgentSkillsState(defaultSkills) {
             ...server,
             config: {
               ...server.config,
-              lawyerRevizorro: {
-                ...server.config?.lawyerRevizorro,
+              offerKp: {
+                ...server.config?.offerKp,
                 suppressedTools: newSuppressed,
               },
             },

@@ -17,12 +17,12 @@ export default function AwsBedrockLLMOptions({ settings }) {
               You should use a properly defined IAM user for inferencing.
               <br />
               <a
-                href="https://docs.lawyerRevizorro.com/setup/llm-configuration/cloud/aws-bedrock"
+                href="https://docs.offerKp.com/setup/llm-configuration/cloud/aws-bedrock"
                 target="_blank"
                 className="underline flex gap-x-1 items-center"
                 rel="noreferrer"
               >
-                Read more on how to use AWS Bedrock in lawyer-revizorro
+                Read more on how to use AWS Bedrock in offer-kp
                 <ArrowSquareOut size={14} />
               </a>
             </p>

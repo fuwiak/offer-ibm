@@ -3,7 +3,7 @@ import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
 import StorageFiles from "@/models/files";
-import { useLawyerRevizorro } from "@/contexts/LawyerRevizorroContext";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 
 /** Google-Drive-style document card that matches the image mockup */
 function FileDownloadCard({ props }) {
@@ -13,11 +13,11 @@ function FileDownloadCard({ props }) {
   const [downloading, setDownloading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const {
-    enabled: lawyerRevizorroEnabled,
+    enabled: offerKpEnabled,
     setQuotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
-  } = useLawyerRevizorro();
+  } = useOfferKp();
 
   const fetchBlob = useCallback(async () => {
     if (!storageFilename) return null;
@@ -39,7 +39,7 @@ function FileDownloadCard({ props }) {
   };
 
   const handlePreview = async () => {
-    if (previewing || !isPdf || !lawyerRevizorroEnabled) return;
+    if (previewing || !isPdf || !offerKpEnabled) return;
     setPreviewing(true);
     try {
       const blob = await fetchBlob();

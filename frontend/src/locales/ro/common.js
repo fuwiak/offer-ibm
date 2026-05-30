@@ -8,7 +8,7 @@ const TRANSLATIONS = {
     llm: {
       title: "Preferința LLM",
       description:
-        "lawyer-revizorro poate funcționa cu mai mulți furnizori LLM. Acesta va fi serviciul care gestionează conversațiile.",
+        "offer-kp poate funcționa cu mai mulți furnizori LLM. Acesta va fi serviciul care gestionează conversațiile.",
     },
     userSetup: {
       title: "Configurare Utilizator",
@@ -35,15 +35,15 @@ const TRANSLATIONS = {
         "Aceste setări pot fi reconfigurate oricând în setările aplicației.",
     },
     survey: {
-      title: "Bun venit la lawyer-revizorro",
+      title: "Bun venit la offer-kp",
       description:
-        "Ajută-ne să facem lawyer-revizorro potrivit pentru nevoile tale. Opțional.",
+        "Ajută-ne să facem offer-kp potrivit pentru nevoile tale. Opțional.",
       email: "Care este adresa ta de email?",
-      useCase: "Pentru ce vei folosi lawyer-revizorro?",
+      useCase: "Pentru ce vei folosi offer-kp?",
       useCaseWork: "Pentru muncă",
       useCasePersonal: "Pentru uz personal",
       useCaseOther: "Altele",
-      comment: "De unde ai aflat despre lawyer-revizorro?",
+      comment: "De unde ai aflat despre offer-kp?",
       commentPlaceholder:
         "Reddit, Twitter, GitHub, YouTube, etc. - Spune-ne cum ne-ai găsit!",
       skip: "Sari peste sondaj",
@@ -98,7 +98,7 @@ const TRANSLATIONS = {
     "experimental-features": "Funcții experimentale",
     contact: "Contact suport",
     "browser-extension": "Extensie browser",
-    "mobile-app": "lawyer-revizorro Mobile",
+    "mobile-app": "offer-kp Mobile",
     "community-hub": {
       title: "Centru comunitar",
       trending: "Descoperă tendințele",
@@ -165,7 +165,7 @@ const TRANSLATIONS = {
       add: "Adaugă mesaj nou",
       save: "Salvează mesajele",
       heading: "Explică-mi",
-      body: "beneficiile lawyer-revizorro",
+      body: "beneficiile offer-kp",
     },
     delete: {
       title: "Șterge spațiul de lucru",
@@ -254,7 +254,7 @@ const TRANSLATIONS = {
   vector: {
     title: "Baza de date vectorială",
     description:
-      "Acestea sunt credențialele și setările pentru modul în care funcționează instanța ta lawyer-revizorro. Este important să fie corecte și actuale.",
+      "Acestea sunt credențialele și setările pentru modul în care funcționează instanța ta offer-kp. Este important să fie corecte și actuale.",
     provider: {
       title: "Furnizor baza de date vectorială",
       description: "Nu este necesară configurarea pentru LanceDB.",
@@ -299,7 +299,7 @@ const TRANSLATIONS = {
   privacy: {
     title: "Confidențialitate & Gestionarea datelor",
     description:
-      "Aceasta este configurația ta pentru modul în care furnizorii terți conectați și lawyer-revizorro gestionează datele tale.",
+      "Aceasta este configurația ta pentru modul în care furnizorii terți conectați și offer-kp gestionează datele tale.",
     anonymous: "Telemetrie anonimă activată",
   },
   connectors: {
@@ -473,22 +473,22 @@ const TRANSLATIONS = {
       fetching: "Se preia...",
       "fetch-website": "Preluare site web",
       "privacy-notice":
-        "Aceste fișiere vor fi încărcate în procesorul de documente care rulează pe această instanță lawyer-revizorro. Aceste fișiere nu sunt trimise sau partajate cu o terță parte.",
+        "Aceste fișiere vor fi încărcate în procesorul de documente care rulează pe această instanță offer-kp. Aceste fișiere nu sunt trimise sau partajate cu o terță parte.",
     },
     pinning: {
       what_pinning: "Ce este fixarea documentelor?",
       pin_explained_block1:
-        "Când **fixezi** un document în lawyer-revizorro, vom injecta întregul conținut al documentului în fereastra de prompt pentru ca LLM-ul tău să-l înțeleagă pe deplin.",
+        "Când **fixezi** un document în offer-kp, vom injecta întregul conținut al documentului în fereastra de prompt pentru ca LLM-ul tău să-l înțeleagă pe deplin.",
       pin_explained_block2:
         "Acest lucru funcționează cel mai bine cu **modele cu context mare** sau fișiere mici care sunt critice pentru baza sa de cunoștințe.",
       pin_explained_block3:
-        "Dacă nu obții răspunsurile dorite de la lawyer-revizorro în mod implicit, atunci fixarea este o modalitate excelentă de a obține răspunsuri de calitate superioară dintr-un clic.",
+        "Dacă nu obții răspunsurile dorite de la offer-kp în mod implicit, atunci fixarea este o modalitate excelentă de a obține răspunsuri de calitate superioară dintr-un clic.",
       accept: "Ok, am înțeles",
     },
     watching: {
       what_watching: "Ce face vizualizarea unui document?",
       watch_explained_block1:
-        "Când **urmărești** un document în lawyer-revizorro, vom sincroniza *automat* conținutul documentului tău din sursa originală la intervale regulate. Acest lucru va actualiza automat conținutul în fiecare spațiu de lucru unde acest fișier este gestionat.",
+        "Când **urmărești** un document în offer-kp, vom sincroniza *automat* conținutul documentului tău din sursa originală la intervale regulate. Acest lucru va actualiza automat conținutul în fiecare spațiu de lucru unde acest fișier este gestionat.",
       watch_explained_block2:
         "Această funcție suportă în prezent conținutul online și nu va fi disponibilă pentru documentele încărcate manual.",
       watch_explained_block3_start:
@@ -699,7 +699,7 @@ const TRANSLATIONS = {
         unauthenticated: {
           title: "Autentificare necesară",
           description:
-            "Trebuie să te autentifici cu lawyer-revizorro Community Hub înainte de a publica elemente.",
+            "Trebuie să te autentifici cu offer-kp Community Hub înainte de a publica elemente.",
           button: "Conectează-te la Community Hub",
         },
       },
@@ -1223,7 +1223,7 @@ const TRANSLATIONS = {
         title: "Selecție inteligentă a abilităților",
         "beta-badge": "Beta",
         description:
-          "Permite utilizarea nelimitată a instrumentelor și reduce utilizarea token-urilor cu până la 80% pentru fiecare interogare – lawyer-revizorro selectează automat abilitățile potrivite pentru fiecare solicitare.",
+          "Permite utilizarea nelimitată a instrumentelor și reduce utilizarea token-urilor cu până la 80% pentru fiecare interogare – offer-kp selectează automat abilitățile potrivite pentru fiecare solicitare.",
         "max-tools": {
           title: "Max Tools",
           description:
@@ -1249,16 +1249,16 @@ const TRANSLATIONS = {
   customization: {
     interface: {
       title: "Preferințe UI",
-      description: "Setează preferințele UI pentru lawyer-revizorro.",
+      description: "Setează preferințele UI pentru offer-kp.",
     },
     branding: {
       title: "Branding & White-labeling",
       description:
-        "Personalizează-ți instanța lawyer-revizorro cu branding personalizat.",
+        "Personalizează-ți instanța offer-kp cu branding personalizat.",
     },
     chat: {
       title: "Chat",
-      description: "Setează preferințele de chat pentru lawyer-revizorro.",
+      description: "Setează preferințele de chat pentru offer-kp.",
       auto_submit: {
         title: "Trimite automat intrarea vocală",
         description:
@@ -1297,7 +1297,7 @@ const TRANSLATIONS = {
       "display-language": {
         title: "Limba de afișare",
         description:
-          "Selectează limba preferată pentru a reda interfața lawyer-revizorro - atunci când traducerile sunt disponibile.",
+          "Selectează limba preferată pentru a reda interfața offer-kp - atunci când traducerile sunt disponibile.",
       },
       logo: {
         title: "Logo brand",
@@ -1340,7 +1340,7 @@ const TRANSLATIONS = {
   api: {
     title: "Chei API",
     description:
-      "Cheile API permit deținătorului să acceseze și să gestioneze programatic această instanță lawyer-revizorro.",
+      "Cheile API permit deținătorului să acceseze și să gestioneze programatic această instanță offer-kp.",
     link: "Citește documentația API",
     generate: "Generează o nouă cheie API",
     empty: "Nu au fost găsite chei API",
@@ -1354,7 +1354,7 @@ const TRANSLATIONS = {
       close: "Închide",
       create: "Creează cheia API",
       helper:
-        "După creare, cheia API poate fi folosită pentru a accesa și configura programatic această instanță lawyer-revizorro.",
+        "După creare, cheia API poate fi folosită pentru a accesa și configura programatic această instanță offer-kp.",
       name: {
         label: "Nume",
         placeholder: "Integrare de producție",
@@ -1379,7 +1379,7 @@ const TRANSLATIONS = {
   llm: {
     title: "Preferința LLM",
     description:
-      "Acestea sunt credențialele și setările pentru furnizorul tău preferat de chat și embedding LLM. Este important ca aceste chei să fie actuale și corecte, altfel lawyer-revizorro nu va funcționa corect.",
+      "Acestea sunt credențialele și setările pentru furnizorul tău preferat de chat și embedding LLM. Este important ca aceste chei să fie actuale și corecte, altfel offer-kp nu va funcționa corect.",
     provider: "Furnizor LLM",
     providers: {
       azure_openai: {
@@ -1401,7 +1401,7 @@ const TRANSLATIONS = {
       "Acestea sunt credențialele și setările pentru furnizorul tău preferat de model de transcriere. Este important ca aceste chei să fie actuale și corecte, altfel fișierele media și audio nu vor fi transcrise.",
     provider: "Furnizor transcriere",
     "warn-start":
-      "Utilizarea modelului local Whisper pe mașini cu RAM sau CPU limitat poate bloca lawyer-revizorro la procesarea fișierelor media.",
+      "Utilizarea modelului local Whisper pe mașini cu RAM sau CPU limitat poate bloca offer-kp la procesarea fișierelor media.",
     "warn-recommend":
       "Recomandăm cel puțin 2GB de RAM și încărcarea fișierelor <10Mb.",
     "warn-end": "Modelul încorporat se va descărca automat la prima utilizare.",
@@ -1411,7 +1411,7 @@ const TRANSLATIONS = {
     "desc-start":
       "Atunci când utilizați un LLM care nu suportă nativ un motor de embedding - s-ar putea să fie necesar să specificați credențiale suplimentare pentru embedding text.",
     "desc-end":
-      "Embedding-ul este procesul de transformare a textului în vectori. Aceste credențiale sunt necesare pentru a transforma fișierele și prompturile dvs. într-un format pe care lawyer-revizorro îl poate utiliza pentru procesare.",
+      "Embedding-ul este procesul de transformare a textului în vectori. Aceste credențiale sunt necesare pentru a transforma fișierele și prompturile dvs. într-un format pe care offer-kp îl poate utiliza pentru procesare.",
     provider: {
       title: "Furnizor embedding",
     },
@@ -1452,7 +1452,7 @@ const TRANSLATIONS = {
     password: {
       title: "Protecție prin parolă",
       description:
-        "Protejează instanța lawyer-revizorro cu o parolă. Dacă o uiți, nu există metode de recuperare, deci asigură-te că o salvezi.",
+        "Protejează instanța offer-kp cu o parolă. Dacă o uiți, nu există metode de recuperare, deci asigură-te că o salvezi.",
       "password-label": "Parola instanței",
     },
   },
@@ -1466,7 +1466,7 @@ const TRANSLATIONS = {
   telegram: {
     title: "Bot pentru Telegram",
     description:
-      "Conectați instanța dumneavoastră lawyer-revizorro cu Telegram, astfel încât să puteți interacționa cu spațiile de lucru de pe orice dispozitiv.",
+      "Conectați instanța dumneavoastră offer-kp cu Telegram, astfel încât să puteți interacționa cu spațiile de lucru de pe orice dispozitiv.",
     setup: {
       step1: {
         title: "Pasul 1: Creați botul dumneavoastră Telegram",

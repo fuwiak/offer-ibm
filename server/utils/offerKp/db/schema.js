@@ -51,6 +51,57 @@ const SKU_COLUMNS = {
   productId: "product_id",
   sku: "sku",
   name: "name",
+  price: "price",
+  comparePrice: "compare_price",
+  count: "count",
+  available: "available",
+  sort: "sort",
+};
+
+const SEARCH_INDEX_COLUMNS = {
+  wordId: "word_id",
+  productId: "product_id",
+  weight: "weight",
+};
+
+const SEARCH_WORD_COLUMNS = {
+  id: "id",
+  name: "name",
+};
+
+const FEATURE_COLUMNS = {
+  productId: "product_id",
+  featureId: "feature_id",
+  featureValueId: "feature_value_id",
+  featureName: "name",
+  featureValue: "value",
+};
+
+/**
+ * Минимальные требования к схеме MySQL для enrich → contextTexts → LLM.
+ * Проверяется validateShopDbSchema() и jest-тестами.
+ */
+const SCHEMA_REQUIREMENTS = {
+  [TABLES.product]: Object.values(PRODUCT_COLUMNS),
+  [TABLES.category]: Object.values(CATEGORY_COLUMNS),
+  [TABLES.productSkus]: Object.values(SKU_COLUMNS),
+  [TABLES.searchWord]: Object.values(SEARCH_WORD_COLUMNS),
+  [TABLES.searchIndex]: Object.values(SEARCH_INDEX_COLUMNS),
+  [TABLES.productFeatures]: [
+    FEATURE_COLUMNS.productId,
+    FEATURE_COLUMNS.featureId,
+    FEATURE_COLUMNS.featureValueId,
+  ],
+  [TABLES.feature]: ["id", FEATURE_COLUMNS.featureName],
+  [TABLES.featureValueVarchar]: ["id", FEATURE_COLUMNS.featureValue],
+};
+
+/** Поля, обязательные в блоке [Каталог · …] для ответа LLM о цене */
+const LLM_CONTEXT_MARKERS = {
+  catalogPrefix: "[Каталог ·",
+  priceLabel: "Цена:",
+  productIdLabel: "ID товара",
+  linkLabel: "Ссылка:",
 };
 
 module.exports = {
@@ -59,4 +110,9 @@ module.exports = {
   PRODUCT_COLUMNS,
   CATEGORY_COLUMNS,
   SKU_COLUMNS,
+  SEARCH_INDEX_COLUMNS,
+  SEARCH_WORD_COLUMNS,
+  FEATURE_COLUMNS,
+  SCHEMA_REQUIREMENTS,
+  LLM_CONTEXT_MARKERS,
 };

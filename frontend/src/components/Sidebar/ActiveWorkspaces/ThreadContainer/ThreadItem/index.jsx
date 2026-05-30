@@ -13,8 +13,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
-import { shouldUseLawyerRevizorroLayout } from "@/utils/lawyerRevizorro/detectLawyerRevizorroMode";
-import { startNewConversation } from "@/utils/lawyerRevizorro/startNewConversation";
+import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
+import { startNewConversation } from "@/utils/offerKp/startNewConversation";
 
 const THREAD_CALLOUT_DETAIL_WIDTH = 26;
 export default function ThreadItem({
@@ -34,7 +34,7 @@ export default function ThreadItem({
   const { slug: urlSlug, threadSlug = null } = useParams();
   const { pathname } = useLocation();
   const workspaceSlug = workspace?.slug ?? urlSlug;
-  const lawyerRevizorroMode = shouldUseLawyerRevizorroLayout({
+  const offerKpMode = shouldUseOfferKpLayout({
     pathname,
     workspaceSlug,
   });
@@ -46,16 +46,16 @@ export default function ThreadItem({
   const linkTo = thread.virtual
     ? paths.home()
     : !thread.slug
-      ? lawyerRevizorroMode
+      ? offerKpMode
         ? paths.home()
         : paths.workspace.chat(workspaceSlug)
       : paths.workspace.thread(workspaceSlug, thread.slug);
 
-  const opensLawyerRevizorroHome =
-    lawyerRevizorroMode && (linkTo === paths.home() || thread.virtual);
+  const opensOfferKpHome =
+    offerKpMode && (linkTo === paths.home() || thread.virtual);
 
   function handleHomeClick(event) {
-    if (!opensLawyerRevizorroHome) return;
+    if (!opensOfferKpHome) return;
     event.preventDefault();
     startNewConversation(navigate);
   }

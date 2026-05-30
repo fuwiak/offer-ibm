@@ -12,7 +12,7 @@ function defaultProvider(providerString) {
       ? titleCase(sentenceCase(String(providerString)))
       : "Unknown",
     description: [
-      `"${providerString}" has no known data handling policy defined in lawyer-revizorro.`,
+      `"${providerString}" has no known data handling policy defined in offer-kp.`,
     ],
     logo: AVEliaBotIcon,
   };

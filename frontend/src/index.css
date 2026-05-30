@@ -1,5 +1,5 @@
 @import "./styles/carbon-theme.css";
-@import "./styles/lawyerRevizorro-suite.css";
+@import "./styles/offerKp-suite.css";
 
 @tailwind base;
 @tailwind components;
@@ -221,8 +221,8 @@
   color: var(--theme-text-secondary);
 }
 
-[data-theme="light"] .bg-theme-bg-secondary.lawyerRevizorro-chat-shell,
-[data-theme="light"] .lawyerRevizorro-chat-shell {
+[data-theme="light"] .bg-theme-bg-secondary.offerKp-chat-shell,
+[data-theme="light"] .offerKp-chat-shell {
   border: 1px solid var(--theme-sidebar-border);
 }
 

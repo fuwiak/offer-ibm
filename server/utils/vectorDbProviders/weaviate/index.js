@@ -223,7 +223,7 @@ class Weaviate extends VectorDatabase {
               .classCreator()
               .withClass({
                 class: camelCase(namespace),
-                description: `Class created by lawyer-revizorro named ${camelCase(
+                description: `Class created by offer-kp named ${camelCase(
                   namespace
                 )}`,
                 vectorizer: "none",
@@ -330,7 +330,7 @@ class Weaviate extends VectorDatabase {
           .classCreator()
           .withClass({
             class: camelCase(namespace),
-            description: `Class created by lawyer-revizorro named ${camelCase(
+            description: `Class created by offer-kp named ${camelCase(
               namespace
             )}`,
             vectorizer: "none",

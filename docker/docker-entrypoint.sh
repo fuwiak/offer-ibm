@@ -20,8 +20,8 @@ sed -i "s/^SERVER_PORT=.*/SERVER_PORT=${SERVER_PORT}/" /app/server/.env 2>/dev/n
 
 ok "Resolved port: SERVER_PORT=${SERVER_PORT}  (verified in .env: $(grep SERVER_PORT /app/server/.env || echo 'not found'))"
 
-log "Applying lawyer-revizorro OpenRouter LLM defaults to .env..."
-node /app/server/config/applyLawyerRevizorroLlmDefaults.js || warn "Could not sync lawyer-revizorro LLM defaults"
+log "Applying offer-kp OpenRouter LLM defaults to .env..."
+node /app/server/config/applyOfferKpLlmDefaults.js || warn "Could not sync offer-kp LLM defaults"
 
 export HOST="${HOST:-0.0.0.0}"
 export CHECKPOINT_DISABLE=1
@@ -58,7 +58,7 @@ mkdir -p "$STORAGE_DIR/documents" "$STORAGE_DIR/vector-cache" \
   "$STORAGE_DIR/assets" \
   /app/collector/hotdir /app/collector/outputs || warn "Some storage subdirs could not be created"
 
-# Seed lawyer-revizorro default logos on fresh Railway volumes
+# Seed offer-kp default logos on fresh Railway volumes
 DEFAULT_ASSETS="/app/server/default-assets"
 if [ -d "$DEFAULT_ASSETS" ]; then
   for logo in av-elia-bot.png av-elia-bot-dark.png; do

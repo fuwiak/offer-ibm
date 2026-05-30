@@ -200,7 +200,7 @@ export default function OllamaLLMOptions({ settings }) {
                     tokens if the model supports more than that and no value is
                     specified.
                     <br /> <br />
-                    If an invalid value is entered, lawyer-revizorro will handle this
+                    If an invalid value is entered, offer-kp will handle this
                     for you so that chats do not fail.
                   </p>
                 </Tooltip>

@@ -10,8 +10,8 @@ class OpenRouterEmbedder {
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: process.env.OPENROUTER_API_KEY,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-Title": "lawyer-revizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-Title": "offer-kp",
       },
     });
     this.model = process.env.EMBEDDING_MODEL_PREF || "baai/bge-m3";

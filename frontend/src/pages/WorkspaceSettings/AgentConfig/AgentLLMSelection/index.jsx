@@ -6,7 +6,7 @@ import { CaretUpDown, Gauge, MagnifyingGlass, X } from "@phosphor-icons/react";
 import AgentModelSelection from "../AgentModelSelection";
 import { useTranslation } from "react-i18next";
 
-/** lawyer-revizorro: Claude via Anthropic API only. */
+/** offer-kp: Claude via Anthropic API only. */
 const ENABLED_PROVIDERS = ["anthropic"];
 const WARN_PERFORMANCE = [
   "lmstudio",

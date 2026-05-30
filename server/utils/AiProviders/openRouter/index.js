@@ -39,8 +39,8 @@ class OpenRouterLLM {
       baseURL: this.basePath,
       apiKey: process.env.OPENROUTER_API_KEY ?? null,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-Title": "lawyer-revizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-Title": "offer-kp",
       },
     });
     this.model =

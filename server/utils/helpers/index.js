@@ -129,7 +129,7 @@ function getVectorDbClass(getExactly = null) {
  * @returns {BaseLLMProvider}
  */
 function getLLMProvider({ provider = null, model = null } = {}) {
-  const { resolveLlmProviderAndModel } = require("../lawyerRevizorro/resolveLlmProvider");
+  const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
   const resolved = resolveLlmProviderAndModel({ provider, model });
   const LLMSelection = resolved.provider;
   model = resolved.model ?? model;

@@ -55,12 +55,12 @@ export default function TextSizeButton() {
 function TextSizeMenu({ tooltipRef }) {
   const { t } = useTranslation();
   const [selectedSize, setSelectedSize] = useState(
-    window.localStorage.getItem("lawyerRevizorro_text_size") || "normal"
+    window.localStorage.getItem("offerKp_text_size") || "normal"
   );
 
   const handleTextSizeChange = (size) => {
     setSelectedSize(size);
-    window.localStorage.setItem("lawyerRevizorro_text_size", size);
+    window.localStorage.setItem("offerKp_text_size", size);
     window.dispatchEvent(new CustomEvent("textSizeChange", { detail: size }));
     tooltipRef.current?.close();
   };

@@ -3,7 +3,7 @@ const { safeJsonParse } = require("../../../../http");
 
 /**
  * Google Calendar Bridge Library
- * Handles communication with the lawyer-revizorro Google Calendar Google Apps Script deployment.
+ * Handles communication with the offer-kp Google Calendar Google Apps Script deployment.
  */
 class GoogleCalendarBridge {
   #deploymentId = null;
@@ -143,7 +143,7 @@ class GoogleCalendarBridge {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-lawyer-revizorro-UA": "lawyer-revizorro-GoogleCalendar-Agent/1.0",
+          "X-offer-kp-UA": "offer-kp-GoogleCalendar-Agent/1.0",
         },
         body: JSON.stringify({
           key: this.#apiKey,

@@ -22,8 +22,8 @@ class NovitaProvider extends InheritMultiple([Provider, UnTooled]) {
       apiKey: process.env.NOVITA_LLM_API_KEY,
       maxRetries: 3,
       defaultHeaders: {
-        "HTTP-Referer": "https://lawyerRevizorro.com",
-        "X-Novita-Source": "lawyerRevizorro",
+        "HTTP-Referer": "https://offerKp.com",
+        "X-Novita-Source": "offerKp",
       },
     });
 

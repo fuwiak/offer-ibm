@@ -85,7 +85,7 @@ export default function CommunityHubImportItemFlow() {
               </p>
             </div>
             <p className="text-xs leading-[18px] font-base text-theme-text-secondary">
-              Import items from the lawyer-revizorro Community Hub to enhance your
+              Import items from the offer-kp Community Hub to enhance your
               instance with community-created prompts, skills, and commands.
             </p>
           </div>

@@ -77,7 +77,7 @@ function chatEndpoints(app) {
         );
         await Telemetry.sendTelemetry("sent_chat", {
           multiUserMode: multiUserMode(response),
-          LLMSelection: require("../utils/lawyerRevizorro/defaultLlmProvider").getDefaultLlmProvider(),
+          LLMSelection: require("../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
           Embedder: process.env.EMBEDDING_ENGINE || "inherit",
           VectorDbSelection: process.env.VECTOR_DB || "lancedb",
           multiModal: Array.isArray(attachments) && attachments?.length !== 0,
@@ -189,7 +189,7 @@ function chatEndpoints(app) {
 
         await Telemetry.sendTelemetry("sent_chat", {
           multiUserMode: multiUserMode(response),
-          LLMSelection: require("../utils/lawyerRevizorro/defaultLlmProvider").getDefaultLlmProvider(),
+          LLMSelection: require("../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
           Embedder: process.env.EMBEDDING_ENGINE || "inherit",
           VectorDbSelection: process.env.VECTOR_DB || "lancedb",
           multiModal: Array.isArray(attachments) && attachments?.length !== 0,

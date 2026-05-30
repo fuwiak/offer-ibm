@@ -18,7 +18,7 @@ import usePromptInputStorage from "@/hooks/usePromptInputStorage";
 import ToolsMenu, { TOOLS_MENU_KEYBOARD_EVENT } from "./ToolsMenu";
 import { useSearchParams } from "react-router-dom";
 import { useIsAgentSessionActive } from "@/utils/chat/agent";
-import CurrentWorkspaceIndicator from "@/components/LawyerRevizorro/CurrentWorkspaceIndicator";
+import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 
 export const PROMPT_INPUT_ID = "primary-prompt-input";
 export const PROMPT_INPUT_EVENT = "set_prompt_input";
@@ -34,7 +34,7 @@ const MAX_EDIT_STACK_SIZE = 100;
  * @param {string} [props.workspaceSlug] - workspace slug for home page context
  * @param {string} [props.threadSlug] - thread slug for home page context
  * @param {string} [props.placeholder] - overrides default send-message placeholder
- * @param {boolean} [props.lawyerRevizorroHome] - enterprise home search bar styling
+ * @param {boolean} [props.offerKpHome] - enterprise home search bar styling
  * @param {(workspace: { slug: string, name: string }) => void} [props.onWorkspaceSelect] - workspace switch from prompt toolbar
  */
 export default function PromptInput({
@@ -47,7 +47,7 @@ export default function PromptInput({
   workspaceSlug = null,
   threadSlug = null,
   placeholder: placeholderProp,
-  lawyerRevizorroHome = false,
+  offerKpHome = false,
   onWorkspaceSelect = null,
 }) {
   const { t } = useTranslation();
@@ -339,7 +339,7 @@ export default function PromptInput({
         >
           <div
             className={
-              lawyerRevizorroHome ? "relative w-full" : "relative w-[95vw] md:w-[750px]"
+              offerKpHome ? "relative w-full" : "relative w-[95vw] md:w-[750px]"
             }
           >
             <ToolsMenu
@@ -349,18 +349,18 @@ export default function PromptInput({
               sendCommand={sendCommand}
               promptRef={textareaRef}
               centered={centered}
-              lawyerRevizorroHome={lawyerRevizorroHome}
+              offerKpHome={offerKpHome}
               highlightedIndexRef={toolsHighlightRef}
             />
             <div
               className={
-                lawyerRevizorroHome
-                  ? "lawyerRevizorro-home-prompt flex flex-col overflow-hidden"
+                offerKpHome
+                  ? "offerKp-home-prompt flex flex-col overflow-hidden"
                   : "bg-zinc-800 light:bg-white light:border light:border-slate-300 rounded-[20px] pwa:rounded-3xl flex flex-col px-5 overflow-hidden"
               }
             >
               <AttachmentManager attachments={attachments} />
-              <div className={`flex items-center ${lawyerRevizorroHome ? "lawyerRevizorro-home-prompt__row" : ""}`}>
+              <div className={`flex items-center ${offerKpHome ? "offerKp-home-prompt__row" : ""}`}>
                 <textarea
                   id={PROMPT_INPUT_ID}
                   ref={textareaRef}
@@ -379,15 +379,15 @@ export default function PromptInput({
                   value={promptInput}
                   spellCheck={Appearance.get("enableSpellCheck")}
                   className={`border-none cursor-text w-full leading-5 bg-transparent resize-none active:outline-none focus:outline-none flex-grow pwa:!text-[16px] ${textSizeClass} ${
-                    lawyerRevizorroHome
-                      ? "lawyerRevizorro-home-prompt__input max-h-[120px] min-h-[48px] py-3 text-theme-text-primary placeholder:text-theme-text-secondary"
+                    offerKpHome
+                      ? "offerKp-home-prompt__input max-h-[120px] min-h-[48px] py-3 text-theme-text-primary placeholder:text-theme-text-secondary"
                       : "max-h-[50vh] md:max-h-[350px] md:min-h-[40px] pt-[20px] text-white light:text-slate-600 placeholder:text-white/60 light:placeholder:text-slate-400"
                   }`}
                   placeholder={placeholderProp ?? t("chat_window.send_message")}
                 />
               </div>
               <PromptInputToolbar
-                lawyerRevizorroHome={lawyerRevizorroHome}
+                offerKpHome={offerKpHome}
                 workspace={workspace}
                 onWorkspaceSelect={onWorkspaceSelect}
                 workspaceSlug={workspaceSlug}
@@ -413,7 +413,7 @@ export default function PromptInput({
 }
 
 function PromptInputToolbar({
-  lawyerRevizorroHome,
+  offerKpHome,
   workspace,
   onWorkspaceSelect,
   workspaceSlug,
@@ -433,20 +433,20 @@ function PromptInputToolbar({
   return (
     <div
       className={
-        lawyerRevizorroHome
-          ? "lawyerRevizorro-home-prompt__toolbar"
+        offerKpHome
+          ? "offerKp-home-prompt__toolbar"
           : "flex justify-between items-center pt-3.5 pb-3"
       }
     >
       <div
         className={
-          lawyerRevizorroHome ? "lawyerRevizorro-home-prompt__toolbar-left" : "flex items-center gap-x-0.25"
+          offerKpHome ? "offerKp-home-prompt__toolbar-left" : "flex items-center gap-x-0.25"
         }
       >
         <div
           className={
-            lawyerRevizorroHome
-              ? "lawyerRevizorro-home-prompt__toolbar-icons"
+            offerKpHome
+              ? "offerKp-home-prompt__toolbar-icons"
               : "flex items-center gap-x-1"
           }
         >
@@ -459,15 +459,15 @@ function PromptInputToolbar({
             promptInput={promptInput}
             textareaRef={textareaRef}
             visible={!agentSessionActive & showAgentCommand}
-            lawyerRevizorroHome={lawyerRevizorroHome}
+            offerKpHome={offerKpHome}
           />
         </div>
-        {lawyerRevizorroHome && (
+        {offerKpHome && (
           <CurrentWorkspaceIndicator
             workspace={workspace}
             workspaceSlug={workspaceSlug ?? workspace?.slug}
             variant="compact"
-            className="lawyerRevizorro-prompt-space-switcher"
+            className="offerKp-prompt-space-switcher"
             onWorkspaceSelect={onWorkspaceSelect}
             menuPlacement="above"
           />
@@ -477,23 +477,23 @@ function PromptInputToolbar({
           setShowTools={setShowTools}
           textareaRef={textareaRef}
           autoOpenedToolsRef={autoOpenedToolsRef}
-          lawyerRevizorroHome={lawyerRevizorroHome}
+          offerKpHome={offerKpHome}
         />
       </div>
       <div
         className={
-          lawyerRevizorroHome ? "lawyerRevizorro-home-prompt__toolbar-right" : "flex gap-x-2 items-center"
+          offerKpHome ? "offerKp-home-prompt__toolbar-right" : "flex gap-x-2 items-center"
         }
       >
-        <SpeechToText sendCommand={sendCommand} lawyerRevizorroHome={lawyerRevizorroHome} />
+        <SpeechToText sendCommand={sendCommand} offerKpHome={offerKpHome} />
         {isStreaming ? (
-          <StopGenerationButton lawyerRevizorroHome={lawyerRevizorroHome} />
+          <StopGenerationButton offerKpHome={offerKpHome} />
         ) : (
           <SendPromptButton
             formRef={formRef}
             promptInput={promptInput}
             isDisabled={isDisabled}
-            lawyerRevizorroHome={lawyerRevizorroHome}
+            offerKpHome={offerKpHome}
           />
         )}
       </div>
@@ -506,7 +506,7 @@ function AgentSessionButton({
   promptInput,
   textareaRef,
   visible = true,
-  lawyerRevizorroHome = false,
+  offerKpHome = false,
 }) {
   const { t } = useTranslation();
   if (!visible) return null;
@@ -529,16 +529,16 @@ function AgentSessionButton({
         data-tooltip-content={t("chat_window.start_agent_session")}
         aria-label={t("chat_window.start_agent_session")}
         className={
-          lawyerRevizorroHome
-            ? "lawyerRevizorro-prompt-icon-btn"
+          offerKpHome
+            ? "offerKp-prompt-icon-btn"
             : "group border-none relative flex justify-center items-center cursor-pointer w-6 h-6 rounded-full hover:bg-zinc-700 light:hover:bg-slate-200"
         }
       >
         <At
           size={18}
           className={
-            lawyerRevizorroHome
-              ? "lawyerRevizorro-prompt-icon-btn__glyph"
+            offerKpHome
+              ? "offerKp-prompt-icon-btn__glyph"
               : "pointer-events-none text-zinc-300 light:text-slate-600 group-hover:text-white light:group-hover:text-slate-600 shrink-0"
           }
         />
@@ -558,10 +558,10 @@ function ToolsButton({
   setShowTools,
   textareaRef,
   autoOpenedToolsRef,
-  lawyerRevizorroHome = false,
+  offerKpHome = false,
 }) {
   const { t } = useTranslation();
-  const label = lawyerRevizorroHome ? t("chat_window.skills") : t("chat_window.tools");
+  const label = offerKpHome ? t("chat_window.skills") : t("chat_window.tools");
 
   return (
     <button
@@ -575,8 +575,8 @@ function ToolsButton({
       aria-label={label}
       aria-expanded={showTools}
       className={
-        lawyerRevizorroHome
-          ? `lawyerRevizorro-prompt-skills-btn${showTools ? " lawyerRevizorro-prompt-skills-btn--active" : ""}`
+        offerKpHome
+          ? `offerKp-prompt-skills-btn${showTools ? " offerKp-prompt-skills-btn--active" : ""}`
           : `group border-none cursor-pointer flex items-center justify-center h-6 px-2 rounded-full ${
               showTools
                 ? "bg-zinc-700 light:bg-slate-200"
@@ -586,8 +586,8 @@ function ToolsButton({
     >
       <span
         className={
-          lawyerRevizorroHome
-            ? "lawyerRevizorro-prompt-skills-btn__label"
+          offerKpHome
+            ? "offerKp-prompt-skills-btn__label"
             : `text-sm font-medium ${
                 showTools
                   ? "text-white light:text-slate-800"
@@ -601,7 +601,7 @@ function ToolsButton({
   );
 }
 
-function SendPromptButton({ formRef, promptInput, isDisabled, lawyerRevizorroHome = false }) {
+function SendPromptButton({ formRef, promptInput, isDisabled, offerKpHome = false }) {
   const { t } = useTranslation();
 
   return (
@@ -611,11 +611,11 @@ function SendPromptButton({ formRef, promptInput, isDisabled, lawyerRevizorroHom
         type="submit"
         disabled={isDisabled || !promptInput.trim().length}
         className={
-          lawyerRevizorroHome
-            ? `lawyerRevizorro-prompt-send-btn${
+          offerKpHome
+            ? `offerKp-prompt-send-btn${
                 promptInput.trim().length && !isDisabled
-                  ? " lawyerRevizorro-prompt-send-btn--active"
-                  : " lawyerRevizorro-prompt-send-btn--disabled"
+                  ? " offerKp-prompt-send-btn--active"
+                  : " offerKp-prompt-send-btn--disabled"
               }`
             : `border-none flex justify-center items-center rounded-full w-8 h-8 transition-all ${
                 promptInput.trim().length && !isDisabled
@@ -633,8 +633,8 @@ function SendPromptButton({ formRef, promptInput, isDisabled, lawyerRevizorroHom
       >
         <ArrowUp
           className={
-            lawyerRevizorroHome
-              ? "lawyerRevizorro-prompt-send-btn__icon"
+            offerKpHome
+              ? "offerKp-prompt-send-btn__icon"
               : "w-[18px] h-[18px] pointer-events-none text-zinc-800 light:text-white"
           }
           weight="bold"
