@@ -258,7 +258,8 @@ function mergeSearchHits(batches, maxProducts) {
       const sources = row._matchSources || [];
 
       if (!byId.has(id)) {
-        const { _tables, _matchSources, match_source, ...product } = row;
+        const { _tables, _matchSources, match_source: _matchSource, ...product } =
+          row;
         byId.set(id, {
           ...product,
           _tables: new Set(tables),
@@ -394,16 +395,11 @@ function buildShopDbTablesFooter(flags = {}) {
     Array.isArray(strategies) && strategies.length
       ? `\nСтратегии поиска: ${strategies.join(", ")}.`
       : "";
-  return (
-    `\n\n---\n**Таблицы БД (каталог):** ${tables.join(", ")}.${stratLine}`
-  );
+  return `\n\n---\n**Таблицы БД (каталог):** ${tables.join(", ")}.${stratLine}`;
 }
 
 async function getShopDbContext(message, options = {}) {
-  const maxDocs = Math.min(
-    10,
-    Math.max(1, parseInt(options.maxDocs, 10) || 5)
-  );
+  const maxDocs = Math.min(10, Math.max(1, parseInt(options.maxDocs, 10) || 5));
 
   if (!shopDbEnrichEnabled()) {
     return {
@@ -519,7 +515,11 @@ async function getShopDbContext(message, options = {}) {
       return {
         contextTexts: [],
         sources: [],
-        flags: { shopDbTimeout: true, shopDbSearchHitCount: 0, shopDbDocCount: 0 },
+        flags: {
+          shopDbTimeout: true,
+          shopDbSearchHitCount: 0,
+          shopDbDocCount: 0,
+        },
       };
     }
     console.warn("[ShopDB] enrich error:", e?.message || e);
