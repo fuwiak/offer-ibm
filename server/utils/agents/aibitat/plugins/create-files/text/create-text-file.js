@@ -126,16 +126,19 @@ module.exports.CreateTextFile = {
                 displayFilename,
               });
 
+              const isMarkdownLike = /^(md|markdown|txt)$/i.test(finalExtension);
               this.super.socket.send("fileDownloadCard", {
                 filename: savedFile.displayFilename,
                 storageFilename: savedFile.filename,
                 fileSize: savedFile.fileSize,
+                ...(isMarkdownLike ? { previewMarkdown: content } : {}),
               });
 
               createFilesLib.registerOutput(this.super, "TextFileDownload", {
                 filename: savedFile.displayFilename,
                 storageFilename: savedFile.filename,
                 fileSize: savedFile.fileSize,
+                ...(isMarkdownLike ? { previewMarkdown: content } : {}),
               });
 
               this.super.introspect(

@@ -11,6 +11,8 @@ import { extractUserMemoryNotes } from "@/utils/offerKp/leadsInboxContext";
 import OfferKpThreadPanelSection from "@/components/OfferKp/OfferKpThreadPanelSection";
 import ExamplePromptsPanel from "@/components/OfferKp/ExamplePromptsPanel";
 import QuoteStepper from "@/components/OfferKp/QuoteStepper";
+import QuotePreview from "@/components/OfferKp/QuotePreview";
+import DocPreviewPane from "@/components/OfferKp/DocPreviewPane";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import { canShowAdminThreadContextPanel } from "@/utils/offerKp/threadPanelAccess";
@@ -143,6 +145,8 @@ export default function DocumentPanel() {
     quoteDraft,
     quotePdfUrl,
     setQuotePdfUrl,
+    docPreview,
+    setDocPreview,
   } = useOfferKp();
 
   const { role } = useOfferKpRole();
@@ -210,9 +214,13 @@ export default function DocumentPanel() {
     document.getElementById("dnd-chat-file-uploader")?.click();
   }
 
-  const showQuoteBuilder = documentPanelView === "builder" && quoteDraft?.reference;
+  const showQuoteBuilder = documentPanelView === "builder";
   const showPdfPreview = documentPanelView === "pdf" && quotePdfUrl;
-  const hasQuotePanel = showQuoteBuilder || showPdfPreview;
+  const showQuotePreview =
+    documentPanelView === "quotePreview" && !!quoteDraft?.preview;
+  const showDocPreview = documentPanelView === "doc" && !!docPreview?.markdown;
+  const hasQuotePanel =
+    showQuoteBuilder || showPdfPreview || showQuotePreview || showDocPreview;
   const shouldRenderPanel = isHome || showAdminThreadContext || hasQuotePanel;
 
   useEffect(() => {
@@ -276,7 +284,7 @@ export default function DocumentPanel() {
         </div>
       )}
 
-      {(showQuoteBuilder || showPdfPreview) && (
+      {(showQuoteBuilder || showPdfPreview || showQuotePreview) && (
         <div className="flex border-b border-theme-sidebar-border shrink-0">
           {showAdminThreadContext && (
             <button
@@ -287,13 +295,20 @@ export default function DocumentPanel() {
               {t("layout.conversationContext")}
             </button>
           )}
-          {showQuoteBuilder && (
+          <button
+            type="button"
+            onClick={() => setDocumentPanelView("builder")}
+            className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
+          >
+            {t("layout.tabQuote")}
+          </button>
+          {quoteDraft?.preview && (
             <button
               type="button"
-              onClick={() => setDocumentPanelView("builder")}
-              className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
+              onClick={() => setDocumentPanelView("quotePreview")}
+              className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "quotePreview" ? "offerKp-doc-tab--active" : ""}`}
             >
-              {t("layout.tabQuote")}
+              {t("layout.tabPreview", { defaultValue: "Preview" })}
             </button>
           )}
           {quotePdfUrl && (
@@ -309,16 +324,28 @@ export default function DocumentPanel() {
         </div>
       )}
 
-      {showPdfPreview && documentPanelView === "pdf" ? (
+      {showDocPreview ? (
+        <DocPreviewPane
+          docPreview={docPreview}
+          onClose={() => {
+            setDocPreview(null);
+            setDocumentPanelView(
+              showAdminThreadContext ? "docs" : quoteDraft?.reference ? "builder" : "docs"
+            );
+          }}
+        />
+      ) : showPdfPreview && documentPanelView === "pdf" ? (
         <PdfPreviewPane
           quotePdfUrl={quotePdfUrl}
           onClose={() => {
             setQuotePdfUrl(null);
             setDocumentPanelView(
-              showAdminThreadContext ? "docs" : showQuoteBuilder ? "builder" : "docs"
+              showAdminThreadContext ? "docs" : quoteDraft?.reference ? "builder" : "docs"
             );
           }}
         />
+      ) : showQuotePreview ? (
+        <QuotePreview />
       ) : showQuoteBuilder && documentPanelView === "builder" ? (
         <div className="flex-1 overflow-y-auto p-4">
           <QuoteStepper />

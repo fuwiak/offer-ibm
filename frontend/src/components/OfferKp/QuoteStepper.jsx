@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { useTranslation } from "react-i18next";
-import { QUOTE_STEPS, advanceQuoteDraft, updateQuoteLines } from "@/utils/offerKp/quoteFlow";
+import {
+  QUOTE_STEPS,
+  advanceQuoteDraft,
+  updateQuoteLines,
+  EMPTY_QUOTE_DRAFT,
+  EMPTY_QUOTE_LINE,
+} from "@/utils/offerKp/quoteFlow";
 import { OFFER_KP_PRODUCTS } from "@/utils/offerKp/pricing";
-import { Plus, Trash, FilePdf, CircleNotch } from "@phosphor-icons/react";
+import { Plus, Trash, FilePdf, FileDoc, CircleNotch, Eye } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
@@ -22,6 +28,7 @@ export default function QuoteStepper() {
   const { quoteDraft, setQuoteDraft, setQuotePdfUrl, setDocumentPanelView } = useOfferKp();
   const step = quoteDraft?.step ?? 0;
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingDocx, setGeneratingDocx] = useState(false);
   const [pdfMeta, setPdfMeta] = useState(null);
 
   function advance() {
@@ -41,6 +48,13 @@ export default function QuoteStepper() {
       i === lineIdx ? { ...l, productId } : l
     );
     updateLines(lines);
+  }
+
+  function setCustomer(field, value) {
+    setQuoteDraft((prev) => ({
+      ...prev,
+      customer: { ...(prev.customer || {}), [field]: value },
+    }));
   }
 
   function setDim(lineIdx, field, value) {
@@ -72,6 +86,11 @@ export default function QuoteStepper() {
       const preview = quoteDraft.preview;
       const result = await OfferKp.generateQuotePdf({
         reference: quoteDraft.reference,
+        customer: {
+          name: quoteDraft.customer?.name || "",
+          country: quoteDraft.customer?.country || "",
+        },
+        priceMode: quoteDraft.priceMode || "public",
         lines: preview.lines,
         shipping: preview.shipping,
         subtotal: preview.subtotal,
@@ -95,6 +114,39 @@ export default function QuoteStepper() {
       console.error("[QuoteStepper] PDF error:", e);
     } finally {
       setGeneratingPdf(false);
+    }
+  }
+
+  async function handleDownloadDocx() {
+    if (generatingDocx || !quoteDraft?.preview) return;
+    setGeneratingDocx(true);
+    try {
+      const preview = quoteDraft.preview;
+      const result = await OfferKp.generateQuoteDocx({
+        reference: quoteDraft.reference,
+        customer: {
+          name: quoteDraft.customer?.name || "",
+          country: quoteDraft.customer?.country || "",
+        },
+        priceMode: quoteDraft.priceMode || "public",
+        lines: preview.lines,
+        shipping: preview.shipping,
+        subtotal: preview.subtotal,
+        total: preview.total,
+        createdAt: new Date(),
+      });
+      const apiUrl = OfferKp.quoteDocxDownloadUrl(result.storageFilename);
+      const token = window.localStorage.getItem(AUTH_TOKEN) || "";
+      const res = await fetch(apiUrl, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      saveAs(blob, result.filename);
+    } catch (e) {
+      console.error("[QuoteStepper] DOCX error:", e);
+    } finally {
+      setGeneratingDocx(false);
     }
   }
 
@@ -124,7 +176,15 @@ export default function QuoteStepper() {
 
       {/* Step content */}
       <div className="bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200 p-3">
-        {step === 0 && <ProductStep lines={quoteDraft.lines} setProduct={setProduct} />}
+        {step === 0 && (
+          <ProductStep
+            lines={quoteDraft.lines}
+            setProduct={setProduct}
+            customer={quoteDraft.customer}
+            setCustomer={setCustomer}
+            priceMode={quoteDraft.priceMode}
+          />
+        )}
         {step === 1 && (
           <DimensionsStep lines={quoteDraft.lines} setDim={setDim} addLine={addLine} removeLine={removeLine} />
         )}
@@ -133,6 +193,17 @@ export default function QuoteStepper() {
         )}
         {(step === 5) && <ShareStep reference={quoteDraft.reference} />}
       </div>
+
+      {quoteDraft?.preview && (
+        <button
+          type="button"
+          onClick={() => setDocumentPanelView("quotePreview")}
+          className="flex items-center justify-center gap-2 w-full py-2 border border-[#0c7d69] text-[#0c7d69] text-xs hover:bg-[#0c7d69]/10 transition-colors"
+        >
+          <Eye size={14} weight="bold" />
+          {t("quote.viewDocument", "View document")}
+        </button>
+      )}
 
       {/* Navigation */}
       <div className="flex gap-2">
@@ -171,9 +242,26 @@ export default function QuoteStepper() {
             </button>
             <button
               type="button"
+              onClick={handleDownloadDocx}
+              disabled={generatingDocx}
+              className="flex items-center justify-center gap-2 w-full py-2 border border-[#0f62fe] text-[#0f62fe] light:text-[#0f62fe] text-xs hover:bg-[#0f62fe]/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {generatingDocx ? (
+                <CircleNotch size={14} weight="bold" className="animate-spin" />
+              ) : (
+                <FileDoc size={14} weight="bold" />
+              )}
+              {generatingDocx ? "Generating Word…" : "Download Word (.docx)"}
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 setPdfMeta(null);
-                setQuoteDraft({ step: 0, reference: null, lines: [{ productId: "one-8-3", lengthMm: 1000, heightMm: 1000, quantity: 1 }], shipping: 0, preview: null });
+                setQuoteDraft({
+                  ...EMPTY_QUOTE_DRAFT,
+                  customer: { name: "", country: "" },
+                  lines: [{ ...EMPTY_QUOTE_LINE }],
+                });
               }}
               className="flex-1 py-2 border border-white/20 light:border-slate-300 text-white/50 light:text-slate-500 text-xs hover:bg-white/5"
             >
@@ -186,9 +274,37 @@ export default function QuoteStepper() {
   );
 }
 
-function ProductStep({ lines, setProduct }) {
+function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <div className="space-y-2 pb-2 border-b border-white/10 light:border-slate-200">
+        <p className="text-[10px] text-white/40 light:text-slate-400">Customer & delivery</p>
+        <label className="block">
+          <span className="text-[9px] text-white/40 light:text-slate-400">Customer name</span>
+          <input
+            type="text"
+            value={customer?.name || ""}
+            onChange={(e) => setCustomer?.("name", e.target.value)}
+            placeholder="e.g. Client name"
+            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none mt-0.5"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[9px] text-white/40 light:text-slate-400">Delivery country</span>
+          <input
+            type="text"
+            value={customer?.country || ""}
+            onChange={(e) => setCustomer?.("country", e.target.value)}
+            placeholder="e.g. Poland"
+            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none mt-0.5"
+          />
+        </label>
+        {priceMode === "public" && (
+          <span className="inline-block text-[9px] font-medium text-green-400 light:text-green-600 uppercase tracking-wide">
+            Public price
+          </span>
+        )}
+      </div>
       <p className="text-[10px] text-white/40 light:text-slate-400">Select product for each line</p>
       {lines.map((line, i) => (
         <div key={i}>

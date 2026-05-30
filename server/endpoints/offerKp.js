@@ -20,6 +20,8 @@ const {
   writeResponseChunk,
 } = require("../utils/helpers/chat/responses");
 const { generateQuotePdf } = require("../utils/offerKpApp/generateQuotePdf");
+const { generateQuoteDocx } = require("../utils/offerKpApp/generateQuoteDocx");
+const { generateDocxFromMarkdown } = require("../utils/offerKpApp/docxFromMarkdown");
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -342,6 +344,130 @@ function offerKpEndpoints(app) {
         fs.createReadStream(filePath).pipe(response);
       } catch (e) {
         console.error("[offerKp] PDF download error:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/quotes/docx
+   * Generate a professional, editable Word (.docx) quotation.
+   */
+  app.post(
+    "/offerKp/quotes/docx",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user.role === "supplier") {
+          return response.status(403).json({ error: "Access denied." });
+        }
+        const body = reqBody(request);
+
+        let quoteData = body;
+        if (body.reference && !body.lines) {
+          const dbQuote = await OfferKpQuote.getByReferenceForRole(
+            body.reference,
+            user.role
+          );
+          if (!dbQuote)
+            return response.status(404).json({ error: "Quote not found" });
+          const formatted = OfferKpQuote.formatForClient(dbQuote, (q) => q, {
+            role: user.role,
+          });
+          quoteData = {
+            ...formatted,
+            customer: body.customer || {},
+            contact: body.contact,
+            currency: body.currency,
+            vatRate: body.vatRate,
+          };
+        }
+
+        const result = await generateQuoteDocx(quoteData);
+        response.status(200).json({
+          filename: result.filename,
+          storageFilename: result.storageFilename,
+          fileSize: result.fileSize,
+        });
+      } catch (e) {
+        console.error("[offerKp] DOCX generation error:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/quotes/docx-from-markdown
+   * Generate Word (.docx) from markdown (matches in-app document preview).
+   */
+  app.post(
+    "/offerKp/quotes/docx-from-markdown",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user.role === "supplier") {
+          return response.status(403).json({ error: "Access denied." });
+        }
+        const { markdown, filename } = reqBody(request);
+        if (!markdown || typeof markdown !== "string") {
+          return response.status(400).json({ error: "Markdown is required" });
+        }
+        const result = await generateDocxFromMarkdown({ markdown, filename });
+        response.status(200).json({
+          filename: result.filename,
+          storageFilename: result.storageFilename,
+          fileSize: result.fileSize,
+        });
+      } catch (e) {
+        console.error("[offerKp] DOCX-from-markdown error:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * GET /offerKp/quotes/docx/:filename
+   * Download a previously generated quote Word document.
+   */
+  app.get(
+    "/offerKp/quotes/docx/:filename",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user.role === "supplier") {
+          return response.status(403).json({ error: "Access denied." });
+        }
+        const { filename } = request.params;
+        if (!filename || !filename.endsWith(".docx")) {
+          return response.status(400).json({ error: "Invalid filename" });
+        }
+        const path = require("path");
+        const fs = require("fs");
+        const storageDir = path.join(
+          process.env.STORAGE_DIR || path.resolve(__dirname, "../storage"),
+          "generated-files"
+        );
+        const filePath = path.join(storageDir, filename);
+        if (!filePath.startsWith(storageDir)) {
+          return response.status(400).json({ error: "Invalid path" });
+        }
+        if (!fs.existsSync(filePath)) {
+          return response.status(404).json({ error: "File not found" });
+        }
+        response.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        response.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`
+        );
+        fs.createReadStream(filePath).pipe(response);
+      } catch (e) {
+        console.error("[offerKp] DOCX download error:", e);
         response.status(500).json({ error: e.message });
       }
     }

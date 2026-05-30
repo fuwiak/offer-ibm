@@ -9,9 +9,28 @@ export const QUOTE_STEPS = [
   "share",
 ];
 
+export const EMPTY_QUOTE_LINE = {
+  productId: "one-8-3",
+  lengthMm: 1000,
+  heightMm: 1000,
+  quantity: 1,
+};
+
+export const EMPTY_QUOTE_DRAFT = {
+  step: 0,
+  reference: null,
+  customer: { name: "", country: "" },
+  priceMode: "public",
+  lines: [{ ...EMPTY_QUOTE_LINE }],
+  shipping: 0,
+  preview: null,
+};
+
 export const INITIAL_QUOTE_DRAFT = {
   step: 0,
   reference: null,
+  customer: { name: "", country: "" },
+  priceMode: "public",
   lines: [{ productId: "one-8-3", lengthMm: 1000, heightMm: 1000, quantity: 1 }],
   shipping: 0,
   preview: null,

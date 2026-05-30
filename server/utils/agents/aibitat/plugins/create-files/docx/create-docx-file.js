@@ -264,12 +264,14 @@ module.exports.CreateDocxFile = {
                 filename: savedFile.displayFilename,
                 storageFilename: savedFile.filename,
                 fileSize: savedFile.fileSize,
+                previewMarkdown: content,
               });
 
               createFilesLib.registerOutput(this.super, "DocxFileDownload", {
                 filename: savedFile.displayFilename,
                 storageFilename: savedFile.filename,
                 fileSize: savedFile.fileSize,
+                previewMarkdown: content,
               });
 
               this.super.introspect(

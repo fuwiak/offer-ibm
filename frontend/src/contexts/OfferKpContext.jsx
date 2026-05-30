@@ -48,6 +48,7 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   const [savedDocuments, setSavedDocuments] = useState(SEED_DOCUMENTS);
   const [savTickets, setSavTickets] = useState([]);
   const [quotePdfUrl, setQuotePdfUrl] = useState(null);
+  const [docPreview, setDocPreview] = useState(null);
 
   const refreshNotifications = useCallback(async () => {
     if (!enabled) return;
@@ -132,6 +133,8 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       addSavTicket,
       quotePdfUrl,
       setQuotePdfUrl,
+      docPreview,
+      setDocPreview,
     }),
     [
       enabled,
@@ -155,6 +158,8 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       addSavTicket,
       quotePdfUrl,
       setQuotePdfUrl,
+      docPreview,
+      setDocPreview,
     ]
   );
 
@@ -193,6 +198,8 @@ export function useOfferKp() {
       addSavTicket: () => {},
       quotePdfUrl: null,
       setQuotePdfUrl: () => {},
+      docPreview: null,
+      setDocPreview: () => {},
     }
   );
 }

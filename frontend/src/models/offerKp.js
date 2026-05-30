@@ -73,6 +73,24 @@ const OfferKp = {
     return `${API_BASE}/offerKp/quotes/pdf/${encodeURIComponent(storageFilename)}`;
   },
 
+  async generateQuoteDocx(quoteData) {
+    return offerKpFetch(`${API_BASE}/offerKp/quotes/docx`, {
+      method: "POST",
+      body: JSON.stringify(quoteData),
+    });
+  },
+
+  quoteDocxDownloadUrl(storageFilename) {
+    return `${API_BASE}/offerKp/quotes/docx/${encodeURIComponent(storageFilename)}`;
+  },
+
+  async generateDocxFromMarkdown({ markdown, filename }) {
+    return offerKpFetch(`${API_BASE}/offerKp/quotes/docx-from-markdown`, {
+      method: "POST",
+      body: JSON.stringify({ markdown, filename }),
+    });
+  },
+
   streamPublicChat(message, sessionId, onChunk, onDone) {
     const controller = new AbortController();
     fetch(`${API_BASE}/offerKp/public/stream-chat`, {

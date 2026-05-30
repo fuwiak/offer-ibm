@@ -7,8 +7,10 @@ import { useOfferKp } from "@/contexts/OfferKpContext";
 
 /** Google-Drive-style document card that matches the image mockup */
 function FileDownloadCard({ props }) {
-  const { filename, storageFilename, fileSize } = props.content || {};
+  const { filename, storageFilename, fileSize, previewMarkdown } =
+    props.content || {};
   const isPdf = /\.pdf$/i.test(filename || "");
+  const canPreviewDoc = !isPdf && !!previewMarkdown;
   const { badge, badgeBg, badgeText, fileType } = getFileDisplayInfo(filename);
   const [downloading, setDownloading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -17,6 +19,7 @@ function FileDownloadCard({ props }) {
     setQuotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
+    setDocPreview,
   } = useOfferKp();
 
   const fetchBlob = useCallback(async () => {
@@ -39,7 +42,20 @@ function FileDownloadCard({ props }) {
   };
 
   const handlePreview = async () => {
-    if (previewing || !isPdf || !offerKpEnabled) return;
+    if (previewing || !offerKpEnabled) return;
+
+    if (canPreviewDoc) {
+      setDocPreview({
+        filename: filename || storageFilename,
+        storageFilename,
+        markdown: previewMarkdown,
+      });
+      setDocumentPanelOpen(true);
+      setDocumentPanelView("doc");
+      return;
+    }
+
+    if (!isPdf) return;
     setPreviewing(true);
     try {
       const blob = await fetchBlob();
@@ -80,7 +96,7 @@ function FileDownloadCard({ props }) {
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Open in Preview — PDF only */}
-            {isPdf && (
+            {offerKpEnabled && (isPdf || canPreviewDoc) && (
               <button
                 onClick={handlePreview}
                 disabled={previewing}
