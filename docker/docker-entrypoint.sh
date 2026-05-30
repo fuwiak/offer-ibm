@@ -100,6 +100,10 @@ else
   ok "Migrations applied"
 fi
 
+log "Ensuring OfferKP tables exist (repair for baselined DBs)..."
+node -e "require('/app/server/utils/boot/ensureOfferKpTables').ensureOfferKpTables().then(()=>process.exit(0)).catch((e)=>{console.error(e);process.exit(0)})" \
+  || warn "OfferKP table repair skipped"
+
 # Auto-generate JWT_SECRET if not provided so logins work on first boot
 if [ -z "${JWT_SECRET:-}" ]; then
   JWT_SECRET="$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"

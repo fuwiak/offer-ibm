@@ -91,6 +91,10 @@ function formatMoneyUsd(value = 0) {
   return Number(value || 0).toFixed(4);
 }
 
+function isMissingTableError(error) {
+  return error?.code === "P2021";
+}
+
 function buildUsageNotifications(chats = [], nowTs = Date.now()) {
   const dayStart = startOfDay(nowTs);
   const bucketMs = 8 * 60 * 60 * 1000;
@@ -148,28 +152,36 @@ const OfferKpNotifications = {
     const perSource = Math.max(3, Math.ceil(limit / 3));
 
     const soon = new Date(Date.now() + EXPIRY_WINDOW_MS);
-    const links = await prisma.offerKp_share_links.findMany({
-      where: { expiresAt: { lte: soon, gt: new Date() } },
-      include: { quote: { select: { reference: true } } },
-      orderBy: { expiresAt: "asc" },
-      take: perSource,
-    });
-    for (const link of links) {
-      items.push(formatQuoteExpiry(link));
+    try {
+      const links = await prisma.offerKp_share_links.findMany({
+        where: { expiresAt: { lte: soon, gt: new Date() } },
+        include: { quote: { select: { reference: true } } },
+        orderBy: { expiresAt: "asc" },
+        take: perSource,
+      });
+      for (const link of links) {
+        items.push(formatQuoteExpiry(link));
+      }
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
     }
 
     const quoteWhere =
       role === "admin" ? {} : userId ? { userId: Number(userId) } : {};
 
-    const quotes = await prisma.offerKp_quotes.findMany({
-      where: quoteWhere,
-      orderBy: { lastUpdatedAt: "desc" },
-      take: 10,
-    });
+    try {
+      const quotes = await prisma.offerKp_quotes.findMany({
+        where: quoteWhere,
+        orderBy: { lastUpdatedAt: "desc" },
+        take: 10,
+      });
 
-    for (const q of quotes) {
-      if (q.status === "validated") items.push(formatQuoteValidated(q));
-      if (q.status === "won") items.push(formatCommissionQuote(q));
+      for (const q of quotes) {
+        if (q.status === "validated") items.push(formatQuoteValidated(q));
+        if (q.status === "won") items.push(formatCommissionQuote(q));
+      }
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
     }
 
     const todayStart = new Date(startOfDay(Date.now()));

@@ -12,6 +12,7 @@ const { ensureMultiUserBootstrap } = require("./ensureMultiUserBootstrap");
 const {
   ensureOfferKpWorkspaceProfileColumn,
 } = require("./ensureOfferKpWorkspaceProfileColumn");
+const { ensureOfferKpTables } = require("./ensureOfferKpTables");
 const { ensureOfferKpBranding } = require("./ensureOfferKpBranding");
 const {
   ensureShopDbEnrichBootTest,
@@ -41,6 +42,7 @@ function bootSSL(app, port = 3001) {
     const host = process.env.HOST || "0.0.0.0";
     server
       .listen(port, host, async () => {
+        await ensureOfferKpTables();
         await ensureOfferKpWorkspaceProfileColumn();
         await ensureOfferKpBranding();
         await ensureShopDbEnrichBootTest();
@@ -82,6 +84,7 @@ function bootHTTP(app, port = 3001) {
   const host = process.env.HOST || "0.0.0.0";
   app
     .listen(port, host, async () => {
+      await ensureOfferKpTables();
       await ensureOfferKpWorkspaceProfileColumn();
       await ensureOfferKpBranding();
       await ensureShopDbEnrichBootTest();
