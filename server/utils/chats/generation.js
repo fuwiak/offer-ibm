@@ -86,11 +86,8 @@ function shouldUseEli(message, language = null) {
 function buildLegalSourcePriorityInstructions() {
   const { shopDbEnrichEnabled } = require("../offerKp/enrich");
   if (shopDbEnrichEnabled()) {
-    return [
-      "Правила источников:",
-      "- Единственный внешний источник номенклатуры и цен: блоки [Каталог · purolat.com] из MySQL.",
-      "- Не используй ELI, ГАРАНТ, веб-поиск и сторонние магазины.",
-    ].join("\n");
+    const { OFFER_KP_CATALOG_PROMPT } = require("../offerKp/prompts");
+    return OFFER_KP_CATALOG_PROMPT.trim();
   }
 
   const hasGarant = hasGarantToken();

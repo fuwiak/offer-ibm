@@ -6,7 +6,6 @@ const {
   writeResponseChunk,
   handleDefaultStreamResponseV2,
 } = require("../helpers/chat/responses");
-const { OFFER_KP_CATALOG_PROMPT } = require("../offerKp/prompts");
 const { getShopDbContext, shopDbEnrichEnabled } = require("../offerKp/enrich");
 
 async function streamLawyerRevizorroPublicChat(
@@ -36,8 +35,7 @@ async function streamLawyerRevizorroPublicChat(
     model: workspace.chatModel,
   });
 
-  const basePrompt = await chatPrompt(workspace, null);
-  const systemPrompt = `${basePrompt}\n\n${OFFER_KP_CATALOG_PROMPT}`;
+  const systemPrompt = await chatPrompt(workspace, null);
   const uuid = uuidv4();
 
   let contextTexts = [];

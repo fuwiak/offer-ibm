@@ -5,6 +5,7 @@
  */
 
 const { getLLMProvider } = require("../helpers");
+const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
 const { query } = require("./db/client");
 const {
   TABLES,
@@ -346,8 +347,7 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
   const messages = [
     {
       role: "system",
-      content:
-        "Ты помощник по каталогу крепежа и металлопроката. По запросу пользователя выбери ID товаров из списка, которые лучше всего подходят (синонимы, ГОСТ/DIN, размеры). Верни ТОЛЬКО JSON-массив числовых id, без пояснений. Если ничего не подходит — [].",
+      content: OFFER_KP_DB_SEARCH_AGENT_PROMPT,
     },
     {
       role: "user",
