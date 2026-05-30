@@ -67,7 +67,7 @@ function warn(name, detail = "") {
   } else {
     fail(
       "MySQL config",
-      "set DB_HOST/DB_NAME/DB_USER/DB_PASSWORD in server/.env or repo root .env"
+      "set DB_* in server/.env, repo root .env, server/.env.railway, or Railway Variables"
     );
     printSummary();
     process.exit(1);

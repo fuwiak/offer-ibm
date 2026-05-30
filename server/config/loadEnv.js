@@ -1,17 +1,23 @@
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
+const {
+  loadRailwayFallbackFiles,
+  applyRailwayEnvFallback,
+} = require("./railwayEnvFallback");
 
 const SERVER_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(SERVER_DIR, "..");
 
 /**
- * Загружает .env: server/.env, затем ../.env (корень репо) — без перезаписи уже заданных ключей.
- * Так DB_* из корневого .env подхватываются при SHOP_DB_* в server/.env.
+ * 1) Снимок Railway / process.env + опционально .env.railway (fallback-источник).
+ * 2) server/.env и ../.env — приоритет (override), локальные файлы перебивают Railway.
+ * 3) Для ключей, не заданных в .env, подставляется fallback из Railway / .env.railway.
  */
-function loadEnv({ override = false } = {}) {
-  const paths = [];
+function loadEnv({ override = true } = {}) {
+  const railwayFallback = loadRailwayFallbackFiles(SERVER_DIR, REPO_ROOT);
 
+  const paths = [];
   if (process.env.NODE_ENV === "development") {
     paths.push(path.join(SERVER_DIR, `.env.${process.env.NODE_ENV}`));
   }
@@ -23,6 +29,8 @@ function loadEnv({ override = false } = {}) {
       dotenv.config({ path: envPath, override });
     }
   }
+
+  applyRailwayEnvFallback(railwayFallback);
 }
 
 module.exports = { loadEnv, SERVER_DIR, REPO_ROOT };
