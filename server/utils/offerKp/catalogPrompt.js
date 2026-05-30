@@ -66,6 +66,8 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
       shopDbDocCount: shopDbFlags.shopDbDocCount ?? 0,
       shopDbTimeout: !!shopDbFlags.shopDbTimeout,
       shopDbError: !!shopDbFlags.shopDbError,
+      shopDbMessage: shopDbFlags.shopDbMessage || undefined,
+      target: shopDbFlags.shopDbTarget || undefined,
     });
   }
 

@@ -2,6 +2,13 @@ const mysql = require("mysql2/promise");
 
 let pool = null;
 
+function resetPool() {
+  if (pool) {
+    pool.end().catch(() => {});
+    pool = null;
+  }
+}
+
 function buildDatabaseUrl() {
   if ((process.env.DATABASE_URL || "").trim()) {
     return process.env.DATABASE_URL.trim();
@@ -93,14 +100,22 @@ function getPool() {
     throw new Error("SHOP_DB_NOT_CONFIGURED");
   }
   if (!pool) {
+    const target = getShopDbTarget();
     pool = mysql.createPool(getPoolOptions());
     query("SELECT 1")
       .then(() => {
-        require("../shopDbLog").ok("MySQL pool warmed");
+        require("../shopDbLog").ok("MySQL pool warmed", { target });
       })
       .catch((e) => {
         require("../shopDbLog").warn("MySQL pool warm failed", {
           error: e?.message || String(e),
+          code: e?.code,
+          target,
+          hint: formatShopDbConnectionHint({
+            target,
+            error: e?.message,
+            code: e?.code,
+          }),
         });
       });
   }
@@ -174,6 +189,7 @@ module.exports = {
   isShopDbConfigured,
   getShopDbTarget,
   getPool,
+  resetPool,
   query,
   pingShopDb,
   formatShopDbConnectionHint,

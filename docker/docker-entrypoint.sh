@@ -23,6 +23,16 @@ ok "Resolved port: SERVER_PORT=${SERVER_PORT}  (verified in .env: $(grep SERVER_
 log "Applying offer-kp OpenRouter LLM defaults to .env..."
 node /app/server/config/applyOfferKpLlmDefaults.js || warn "Could not sync offer-kp LLM defaults"
 
+log "Normalizing Shop DB env (fix legacy port 1500 → 3306)..."
+node -e "
+  require('/app/server/config/loadEnv').loadEnv();
+  const { normalizeShopDbEnv, syncShopDbEnvFile } = require('/app/server/config/normalizeShopDbEnv');
+  const fixes = normalizeShopDbEnv();
+  const synced = syncShopDbEnvFile('/app/server/.env');
+  if (fixes.length) console.log('[entrypoint] Shop DB fixes:', fixes.join(', '));
+  if (synced.length) console.log('[entrypoint] Patched server/.env:', synced.join(', '));
+" || warn "Shop DB env normalize skipped"
+
 export HOST="${HOST:-0.0.0.0}"
 export CHECKPOINT_DISABLE=1
 export ANYTHINGLLM_CHROMIUM_ARGS="${ANYTHINGLLM_CHROMIUM_ARGS:---no-sandbox,--disable-setuid-sandbox}"

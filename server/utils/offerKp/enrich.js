@@ -3,7 +3,12 @@
  */
 
 const { v4: uuidv4 } = require("uuid");
-const { query, isShopDbConfigured } = require("./db/client");
+const {
+  query,
+  isShopDbConfigured,
+  getShopDbTarget,
+  formatShopDbConnectionHint,
+} = require("./db/client");
 const shopDbLog = require("./shopDbLog");
 const { parseHardwareQuery, extractSearchTerms } = require("./hardwareQuery");
 const {
@@ -325,11 +330,24 @@ async function getShopDbContext(message, options = {}) {
         },
       };
     }
-    shopDbLog.enrichError(e);
+    const target = getShopDbTarget();
+    shopDbLog.enrichError(e, {
+      target,
+      code: e?.code,
+      hint: formatShopDbConnectionHint({
+        target,
+        error: e?.message,
+        code: e?.code,
+      }),
+    });
     return {
       contextTexts: [],
       sources: [],
-      flags: { shopDbError: true, shopDbMessage: e?.message || String(e) },
+      flags: {
+        shopDbError: true,
+        shopDbMessage: e?.message || String(e),
+        shopDbTarget: target,
+      },
     };
   }
 }

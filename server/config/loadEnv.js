@@ -31,6 +31,9 @@ function loadEnv({ override = true } = {}) {
   }
 
   applyRailwayEnvFallback(railwayFallback);
+
+  const { normalizeShopDbEnv } = require("./normalizeShopDbEnv");
+  normalizeShopDbEnv();
 }
 
 module.exports = { loadEnv, SERVER_DIR, REPO_ROOT };

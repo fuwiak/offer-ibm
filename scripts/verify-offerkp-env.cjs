@@ -107,6 +107,9 @@ function warn(name, detail = "") {
   else fail("shopDbEnrichEnabled()", "false despite SHOP_DB_ENRICH=1");
 
   const target = getShopDbTarget();
+  if (target.port === "1500") {
+    fail("MySQL port", "1500 is wrong — use 3306 (normalizeShopDbEnv should fix this)");
+  }
   ok(
     "MySQL target",
     `${target.host}:${target.port}/${target.database} (ssl=${target.ssl})`
@@ -160,6 +163,18 @@ function warn(name, detail = "") {
   }
 
   await runEnrichTest(KEY_STEEL_QUERY, "key steel enrich");
+
+  const keySteelCtx = await enrich.getShopDbContext(KEY_STEEL_QUERY, {
+    maxDocs: 1,
+  });
+  const keySteelText = (keySteelCtx.contextTexts || []).join("\n");
+  if (keySteelText.includes("3713") || keySteelText.includes("3713.92")) {
+    ok("key steel price", "3713 RUB in catalog block");
+  } else if (keySteelCtx.flags?.shopDbError) {
+    fail("key steel price", keySteelCtx.flags.shopDbMessage || "shopDbError");
+  } else if (keySteelCtx.contextTexts?.length) {
+    fail("key steel price", "catalog block missing expected price 3713");
+  }
 
   if (productAgent.extractSkuCodes(KEY_STEEL_SKU).includes(KEY_STEEL_SKU)) {
     ok("product agent SKU parse", KEY_STEEL_SKU);
