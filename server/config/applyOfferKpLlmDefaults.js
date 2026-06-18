@@ -22,6 +22,10 @@ function applyOfferKpLlmDefaults() {
     process.env.OLLAMA_MODEL_PREF =
       defaults.OLLAMA_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;
   }
+  if (!envIsSet("OLLAMA_BASE_PATH")) {
+    process.env.OLLAMA_BASE_PATH =
+      defaults.OLLAMA_BASE_PATH || "http://212.41.6.162:11434";
+  }
 
   if (!resolveOpenRouterApiKey()) {
     for (const key of ENV_KEYS) {
