@@ -9,6 +9,7 @@ const {
 } = require("../../helpers/chat/LLMPerformanceMonitor");
 const { Ollama } = require("ollama");
 const { v4: uuidv4 } = require("uuid");
+const { ollamaChatWithCloudFallback } = require("./cloudFallback");
 
 // Docs: https://github.com/jmorganca/ollama/blob/main/docs/api.md
 class OllamaAILLM {
@@ -268,18 +269,25 @@ class OllamaAILLM {
   }
 
   async getChatCompletion(messages = null, { temperature = 0.7 }) {
+    const chatOptions = {
+      model: this.model,
+      stream: false,
+      messages,
+      keep_alive: this.keepAlive,
+      options: {
+        temperature,
+        num_ctx: this.promptWindowLimit(),
+      },
+    };
+
     const result = await LLMPerformanceMonitor.measureAsyncFunction(
-      this.client
-        .chat({
-          model: this.model,
-          stream: false,
-          messages,
-          keep_alive: this.keepAlive,
-          options: {
-            temperature,
-            num_ctx: this.promptWindowLimit(),
-          },
-        })
+      ollamaChatWithCloudFallback({
+        localClient: this.client,
+        model: this.model,
+        options: chatOptions,
+        applyFetch: OllamaAILLM.applyOllamaFetch,
+        log: (text) => this.#log(text),
+      })
         .then((res) => {
           let content = res.message.content;
           if (res.message.thinking)
@@ -321,16 +329,24 @@ class OllamaAILLM {
   }
 
   async streamGetChatCompletion(messages = null, { temperature = 0.7 }) {
+    const chatOptions = {
+      model: this.model,
+      stream: true,
+      messages,
+      keep_alive: this.keepAlive,
+      options: {
+        temperature,
+        num_ctx: this.promptWindowLimit(),
+      },
+    };
+
     const measuredStreamRequest = await LLMPerformanceMonitor.measureStream({
-      func: this.client.chat({
+      func: ollamaChatWithCloudFallback({
+        localClient: this.client,
         model: this.model,
-        stream: true,
-        messages,
-        keep_alive: this.keepAlive,
-        options: {
-          temperature,
-          num_ctx: this.promptWindowLimit(),
-        },
+        options: chatOptions,
+        applyFetch: OllamaAILLM.applyOllamaFetch,
+        log: (text) => this.#log(text),
       }),
       messages,
       runPromptTokenCalculation: false,
