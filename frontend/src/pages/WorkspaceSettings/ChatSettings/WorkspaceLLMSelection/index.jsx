@@ -19,7 +19,7 @@ const NO_MODEL_SELECTION = ["default", "huggingface"];
 // Some providers we just fully disable for ease of use.
 const DISABLED_PROVIDERS = [];
 
-/** offer-kp: Claude (Anthropic) only — no system-default or other providers. */
+/** offer-kp: Ollama only — no system-default or other providers. */
 const LLMS = OFFER_KP_LLM_PROVIDERS.filter(
   (llm) => !DISABLED_PROVIDERS.includes(llm.value)
 );

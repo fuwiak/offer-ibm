@@ -1,5 +1,9 @@
 const { fetchOpenRouterModels } = require("../AiProviders/openRouter");
 const {
+  OFFER_KP_ALLOWED_MODELS,
+  filterOfferKpModels,
+} = require("../../config/offerKp.models");
+const {
   fetchOpenRouterEmbeddingModels,
 } = require("../EmbeddingEngines/openRouter");
 const { fetchApiPieModels } = require("../AiProviders/apipie");
@@ -68,7 +72,7 @@ async function getCustomModels(provider = "", apiKey = null, basePath = null) {
     case "localai":
       return await localAIModels(basePath, apiKey);
     case "ollama":
-      return await ollamaAIModels(basePath, apiKey);
+      return await getOfferKpOllamaModels(basePath, apiKey);
     case "togetherai":
       return await getTogetherAiModels(apiKey);
     case "fireworksai":
@@ -78,7 +82,7 @@ async function getCustomModels(provider = "", apiKey = null, basePath = null) {
     case "perplexity":
       return await getPerplexityModels();
     case "openrouter":
-      return await getOpenRouterModels();
+      return await getOfferKpOpenRouterModels();
     case "lmstudio":
       return await getLMStudioModels(basePath, apiKey);
     case "koboldcpp":
@@ -473,6 +477,20 @@ async function getPerplexityModels() {
     };
   });
   return { models, error: null };
+}
+
+async function getOfferKpOllamaModels(basePath = null, authToken = null) {
+  const remote = await ollamaAIModels(basePath, authToken);
+  const allowed = filterOfferKpModels(remote.models || []);
+  if (allowed.length > 0) return { models: allowed, error: remote.error };
+  return { models: OFFER_KP_ALLOWED_MODELS, error: null };
+}
+
+async function getOfferKpOpenRouterModels() {
+  const remote = await getOpenRouterModels();
+  const allowed = filterOfferKpModels(remote.models || []);
+  if (allowed.length > 0) return { models: allowed, error: remote.error };
+  return { models: OFFER_KP_ALLOWED_MODELS, error: null };
 }
 
 async function getOpenRouterModels() {

@@ -7,22 +7,17 @@ import showToast from "@/utils/toast";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
 import {
-  OFFER_KP_ANTHROPIC_FALLBACK_MODELS,
-  OFFER_KP_DEFAULT_ANTHROPIC_MODEL,
-} from "@/utils/offerKp/anthropicModels";
-import { OFFER_KP_OPENROUTER_PROVIDER } from "@/utils/offerKp/llmProviders";
-
-async function loadAnthropicModels() {
-  const { models = [] } = await System.customModels(OFFER_KP_OPENROUTER_PROVIDER);
-  if (models?.length > 0) return models;
-  return OFFER_KP_ANTHROPIC_FALLBACK_MODELS;
-}
+  OFFER_KP_ALLOWED_MODELS,
+  OFFER_KP_DEFAULT_MODEL,
+  resolveOfferKpModel,
+} from "@/utils/offerKp/models";
+import { OFFER_KP_OLLAMA_PROVIDER } from "@/utils/offerKp/llmProviders";
 
 export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [models, setModels] = useState(OFFER_KP_ANTHROPIC_FALLBACK_MODELS);
-  const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_ANTHROPIC_MODEL);
+  const [models] = useState(OFFER_KP_ALLOWED_MODELS);
+  const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_MODEL);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => window.localStorage.getItem("offerKp_sidebar_toggle") !== "closed"
@@ -36,18 +31,15 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
 
   const refresh = useCallback(async () => {
     if (!workspaceSlug) return;
-    const [workspace, systemSettings, modelList] = await Promise.all([
+    const [workspace, systemSettings] = await Promise.all([
       Workspace.bySlug(workspaceSlug),
       System.keys(),
-      loadAnthropicModels(),
     ]);
-    setModels(modelList);
     const current =
       workspace?.chatModel ??
       systemSettings?.LLMModel ??
-      OFFER_KP_DEFAULT_ANTHROPIC_MODEL;
-    const known = modelList.some((m) => m.id === current);
-    setSelectedModel(known ? current : OFFER_KP_DEFAULT_ANTHROPIC_MODEL);
+      OFFER_KP_DEFAULT_MODEL;
+    setSelectedModel(resolveOfferKpModel(current));
   }, [workspaceSlug]);
 
   useEffect(() => {
@@ -71,7 +63,7 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
     setSaving(true);
     try {
       const { message } = await Workspace.update(workspaceSlug, {
-        chatProvider: OFFER_KP_OPENROUTER_PROVIDER,
+        chatProvider: OFFER_KP_OLLAMA_PROVIDER,
         chatModel: modelId,
       });
       if (message) throw new Error(message);
@@ -141,6 +133,11 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
                     }`}
                   >
                     {model.name || model.id}
+                    {model.hint ? (
+                      <span className="block text-[10px] opacity-60 font-normal">
+                        {model.hint}
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               ))}

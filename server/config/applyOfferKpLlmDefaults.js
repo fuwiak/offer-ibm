@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const defaults = require("./offerKp.llm.defaults");
+const { OFFER_KP_DEFAULT_MODEL } = require("./offerKp.models");
 const {
   applyOpenRouterEnvAliases,
   resolveOpenRouterApiKey,
@@ -16,9 +17,10 @@ function envIsSet(key) {
 function applyOfferKpLlmDefaults() {
   applyOpenRouterEnvAliases();
 
-  process.env.LLM_PROVIDER = "openrouter";
-  if (!envIsSet("OPENROUTER_MODEL_PREF")) {
-    process.env.OPENROUTER_MODEL_PREF = defaults.OPENROUTER_MODEL_PREF;
+  process.env.LLM_PROVIDER = defaults.LLM_PROVIDER || "ollama";
+  if (!envIsSet("OLLAMA_MODEL_PREF")) {
+    process.env.OLLAMA_MODEL_PREF =
+      defaults.OLLAMA_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;
   }
 
   if (!resolveOpenRouterApiKey()) {
@@ -38,7 +40,11 @@ function syncOfferKpEnvFile(envPath = path.resolve(__dirname, "../.env")) {
 
   let content = fs.readFileSync(envPath, "utf8");
   for (const key of ENV_KEYS) {
-    if (envIsSet(key) && key !== "OPENROUTER_MODEL_PREF" && key !== "LLM_PROVIDER")
+    if (
+      envIsSet(key) &&
+      key !== "OLLAMA_MODEL_PREF" &&
+      key !== "LLM_PROVIDER"
+    )
       continue;
     const value = process.env[key] ?? defaults[key];
     if (value == null || value === "") continue;
@@ -55,7 +61,7 @@ if (require.main === module) {
   applyOfferKpLlmDefaults();
   syncOfferKpEnvFile();
   console.log(
-    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.OPENROUTER_MODEL_PREF}`
+    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.OLLAMA_MODEL_PREF || process.env.OPENROUTER_MODEL_PREF}`
   );
 }
 

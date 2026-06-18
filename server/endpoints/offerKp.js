@@ -8,6 +8,7 @@ const { validatedRequest } = require("../utils/middleware/validatedRequest");
 const { streamOfferKpPublicChat } = require("../utils/chats/offerKpPublic");
 const { OfferKpNotifications } = require("../models/offerKpNotifications");
 const { buildDashboardStats } = require("../utils/offerKpApp/buildDashboardStats");
+const { OFFER_KP_ALLOWED_MODELS, OFFER_KP_DEFAULT_MODEL } = require("../config/offerKp.models");
 
 const NOTIFICATIONS_POLL_MS = Number(
   process.env.OFFER_KP_NOTIFICATIONS_POLL_MS || 20 * 60 * 1000
@@ -41,6 +42,9 @@ function offerKpEndpoints(app) {
         publicWorkspaceAvailable: !!workspace,
         products: OFFER_KP_PRODUCTS,
         languages: ["fr", "en", "it"],
+        llmProvider: process.env.LLM_PROVIDER || "ollama",
+        defaultModel: process.env.OLLAMA_MODEL_PREF || OFFER_KP_DEFAULT_MODEL,
+        allowedModels: OFFER_KP_ALLOWED_MODELS,
       });
     } catch (e) {
       console.error(e);

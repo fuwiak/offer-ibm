@@ -1,5 +1,6 @@
 import System from "@/models/system";
 import { useEffect, useState } from "react";
+import { OFFER_KP_ALLOWED_MODELS } from "@/utils/offerKp/models";
 
 // Providers which cannot use this feature for workspace<>model selection
 export const DISABLED_PROVIDERS = [
@@ -64,6 +65,14 @@ export default function useGetProviderModels(provider = null) {
     async function fetchProviderModels() {
       if (!provider) return;
       setLoading(true);
+
+      if (provider === "ollama" || provider === "openrouter") {
+        setDefaultModels([]);
+        setCustomModels(OFFER_KP_ALLOWED_MODELS);
+        setLoading(false);
+        return;
+      }
+
       const { models = [] } = await System.customModels(provider);
       if (
         PROVIDER_DEFAULT_MODELS.hasOwnProperty(provider) &&

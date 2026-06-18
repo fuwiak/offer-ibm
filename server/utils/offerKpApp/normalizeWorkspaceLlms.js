@@ -1,30 +1,28 @@
 const prisma = require("../prisma");
-const { resolveOpenRouterApiKey } = require("./openRouterEnv");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
+const { OFFER_KP_DEFAULT_MODEL } = require("../../config/offerKp.models");
 
 /**
- * Ensures all workspaces use OpenRouter (existing DB rows included).
+ * Ensures all workspaces use Ollama + allowed local models.
  */
 async function normalizeOfferKpWorkspaceLlms() {
-  if (!resolveOpenRouterApiKey()) return;
-
   const defaultModel =
-    process.env.OPENROUTER_MODEL_PREF ||
-    llmDefaults.OPENROUTER_MODEL_PREF ||
-    "openrouter/auto";
+    process.env.OLLAMA_MODEL_PREF ||
+    llmDefaults.OLLAMA_MODEL_PREF ||
+    OFFER_KP_DEFAULT_MODEL;
   const workspaces = await prisma.workspaces.findMany({
     select: { id: true, chatProvider: true, agentProvider: true },
   });
 
   for (const ws of workspaces) {
-    if (ws.chatProvider === "openrouter" && ws.agentProvider === "openrouter") {
+    if (ws.chatProvider === "ollama" && ws.agentProvider === "ollama") {
       continue;
     }
     await prisma.workspaces.update({
       where: { id: ws.id },
       data: {
-        chatProvider: "openrouter",
-        agentProvider: "openrouter",
+        chatProvider: "ollama",
+        agentProvider: "ollama",
         chatModel: defaultModel,
         agentModel: defaultModel,
       },
