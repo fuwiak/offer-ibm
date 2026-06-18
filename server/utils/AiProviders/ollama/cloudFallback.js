@@ -47,6 +47,41 @@ function createOllamaCloudClient(applyFetch) {
 }
 
 /**
+ * Run an Ollama API call locally; on reachability errors retry via Ollama Cloud.
+ * @param {object} params
+ * @param {import("ollama").Ollama} params.localClient
+ * @param {string} [params.model]
+ * @param {Function} params.request - (client, model?) => Promise<unknown>
+ * @param {Function} [params.applyFetch]
+ * @param {Function} [params.log]
+ */
+async function ollamaRequestWithCloudFallback({
+  localClient,
+  model,
+  request,
+  applyFetch,
+  log,
+}) {
+  try {
+    return await request(localClient, model);
+  } catch (error) {
+    if (!ollamaCloudFallbackEnabled() || !isOllamaReachabilityError(error)) {
+      throw error;
+    }
+
+    const cloudClient = createOllamaCloudClient(applyFetch);
+    if (!cloudClient) throw error;
+
+    const cloudModel = ollamaCloudModel(model);
+    log?.(
+      `Local Ollama unavailable (${error.message}); falling back to Ollama Cloud (${cloudModel})`
+    );
+
+    return await request(cloudClient, cloudModel);
+  }
+}
+
+/**
  * Run a local Ollama chat request; on reachability errors retry via Ollama Cloud.
  * @param {object} params
  * @param {import("ollama").Ollama} params.localClient
@@ -62,23 +97,44 @@ async function ollamaChatWithCloudFallback({
   applyFetch,
   log,
 }) {
-  try {
-    return await localClient.chat(options);
-  } catch (error) {
-    if (!ollamaCloudFallbackEnabled() || !isOllamaReachabilityError(error)) {
-      throw error;
-    }
+  return ollamaRequestWithCloudFallback({
+    localClient,
+    model,
+    applyFetch,
+    log,
+    request: (client, resolvedModel) =>
+      client.chat({ ...options, model: resolvedModel || options.model }),
+  });
+}
 
-    const cloudClient = createOllamaCloudClient(applyFetch);
-    if (!cloudClient) throw error;
+async function ollamaListWithCloudFallback({
+  localClient,
+  model,
+  applyFetch,
+  log,
+}) {
+  return ollamaRequestWithCloudFallback({
+    localClient,
+    model,
+    applyFetch,
+    log,
+    request: (client) => client.list(),
+  });
+}
 
-    const cloudModel = ollamaCloudModel(model);
-    log?.(
-      `Local Ollama unavailable (${error.message}); falling back to Ollama Cloud (${cloudModel})`
-    );
-
-    return await cloudClient.chat({ ...options, model: cloudModel });
-  }
+async function ollamaShowWithCloudFallback({
+  localClient,
+  model,
+  applyFetch,
+  log,
+}) {
+  return ollamaRequestWithCloudFallback({
+    localClient,
+    model,
+    applyFetch,
+    log,
+    request: (client, resolvedModel) => client.show({ model: resolvedModel }),
+  });
 }
 
 module.exports = {
@@ -87,5 +143,8 @@ module.exports = {
   ollamaCloudModel,
   isOllamaReachabilityError,
   createOllamaCloudClient,
+  ollamaRequestWithCloudFallback,
   ollamaChatWithCloudFallback,
+  ollamaListWithCloudFallback,
+  ollamaShowWithCloudFallback,
 };

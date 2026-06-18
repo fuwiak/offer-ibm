@@ -9,7 +9,7 @@ const {
 } = require("../../helpers/chat/LLMPerformanceMonitor");
 const { Ollama } = require("ollama");
 const { v4: uuidv4 } = require("uuid");
-const { ollamaChatWithCloudFallback } = require("./cloudFallback");
+const { ollamaChatWithCloudFallback, ollamaListWithCloudFallback, ollamaShowWithCloudFallback, ollamaCloudFallbackEnabled } = require("./cloudFallback");
 
 // Docs: https://github.com/jmorganca/ollama/blob/main/docs/api.md
 class OllamaAILLM {
@@ -28,12 +28,9 @@ class OllamaAILLM {
       ? Number(process.env.OLLAMA_KEEP_ALIVE_TIMEOUT)
       : 300; // Default 5-minute timeout for Ollama model loading.
 
-    const headers = this.authToken
-      ? { Authorization: `Bearer ${this.authToken}` }
-      : {};
+    // Local dedicated server (Bohr) does not use the Ollama Cloud API key.
     this.client = new Ollama({
       host: this.basePath,
-      headers: headers,
       fetch: OllamaAILLM.applyOllamaFetch(),
     });
     this.embedder = embedder ?? new NativeEmbedder();
@@ -42,7 +39,7 @@ class OllamaAILLM {
     // Lazy load the limits to avoid blocking the main thread on cacheContextWindows
     this.limits = null;
 
-    OllamaAILLM.cacheContextWindows(true);
+    OllamaAILLM.cacheContextWindows();
     this.#log(`initialized with model: ${this.model}`);
   }
 
@@ -82,24 +79,31 @@ class OllamaAILLM {
       if (Object.keys(OllamaAILLM.modelContextWindows).length > 0 && !force)
         return;
 
-      const authToken = process.env.OLLAMA_AUTH_TOKEN;
       const basePath = process.env.OLLAMA_BASE_PATH;
       const client = new Ollama({
         host: basePath,
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        fetch: OllamaAILLM.applyOllamaFetch(),
       });
 
-      const { models } = await client.list().catch(() => ({ models: [] }));
+      const { models } = await ollamaListWithCloudFallback({
+        localClient: client,
+        model: process.env.OLLAMA_MODEL_PREF,
+        applyFetch: OllamaAILLM.applyOllamaFetch,
+        log: (text) => OllamaAILLM.#slog(text),
+      }).catch(() => ({ models: [] }));
       if (!models.length) return;
 
       const infoPromises = models.map((model) =>
-        client
-          .show({ model: model.name })
-          .then((info) => ({ name: model.name, ...info }))
+        ollamaShowWithCloudFallback({
+          localClient: client,
+          model: model.name,
+          applyFetch: OllamaAILLM.applyOllamaFetch,
+          log: (text) => OllamaAILLM.#slog(text),
+        }).then((info) => ({ name: model.name, ...info }))
       );
       const infos = await Promise.all(infoPromises);
       infos.forEach((showInfo) => {
-        if (showInfo.capabilities.includes("embedding")) return;
+        if (showInfo.capabilities?.includes("embedding")) return;
         const contextWindowKey = Object.keys(showInfo.model_info).find((key) =>
           key.endsWith(".context_length")
         );
@@ -110,7 +114,9 @@ class OllamaAILLM {
       });
       OllamaAILLM.#slog(`Context windows cached for all models!`);
     } catch (e) {
-      OllamaAILLM.#slog(`Error caching context windows`, e);
+      if (!ollamaCloudFallbackEnabled()) {
+        OllamaAILLM.#slog(`Error caching context windows`, e);
+      }
       return;
     }
   }
@@ -491,8 +497,11 @@ class OllamaAILLM {
    */
   async getModelCapabilities() {
     try {
-      const { capabilities = [] } = await this.client.show({
+      const { capabilities = [] } = await ollamaShowWithCloudFallback({
+        localClient: this.client,
         model: this.model,
+        applyFetch: OllamaAILLM.applyOllamaFetch,
+        log: (text) => this.#log(text),
       });
       return {
         tools: capabilities.includes("tools") ? true : false,
@@ -501,7 +510,9 @@ class OllamaAILLM {
         vision: capabilities.includes("vision") ? true : false,
       };
     } catch (error) {
-      console.error("Error getting model capabilities:", error);
+      this.#log(
+        `Model capabilities unavailable (${error?.message || error}); using defaults`
+      );
       return {
         tools: "unknown",
         reasoning: "unknown",
