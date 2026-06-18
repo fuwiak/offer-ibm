@@ -1,9 +1,13 @@
 const { Ollama } = require("ollama");
 
 function ollamaCloudFallbackEnabled() {
-  const flag = String(process.env.OLLAMA_CLOUD_FALLBACK ?? "1").trim().toLowerCase();
+  const flag = String(process.env.OLLAMA_CLOUD_FALLBACK ?? "1")
+    .trim()
+    .toLowerCase();
   if (flag === "0" || flag === "false" || flag === "no") return false;
-  return !!(process.env.OLLAMA_AUTH_TOKEN && String(process.env.OLLAMA_AUTH_TOKEN).trim());
+  return !!(
+    process.env.OLLAMA_AUTH_TOKEN && String(process.env.OLLAMA_AUTH_TOKEN).trim()
+  );
 }
 
 function ollamaCloudBasePath() {
@@ -46,14 +50,36 @@ function createOllamaCloudClient(applyFetch) {
   });
 }
 
+async function isLocalOllamaReachable(localClient) {
+  if (!localClient) return false;
+  try {
+    await localClient.list();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cloudChatOptions(options = {}) {
+  const cloudOptions = { ...options };
+  // Ollama Cloud chat API may reject native tool payloads — keep stream/text only.
+  delete cloudOptions.tools;
+  return cloudOptions;
+}
+
+async function* consumeChatStream(client, options, model) {
+  const stream = await client.chat({
+    ...options,
+    model: model || options.model,
+    stream: true,
+  });
+  for await (const chunk of stream) {
+    yield chunk;
+  }
+}
+
 /**
  * Run an Ollama API call locally; on reachability errors retry via Ollama Cloud.
- * @param {object} params
- * @param {import("ollama").Ollama} params.localClient
- * @param {string} [params.model]
- * @param {Function} params.request - (client, model?) => Promise<unknown>
- * @param {Function} [params.applyFetch]
- * @param {Function} [params.log]
  */
 async function ollamaRequestWithCloudFallback({
   localClient,
@@ -82,13 +108,9 @@ async function ollamaRequestWithCloudFallback({
 }
 
 /**
- * Run a local Ollama chat request; on reachability errors retry via Ollama Cloud.
- * @param {object} params
- * @param {import("ollama").Ollama} params.localClient
- * @param {string} params.model
- * @param {object} params.options - arguments for client.chat()
- * @param {Function} [params.applyFetch]
- * @param {Function} [params.log]
+ * Chat with cloud fallback. Streaming requests wrap the async iterator so
+ * connection errors on the first chunk still trigger cloud retry (Ollama returns
+ * the generator before the HTTP connection completes).
  */
 async function ollamaChatWithCloudFallback({
   localClient,
@@ -97,14 +119,42 @@ async function ollamaChatWithCloudFallback({
   applyFetch,
   log,
 }) {
-  return ollamaRequestWithCloudFallback({
-    localClient,
-    model,
-    applyFetch,
-    log,
-    request: (client, resolvedModel) =>
-      client.chat({ ...options, model: resolvedModel || options.model }),
-  });
+  if (!options?.stream) {
+    return ollamaRequestWithCloudFallback({
+      localClient,
+      model,
+      applyFetch,
+      log,
+      request: (client, resolvedModel) =>
+        client.chat({ ...options, model: resolvedModel || options.model }),
+    });
+  }
+
+  async function* streamWithFallback() {
+    try {
+      yield* consumeChatStream(localClient, options, model);
+    } catch (error) {
+      if (!ollamaCloudFallbackEnabled() || !isOllamaReachabilityError(error)) {
+        throw error;
+      }
+
+      const cloudClient = createOllamaCloudClient(applyFetch);
+      if (!cloudClient) throw error;
+
+      const cloudModel = ollamaCloudModel(model);
+      log?.(
+        `Local Ollama unavailable (${error.message}); falling back to Ollama Cloud (${cloudModel})`
+      );
+
+      yield* consumeChatStream(
+        cloudClient,
+        cloudChatOptions(options),
+        cloudModel
+      );
+    }
+  }
+
+  return streamWithFallback();
 }
 
 async function ollamaListWithCloudFallback({
@@ -142,6 +192,7 @@ module.exports = {
   ollamaCloudBasePath,
   ollamaCloudModel,
   isOllamaReachabilityError,
+  isLocalOllamaReachable,
   createOllamaCloudClient,
   ollamaRequestWithCloudFallback,
   ollamaChatWithCloudFallback,

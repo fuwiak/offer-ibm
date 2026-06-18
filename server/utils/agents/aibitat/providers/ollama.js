@@ -4,6 +4,10 @@ const UnTooled = require("./helpers/untooled.js");
 const { formatFunctionsToTools } = require("./helpers/tooled.js");
 const { OllamaAILLM } = require("../../../AiProviders/ollama");
 const { ollamaChatWithCloudFallback } = require("../../../AiProviders/ollama/cloudFallback");
+const {
+  isLocalOllamaReachable,
+  isOllamaReachabilityError,
+} = require("../../../AiProviders/ollama/cloudFallback");
 const { Ollama } = require("ollama");
 const { v4 } = require("uuid");
 const { safeJsonParse } = require("../../../http");
@@ -48,6 +52,13 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
    */
   async supportsNativeToolCalling() {
     if (this._supportsToolCalling !== null) return this._supportsToolCalling;
+
+    const localOk = await isLocalOllamaReachable(this.client);
+    if (!localOk) {
+      this._supportsToolCalling = false;
+      return false;
+    }
+
     const ollama = new OllamaAILLM(null, this.model);
     const capabilities = await ollama.getModelCapabilities();
     this._supportsToolCalling = capabilities.tools === true;
@@ -308,6 +319,26 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
       this.providerLog(
         "OllamaProvider.stream (tooled) - will process this chat completion."
       );
+      try {
+        return await this.#streamNativeTools(messages, functions, eventHandler);
+      } catch (error) {
+        const msg = String(error?.message || error);
+        if (
+          !isOllamaReachabilityError(error) &&
+          !msg.toLowerCase().includes("fetch failed")
+        ) {
+          throw error;
+        }
+        this.providerLog(
+          `Native tool stream failed (${msg}); falling back to UnTooled.`
+        );
+      }
+    }
+
+    return this.#streamUntooled(messages, functions, eventHandler);
+  }
+
+  async #streamNativeTools(messages, functions, eventHandler) {
       this.resetUsage();
       await OllamaAILLM.cacheContextWindows();
       const msgUUID = v4();
@@ -375,8 +406,9 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
       }
 
       return { textResponse, functionCall: null, cost: 0, uuid: msgUUID };
-    }
+  }
 
+  async #streamUntooled(messages, functions, eventHandler) {
     // Fallback: UnTooled prompt-based approach via the native Ollama SDK
     this.providerLog(
       "OllamaProvider.stream - will process this chat completion."
