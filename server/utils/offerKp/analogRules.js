@@ -134,9 +134,7 @@ function findRuleForStandard(stdNum) {
 
 function getEquivalentStandards(stdNum) {
   const n = String(stdNum);
-  const rule = ANALOG_RULES.find(
-    (r) => r.din === n || r.analogs.includes(n)
-  );
+  const rule = ANALOG_RULES.find((r) => r.din === n || r.analogs.includes(n));
   if (!rule) return [n];
   return [rule.din, ...rule.analogs];
 }
@@ -148,13 +146,21 @@ function classifyProductMatch(requestText, product) {
   const pin = extractPinDimensions(requestText);
   const stockCount = Number(product.stockCount ?? product.count ?? 0);
 
-  if (/кг|kg|метр|meter|m\b|упак|pack|л\s/i.test(requestText)) {
-    return { matchType: "needs_review", status: STATUS.NEEDS_REVIEW, analogOf: null };
+  if (/кг|kg|метр|meter|\bm\b|упак|pack|л\s|литр/i.test(requestText)) {
+    return {
+      matchType: "needs_review",
+      status: STATUS.NEEDS_REVIEW,
+      analogOf: null,
+    };
   }
 
   if (!requestedStandards.length) {
     if (stockCount > 0) {
-      return { matchType: "similar", status: STATUS.NEEDS_REVIEW, analogOf: null };
+      return {
+        matchType: "similar",
+        status: STATUS.NEEDS_REVIEW,
+        analogOf: null,
+      };
     }
     return { matchType: "none", status: STATUS.OUT_OF_STOCK, analogOf: null };
   }
@@ -196,10 +202,15 @@ function classifyProductMatch(requestText, product) {
   }
 
   if (thread && !threadMatchesExact(nameNorm, thread)) {
-    const partialThread = nameNorm.includes(`m ${thread.size}`) ||
+    const partialThread =
+      nameNorm.includes(`m ${thread.size}`) ||
       nameNorm.includes(`m${thread.size}`);
     if (partialThread) {
-      return { matchType: "size_mismatch", status: STATUS.ON_ORDER, analogOf: null };
+      return {
+        matchType: "size_mismatch",
+        status: STATUS.ON_ORDER,
+        analogOf: null,
+      };
     }
   }
 
