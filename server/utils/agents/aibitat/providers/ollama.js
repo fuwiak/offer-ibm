@@ -3,6 +3,7 @@ const InheritMultiple = require("./helpers/classes.js");
 const UnTooled = require("./helpers/untooled.js");
 const { formatFunctionsToTools } = require("./helpers/tooled.js");
 const { OllamaAILLM } = require("../../../AiProviders/ollama");
+const { ollamaChatWithCloudFallback } = require("../../../AiProviders/ollama/cloudFallback");
 const { Ollama } = require("ollama");
 const { v4 } = require("uuid");
 const { safeJsonParse } = require("../../../http");
@@ -62,6 +63,16 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
     };
   }
 
+  async #chatWithFallback(options) {
+    return ollamaChatWithCloudFallback({
+      localClient: this.client,
+      model: this.model,
+      options,
+      applyFetch: OllamaAILLM.applyOllamaFetch,
+      log: (text) => this.providerLog(text),
+    });
+  }
+
   /**
    * Handle a chat completion with tool calling
    *
@@ -70,7 +81,7 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
    */
   async #handleFunctionCallChat({ messages = [] }) {
     await OllamaAILLM.cacheContextWindows();
-    const response = await this.client.chat({
+    const response = await this.#chatWithFallback({
       model: this.model,
       messages,
       options: this.queryOptions,
@@ -80,7 +91,7 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
 
   async #handleFunctionCallStream({ messages = [] }) {
     await OllamaAILLM.cacheContextWindows();
-    return await this.client.chat({
+    return await this.#chatWithFallback({
       model: this.model,
       messages,
       stream: true,
@@ -303,7 +314,7 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
       const formattedMessages = this.#formatMessagesForOllamaTools(messages);
       const tools = formatFunctionsToTools(functions);
 
-      const stream = await this.client.chat({
+      const stream = await this.#chatWithFallback({
         model: this.model,
         messages: formattedMessages,
         tools,
@@ -499,7 +510,7 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
       const formattedMessages = this.#formatMessagesForOllamaTools(messages);
       const tools = formatFunctionsToTools(functions);
 
-      const response = await this.client.chat({
+      const response = await this.#chatWithFallback({
         model: this.model,
         messages: formattedMessages,
         tools,

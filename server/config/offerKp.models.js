@@ -42,10 +42,17 @@ function filterOfferKpModels(models = []) {
   return models.filter((m) => isOfferKpAllowedModel(m.id || m));
 }
 
+function resolveOfferKpModel(modelId) {
+  const id = String(modelId || "").trim();
+  if (isOfferKpAllowedModel(id)) return id;
+  return OFFER_KP_DEFAULT_MODEL;
+}
+
 module.exports = {
   OFFER_KP_ALLOWED_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   OFFER_KP_ALLOWED_MODEL_IDS,
   isOfferKpAllowedModel,
   filterOfferKpModels,
+  resolveOfferKpModel,
 };

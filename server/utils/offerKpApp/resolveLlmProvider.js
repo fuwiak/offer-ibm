@@ -1,40 +1,41 @@
 const llmDefaults = require("../../config/offerKp.llm.defaults");
-const { OFFER_KP_DEFAULT_MODEL } = require("../../config/offerKp.models");
+const {
+  OFFER_KP_DEFAULT_MODEL,
+  resolveOfferKpModel,
+} = require("../../config/offerKp.models");
+
+function ensureOllamaBasePath() {
+  if (
+    process.env.OLLAMA_BASE_PATH &&
+    String(process.env.OLLAMA_BASE_PATH).trim()
+  ) {
+    return process.env.OLLAMA_BASE_PATH;
+  }
+  process.env.OLLAMA_BASE_PATH =
+    llmDefaults.OLLAMA_BASE_PATH || "http://212.41.6.162:11434";
+  return process.env.OLLAMA_BASE_PATH;
+}
 
 /**
  * Resolve system/workspace LLM provider and model for offer-kp.
+ * Agents and chat always use Ollama with an allowed local model id.
  * @param {{ provider?: string|null, model?: string|null }} params
- * @returns {{ provider: string, model: string|null }}
+ * @returns {{ provider: string, model: string }}
  */
 function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
-  const resolvedProvider =
-    provider ||
-    process.env.LLM_PROVIDER ||
-    llmDefaults.LLM_PROVIDER ||
-    "ollama";
+  ensureOllamaBasePath();
 
-  if (resolvedProvider === "ollama") {
-    return {
-      provider: "ollama",
-      model:
-        model ||
-        process.env.OLLAMA_MODEL_PREF ||
-        llmDefaults.OLLAMA_MODEL_PREF ||
-        OFFER_KP_DEFAULT_MODEL,
-    };
-  }
+  const resolvedModel = resolveOfferKpModel(
+    model ||
+      process.env.OLLAMA_MODEL_PREF ||
+      llmDefaults.OLLAMA_MODEL_PREF ||
+      OFFER_KP_DEFAULT_MODEL
+  );
 
-  if (resolvedProvider === "openrouter") {
-    let resolvedModel =
-      model ||
-      process.env.OPENROUTER_MODEL_PREF ||
-      llmDefaults.OPENROUTER_MODEL_PREF ||
-      "openrouter/auto";
-    if (!String(resolvedModel).trim()) resolvedModel = "openrouter/auto";
-    return { provider: "openrouter", model: resolvedModel };
-  }
-
-  return { provider: resolvedProvider, model: model || null };
+  return {
+    provider: "ollama",
+    model: resolvedModel,
+  };
 }
 
-module.exports = { resolveLlmProviderAndModel };
+module.exports = { resolveLlmProviderAndModel, ensureOllamaBasePath };

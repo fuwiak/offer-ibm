@@ -213,24 +213,19 @@ const Workspace = {
       additionalFields.openAiPrompt = defaultSystemPrompt.value;
     else additionalFields.openAiPrompt = this.defaultPrompt;
 
-    const {
-      resolveAnthropicApiKey,
-      normalizeAnthropicModelId,
-    } = require("../utils/offerKpApp/anthropicEnv");
     const llmDefaults = require("../config/offerKp.llm.defaults");
-    if (resolveAnthropicApiKey()) {
-      const defaultModel = normalizeAnthropicModelId(
-        llmDefaults.ANTHROPIC_MODEL_PREF
-      );
-      additionalFields.chatProvider =
-        additionalFields.chatProvider || "anthropic";
-      additionalFields.agentProvider =
-        additionalFields.agentProvider || "anthropic";
-      additionalFields.chatModel =
-        additionalFields.chatModel || defaultModel;
-      additionalFields.agentModel =
-        additionalFields.agentModel || defaultModel;
-    }
+    const { resolveOfferKpModel } = require("../config/offerKp.models");
+    const defaultModel = resolveOfferKpModel(llmDefaults.OLLAMA_MODEL_PREF);
+    additionalFields.chatProvider =
+      additionalFields.chatProvider || "ollama";
+    additionalFields.agentProvider =
+      additionalFields.agentProvider || "ollama";
+    additionalFields.chatModel = resolveOfferKpModel(
+      additionalFields.chatModel || defaultModel
+    );
+    additionalFields.agentModel = resolveOfferKpModel(
+      additionalFields.agentModel || additionalFields.chatModel
+    );
 
     try {
       const workspace = await prisma.workspaces.create({
@@ -275,36 +270,24 @@ const Workspace = {
       validatedUpdates.chatModel = null;
     }
 
-    const {
-      resolveAnthropicApiKey,
-      normalizeAnthropicModelId,
-    } = require("../utils/offerKpApp/anthropicEnv");
-    if (resolveAnthropicApiKey()) {
-      if (
-        validatedUpdates.chatProvider &&
-        validatedUpdates.chatProvider !== "anthropic"
-      ) {
-        validatedUpdates.chatProvider = "anthropic";
-      }
-      if (validatedUpdates.agentProvider && validatedUpdates.agentProvider !== "anthropic") {
-        validatedUpdates.agentProvider = "anthropic";
-      }
-      if (validatedUpdates.chatModel) {
-        validatedUpdates.chatModel = normalizeAnthropicModelId(
-          validatedUpdates.chatModel
-        );
-      }
-      if (validatedUpdates.agentModel) {
-        validatedUpdates.agentModel = normalizeAnthropicModelId(
-          validatedUpdates.agentModel
-        );
-      }
-      if (validatedUpdates.chatModel && !validatedUpdates.chatProvider) {
-        validatedUpdates.chatProvider = "anthropic";
-      }
-      if (validatedUpdates.agentModel && !validatedUpdates.agentProvider) {
-        validatedUpdates.agentProvider = "anthropic";
-      }
+    const { resolveOfferKpModel } = require("../config/offerKp.models");
+    if (validatedUpdates.chatProvider && validatedUpdates.chatProvider !== "ollama") {
+      validatedUpdates.chatProvider = "ollama";
+    }
+    if (validatedUpdates.agentProvider && validatedUpdates.agentProvider !== "ollama") {
+      validatedUpdates.agentProvider = "ollama";
+    }
+    if (validatedUpdates.chatModel) {
+      validatedUpdates.chatModel = resolveOfferKpModel(validatedUpdates.chatModel);
+    }
+    if (validatedUpdates.agentModel) {
+      validatedUpdates.agentModel = resolveOfferKpModel(validatedUpdates.agentModel);
+    }
+    if (validatedUpdates.chatModel && !validatedUpdates.chatProvider) {
+      validatedUpdates.chatProvider = "ollama";
+    }
+    if (validatedUpdates.agentModel && !validatedUpdates.agentProvider) {
+      validatedUpdates.agentProvider = "ollama";
     }
 
     return this._update(id, validatedUpdates);
