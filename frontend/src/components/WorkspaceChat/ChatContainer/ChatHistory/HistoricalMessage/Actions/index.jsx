@@ -38,19 +38,18 @@ const Actions = ({
             className={`flex justify-start items-center gap-x-[8px] ${role === "user" ? "flex-row-reverse" : ""}`}
           >
             <CopyMessage message={message} />
+            {role !== "user" && isLastMessage && !isEditing && (
+              <RegenerateMessage
+                regenerateMessage={regenerateMessage}
+                chatId={chatId}
+              />
+            )}
             <EditMessageAction
               chatId={chatId}
               role={role}
               isEditing={isEditing}
             />
           </div>
-          {isLastMessage && !isEditing && (
-            <RegenerateMessage
-              regenerateMessage={regenerateMessage}
-              slug={slug}
-              chatId={chatId}
-            />
-          )}
           {chatId && role !== "user" && !isEditing && (
             <FeedbackButton
               isSelected={selectedFeedback === true}
