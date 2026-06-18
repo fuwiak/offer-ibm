@@ -1,4 +1,4 @@
-const prisma = require("../prisma");
+const prisma = require("../utils/prisma");
 
 const OfferKpCorrectionLog = {
   async log({
