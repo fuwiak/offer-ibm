@@ -1,4 +1,4 @@
-const prisma = require("../utils/prisma");
+const prisma = require("../prisma");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
 const {
   OFFER_KP_DEFAULT_MODEL,

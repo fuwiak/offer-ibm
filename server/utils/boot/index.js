@@ -53,6 +53,14 @@ function bootSSL(app, port = 3001) {
         new EncryptionManager();
         new BackgroundService().boot();
         await eagerLoadContextWindows();
+        try {
+          const {
+            normalizeOfferKpWorkspaceLlms,
+          } = require("../offerKpApp/normalizeWorkspaceLlms");
+          await normalizeOfferKpWorkspaceLlms();
+        } catch (e) {
+          console.error("[OFFER_KP-LLM] workspace normalize failed", e.message);
+        }
         await PushNotifications.setupPushNotificationService();
         await TelegramBotService.bootIfActive();
         await ensureCreateFilesSkillEnabled();

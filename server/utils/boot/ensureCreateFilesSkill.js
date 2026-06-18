@@ -9,17 +9,26 @@ const REQUIRED_SKILLS = ["create-files-agent"];
  */
 async function ensureCreateFilesSkillEnabled() {
   try {
-    const current = safeJsonParse(
-      await SystemSettings.getValueOrFallback({ label: "default_agent_skills" }, "[]"),
-      []
+    const raw = await SystemSettings.getValueOrFallback(
+      { label: "default_agent_skills" },
+      "[]"
     );
+    let current = [];
+    if (typeof raw === "string" && raw.length > 100_000) {
+      console.warn(
+        "[offerKp] default_agent_skills corrupt (too large), resetting to []"
+      );
+    } else {
+      current = safeJsonParse(raw, []);
+      if (!Array.isArray(current)) current = [];
+    }
 
     const missing = REQUIRED_SKILLS.filter((s) => !current.includes(s));
     if (missing.length === 0) return;
 
     const updated = [...new Set([...current, ...missing])];
     await SystemSettings.updateSettings({
-      default_agent_skills: JSON.stringify(updated),
+      default_agent_skills: updated,
     });
     console.log(
       `[offerKp] Enabled agent skills: ${missing.join(", ")}`

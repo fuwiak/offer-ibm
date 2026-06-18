@@ -168,8 +168,34 @@ const SystemSettings = {
     },
     default_agent_skills: (updates) => {
       try {
-        const skills = updates.split(",").filter((skill) => !!skill);
-        return JSON.stringify(skills);
+        if (Array.isArray(updates)) {
+          return JSON.stringify([...new Set(updates.map(String).filter(Boolean))]);
+        }
+
+        const raw = String(updates ?? "").trim();
+        if (!raw) return JSON.stringify([]);
+
+        if (raw.length > 100_000) {
+          console.warn(
+            "[SystemSettings] default_agent_skills value too large, resetting"
+          );
+          return JSON.stringify([]);
+        }
+
+        if (raw.startsWith("[")) {
+          const parsed = safeJsonParse(raw, []);
+          if (Array.isArray(parsed)) {
+            return JSON.stringify([
+              ...new Set(parsed.map(String).filter(Boolean)),
+            ]);
+          }
+        }
+
+        const skills = raw
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter(Boolean);
+        return JSON.stringify([...new Set(skills)]);
       } catch {
         console.error(`Could not validate agent skills.`);
         return JSON.stringify([]);
