@@ -81,25 +81,66 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
   };
 }
 
+async function loadChatHistoryForShopEnrich({
+  workspace = null,
+  userId = null,
+  threadId = null,
+  messageLimit = 10,
+} = {}) {
+  if (!workspace?.id) return [];
+  const { recentChatHistory } = require("../chats/index");
+  const { chatHistory } = await recentChatHistory({
+    user: userId ? { id: userId } : null,
+    workspace,
+    thread: threadId ? { id: threadId } : null,
+    messageLimit,
+  });
+  return chatHistory || [];
+}
+
 /**
  * Подставляет блоки каталога в текст сообщения (чат и агент).
  * @param {string} message
+ * @param {{ chatHistory?: object[], workspace?: object, userId?: number, threadId?: number, maxDocs?: number }} [options]
  * @returns {Promise<string>}
  */
-async function enrichUserPromptWithShopCatalog(message) {
+async function enrichUserPromptWithShopCatalog(message, options = {}) {
   const { shopDbEnrichEnabled, getShopDbContext } = require("./enrich");
-  if (!shopDbEnrichEnabled() || !String(message || "").trim()) {
-    return String(message || "").trim();
+  const trimmed = String(message || "").trim();
+  if (!shopDbEnrichEnabled() || !trimmed) {
+    return trimmed;
   }
+
+  let chatHistory = options.chatHistory || null;
+  if (!chatHistory?.length && options.workspace?.id) {
+    chatHistory = await loadChatHistoryForShopEnrich({
+      workspace: options.workspace,
+      userId: options.userId ?? null,
+      threadId: options.threadId ?? null,
+    });
+  }
+
   try {
-    const r = await getShopDbContext(message, { maxDocs: 5 });
+    const r = await getShopDbContext(trimmed, {
+      maxDocs: options.maxDocs || 5,
+      chatHistory,
+      workspace: options.workspace || null,
+    });
     const blocks = (r?.contextTexts || []).filter(isCatalogBlock);
-    if (!blocks.length) return String(message || "").trim();
-    return mergeCatalogIntoUserPrompt(message, blocks);
+    if (!blocks.length) {
+      if (r?.flags?.shopDbError || r?.flags?.shopDbTimeout) {
+        shopDbLog.warn("agent/chat catalog not injected", {
+          shopDbError: !!r?.flags?.shopDbError,
+          shopDbTimeout: !!r?.flags?.shopDbTimeout,
+          shopDbMessage: r?.flags?.shopDbMessage || undefined,
+        });
+      }
+      return trimmed;
+    }
+    return mergeCatalogIntoUserPrompt(trimmed, blocks);
   } catch (e) {
-    const shopDbLog = require("./shopDbLog");
     shopDbLog.enrichError(e, { phase: "enrichUserPromptWithShopCatalog" });
-    return String(message || "").trim();
+    return trimmed;
   }
 }
 
@@ -112,4 +153,5 @@ module.exports = {
   mergeCatalogIntoUserPrompt,
   applyExternalContextsForLlm,
   enrichUserPromptWithShopCatalog,
+  loadChatHistoryForShopEnrich,
 };

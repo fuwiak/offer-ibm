@@ -68,9 +68,11 @@ async function grepAgents({
   attachments = [],
 }) {
   const { shopDbEnrichEnabled } = require("../offerKp/enrich");
-  // КП с каталогом MySQL: stream + auto PDF/DOCX (не агент с rag-memory без цен)
+  const { isCatalogRelayRequest } = require("../offerKp/productSearchAgent");
+  // КП и запросы «передай каталог» — stream с MySQL enrich, не агент без цен
   const routeKpViaCatalogStream =
-    shopDbEnrichEnabled() && wantsFileCreation(message);
+    shopDbEnrichEnabled() &&
+    (wantsFileCreation(message) || isCatalogRelayRequest(message));
 
   let nativeToolingEnabled = false;
 

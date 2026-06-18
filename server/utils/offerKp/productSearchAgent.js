@@ -107,29 +107,68 @@ function isSkuOnlyQuery(message, skuCodes = []) {
   return stripped.length <= 2;
 }
 
-function findPriorHardwareMessage(history) {
+const CATALOG_RELAY_RE =
+  /(?:передай|предоставь|пришли|выведи|show|provide|send).{0,48}(?:\[?\s*каталог|catalog\s*block)/i;
+
+function isUserHistoryEntry(entry) {
+  const role = String(entry?.role || entry?.type || entry?.from || "")
+    .trim()
+    .toLowerCase();
+  if (!role) return true;
+  return ["user", "human"].includes(role);
+}
+
+function isCatalogRelayRequest(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (CATALOG_RELAY_RE.test(t)) return true;
+  if (/\[каталог\s*·/i.test(t) && t.length <= 160) return true;
+  return false;
+}
+
+function isOfferFollowUp(text) {
+  const t = String(text || "").trim();
+  if (!t || hasHardwareSignals(t)) return false;
+  return (
+    /коммерческ|оферт|\bкп\b|предложен/i.test(t) ||
+    /ofert|propozycj/i.test(t)
+  );
+}
+
+function collectPriorHardwareContext(history, maxMessages = 5) {
   const list = Array.isArray(history) ? history : [];
-  for (let i = list.length - 1; i >= 0; i--) {
+  const parts = [];
+
+  for (let i = list.length - 1; i >= 0 && parts.length < maxMessages; i--) {
     const entry = list[i];
-    const role = String(entry?.role || entry?.type || "").toLowerCase();
-    if (role && !["user", "human"].includes(role)) continue;
+    if (!isUserHistoryEntry(entry)) continue;
     const content = historyMessageText(entry);
-    if (!content) continue;
-    if (hasHardwareSignals(content) || content.length >= 20) return content;
+    if (!content || content === parts.join("\n")) continue;
+    if (isCatalogRelayRequest(content) && !hasHardwareSignals(content)) continue;
+    if (hasHardwareSignals(content) || content.length >= 24) {
+      parts.unshift(content);
+    }
   }
-  return "";
+
+  return parts.join("\n");
 }
 
 /**
- * Текст для поиска: текущее сообщение + контекст из истории (цена, артикул).
+ * Текст для поиска: текущее сообщение + контекст из истории (цена, артикул, КП).
  */
 function buildProductSearchText(message, options = {}) {
   let text = String(message || "").trim();
   const history = options.chatHistory || options.history || [];
   const skuCodes = extractSkuCodes(text);
 
-  if (isPriceOnlyQuery(text) || (skuCodes.length && isSkuOnlyQuery(text, skuCodes))) {
-    const prior = findPriorHardwareMessage(history);
+  const needsHistory =
+    isPriceOnlyQuery(text) ||
+    (skuCodes.length && isSkuOnlyQuery(text, skuCodes)) ||
+    isCatalogRelayRequest(text) ||
+    isOfferFollowUp(text);
+
+  if (needsHistory) {
+    const prior = collectPriorHardwareContext(history);
     if (prior && prior !== text) {
       text = `${prior}\n${text}`;
     }
@@ -357,7 +396,10 @@ async function runProductSearchAgent({
 
 module.exports = {
   buildProductSearchText,
+  collectPriorHardwareContext,
   extractSkuCodes,
+  isCatalogRelayRequest,
+  isOfferFollowUp,
   isSkuOnlyQuery,
   hasHardwareSignals,
   searchByExactSku,

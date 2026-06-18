@@ -5,6 +5,7 @@ const {
   isSkuOnlyQuery,
   buildProductSearchText,
   hasHardwareSignals,
+  isCatalogRelayRequest,
 } = require("../../../utils/offerKp/productSearchAgent");
 const { parseHardwareQuery } = require("../../../utils/offerKp/hardwareQuery");
 
@@ -66,5 +67,27 @@ describe("productSearchAgent query parsing", () => {
       hasHardwareSignals("Сталь шпоночная ГОСТ 8787-68 30x30x1000")
     ).toBe(true);
     expect(hasHardwareSignals("hello world")).toBe(false);
+  });
+
+  it("detects catalog relay requests", () => {
+    expect(
+      isCatalogRelayRequest("тогда передай [Каталог · purolat.com]")
+    ).toBe(true);
+    expect(isCatalogRelayRequest("какая цена?")).toBe(false);
+  });
+
+  it("merges prior hardware messages for catalog relay follow-up", () => {
+    const history = [
+      {
+        role: "user",
+        content:
+          "DIN 931 M10×50 8.8 цинк, DIN 934 M10 цинк, DIN 933 M8×30 8.8 цинк",
+      },
+    ];
+    const text = buildProductSearchText("тогда передай [Каталог · purolat.com]", {
+      history,
+    });
+    expect(text).toContain("DIN 931");
+    expect(text).toContain("DIN 934");
   });
 });
