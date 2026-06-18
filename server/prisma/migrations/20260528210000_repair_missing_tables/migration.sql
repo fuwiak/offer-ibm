@@ -53,3 +53,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS "offerKp_quotes_reference_key" ON "offerKp_quo
 CREATE INDEX IF NOT EXISTS "offerKp_quote_lines_quoteId_idx" ON "offerKp_quote_lines"("quoteId");
 CREATE UNIQUE INDEX IF NOT EXISTS "offerKp_share_links_token_key" ON "offerKp_share_links"("token");
 CREATE INDEX IF NOT EXISTS "offerKp_share_links_quoteId_idx" ON "offerKp_share_links"("quoteId");
+
+CREATE TABLE IF NOT EXISTS "offerKp_line_corrections" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "userId" INTEGER,
+    "threadSlug" TEXT,
+    "quoteReference" TEXT,
+    "lineIndex" INTEGER,
+    "field" TEXT NOT NULL,
+    "oldValue" TEXT,
+    "newValue" TEXT,
+    "aiSuggestion" TEXT,
+    "inquiryRaw" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "offerKp_line_corrections_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "offerKp_line_corrections_userId_idx" ON "offerKp_line_corrections"("userId");
+CREATE INDEX IF NOT EXISTS "offerKp_line_corrections_threadSlug_idx" ON "offerKp_line_corrections"("threadSlug");
+CREATE INDEX IF NOT EXISTS "offerKp_line_corrections_createdAt_idx" ON "offerKp_line_corrections"("createdAt");

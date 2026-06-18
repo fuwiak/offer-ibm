@@ -80,6 +80,42 @@ const OfferKp = {
     });
   },
 
+  async generateQuoteXlsx(quoteData) {
+    return offerKpFetch(`${API_BASE}/offerKp/quotes/xlsx`, {
+      method: "POST",
+      body: JSON.stringify(quoteData),
+    });
+  },
+
+  quoteXlsxDownloadUrl(storageFilename) {
+    return `${API_BASE}/offerKp/quotes/xlsx/${encodeURIComponent(storageFilename)}`;
+  },
+
+  async matchInquiry(message, chatHistory = []) {
+    return offerKpFetch(`${API_BASE}/offerKp/inquiry/match`, {
+      method: "POST",
+      body: JSON.stringify({ message, chatHistory }),
+    });
+  },
+
+  async searchProducts(query, limit = 10) {
+    return offerKpFetch(`${API_BASE}/offerKp/products/search`, {
+      method: "POST",
+      body: JSON.stringify({ query, limit }),
+    });
+  },
+
+  async logCorrections(corrections) {
+    return offerKpFetch(`${API_BASE}/offerKp/corrections`, {
+      method: "POST",
+      body: JSON.stringify({ corrections }),
+    });
+  },
+
+  async listQuotes() {
+    return offerKpFetch(`${API_BASE}/offerKp/quotes`);
+  },
+
   quoteDocxDownloadUrl(storageFilename) {
     return `${API_BASE}/offerKp/quotes/docx/${encodeURIComponent(storageFilename)}`;
   },

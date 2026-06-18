@@ -10,6 +10,7 @@ const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { generateQuotePdf } = require("../offerKpApp/generateQuotePdf");
 const { generateDocxFromMarkdown } = require("../offerKpApp/docxFromMarkdown");
 const { QUOTE_BRAND, localeForCountry } = require("../offerKpApp/quoteBrand");
+const { matchInquiryToDraft } = require("./matchInquiryLines");
 
 function parseCatalogBlock(block = "") {
   const text = String(block || "").trim();
@@ -154,19 +155,50 @@ async function emitAutoQuoteArtifacts({
   uuid,
   message,
   catalogBlocks = [],
+  workspace = null,
+  chatHistory = null,
 }) {
-  if (!wantsFileCreation(message)) return false;
+  if (!wantsFileCreation(message) && !hasInquirySignals(message)) return false;
+
+  let draft = null;
+  try {
+    draft = await matchInquiryToDraft(message, { workspace, chatHistory });
+  } catch (e) {
+    console.error("[offerKp] matchInquiryToDraft:", e.message);
+  }
+
   const products = (catalogBlocks || []).map(parseCatalogBlock).filter(Boolean);
-  if (!products.length) return false;
+  if (!draft?.lines?.length && !products.length) return false;
 
   const meta = parseQuoteMeta(message);
-  const lines = buildQuoteLinesFromCatalog(products.slice(0, 5), meta);
-  const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+  const lines = draft?.lines?.length
+    ? draft.lines.map((l) => ({
+        productName: l.name,
+        productNameRu: l.name,
+        article: l.article,
+        sku: l.article,
+        lengthMm: l.thread?.size ? Number(l.thread.size) : 0,
+        heightMm: l.thread?.length ? Number(l.thread.length) : 0,
+        quantity: l.quantity,
+        unitPrice: l.unitPriceNet || l.priceWithVat / 1.2,
+        priceWithVat: l.priceWithVat,
+        lineTotal: l.lineTotal,
+        weightKg: l.weightKg,
+        status: l.status,
+        analogOf: l.analogOf,
+        comment: l.comment,
+        alternatives: l.alternatives,
+        spec: l.analogOf || "Catalog",
+        productUrl: l.productUrl,
+      }))
+    : buildQuoteLinesFromCatalog(products.slice(0, 5), meta);
+
+  const subtotal = draft?.subtotal ?? lines.reduce((s, l) => s + l.lineTotal, 0);
   const shipping = 0;
   const total = subtotal + shipping;
   const { currency, vatRate } = localeForCountry(meta.customer.country);
   const vatAmount = Number((total * vatRate).toFixed(2));
-  const reference = generateQuoteReference({
+  const reference = draft?.reference || generateQuoteReference({
     prefix: QUOTE_BRAND.referencePrefix,
   });
 
@@ -244,20 +276,27 @@ async function emitAutoQuoteArtifacts({
     uuid,
     type: "offerKpQuotePanel",
     content: {
-      documentPanelView: "quotePreview",
+      documentPanelView: "draftTable",
       quoteDraft: {
         step: 3,
         reference,
         customer: meta.customer,
         priceMode: "public",
+        hardwareLines: draft?.lines || lines,
         lines: lines.map((l) => ({
-          productId: "catalog",
-          lengthMm: l.lengthMm,
-          heightMm: l.heightMm,
+          productId: l.article || "catalog",
+          lengthMm: l.lengthMm || 0,
+          heightMm: l.heightMm || 0,
           quantity: l.quantity,
         })),
         shipping,
-        preview: { lines, subtotal, shipping, total },
+        preview: {
+          lines,
+          subtotal,
+          shipping,
+          total,
+          totalWeightKg: draft?.totalWeightKg || 0,
+        },
       },
     },
     close: false,
@@ -267,9 +306,20 @@ async function emitAutoQuoteArtifacts({
   return true;
 }
 
+function hasInquirySignals(message) {
+  const m = String(message || "");
+  return (
+    /\bdin\s*\d{3}/i.test(m) ||
+    /\bgost\s*\d{4}/i.test(m) ||
+    /\bm\s*\d+\s*[x×]\s*\d+/i.test(m) ||
+    /коммерческ|кп\b|оферт/i.test(m)
+  );
+}
+
 module.exports = {
   parseCatalogBlock,
   parseQuoteMeta,
   buildMarkdownQuote,
   emitAutoQuoteArtifacts,
+  hasInquirySignals,
 };

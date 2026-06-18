@@ -21,7 +21,11 @@ const {
 } = require("../utils/helpers/chat/responses");
 const { generateQuotePdf } = require("../utils/offerKpApp/generateQuotePdf");
 const { generateQuoteDocx } = require("../utils/offerKpApp/generateQuoteDocx");
+const { generateQuoteXlsx } = require("../utils/offerKpApp/generateQuoteXlsx");
 const { generateDocxFromMarkdown } = require("../utils/offerKpApp/docxFromMarkdown");
+const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
+const { runProductSearchAgent } = require("../utils/offerKp/productSearchAgent");
+const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -468,6 +472,177 @@ function offerKpEndpoints(app) {
         fs.createReadStream(filePath).pipe(response);
       } catch (e) {
         console.error("[offerKp] DOCX download error:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/inquiry/match
+   * Сверка текста заявки с каталогом → черновик КП со статусами и аналогами.
+   */
+  app.post(
+    "/offerKp/inquiry/match",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const { message, chatHistory } = reqBody(request);
+        if (!message) {
+          return response.status(400).json({ error: "message is required" });
+        }
+        const draft = await matchInquiryToDraft(message, { chatHistory });
+        response.status(200).json({ draft });
+      } catch (e) {
+        console.error("[offerKp] inquiry match:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/products/search
+   * Поиск позиций в каталоге для ручного добавления в черновик.
+   */
+  app.post(
+    "/offerKp/products/search",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const { query: q, limit = 10 } = reqBody(request);
+        if (!q) return response.status(400).json({ error: "query is required" });
+        const result = await runProductSearchAgent({ message: q, limit });
+        response.status(200).json({
+          products: result.products,
+          strategies: result.strategies,
+        });
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/corrections
+   * Лог правок оператора для дообучения.
+   */
+  app.post(
+    "/offerKp/corrections",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        const body = reqBody(request);
+        const corrections = Array.isArray(body.corrections)
+          ? body.corrections
+          : [body];
+        const saved = await OfferKpCorrectionLog.logBatch(user.id, corrections);
+        response.status(200).json({ success: true, count: saved.length });
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * GET /offerKp/corrections/export
+   * Экспорт правок для fine-tuning.
+   */
+  app.get(
+    "/offerKp/corrections/export",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user?.role !== "admin") {
+          return response.status(403).json({ error: "Admin access required." });
+        }
+        const data = await OfferKpCorrectionLog.exportTrainingJson();
+        response.status(200).json({ corrections: data });
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/quotes/xlsx
+   * Экспорт КП в XLSX для 1С.
+   */
+  app.post(
+    "/offerKp/quotes/xlsx",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user.role === "supplier") {
+          return response.status(403).json({ error: "Access denied." });
+        }
+        const body = reqBody(request);
+        let quoteData = body;
+        if (body.reference && !body.lines) {
+          const dbQuote = await OfferKpQuote.getByReferenceForRole(
+            body.reference,
+            user.role
+          );
+          if (!dbQuote)
+            return response.status(404).json({ error: "Quote not found" });
+          const formatted = OfferKpQuote.formatForClient(dbQuote, (q) => q, {
+            role: user.role,
+          });
+          quoteData = { ...formatted, lines: formatted.preview?.lines || [] };
+        }
+        const result = await generateQuoteXlsx(quoteData);
+        response.status(200).json({
+          filename: result.filename,
+          storageFilename: result.storageFilename,
+          fileSize: result.fileSize,
+        });
+      } catch (e) {
+        console.error("[offerKp] XLSX generation error:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * GET /offerKp/quotes/xlsx/:filename
+   */
+  app.get(
+    "/offerKp/quotes/xlsx/:filename",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        if (user.role === "supplier") {
+          return response.status(403).json({ error: "Access denied." });
+        }
+        const { filename } = request.params;
+        if (!filename || !filename.endsWith(".xlsx")) {
+          return response.status(400).json({ error: "Invalid filename" });
+        }
+        const path = require("path");
+        const fs = require("fs");
+        const storageDir = path.join(
+          process.env.STORAGE_DIR || path.resolve(__dirname, "../storage"),
+          "generated-files"
+        );
+        const filePath = path.join(storageDir, filename);
+        if (!filePath.startsWith(storageDir)) {
+          return response.status(400).json({ error: "Invalid path" });
+        }
+        if (!fs.existsSync(filePath)) {
+          return response.status(404).json({ error: "File not found" });
+        }
+        response.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        response.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`
+        );
+        fs.createReadStream(filePath).pipe(response);
+      } catch (e) {
         response.status(500).json({ error: e.message });
       }
     }

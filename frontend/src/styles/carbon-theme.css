@@ -1041,6 +1041,37 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   margin-bottom: -1px;
 }
 
+.offerKp-draft-table {
+  border-collapse: collapse;
+}
+
+.offerKp-draft-table th,
+.offerKp-draft-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--theme-sidebar-border);
+  vertical-align: top;
+}
+
+.offerKp-draft-table th {
+  position: sticky;
+  top: 0;
+  background: var(--theme-bg-secondary);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.offerKp-draft-table tfoot td {
+  border-top: 2px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-secondary);
+}
+
+.offerKp-status--ok { background: #defbe6; color: #198038; }
+.offerKp-status--analog { background: #edf5ff; color: #0043ce; }
+.offerKp-status--order { background: #fff8e1; color: #b28600; }
+.offerKp-status--none { background: #fff1f1; color: #da1e28; }
+.offerKp-status--review { background: #f4f4f4; color: #525252; }
+
 .offerKp-btn-primary-block {
   display: flex;
   align-items: center;

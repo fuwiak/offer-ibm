@@ -87,6 +87,7 @@ model users {
   desktop_mobile_devices       desktop_mobile_devices[]
   workspace_parsed_files       workspace_parsed_files[]
   offerKp_quotes                offerKp_quotes[]
+  offerKp_line_corrections      offerKp_line_corrections[]
 }
 
 model recovery_codes {
@@ -482,4 +483,23 @@ model offerKp_share_links {
   quote     offerKp_quotes @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@index([quoteId])
+}
+
+model offerKp_line_corrections {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  threadSlug     String?
+  quoteReference String?
+  lineIndex      Int?
+  field          String
+  oldValue       String?
+  newValue       String?
+  aiSuggestion   String?
+  inquiryRaw     String?
+  createdAt      DateTime @default(now())
+  user           users?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([threadSlug])
+  @@index([createdAt])
 }

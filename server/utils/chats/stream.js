@@ -370,6 +370,8 @@ async function streamChatWithWorkspace(
         uuid,
         message: updatedMessage,
         catalogBlocks: llmCatalog.catalogBlocks || [],
+        workspace,
+        chatHistory: rawHistory,
       });
     } catch (e) {
       console.error("[offerKp] auto quote artifacts:", e?.message || e);

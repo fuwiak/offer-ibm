@@ -1,5 +1,13 @@
 import { calculateQuote, generateQuoteReference } from "./pricing";
 
+export const OFFER_KP_QUOTE_STATUSES = [
+  "В наличии",
+  "Аналог",
+  "Под заказ",
+  "Нет в наличии",
+  "Требует проверки",
+];
+
 export const QUOTE_STEPS = [
   "product",
   "dimensions",

@@ -24,6 +24,8 @@ const ACCEPTED_MIMES = {
 
   "application/pdf": [".pdf"],
   "application/mbox": [".mbox"],
+  "message/rfc822": [".eml"],
+  "application/vnd.ms-outlook": [".eml"],
 
   "audio/wav": [".wav"],
   "audio/mpeg": [".mp3"],
@@ -66,6 +68,7 @@ const SUPPORTED_FILETYPE_CONVERTERS = {
   ".xlsx": "./convert/asXlsx.js",
 
   ".mbox": "./convert/asMbox.js",
+  ".eml": "./convert/asEml.js",
 
   ".epub": "./convert/asEPub.js",
 

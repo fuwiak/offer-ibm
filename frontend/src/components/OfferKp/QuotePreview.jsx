@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
-import { FilePdf, FileDoc, CircleNotch } from "@phosphor-icons/react";
+import { FilePdf, FileDoc, FileXls, CircleNotch } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
@@ -72,11 +72,15 @@ export default function QuotePreview() {
       const result =
         kind === "pdf"
           ? await OfferKp.generateQuotePdf(payload)
-          : await OfferKp.generateQuoteDocx(payload);
+          : kind === "xlsx"
+            ? await OfferKp.generateQuoteXlsx(payload)
+            : await OfferKp.generateQuoteDocx(payload);
       const url =
         kind === "pdf"
           ? OfferKp.quotePdfDownloadUrl(result.storageFilename)
-          : OfferKp.quoteDocxDownloadUrl(result.storageFilename);
+          : kind === "xlsx"
+            ? OfferKp.quoteXlsxDownloadUrl(result.storageFilename)
+            : OfferKp.quoteDocxDownloadUrl(result.storageFilename);
       const token = window.localStorage.getItem(AUTH_TOKEN) || "";
       const res = await fetch(url, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
@@ -112,6 +116,19 @@ export default function QuotePreview() {
               <FilePdf size={12} weight="bold" />
             )}
             PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => download("xlsx")}
+            disabled={!!busy}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {busy === "xlsx" ? (
+              <CircleNotch size={12} weight="bold" className="animate-spin" />
+            ) : (
+              <FileXls size={12} weight="bold" />
+            )}
+            XLSX
           </button>
           <button
             type="button"

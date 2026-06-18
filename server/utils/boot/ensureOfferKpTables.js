@@ -21,6 +21,7 @@ async function ensureOfferKpTables() {
       "offerKp_quotes",
       "offerKp_quote_lines",
       "offerKp_share_links",
+      "offerKp_line_corrections",
     ];
 
     const missing = [];

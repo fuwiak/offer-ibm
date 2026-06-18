@@ -22,6 +22,7 @@ import OfferKpThreadPanelSection from "@/components/OfferKp/OfferKpThreadPanelSe
 import ExamplePromptsPanel from "@/components/OfferKp/ExamplePromptsPanel";
 import QuoteStepper from "@/components/OfferKp/QuoteStepper";
 import QuotePreview from "@/components/OfferKp/QuotePreview";
+import QuoteDraftTable from "@/components/OfferKp/QuoteDraftTable";
 import DocPreviewPane from "@/components/OfferKp/DocPreviewPane";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
@@ -275,13 +276,20 @@ export default function DocumentPanel() {
   }
 
   const showQuoteBuilder = documentPanelView === "builder";
+  const showDraftTable =
+    documentPanelView === "draftTable" &&
+    (quoteDraft?.hardwareLines?.length > 0 || quoteDraft?.preview?.lines?.length > 0);
   const showPdfPreview = documentPanelView === "pdf" && quotePdfUrl;
   const showQuotePreview =
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
   const showDocPreview = documentPanelView === "doc" && !!docPreview?.markdown;
   const hasFilePreview = showPdfPreview || showDocPreview;
   const hasQuotePanel =
-    showQuoteBuilder || showPdfPreview || showQuotePreview || showDocPreview;
+    showQuoteBuilder ||
+    showDraftTable ||
+    showPdfPreview ||
+    showQuotePreview ||
+    showDocPreview;
   const shouldRenderPanel = isHome || showAdminThreadContext || hasQuotePanel;
 
   useEffect(() => {
@@ -294,6 +302,7 @@ export default function DocumentPanel() {
     if (documentPanelView === "doc" && showDocPreview) return;
     if (documentPanelView !== "docs") return;
     if (showDocPreview) setDocumentPanelView("doc");
+    else if (showDraftTable) setDocumentPanelView("draftTable");
     else if (showQuoteBuilder) setDocumentPanelView("builder");
     else if (showPdfPreview) setDocumentPanelView("pdf");
   }, [
@@ -341,6 +350,15 @@ export default function DocumentPanel() {
               className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.tabQuote")}
+            </button>
+          )}
+          {quoteDraft?.hardwareLines?.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDocumentPanelView("draftTable")}
+              className={`offerKp-doc-tab ${documentPanelView === "draftTable" ? "offerKp-doc-tab--active" : ""}`}
+            >
+              {t("layout.tabCrossSection")}
             </button>
           )}
           {quoteDraft?.preview && (
@@ -403,6 +421,8 @@ export default function DocumentPanel() {
             );
           }}
         />
+      ) : showDraftTable ? (
+        <QuoteDraftTable />
       ) : showQuotePreview ? (
         <QuotePreview />
       ) : showQuoteBuilder && documentPanelView === "builder" ? (
