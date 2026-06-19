@@ -41,6 +41,7 @@ import useUser from "@/hooks/useUser";
 import TextSizeMenu from "./TextSizeMenu";
 import WorkspaceModelPicker from "./WorkspaceModelPicker";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
+import OfferKpHomeThreadHistory from "@/components/OfferKp/OfferKpHomeThreadHistory";
 import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
 import SourcesSidebar, { SourcesSidebarProvider } from "./SourcesSidebar";
 
@@ -469,15 +470,21 @@ export default function ChatContainer({
                 }
               />
               {offerKpMode ? (
-                <OfferKpQuickActions
-                  onAction={(key) =>
-                    handleOfferKpQuickActionKey(key, {
-                      navigate,
-                      offerKp,
-                      sendCommand,
-                    })
-                  }
-                />
+                <>
+                  <OfferKpHomeThreadHistory
+                    workspace={workspace}
+                    activeThreadSlug={threadSlug}
+                  />
+                  <OfferKpQuickActions
+                    onAction={(key) =>
+                      handleOfferKpQuickActionKey(key, {
+                        navigate,
+                        offerKp,
+                        sendCommand,
+                      })
+                    }
+                  />
+                </>
               ) : (
                 <QuickActions
                   hasAvailableWorkspace={!!workspace}

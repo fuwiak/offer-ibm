@@ -14,7 +14,6 @@ import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { formatRelativeTimeAgo } from "@/utils/offerKp/threadMeta";
-import { startNewConversation } from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -281,10 +280,6 @@ export default function OfferKpHomeThreadHistory({
                   type="button"
                   className={`offerKp-home-thread-history__item flex-1${isActive ? " offerKp-home-thread-history__item--active" : ""}`}
                   onClick={() => {
-                    if (isActive) {
-                      startNewConversation(navigate);
-                      return;
-                    }
                     navigate(paths.offerKp.thread(workspace.slug, thread.slug));
                   }}
                 >

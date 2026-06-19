@@ -468,7 +468,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
             {showOfferKpHome && (
               <OfferKpHomeThreadHistory
                 workspace={workspace}
-                activeThreadSlug={threadSlug}
+                activeThreadSlug={threadSlug ?? offerKp.activeThreadSlug}
               />
             )}
             {showOfferKpHome ? (
