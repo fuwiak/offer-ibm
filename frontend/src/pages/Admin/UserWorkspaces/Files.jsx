@@ -23,18 +23,18 @@ export default function UserWorkspaceFilesPage() {
 
   return (
     <OfferKpSuiteLayout>
-      <h1 className="offerKp-suite-page-title">Manage files</h1>
-      <p className="text-sm text-theme-text-secondary mb-4">
-        {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace documents"}
-      </p>
-      <div className="mb-4">
+      <header className="offerKp-suite-page-header">
         <Link
           to={paths.settings.userWorkspaces()}
-          className="text-primary-button hover:underline text-sm"
+          className="offerKp-suite-back"
         >
-          Back to User Workspaces
+          ← Back to User Workspaces
         </Link>
-      </div>
+        <h1 className="offerKp-suite-page-title !mb-0">Manage files</h1>
+        <p className="offerKp-field-hint !mt-2">
+          {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace documents"}
+        </p>
+      </header>
       {loading || !workspace ? (
         <div className="text-sm text-theme-text-secondary">Loading…</div>
       ) : (

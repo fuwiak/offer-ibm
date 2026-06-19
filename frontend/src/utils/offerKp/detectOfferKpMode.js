@@ -13,8 +13,21 @@ const OFFER_KP_APP_PREFIXES = [
   "/chat",
 ];
 
+const OFFER_KP_SUITE_PREFIXES = [
+  "/settings/user-workspaces",
+  "/offerKp-dashboard",
+  "/supplier",
+];
+
 export function isOfferKpRoute(pathname = window.location.pathname) {
   if (pathname === "/" || pathname === "/bot" || pathname.startsWith("/bot/")) {
+    return true;
+  }
+  if (
+    OFFER_KP_SUITE_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`)
+    )
+  ) {
     return true;
   }
   return OFFER_KP_APP_PREFIXES.some(

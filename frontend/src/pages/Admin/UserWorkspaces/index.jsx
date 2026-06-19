@@ -734,29 +734,39 @@ export default function UserWorkspacesPage() {
   return (
     <OfferKpSuiteLayout>
       <div className="uw-macos-page">
-        <h1 className="offerKp-suite-page-title !mb-2">
-          {t("admin.nav.userWorkspaces", { defaultValue: "User Workspaces" })}
-        </h1>
-
-        <div className="uw-macos-toolbar">
-          <p className="uw-macos-toolbar__hint">
-            Select a workspace from the dock. Assign users per workspace; suspend applies only to that workspace.
-            {!loading && rows.length > 0 && (
-              <>
-                {" "}
-                · {rows.length}{" "}
-                {rows.length === 1 ? "workspace" : "workspaces"}
-              </>
-            )}
-          </p>
-          <button
-            type="button"
-            className="uw-macos-link-btn"
-            onClick={openWizard}
-          >
-            + New workspace
-          </button>
-        </div>
+        <header className="offerKp-suite-page-header">
+          <h1 className="offerKp-suite-page-title !mb-0">
+            {t("admin.nav.userWorkspaces", { defaultValue: "User Workspaces" })}
+          </h1>
+          <div className="offerKp-suite-page-header__row">
+            <p className="offerKp-field-hint !mt-0 flex-1 min-w-0">
+              {t("admin.userWorkspaces.hint", {
+                defaultValue:
+                  "Select a workspace below. Assign users per workspace; suspend applies only to that workspace.",
+              })}
+              {!loading && rows.length > 0 && (
+                <>
+                  {" "}
+                  · {rows.length}{" "}
+                  {rows.length === 1
+                    ? t("admin.userWorkspaces.workspaceOne", {
+                        defaultValue: "workspace",
+                      })
+                    : t("admin.userWorkspaces.workspaceMany", {
+                        defaultValue: "workspaces",
+                      })}
+                </>
+              )}
+            </p>
+            <button
+              type="button"
+              className="carbon-tertiary-btn shrink-0 px-4 py-2 min-h-[40px]"
+              onClick={openWizard}
+            >
+              + {t("admin.userWorkspaces.newWorkspace", { defaultValue: "New workspace" })}
+            </button>
+          </div>
+        </header>
 
         <div className="uw-macos-desktop">
           {loading ? (
@@ -777,18 +787,6 @@ export default function UserWorkspacesPage() {
           ) : (
             <article className="uw-macos-window">
               <header className="uw-macos-window__chrome">
-                <span
-                  className="uw-macos-window__dot uw-macos-window__dot--close"
-                  aria-hidden
-                />
-                <span
-                  className="uw-macos-window__dot uw-macos-window__dot--min"
-                  aria-hidden
-                />
-                <span
-                  className="uw-macos-window__dot uw-macos-window__dot--max"
-                  aria-hidden
-                />
                 <span className="uw-macos-window__title">
                   {selectedRow.ws.name}
                 </span>

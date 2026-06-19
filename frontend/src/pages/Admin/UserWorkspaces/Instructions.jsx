@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import OfferKpSuiteLayout from "@/layouts/OfferKpSuiteLayout";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
@@ -7,6 +8,7 @@ import showToast from "@/utils/toast";
 
 export default function UserWorkspaceInstructionsPage() {
   const { slug } = useParams();
+  const { t } = useTranslation("offerKp");
   const [workspace, setWorkspace] = useState(null);
   const [instructions, setInstructions] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,18 +42,18 @@ export default function UserWorkspaceInstructionsPage() {
 
   return (
     <OfferKpSuiteLayout>
-      <h1 className="offerKp-suite-page-title">Edit instructions</h1>
-      <p className="text-sm text-theme-text-secondary mb-4">
-        {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace instructions"}
-      </p>
-      <div className="mb-4">
+      <header className="offerKp-suite-page-header">
         <Link
           to={paths.settings.userWorkspaces()}
-          className="text-primary-button hover:underline text-sm"
+          className="offerKp-suite-back"
         >
-          Back to User Workspaces
+          ← {t("admin.backToUserWorkspaces", { defaultValue: "Back to User Workspaces" })}
         </Link>
-      </div>
+        <h1 className="offerKp-suite-page-title !mb-0">Edit instructions</h1>
+        <p className="offerKp-field-hint !mt-2">
+          {workspace?.name ? `Workspace: ${workspace.name}` : "Workspace instructions"}
+        </p>
+      </header>
       {loading ? (
         <div className="text-sm text-theme-text-secondary">Loading…</div>
       ) : (

@@ -247,6 +247,12 @@ const TRANSLATIONS = {
       sav: "Customer Support (SAV)",
     },
     workspacesTitle: "Workspaces",
+    userWorkspaces: {
+      hint: "Select a workspace below. Assign users per workspace; suspend applies only to that workspace.",
+      workspaceOne: "workspace",
+      workspaceMany: "workspaces",
+      newWorkspace: "New workspace",
+    },
     workspacesSubtitle:
       "Each workspace is a dedicated, secure AI environment for a team or role. The admin defines instructions, scope, documents, and who can access or share data.",
     createWorkspace: "Create a Workspace",

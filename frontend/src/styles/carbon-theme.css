@@ -289,6 +289,20 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   color: var(--offerKp-profile-accent);
 }
 
+[data-offerKp-profile] .offerKp-suite-main {
+  border-top: 4px solid var(--offerKp-profile-accent);
+  background: linear-gradient(
+    180deg,
+    var(--offerKp-profile-tint) 0%,
+    var(--theme-bg-primary) 140px
+  );
+}
+
+[data-offerKp-profile] .uw-macos-dock__item--active {
+  border-color: var(--offerKp-profile-accent);
+  box-shadow: inset 3px 0 0 var(--offerKp-profile-accent);
+}
+
 .offerKp-brand__title {
   font-size: 14px;
   font-weight: 600;

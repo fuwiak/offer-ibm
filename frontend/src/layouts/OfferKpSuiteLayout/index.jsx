@@ -1,4 +1,5 @@
 import OfferKpAdminSidebar from "@/components/OfferKp/OfferKpAdminSidebar";
+import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -8,7 +9,7 @@ export default function OfferKpSuiteLayout({ children, rightPanel = null }) {
   const { t } = useTranslation("offerKp");
 
   return (
-    <div className="offerKp-suite-root w-screen h-screen overflow-hidden">
+    <OfferKpProfileShell className="offerKp-suite-root w-screen h-screen overflow-hidden">
       <OfferKpAdminSidebar />
       <div className="offerKp-suite-main">
         <div className="offerKp-suite-main__body">
@@ -30,6 +31,6 @@ export default function OfferKpSuiteLayout({ children, rightPanel = null }) {
           </span>
         </footer>
       </div>
-    </div>
+    </OfferKpProfileShell>
   );
 }

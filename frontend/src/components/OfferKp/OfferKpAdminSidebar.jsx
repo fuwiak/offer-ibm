@@ -16,7 +16,7 @@ export default function OfferKpAdminSidebar() {
   const isAdmin = user?.role === "admin";
 
   return (
-    <aside className="offerKp-suite-admin-sidebar">
+    <aside className="offerKp-suite-admin-sidebar offerKp-sidebar-shell">
       <Link to={paths.home()} className="block mb-4 no-underline">
         <div className="offerKp-brand__title">{t("brand.name")}</div>
         <div className="offerKp-brand__subtitle">{t("brand.subtitle")}</div>
@@ -39,7 +39,7 @@ export default function OfferKpAdminSidebar() {
           <User size={18} />
           {user?.username ?? "Admin"}
           {isAdmin && (
-            <span className="text-[10px] leading-none font-semibold px-2 py-1 rounded bg-red-600 text-white tracking-wide">
+            <span className="offerKp-user-workspace-badge text-[10px] leading-none font-semibold px-2 py-1 tracking-wide">
               ADMIN
             </span>
           )}

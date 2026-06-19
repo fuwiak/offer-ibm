@@ -247,6 +247,12 @@ const TRANSLATIONS = {
       sav: "Wsparcie klienta (SAV)",
     },
     workspacesTitle: "Przestrzenie robocze",
+    userWorkspaces: {
+      hint: "Wybierz przestrzeń poniżej. Przypisuj użytkowników do każdej przestrzeni; zawieszenie dotyczy tylko tej przestrzeni.",
+      workspaceOne: "przestrzeń",
+      workspaceMany: "przestrzeni",
+      newWorkspace: "Nowa przestrzeń",
+    },
     workspacesSubtitle:
       "Każda przestrzeń to dedykowane, bezpieczne środowisko AI. Administrator określa instrukcje, zakres, dokumenty i dostęp.",
     createWorkspace: "Utwórz przestrzeń roboczą",
