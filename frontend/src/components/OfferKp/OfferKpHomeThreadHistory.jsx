@@ -15,8 +15,11 @@ import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { formatRelativeTimeAgo, getThreadPrompts } from "@/utils/offerKp/threadMeta";
-import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal.jsx";
-import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
+import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal";
+import {
+  OFFER_KP_NEW_CONVERSATION_EVENT,
+  goToStartScreen,
+} from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -232,6 +235,14 @@ export default function OfferKpHomeThreadHistory({
     scheduleFinalDelete(thread.slug, deleteAt);
   }
 
+  async function requestDeleteImmediate(thread) {
+    setConfirmDeleteThread(null);
+    await finalizeDelete(thread.slug);
+    if (activeThreadSlug === thread.slug) {
+      goToStartScreen(navigate);
+    }
+  }
+
   function undoDelete(slug) {
     if (deleteTimersRef.current[slug]) {
       clearTimeout(deleteTimersRef.current[slug]);
@@ -278,7 +289,45 @@ export default function OfferKpHomeThreadHistory({
       activeThreadSlug &&
       threadsToDelete.some((thread) => thread.slug === activeThreadSlug)
     ) {
-      navigate(paths.offerKp.chat());
+      goToStartScreen(navigate);
+    }
+  }
+
+  async function requestDeleteAllImmediate() {
+    const threadsToDelete = threads.filter(
+      (thread) => !pendingDeleteSlugs.includes(thread.slug)
+    );
+    if (!threadsToDelete.length) {
+      setConfirmDeleteAll(false);
+      return;
+    }
+
+    const slugs = threadsToDelete.map((thread) => thread.slug);
+    setConfirmDeleteAll(false);
+
+    slugs.forEach((slug) => {
+      if (deleteTimersRef.current[slug]) {
+        clearTimeout(deleteTimersRef.current[slug]);
+        delete deleteTimersRef.current[slug];
+      }
+    });
+
+    if (workspace?.slug) {
+      await Workspace.threads.deleteBulk(workspace.slug, slugs);
+    }
+
+    setThreads((prev) => prev.filter((thread) => !slugs.includes(thread.slug)));
+    setPendingDeletes((prev) => {
+      const next = prev.filter((item) => !slugs.includes(item.slug));
+      persistPendingDeletes(next);
+      return next;
+    });
+
+    setPinnedThreadSlugs([]);
+    window.localStorage.setItem(pinStorageKey, JSON.stringify([]));
+
+    if (activeThreadSlug && slugs.includes(activeThreadSlug)) {
+      goToStartScreen(navigate);
     }
   }
 
@@ -510,7 +559,7 @@ export default function OfferKpHomeThreadHistory({
             <p className="mt-3 text-xs text-theme-text-secondary">
               {t("home.deleteConfirmBody")}
             </p>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmDeleteThread(null)}
@@ -521,10 +570,17 @@ export default function OfferKpHomeThreadHistory({
               <button
                 type="button"
                 onClick={() => requestDelete(confirmDeleteThread)}
+                className="rounded-md border border-theme-sidebar-border bg-transparent px-3 py-1.5 text-xs text-theme-text-primary hover:bg-theme-sidebar-item-hover"
+              >
+                {t("home.deleteConfirmConfirm")}
+              </button>
+              <button
+                type="button"
+                onClick={() => requestDeleteImmediate(confirmDeleteThread)}
                 className="flex items-center gap-1.5 rounded-md border-none bg-red-500 px-3 py-1.5 text-xs text-white hover:bg-red-600"
               >
                 <Trash size={13} />
-                {t("home.deleteConfirmConfirm")}
+                {t("home.deleteConfirmImmediate")}
               </button>
             </div>
           </div>
@@ -550,7 +606,7 @@ export default function OfferKpHomeThreadHistory({
             <p className="mt-3 text-xs text-theme-text-secondary">
               {t("home.deleteAllConfirmBody")}
             </p>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmDeleteAll(false)}
@@ -561,10 +617,17 @@ export default function OfferKpHomeThreadHistory({
               <button
                 type="button"
                 onClick={requestDeleteAll}
+                className="rounded-md border border-theme-sidebar-border bg-transparent px-3 py-1.5 text-xs text-theme-text-primary hover:bg-theme-sidebar-item-hover"
+              >
+                {t("home.deleteAllConfirmConfirm")}
+              </button>
+              <button
+                type="button"
+                onClick={requestDeleteAllImmediate}
                 className="flex items-center gap-1.5 rounded-md border-none bg-red-500 px-3 py-1.5 text-xs text-white hover:bg-red-600"
               >
                 <Trash size={13} />
-                {t("home.deleteAllConfirmConfirm")}
+                {t("home.deleteAllConfirmImmediate")}
               </button>
             </div>
           </div>

@@ -5,6 +5,7 @@ const TRANSLATIONS = {
     tagline: "Automated commercial proposal generation for fasteners",
     distributor: "AI platform for processing fastener requests and generating proposals.",
     newConversation: "New conversation",
+    goHome: "Go to start screen",
   },
   nav: {
     capabilities: "Capabilities",
@@ -191,6 +192,7 @@ const TRANSLATIONS = {
       "The conversation will be removed. You can undo this for 1 hour before it is permanently deleted.",
     deleteConfirmCancel: "Cancel",
     deleteConfirmConfirm: "Delete",
+    deleteConfirmImmediate: "Delete now",
     deleteUndo: "Undo",
     deletePendingNotice: "Conversation deleted.",
     deletePendingNoticeTimed: "Conversation deleted ({{time}} left to undo).",
@@ -200,6 +202,7 @@ const TRANSLATIONS = {
     deleteAllConfirmBody:
       "All conversations will be removed. You can undo this for 1 hour before they are permanently deleted.",
     deleteAllConfirmConfirm: "Delete all",
+    deleteAllConfirmImmediate: "Delete all now",
     threadPrompts: {
       manage: "Thread prompts",
       title: "Prompts for this conversation",

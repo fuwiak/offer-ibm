@@ -16,6 +16,16 @@ function resetComposer() {
   );
 }
 
+/** Reset composer and open the home start screen (no new thread). */
+export function goToStartScreen(navigate) {
+  resetComposer();
+  window.dispatchEvent(new CustomEvent(OFFER_KP_NEW_CONVERSATION_EVENT));
+  navigate(
+    { pathname: paths.home(), search: `?new=${Date.now()}` },
+    { replace: false }
+  );
+}
+
 /** Create a fresh thread and open the empty chat composer. */
 export async function startNewConversation(navigate) {
   resetComposer();

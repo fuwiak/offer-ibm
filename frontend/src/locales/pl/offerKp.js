@@ -3,6 +3,7 @@ const TRANSLATIONS = {
     name: "AI Prawnik i Audytor",
     tagline: "Platforma inteligencji prawnej i audytowej",
     distributor: "Platforma AI dla procesów prawnych, compliance i audytu.",
+    goHome: "Przejdź do ekranu startowego",
   },
   nav: {
     capabilities: "Możliwości",
@@ -190,6 +191,7 @@ const TRANSLATIONS = {
       "Rozmowa zostanie usunięta. Możesz cofnąć tę operację przez 1 godzinę przed trwałym usunięciem.",
     deleteConfirmCancel: "Anuluj",
     deleteConfirmConfirm: "Usuń",
+    deleteConfirmImmediate: "Usuń od razu",
     deleteUndo: "Cofnij",
     deletePendingNotice: "Rozmowa usunięta.",
     deletePendingNoticeTimed: "Rozmowa usunięta (pozostało {{time}} na cofnięcie).",
@@ -199,6 +201,7 @@ const TRANSLATIONS = {
     deleteAllConfirmBody:
       "Wszystkie rozmowy zostaną usunięte. Możesz cofnąć tę operację przez 1 godzinę przed trwałym usunięciem.",
     deleteAllConfirmConfirm: "Usuń wszystkie",
+    deleteAllConfirmImmediate: "Usuń wszystkie od razu",
     threadPrompts: {
       manage: "Prompty wątku",
       title: "Prompty dla tej rozmowy",

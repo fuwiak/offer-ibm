@@ -5,6 +5,7 @@ const TRANSLATIONS = {
     tagline: "Автоматизированная система формирования коммерческих предложений",
     distributor: "ИИ-платформа для обработки заявок на крепёж и выпуска КП.",
     newConversation: "Новая беседа",
+    goHome: "На стартовый экран",
   },
   nav: {
     capabilities: "Возможности",
@@ -192,6 +193,7 @@ const TRANSLATIONS = {
       "Диалог будет удалён. Вы можете отменить это в течение 1 часа до окончательного удаления.",
     deleteConfirmCancel: "Отмена",
     deleteConfirmConfirm: "Удалить",
+    deleteConfirmImmediate: "Удалить сразу",
     deleteUndo: "Отменить",
     deletePendingNotice: "Диалог удалён.",
     deletePendingNoticeTimed: "Диалог удалён (осталось {{time}} для отмены).",
@@ -201,6 +203,7 @@ const TRANSLATIONS = {
     deleteAllConfirmBody:
       "Все диалоги будут удалены. Вы можете отменить это в течение 1 часа до окончательного удаления.",
     deleteAllConfirmConfirm: "Удалить все",
+    deleteAllConfirmImmediate: "Удалить все сразу",
     threadPrompts: {
       manage: "Промпты диалога",
       title: "Промпты для этого диалога",
