@@ -146,6 +146,7 @@ export default function DocumentPanel() {
   const { t } = useTranslation("offerKp");
   const { pathname } = useLocation();
   const isHome = pathname === "/";
+  const isOfferKpWorkspaceChat = /^\/workspace\/[^/]+(\/t\/[^/]+)?$/.test(pathname);
   const {
     documentPanelOpen,
     setDocumentPanelOpen,
@@ -236,10 +237,6 @@ export default function DocumentPanel() {
   });
 
   useEffect(() => {
-    if (isHome) setDocumentPanelOpen(true);
-  }, [isHome, setDocumentPanelOpen]);
-
-  useEffect(() => {
     if (!activeWorkspaceSlug || !activeThreadSlug) {
       setUserMemoryNotes("");
       setInstructions("");
@@ -290,7 +287,16 @@ export default function DocumentPanel() {
     showPdfPreview ||
     showQuotePreview ||
     showDocPreview;
-  const shouldRenderPanel = isHome || showAdminThreadContext || hasQuotePanel;
+  const showExamplePromptsPanel =
+    (isHome || isOfferKpWorkspaceChat) &&
+    !showAdminThreadContext &&
+    !hasQuotePanel;
+  const shouldRenderPanel =
+    isHome || showAdminThreadContext || hasQuotePanel || showExamplePromptsPanel;
+
+  useEffect(() => {
+    if (isHome || showExamplePromptsPanel) setDocumentPanelOpen(true);
+  }, [isHome, showExamplePromptsPanel, setDocumentPanelOpen]);
 
   useEffect(() => {
     if (hasFilePreview) setDocumentPanelOpen(true);
@@ -316,7 +322,7 @@ export default function DocumentPanel() {
   ]);
 
   function panelEyebrow() {
-    if (isHome) return t("home.examplePrompts.panelLabel");
+    if (showExamplePromptsPanel) return t("home.examplePrompts.panelLabel");
     if (hasFilePreview) return t("layout.documentPanel");
     return t("layout.conversationContext");
   }
@@ -333,7 +339,7 @@ export default function DocumentPanel() {
       )}
 
       {hasQuotePanel && (
-        <div className="flex border-b border-theme-sidebar-border shrink-0">
+        <div className="flex flex-wrap border-b border-theme-sidebar-border shrink-0">
           {showAdminThreadContext && (
             <button
               type="button"
@@ -429,8 +435,8 @@ export default function DocumentPanel() {
         <div className="flex-1 overflow-y-auto p-4">
           <QuoteStepper />
         </div>
-      ) : isHome ? (
-        <div className="flex-1 overflow-y-auto p-4">
+      ) : showExamplePromptsPanel ? (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
           <ExamplePromptsPanel />
         </div>
       ) : showAdminThreadContext ? (
@@ -578,7 +584,7 @@ export default function DocumentPanel() {
       )}
 
       {documentPanelOpen && (
-        <div className="flex flex-col flex-1 min-h-0 w-full">{panelBody}</div>
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 w-full">{panelBody}</div>
       )}
     </aside>
   );

@@ -18,34 +18,32 @@ export default function ExamplePromptsPanel() {
 
   return (
     <div className="offerKp-example-prompts">
-      <div className="offerKp-info-banner--blue offerKp-example-prompts__banner">
-        <Lightbulb size={20} className="shrink-0 text-primary-button" weight="duotone" />
-        <div className="flex-1 min-w-0">
-          <div className="offerKp-example-prompts__banner-head">
-            <h3 className="offerKp-example-prompts__title">
-              {t("home.examplePrompts.title")}
-            </h3>
-            <button
-              type="button"
-              className="offerKp-example-prompts__help"
-              aria-label={t("home.examplePrompts.hint")}
-              data-tooltip-id="offerKp-example-prompts-help"
-              data-tooltip-content={t("home.examplePrompts.hint")}
-            >
-              <Question size={16} weight="bold" />
-            </button>
-          </div>
-          <p className="offerKp-example-prompts__lead">
-            {t("home.examplePrompts.lead")}
-          </p>
-        </div>
+      <div className="offerKp-example-prompts__intro">
+        <Lightbulb
+          size={18}
+          className="offerKp-example-prompts__intro-icon"
+          weight="duotone"
+          aria-hidden
+        />
+        <p className="offerKp-example-prompts__lead">
+          {t("home.examplePrompts.lead")}
+        </p>
+        <button
+          type="button"
+          className="offerKp-example-prompts__help"
+          aria-label={t("home.examplePrompts.hint")}
+          data-tooltip-id="offerKp-example-prompts-help"
+          data-tooltip-content={t("home.examplePrompts.hint")}
+        >
+          <Question size={16} weight="bold" />
+        </button>
       </div>
 
       <ul className="offerKp-example-prompts__list">
         {EXAMPLE_PROMPT_KEYS.map((key) => {
           const text = t(`home.examplePrompts.items.${key}`);
           return (
-            <li key={key}>
+            <li key={key} className="offerKp-example-prompts__row">
               <button
                 type="button"
                 className="offerKp-example-prompts__item"
