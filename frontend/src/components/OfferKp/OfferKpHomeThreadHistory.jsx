@@ -8,12 +8,14 @@ import {
   FloppyDisk,
   Trash,
   ArrowCounterClockwise,
+  ChatText,
   X,
 } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
-import { formatRelativeTimeAgo } from "@/utils/offerKp/threadMeta";
+import { formatRelativeTimeAgo, getThreadPrompts } from "@/utils/offerKp/threadMeta";
+import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
@@ -40,6 +42,8 @@ export default function OfferKpHomeThreadHistory({
   const [renamingSlug, setRenamingSlug] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [confirmDeleteThread, setConfirmDeleteThread] = useState(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [promptsThread, setPromptsThread] = useState(null);
   const [pendingDeletes, setPendingDeletes] = useState([]);
   const [, setClockTick] = useState(0);
   const deleteTimersRef = useRef({});
@@ -240,6 +244,48 @@ export default function OfferKpHomeThreadHistory({
     });
   }
 
+  function requestDeleteAll() {
+    const deleteAt = Date.now() + DELETE_UNDO_MS;
+    const threadsToDelete = threads.filter(
+      (thread) => !pendingDeleteSlugs.includes(thread.slug)
+    );
+    if (!threadsToDelete.length) {
+      setConfirmDeleteAll(false);
+      return;
+    }
+
+    setConfirmDeleteAll(false);
+    setPendingDeletes((prev) => {
+      const next = [
+        ...threadsToDelete.map((thread) => ({
+          slug: thread.slug,
+          name: thread.name || "",
+          deleteAt,
+        })),
+        ...prev.filter(
+          (item) => !threadsToDelete.some((thread) => thread.slug === item.slug)
+        ),
+      ];
+      persistPendingDeletes(next);
+      return next;
+    });
+    threadsToDelete.forEach((thread) => scheduleFinalDelete(thread.slug, deleteAt));
+
+    setPinnedThreadSlugs([]);
+    window.localStorage.setItem(pinStorageKey, JSON.stringify([]));
+
+    if (
+      activeThreadSlug &&
+      threadsToDelete.some((thread) => thread.slug === activeThreadSlug)
+    ) {
+      navigate(paths.offerKp.chat());
+    }
+  }
+
+  const deletableThreadCount = threads.filter(
+    (thread) => !pendingDeleteSlugs.includes(thread.slug)
+  ).length;
+
   return (
     <nav
       className={rootClassName}
@@ -267,6 +313,19 @@ export default function OfferKpHomeThreadHistory({
           </button>
         )}
       </div>
+      {deletableThreadCount > 0 && (
+        <div className={`mb-2 shrink-0 flex justify-end ${isSidebar ? "px-1" : ""}`}>
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteAll(true)}
+            className="flex items-center gap-1 rounded border-none bg-transparent px-1.5 py-0.5 text-xs text-theme-text-secondary hover:text-red-500"
+            aria-label={t("home.deleteAllConversations")}
+          >
+            <Trash size={13} />
+            {t("home.deleteAllConversations")}
+          </button>
+        </div>
+      )}
       {pendingDeletes.length > 0 && (
         <ul className="offerKp-home-thread-history__pending mb-2 flex flex-col gap-1">
           {pendingDeletes.map((item) => (
@@ -303,6 +362,9 @@ export default function OfferKpHomeThreadHistory({
             i18n.language?.split("-")[0] || "en"
           );
           const pinned = pinnedThreadSlugs.includes(thread.slug);
+          const hasPrompts =
+            workspace?.slug &&
+            getThreadPrompts(workspace.slug, thread.slug).length > 0;
           return (
             <li key={thread.slug}>
               <div className={`flex items-center gap-1.5${isSidebar ? " group/thread-row" : ""}`}>
@@ -366,6 +428,20 @@ export default function OfferKpHomeThreadHistory({
                 )}
                 <button
                   type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPromptsThread(thread);
+                  }}
+                  className={`shrink-0 border-none bg-transparent p-1 ${
+                    isSidebar ? "opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100" : ""
+                  } ${hasPrompts ? "text-primary-button" : "text-theme-text-secondary hover:text-theme-text-primary"}`}
+                  aria-label={t("home.threadPrompts.manage")}
+                  title={t("home.threadPrompts.manage")}
+                >
+                  <ChatText size={14} weight={hasPrompts ? "fill" : "regular"} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => togglePin(thread.slug)}
                   className={`shrink-0 border-none bg-transparent p-1 ${
                     isSidebar ? "opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100" : ""
@@ -407,6 +483,13 @@ export default function OfferKpHomeThreadHistory({
           No conversations found for this keyword.
         </p>
       )}
+      {promptsThread && (
+        <OfferKpThreadPromptsModal
+          thread={promptsThread}
+          workspace={workspace}
+          onClose={() => setPromptsThread(null)}
+        />
+      )}
       {confirmDeleteThread && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -442,6 +525,46 @@ export default function OfferKpHomeThreadHistory({
               >
                 <Trash size={13} />
                 {t("home.deleteConfirmConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDeleteAll && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setConfirmDeleteAll(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-4 rounded-lg border border-theme-sidebar-border bg-theme-bg-secondary p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-theme-text-primary">
+              {t("home.deleteAllConfirmTitle")}
+            </h3>
+            <p className="mt-1 text-xs text-theme-text-secondary">
+              {t("home.deleteAllConfirmCount", { count: deletableThreadCount })}
+            </p>
+            <p className="mt-3 text-xs text-theme-text-secondary">
+              {t("home.deleteAllConfirmBody")}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteAll(false)}
+                className="rounded-md border border-theme-sidebar-border bg-transparent px-3 py-1.5 text-xs text-theme-text-primary hover:bg-theme-sidebar-item-hover"
+              >
+                {t("home.deleteConfirmCancel")}
+              </button>
+              <button
+                type="button"
+                onClick={requestDeleteAll}
+                className="flex items-center gap-1.5 rounded-md border-none bg-red-500 px-3 py-1.5 text-xs text-white hover:bg-red-600"
+              >
+                <Trash size={13} />
+                {t("home.deleteAllConfirmConfirm")}
               </button>
             </div>
           </div>

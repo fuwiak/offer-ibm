@@ -193,6 +193,12 @@ const TRANSLATIONS = {
     deleteUndo: "Cofnij",
     deletePendingNotice: "Rozmowa usunięta.",
     deletePendingNoticeTimed: "Rozmowa usunięta (pozostało {{time}} na cofnięcie).",
+    deleteAllConversations: "Usuń wszystkie rozmowy",
+    deleteAllConfirmTitle: "Usunąć wszystkie rozmowy?",
+    deleteAllConfirmCount: "Zostanie usuniętych {{count}} rozmów.",
+    deleteAllConfirmBody:
+      "Wszystkie rozmowy zostaną usunięte. Możesz cofnąć tę operację przez 1 godzinę przed trwałym usunięciem.",
+    deleteAllConfirmConfirm: "Usuń wszystkie",
     version: "AI Prawnik AI v2.4.0",
     privacy: "Polityka prywatności",
     terms: "Warunki korzystania",
