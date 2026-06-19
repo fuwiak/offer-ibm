@@ -7,6 +7,7 @@ import useOfferKpRole from "@/hooks/useOfferKpRole";
 import OfferKpOnboarding, { useOfferKpOnboarding } from "@/components/OfferKp/OfferKpOnboarding";
 import OfferKpActiveThreadSync from "@/components/OfferKp/OfferKpActiveThreadSync";
 import OfferKpSavHost from "@/components/OfferKp/OfferKpSavHost";
+import OfferKpHeaderActions from "@/components/OfferKp/OfferKpHeaderActions";
 
 /**
  * 3-panel shell: optional left sidebar · center chat · right document panel.
@@ -36,7 +37,10 @@ export default function OfferKpLayout({
         threadSlug={threadSlug}
       />
       <div className="flex flex-1 min-w-0 h-full w-full">
-        <div className="flex-1 min-w-0 flex flex-col">{children}</div>
+        <div className="offerKp-layout-main flex-1 min-w-0 flex flex-col relative min-h-0">
+          {enabled && <OfferKpHeaderActions />}
+          {children}
+        </div>
         {enabled && <DocumentPanel />}
       </div>
       {enabled && <OfferKpSavHost />}

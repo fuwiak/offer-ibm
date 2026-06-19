@@ -535,11 +535,23 @@ export default function ChatContainer({
   return (
     <SourcesSidebarProvider>
       <div
-        style={{ height: isMobile ? "100%" : "calc(100% - 32px)" }}
-        className="relative flex md:ml-[2px] md:mr-[16px] md:my-[16px] w-full h-full z-[2]"
+        style={{
+          height: isMobile ? "100%" : offerKpMode ? "100%" : "calc(100% - 32px)",
+        }}
+        className={`relative flex w-full h-full z-[2] flex-1 min-w-0 ${
+          offerKpMode
+            ? "offerKp-chat-shell flex-col"
+            : "md:ml-[2px] md:mr-[16px] md:my-[16px]"
+        }`}
       >
-        <TextSizeMenu />
-        <div className="flex-1 min-w-0 transition-all duration-500 relative md:rounded-[16px] bg-zinc-900 light:bg-white text-white light:text-slate-900 h-full overflow-hidden border-none light:border-solid light:border light:border-theme-modal-border">
+        {!offerKpMode && <TextSizeMenu />}
+        <div
+          className={`flex-1 min-w-0 transition-all duration-500 relative h-full overflow-hidden ${
+            offerKpMode
+              ? "flex flex-col"
+              : "md:rounded-[16px] bg-zinc-900 light:bg-white text-white light:text-slate-900 border-none light:border-solid light:border light:border-theme-modal-border"
+          }`}
+        >
           {isMobile && <SidebarMobileHeader workspace={workspace} />}
           {offerKpMode && (
             <div className="offerKp-space-bar shrink-0">

@@ -425,38 +425,43 @@
   margin: 0;
 }
 
-/* Top-right: notifications + text size + profile */
+/* Top-right of main content column: notifications + text size + profile */
 .offerKp-header-actions {
   position: absolute;
   top: 0;
   right: 0;
   z-index: 50;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   padding: 8px 12px;
   pointer-events: none;
 }
 
 .offerKp-header-actions > * {
   pointer-events: auto;
+  flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
   .offerKp-header-actions {
+    gap: 8px;
     padding: 10px 16px;
   }
 }
 
+.offerKp-layout-main .offerKp-space-bar,
 .offerKp-chat-shell .offerKp-space-bar,
 .offerKp-home-shell .offerKp-space-bar {
-  padding-right: 132px;
+  padding-right: 140px;
 }
 
 @media (min-width: 768px) {
+  .offerKp-layout-main .offerKp-space-bar,
   .offerKp-chat-shell .offerKp-space-bar,
   .offerKp-home-shell .offerKp-space-bar {
-    padding-right: 148px;
+    padding-right: 156px;
   }
 }
 
