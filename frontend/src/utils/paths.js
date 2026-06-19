@@ -23,6 +23,7 @@ export default {
     settings: () => "/account/settings",
     chat: (options = {}) => applyOptions("/chat", options),
     thread: (wsSlug, threadSlug) => `/workspace/${wsSlug}/t/${threadSlug}`,
+    dbExplorer: () => "/offerKp-db",
   },
   login: (noTry = false) => {
     return `/login${noTry ? "?nt=1" : ""}`;

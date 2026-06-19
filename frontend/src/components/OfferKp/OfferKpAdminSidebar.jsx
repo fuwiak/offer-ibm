@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { SignOut, User, Sliders } from "@phosphor-icons/react";
+import { SignOut, User, Sliders, Database } from "@phosphor-icons/react";
 import paths from "@/utils/paths";
 import useUser from "@/hooks/useUser";
 import OfferKpPartnerNav from "@/components/OfferKp/OfferKpPartnerNav";
@@ -54,6 +54,17 @@ export default function OfferKpAdminSidebar() {
           >
             {t("admin.nav.userWorkspaces")}
           </Link>
+          {isAdmin && (
+            <Link
+              to={paths.offerKp.dbExplorer()}
+              className={`offerKp-nav-item ${pathname.startsWith("/offerKp-db") ? "offerKp-nav-item--active" : ""}`}
+            >
+              <span className="flex items-center gap-2">
+                <Database size={16} />
+                {t("admin.nav.database")}
+              </span>
+            </Link>
+          )}
           <Link to={paths.offerKp.settings()} className="offerKp-nav-item">
             <span className="flex items-center gap-2">
               <Sliders size={16} />

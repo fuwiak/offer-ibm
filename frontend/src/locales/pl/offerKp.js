@@ -264,6 +264,26 @@ const TRANSLATIONS = {
       orders: "Zadania",
       notifications: "Powiadomienia",
       sav: "Wsparcie klienta (SAV)",
+      database: "Baza katalogu",
+    },
+    db: {
+      title: "Baza katalogu",
+      subtitle:
+        "Przeglądaj katalog ShopDB i wykonuj zapytania SELECT tylko do odczytu bezpośrednio w interfejsie.",
+      refresh: "Odśwież",
+      filterTables: "Filtruj tabele…",
+      loading: "Ładowanie…",
+      noTables: "Nie znaleziono tabel.",
+      queryEditor: "Zapytanie SQL",
+      run: "Wykonaj",
+      running: "Wykonywanie…",
+      readOnlyHint:
+        "Tylko odczyt: dozwolone są wyłącznie SELECT / SHOW / DESCRIBE / EXPLAIN. Ctrl/⌘ + Enter, aby uruchomić.",
+      schemaOf: "Schemat",
+      results: "Wyniki",
+      rows: "wierszy",
+      truncated: "obcięto",
+      noResults: "Uruchom zapytanie lub wybierz tabelę, aby zobaczyć wyniki.",
     },
     workspacesTitle: "Przestrzenie robocze",
     userWorkspaces: {

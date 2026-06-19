@@ -147,6 +147,13 @@ const router = createBrowserRouter([
         },
       },
       {
+        path: "/offerKp-db",
+        lazy: async () => {
+          const { default: ShopDbExplorer } = await import("@/pages/Admin/ShopDbExplorer");
+          return { element: <AdminRoute Component={ShopDbExplorer} /> };
+        },
+      },
+      {
         path: "/supplier",
         lazy: async () => {
           const { default: SupplierWorkflow } = await import("@/pages/OfferKp/SupplierWorkflow");

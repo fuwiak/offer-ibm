@@ -264,6 +264,26 @@ const TRANSLATIONS = {
       orders: "Orders",
       notifications: "Notifications",
       sav: "Customer Support (SAV)",
+      database: "Catalog database",
+    },
+    db: {
+      title: "Catalog database",
+      subtitle:
+        "Browse the ShopDB catalog and run read-only SELECT queries directly from the UI.",
+      refresh: "Refresh",
+      filterTables: "Filter tables…",
+      loading: "Loading…",
+      noTables: "No tables found.",
+      queryEditor: "SQL query",
+      run: "Run",
+      running: "Running…",
+      readOnlyHint:
+        "Read-only: only SELECT / SHOW / DESCRIBE / EXPLAIN are allowed. Ctrl/⌘ + Enter to run.",
+      schemaOf: "Schema of",
+      results: "Results",
+      rows: "rows",
+      truncated: "truncated",
+      noResults: "Run a query or pick a table to see results.",
     },
     workspacesTitle: "Workspaces",
     userWorkspaces: {

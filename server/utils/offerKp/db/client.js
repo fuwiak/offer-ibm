@@ -129,6 +129,16 @@ async function query(sql, params = []) {
 }
 
 /**
+ * Текстовый запрос без prepared-statement (нужен для SHOW/DESCRIBE/EXPLAIN,
+ * которые mysql2 не умеет через execute()). Возвращает { rows, fields }.
+ */
+async function rawQuery(sql, params = []) {
+  const p = getPool();
+  const [rows, fields] = await p.query(sql, params);
+  return { rows, fields };
+}
+
+/**
  * Ping MySQL + счётчик активных товаров.
  * @returns {Promise<{ ok: boolean, activeProducts?: number, ms: number, target: object, error?: string, code?: string }>}
  */
@@ -191,6 +201,7 @@ module.exports = {
   getPool,
   resetPool,
   query,
+  rawQuery,
   pingShopDb,
   formatShopDbConnectionHint,
 };

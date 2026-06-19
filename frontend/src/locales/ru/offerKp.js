@@ -264,6 +264,26 @@ const TRANSLATIONS = {
       orders: "КП и заявки",
       notifications: "Уведомления",
       sav: "Рекламации",
+      database: "База каталога",
+    },
+    db: {
+      title: "База каталога",
+      subtitle:
+        "Просмотр каталога ShopDB и выполнение SELECT-запросов (только чтение) прямо из интерфейса.",
+      refresh: "Обновить",
+      filterTables: "Фильтр таблиц…",
+      loading: "Загрузка…",
+      noTables: "Таблицы не найдены.",
+      queryEditor: "SQL-запрос",
+      run: "Выполнить",
+      running: "Выполняется…",
+      readOnlyHint:
+        "Только чтение: разрешены лишь SELECT / SHOW / DESCRIBE / EXPLAIN. Ctrl/⌘ + Enter — выполнить.",
+      schemaOf: "Схема",
+      results: "Результаты",
+      rows: "строк",
+      truncated: "обрезано",
+      noResults: "Выполните запрос или выберите таблицу, чтобы увидеть результаты.",
     },
     workspacesTitle: "Рабочие пространства",
     userWorkspaces: {

@@ -105,6 +105,27 @@ const OfferKp = {
     return offerKpFetch(`${API_BASE}/offerKp/quotes`);
   },
 
+  async dbStatus() {
+    return offerKpFetch(`${API_BASE}/offerKp/db/status`);
+  },
+
+  async dbTables() {
+    return offerKpFetch(`${API_BASE}/offerKp/db/tables`);
+  },
+
+  async dbTable(table) {
+    return offerKpFetch(
+      `${API_BASE}/offerKp/db/tables/${encodeURIComponent(table)}`
+    );
+  },
+
+  async dbQuery(sql, limit) {
+    return offerKpFetch(`${API_BASE}/offerKp/db/query`, {
+      method: "POST",
+      body: JSON.stringify({ sql, limit }),
+    });
+  },
+
   quoteDocxDownloadUrl(storageFilename) {
     return `${API_BASE}/offerKp/quotes/docx/${encodeURIComponent(storageFilename)}`;
   },

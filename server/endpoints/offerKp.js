@@ -20,6 +20,7 @@ const { generateDocxFromMarkdown } = require("../utils/offerKpApp/docxFromMarkdo
 const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
 const { runProductSearchAgent } = require("../utils/offerKp/productSearchAgent");
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
+const shopDbExplorer = require("../utils/offerKp/db/explorer");
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -605,6 +606,89 @@ function offerKpEndpoints(app) {
         fs.createReadStream(filePath).pipe(response);
       } catch (e) {
         response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  // ───────────────────────────────────────────────────────────────────────
+  // ShopDB explorer (admin only) — просмотр каталога и read-only SELECT в UI.
+  // ───────────────────────────────────────────────────────────────────────
+
+  const requireOfferKpAdmin = (response) => {
+    const user = response.locals.offerKpUser;
+    if (user?.role && user.role !== "admin") {
+      response.status(403).json({ error: "Admin access required." });
+      return false;
+    }
+    return true;
+  };
+
+  app.get(
+    "/offerKp/db/status",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (_request, response) => {
+      try {
+        if (!requireOfferKpAdmin(response)) return;
+        response.status(200).json(shopDbExplorer.dbStatus());
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  app.get(
+    "/offerKp/db/tables",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (_request, response) => {
+      try {
+        if (!requireOfferKpAdmin(response)) return;
+        const tables = await shopDbExplorer.listTables();
+        response.status(200).json({ tables });
+      } catch (e) {
+        response.status(500).json({ error: e.message, code: e.code });
+      }
+    }
+  );
+
+  app.get(
+    "/offerKp/db/tables/:table",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        if (!requireOfferKpAdmin(response)) return;
+        const { table } = request.params;
+        const columns = await shopDbExplorer.describeTable(table);
+        const preview = await shopDbExplorer.runReadQuery(
+          `SELECT * FROM \`${table}\``,
+          { limit: 50 }
+        );
+        response.status(200).json({ table, columns, preview });
+      } catch (e) {
+        const status = e.code === "TABLE_NOT_FOUND" ? 404 : 500;
+        response.status(status).json({ error: e.message, code: e.code });
+      }
+    }
+  );
+
+  app.post(
+    "/offerKp/db/query",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        if (!requireOfferKpAdmin(response)) return;
+        const { sql, limit } = reqBody(request);
+        if (!sql || typeof sql !== "string") {
+          return response.status(400).json({ error: "sql is required" });
+        }
+        const result = await shopDbExplorer.runReadQuery(sql, { limit });
+        response.status(200).json(result);
+      } catch (e) {
+        if (e.code === "QUERY_REJECTED") {
+          return response
+            .status(400)
+            .json({ error: e.message, code: e.code, reason: e.reason });
+        }
+        response.status(500).json({ error: e.message, code: e.code });
       }
     }
   );
