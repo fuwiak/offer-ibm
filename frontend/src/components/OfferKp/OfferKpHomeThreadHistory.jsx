@@ -189,6 +189,11 @@ export default function OfferKpHomeThreadHistory({
     setThreads((prev) =>
       prev.map((item) => (item.slug === thread.slug ? { ...item, name } : item))
     );
+    window.dispatchEvent(
+      new CustomEvent("renameThread", {
+        detail: { threadSlug: thread.slug, newName: name },
+      })
+    );
     setRenamingSlug(null);
     setRenameValue("");
   }
@@ -423,7 +428,10 @@ export default function OfferKpHomeThreadHistory({
                     isActive ? " offerKp-home-thread-history__item--active" : ""
                   }`}
                   onClick={() => {
-                    navigate(paths.offerKp.thread(workspace.slug, thread.slug));
+                    const target = paths.offerKp.thread(workspace.slug, thread.slug);
+                    navigate(target, {
+                      replace: pathname === target,
+                    });
                   }}
                 >
                   {renamingSlug === thread.slug ? (
