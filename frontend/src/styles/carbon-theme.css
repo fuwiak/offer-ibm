@@ -1695,6 +1695,42 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 0 4px;
 }
 
+.offerKp-thread-prompts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.offerKp-thread-prompts__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--theme-sidebar-border);
+  border-radius: 6px;
+  background: var(--theme-bg-primary);
+}
+
+.offerKp-thread-prompts__use {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--theme-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.offerKp-thread-prompts__use:hover {
+  background: var(--theme-sidebar-item-hover);
+}
+
 /* ── Right panel: memory / instructions / files per thread ── */
 .offerKp-thread-panel-section {
   padding-bottom: 20px;

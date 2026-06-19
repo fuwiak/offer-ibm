@@ -199,6 +199,16 @@ const TRANSLATIONS = {
     deleteAllConfirmBody:
       "Wszystkie rozmowy zostaną usunięte. Możesz cofnąć tę operację przez 1 godzinę przed trwałym usunięciem.",
     deleteAllConfirmConfirm: "Usuń wszystkie",
+    threadPrompts: {
+      manage: "Prompty wątku",
+      title: "Prompty dla tej rozmowy",
+      hint: "Zapisuj osobne prompty dla każdego wątku. Kliknij prompt, aby wstawić go do pola wiadomości.",
+      placeholder: "Dodaj prompt dla tej rozmowy…",
+      add: "Dodaj",
+      empty: "Brak zapisanych promptów.",
+      use: "Wstaw do czatu",
+      remove: "Usuń prompt",
+    },
     version: "AI Prawnik AI v2.4.0",
     privacy: "Polityka prywatności",
     terms: "Warunki korzystania",

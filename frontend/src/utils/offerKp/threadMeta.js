@@ -9,7 +9,7 @@ function storageKey(workspaceSlug, threadSlug) {
 
 export function getThreadMeta(workspaceSlug, threadSlug) {
   if (!workspaceSlug || !threadSlug) {
-    return { memory: "", instructions: "" };
+    return { memory: "", instructions: "", prompts: [] };
   }
   const stored = safeJsonParse(
     localStorage.getItem(storageKey(workspaceSlug, threadSlug)),
@@ -18,6 +18,7 @@ export function getThreadMeta(workspaceSlug, threadSlug) {
   return {
     memory: stored?.memory ?? "",
     instructions: stored?.instructions ?? "",
+    prompts: Array.isArray(stored?.prompts) ? stored.prompts : [],
   };
 }
 
@@ -35,6 +36,33 @@ export function setThreadMeta(workspaceSlug, threadSlug, partial) {
     storageKey(workspaceSlug, threadSlug),
     JSON.stringify({ ...current, ...partial, updatedAt: Date.now() })
   );
+}
+
+export function getThreadPrompts(workspaceSlug, threadSlug) {
+  return getThreadMeta(workspaceSlug, threadSlug).prompts;
+}
+
+export function setThreadPrompts(workspaceSlug, threadSlug, prompts) {
+  if (!workspaceSlug || !threadSlug) return;
+  setThreadMeta(workspaceSlug, threadSlug, {
+    prompts: (prompts || []).map((p) => String(p).trim()).filter(Boolean),
+  });
+}
+
+export function addThreadPrompt(workspaceSlug, threadSlug, prompt) {
+  const text = String(prompt || "").trim();
+  if (!text) return getThreadPrompts(workspaceSlug, threadSlug);
+  const next = [...getThreadPrompts(workspaceSlug, threadSlug), text];
+  setThreadPrompts(workspaceSlug, threadSlug, next);
+  return next;
+}
+
+export function removeThreadPrompt(workspaceSlug, threadSlug, index) {
+  const next = getThreadPrompts(workspaceSlug, threadSlug).filter(
+    (_, i) => i !== index
+  );
+  setThreadPrompts(workspaceSlug, threadSlug, next);
+  return next;
 }
 
 export function formatRelativeTimeAgo(isoOrTs, locale = "en") {
