@@ -42,7 +42,9 @@ async function normalizeOfferKpWorkspaceLlms() {
       isOfferKpCloudModel(ws.chatModel) ||
       isOfferKpCloudModel(ws.agentModel) ||
       !isOfferKpLocalModel(chatModel) ||
-      !isOfferKpLocalModel(agentModel);
+      !isOfferKpLocalModel(agentModel) ||
+      ws.chatProvider === "ollama" ||
+      ws.agentProvider === "ollama";
 
     if (!needsFix) continue;
 

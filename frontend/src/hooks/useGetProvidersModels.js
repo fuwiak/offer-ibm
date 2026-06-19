@@ -71,18 +71,12 @@ export default function useGetProviderModels(provider = null) {
       }
       setLoading(true);
 
-      if (
-        provider === "ollama" ||
-        provider === "openrouter" ||
-        provider === "lmstudio"
-      ) {
+      if (provider === "openrouter" || provider === "lmstudio") {
         setDefaultModels([]);
         setCustomModels(
           provider === "lmstudio"
             ? OFFER_KP_ALLOWED_MODELS.filter((m) => m.provider === "lmstudio")
-            : provider === "ollama"
-              ? OFFER_KP_ALLOWED_MODELS.filter((m) => m.provider === "ollama")
-              : OFFER_KP_ALLOWED_MODELS
+            : OFFER_KP_ALLOWED_MODELS
         );
         setLoading(false);
         return;

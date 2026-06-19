@@ -6,7 +6,6 @@ export const OFFER_KP_LOCAL_MODELS = [
     provider: "lmstudio",
     group: "local",
     usage: "chat",
-    cloudFallbackModel: "gpt-oss:120b",
     hint: "Локально · LM Studio (lainey) · OpenAI-совместимый API",
   },
   {
@@ -15,43 +14,7 @@ export const OFFER_KP_LOCAL_MODELS = [
     provider: "lmstudio",
     group: "local",
     usage: "chat",
-    cloudFallbackModel: "qwen3:14b",
     hint: "Локально · рассуждения · Q4_K_M",
-  },
-];
-
-export const OFFER_KP_CLOUD_MODELS = [
-  {
-    id: "gpt-oss:20b",
-    name: "GPT-OSS 20B",
-    provider: "ollama",
-    group: "cloud",
-    usage: "chat",
-    hint: "Ollama Cloud · интерактивный чат · 60–140 т/с",
-  },
-  {
-    id: "qwen3:14b",
-    name: "Qwen 3 14B",
-    provider: "ollama",
-    group: "cloud",
-    usage: "chat",
-    hint: "Ollama Cloud · интерактивный чат · 60–140 т/с",
-  },
-  {
-    id: "qwen3.5:27b-iq3_xxs",
-    name: "Qwen 3.5 27B IQ3_XXS",
-    provider: "ollama",
-    group: "cloud",
-    usage: "batch",
-    hint: "Ollama Cloud · макс. качество · пакетная обработка · ~6 т/с",
-  },
-  {
-    id: "qwen3-coder:30b",
-    name: "Qwen 3 Coder 30B",
-    provider: "ollama",
-    group: "cloud",
-    usage: "coding",
-    hint: "Ollama Cloud · кодинг и технические задачи",
   },
 ];
 
@@ -62,18 +25,9 @@ export const OFFER_KP_MODEL_GROUPS = [
     hint: "LM Studio · используются по умолчанию",
     models: OFFER_KP_LOCAL_MODELS,
   },
-  {
-    id: "cloud",
-    label: "Ollama Cloud (резерв)",
-    hint: "При недоступности локального сервера",
-    models: OFFER_KP_CLOUD_MODELS,
-  },
 ];
 
-export const OFFER_KP_ALLOWED_MODELS = [
-  ...OFFER_KP_LOCAL_MODELS,
-  ...OFFER_KP_CLOUD_MODELS,
-];
+export const OFFER_KP_ALLOWED_MODELS = [...OFFER_KP_LOCAL_MODELS];
 
 export const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
 
@@ -95,10 +49,9 @@ export function resolveOfferKpModel(modelId) {
   return OFFER_KP_DEFAULT_MODEL;
 }
 
-export function isOfferKpCloudModel(modelId) {
-  return OFFER_KP_CLOUD_MODELS.some(
-    (m) => m.id === String(modelId || "").trim()
-  );
+/** @deprecated cloud models removed */
+export function isOfferKpCloudModel(_modelId) {
+  return false;
 }
 
 export function isOfferKpLocalModel(modelId) {

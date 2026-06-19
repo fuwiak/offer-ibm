@@ -6,8 +6,8 @@ import { CaretUpDown, Gauge, MagnifyingGlass, X } from "@phosphor-icons/react";
 import AgentModelSelection from "../AgentModelSelection";
 import { useTranslation } from "react-i18next";
 
-/** offer-kp: Ollama local models only. */
-const ENABLED_PROVIDERS = ["ollama"];
+/** offer-kp: LM Studio only. */
+const ENABLED_PROVIDERS = ["lmstudio"];
 const WARN_PERFORMANCE = [
   "lmstudio",
   "koboldcpp",

@@ -44,9 +44,7 @@ function offerKpEndpoints(app) {
         languages: ["fr", "en", "it"],
         llmProvider: process.env.LLM_PROVIDER || "lmstudio",
         defaultModel:
-          process.env.LMSTUDIO_MODEL_PREF ||
-          process.env.OLLAMA_MODEL_PREF ||
-          OFFER_KP_DEFAULT_MODEL,
+          process.env.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL,
         allowedModels: OFFER_KP_ALLOWED_MODELS,
         modelGroups: OFFER_KP_MODEL_GROUPS,
       });

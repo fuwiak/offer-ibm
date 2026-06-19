@@ -18,9 +18,6 @@ function applyOfferKpLlmDefaults() {
   applyOpenRouterEnvAliases();
 
   process.env.LLM_PROVIDER = defaults.LLM_PROVIDER || "lmstudio";
-  if (!envIsSet("OFFER_KP_ALLOW_OLLAMA")) {
-    process.env.OFFER_KP_ALLOW_OLLAMA = "0";
-  }
   if (!envIsSet("LMSTUDIO_MODEL_PREF")) {
     process.env.LMSTUDIO_MODEL_PREF =
       defaults.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;
@@ -28,18 +25,6 @@ function applyOfferKpLlmDefaults() {
   if (!envIsSet("LMSTUDIO_BASE_PATH")) {
     process.env.LMSTUDIO_BASE_PATH =
       defaults.LMSTUDIO_BASE_PATH || "http://87.228.90.43:1234/v1";
-  }
-  if (!envIsSet("OLLAMA_MODEL_PREF")) {
-    process.env.OLLAMA_MODEL_PREF =
-      defaults.OLLAMA_MODEL_PREF || "gpt-oss:20b";
-  }
-  if (!envIsSet("OLLAMA_BASE_PATH")) {
-    process.env.OLLAMA_BASE_PATH =
-      defaults.OLLAMA_BASE_PATH || "http://212.41.6.162:11434";
-  }
-  if (!envIsSet("OLLAMA_CLOUD_FALLBACK")) {
-    process.env.OLLAMA_CLOUD_FALLBACK =
-      defaults.OLLAMA_CLOUD_FALLBACK || "0";
   }
 
   if (!resolveOpenRouterApiKey()) {
@@ -59,11 +44,7 @@ function syncOfferKpEnvFile(envPath = path.resolve(__dirname, "../.env")) {
 
   let content = fs.readFileSync(envPath, "utf8");
   for (const key of ENV_KEYS) {
-    if (
-      envIsSet(key) &&
-      key !== "OLLAMA_MODEL_PREF" &&
-      key !== "LLM_PROVIDER"
-    )
+    if (envIsSet(key) && key !== "LLM_PROVIDER")
       continue;
     const value = process.env[key] ?? defaults[key];
     if (value == null || value === "") continue;
@@ -80,7 +61,7 @@ if (require.main === module) {
   applyOfferKpLlmDefaults();
   syncOfferKpEnvFile();
   console.log(
-    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.LMSTUDIO_MODEL_PREF || process.env.OLLAMA_MODEL_PREF || process.env.OPENROUTER_MODEL_PREF}`
+    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.LMSTUDIO_MODEL_PREF || process.env.OPENROUTER_MODEL_PREF}`
   );
 }
 

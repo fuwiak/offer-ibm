@@ -10,7 +10,7 @@ import {
   hasMissingCredentials,
   validatedModelSelection,
 } from "./utils";
-import { OFFER_KP_OPENROUTER_PROVIDER } from "@/utils/offerKp/llmProviders";
+import { OFFER_KP_LMSTUDIO_PROVIDER } from "@/utils/offerKp/llmProviders";
 import LLMSelectorSidePanel from "./LLMSelector";
 import { NoSetupWarning } from "./SetupProvider";
 import showToast from "@/utils/toast";
@@ -41,7 +41,7 @@ export default function LLMSelectorModal({
     Promise.all([Workspace.bySlug(slug), System.keys()])
       .then(([workspace, systemSettings]) => {
         const savedModel = workspace.chatModel ?? systemSettings.LLMModel;
-        const providerToSelect = OFFER_KP_OPENROUTER_PROVIDER;
+        const providerToSelect = OFFER_KP_LMSTUDIO_PROVIDER;
 
         setSettings(systemSettings);
         setSelectedLLMProvider(providerToSelect);
@@ -83,7 +83,7 @@ export default function LLMSelectorModal({
       if (!validatedModel) throw new Error("Invalid model selection");
 
       const { message } = await Workspace.update(slug, {
-        chatProvider: OFFER_KP_OPENROUTER_PROVIDER,
+        chatProvider: OFFER_KP_LMSTUDIO_PROVIDER,
         chatModel: validatedModel,
       });
 

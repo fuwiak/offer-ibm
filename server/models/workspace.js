@@ -215,11 +215,11 @@ const Workspace = {
 
     const llmDefaults = require("../config/offerKp.llm.defaults");
     const { resolveOfferKpModel } = require("../config/offerKp.models");
-    const defaultModel = resolveOfferKpModel(llmDefaults.OLLAMA_MODEL_PREF);
+    const defaultModel = resolveOfferKpModel(llmDefaults.LMSTUDIO_MODEL_PREF);
     additionalFields.chatProvider =
-      additionalFields.chatProvider || "ollama";
+      additionalFields.chatProvider || "lmstudio";
     additionalFields.agentProvider =
-      additionalFields.agentProvider || "ollama";
+      additionalFields.agentProvider || "lmstudio";
     additionalFields.chatModel = resolveOfferKpModel(
       additionalFields.chatModel || defaultModel
     );
@@ -373,7 +373,10 @@ const Workspace = {
       getLLMProviderClass,
       getBaseLLMProviderModel,
     } = require("../utils/helpers");
-    const provider = workspace.chatProvider || process.env.LLM_PROVIDER || null;
+    const provider =
+      workspace.chatProvider === "ollama"
+        ? "lmstudio"
+        : workspace.chatProvider || process.env.LLM_PROVIDER || null;
     const LLMProvider = getLLMProviderClass({ provider });
     const model =
       workspace.chatModel || getBaseLLMProviderModel({ provider }) || null;
