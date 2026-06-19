@@ -598,7 +598,17 @@ function humanFileSize(bytes, si = false, dp = 1) {
 
 async function getLLMProviderWithFallback({ provider = null, model = null, log = null } = {}) {
   const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
-  const resolved = await resolveLlmProviderWithFallback({ provider, model, log });
+  const { offerKpLog } = require("../offerKpApp/offerKpLog");
+  const started = Date.now();
+  const resolved = await resolveLlmProviderWithFallback({
+    provider,
+    model,
+    log: log || ((msg) => offerKpLog("info", msg)),
+  });
+  offerKpLog("info", "getLLMProviderWithFallback ready", {
+    ...resolved,
+    ms: Date.now() - started,
+  });
   return getLLMProvider(resolved);
 }
 

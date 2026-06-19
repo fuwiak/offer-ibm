@@ -1,5 +1,6 @@
 import { API_BASE, AUTH_TIMESTAMP, fullApiUrl } from "@/utils/constants";
 import { baseHeaders, jsonHeaders, safeJsonParse } from "@/utils/request";
+import { cachedFetch } from "@/utils/requestCache";
 import DataConnector from "./dataConnector";
 import LiveDocumentSync from "./experimental/liveSync";
 import AgentPlugins from "./experimental/agentPlugins";
@@ -59,13 +60,15 @@ const System = {
       .catch(() => false);
   },
   keys: async function () {
-    return await fetch(`${API_BASE}/setup-complete`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Could not find setup information.");
-        return res.json();
-      })
-      .then((res) => res.results)
-      .catch(() => null);
+    return cachedFetch("system:keys", async () => {
+      return fetch(`${API_BASE}/setup-complete`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Could not find setup information.");
+          return res.json();
+        })
+        .then((res) => res.results)
+        .catch(() => null);
+    });
   },
   localFiles: async function () {
     return await fetch(`${API_BASE}/system/local-files`, {

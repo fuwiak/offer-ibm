@@ -81,17 +81,17 @@ function ShowWorkspaceChat() {
         Workspace.getSuggestedMessages(slug),
         Workspace.agentCommandAvailable(slug),
       ]);
+      const history = threadSlug
+        ? await Workspace.threads.chatHistory(slug, threadSlug)
+        : await Workspace.chatHistory(slug);
+
       setWorkspace({
         ..._workspace,
         suggestedMessages,
         showAgentCommand,
       });
-      setLoadedSlug(slug);
-
-      const history = threadSlug
-        ? await Workspace.threads.chatHistory(slug, threadSlug)
-        : await Workspace.chatHistory(slug);
       setChatHistory(history ?? []);
+      setLoadedSlug(slug);
 
       localStorage.setItem(
         LAST_VISITED_WORKSPACE,
@@ -142,6 +142,7 @@ function ShowWorkspaceChat() {
     <WorkspaceChatContainer
       loading={loadedSlug !== slug}
       workspace={workspace}
+      initialHistory={chatHistory}
     />
   );
 

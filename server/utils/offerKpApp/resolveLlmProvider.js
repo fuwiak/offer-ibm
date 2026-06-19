@@ -10,6 +10,7 @@ const {
   ollamaCloudModel,
   createOllamaCloudClient,
 } = require("../AiProviders/ollama/cloudFallback");
+const { offerKpLog, offerKpLogTimed } = require("./offerKpLog");
 
 function ensureOllamaBasePath() {
   if (
@@ -37,14 +38,18 @@ function ensureLmStudioBasePath() {
 
 async function isLmStudioReachable() {
   const basePath = ensureLmStudioBasePath();
+  const timer = offerKpLogTimed("LM Studio health check", { basePath });
   try {
     const url = new URL(basePath);
     url.pathname = "/models";
     const res = await fetch(url.toString(), {
       signal: AbortSignal.timeout(4000),
     });
-    return res.ok;
-  } catch {
+    const ok = res.ok;
+    timer.done({ ok, status: res.status });
+    return ok;
+  } catch (err) {
+    timer.fail(err);
     return false;
   }
 }
@@ -80,10 +85,12 @@ function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
     process.env.OLLAMA_MODEL_PREF = resolvedModel;
   }
 
-  return {
+  const resolved = {
     provider: resolvedProvider,
     model: resolvedModel,
   };
+  offerKpLog("info", "Resolved LLM provider", resolved);
+  return resolved;
 }
 
 /**
@@ -95,25 +102,48 @@ async function resolveLlmProviderWithFallback({
   model = null,
   log = null,
 } = {}) {
+  const emit = (msg, meta) => {
+    log?.(meta ? `${msg} ${JSON.stringify(meta)}` : msg);
+    offerKpLog("info", msg, meta);
+  };
+
   const resolved = resolveLlmProviderAndModel({ provider, model });
 
-  if (resolved.provider !== "lmstudio") return resolved;
+  if (resolved.provider !== "lmstudio") {
+    emit("Using configured provider", resolved);
+    return resolved;
+  }
 
   const reachable = await isLmStudioReachable();
-  if (reachable) return resolved;
+  if (reachable) {
+    emit("LM Studio reachable", resolved);
+    return resolved;
+  }
 
-  if (!ollamaCloudFallbackEnabled()) return resolved;
+  if (!ollamaCloudFallbackEnabled()) {
+    offerKpLog(
+      "warn",
+      "LM Studio unreachable and cloud fallback disabled",
+      resolved
+    );
+    return resolved;
+  }
 
   const cloudClient = createOllamaCloudClient();
-  if (!cloudClient) return resolved;
+  if (!cloudClient) {
+    offerKpLog("warn", "LM Studio unreachable; Ollama Cloud client unavailable");
+    return resolved;
+  }
 
   const meta = findOfferKpModel(resolved.model);
   const cloudModel =
     meta?.cloudFallbackModel || ollamaCloudModel(resolved.model);
 
-  log?.(
-    `LM Studio unavailable at ${process.env.LMSTUDIO_BASE_PATH}; falling back to Ollama Cloud (${cloudModel})`
-  );
+  emit("LM Studio unavailable; falling back to Ollama Cloud", {
+    lmStudioBasePath: process.env.LMSTUDIO_BASE_PATH,
+    from: resolved.model,
+    to: cloudModel,
+  });
 
   ensureOllamaBasePath();
   return {

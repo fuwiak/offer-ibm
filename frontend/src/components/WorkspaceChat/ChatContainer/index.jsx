@@ -428,7 +428,7 @@ export default function ChatContainer({
           </div>
         )}
         <TextSizeMenu />
-        <WorkspaceModelPicker workspaceSlug={workspace.slug} />
+        <WorkspaceModelPicker workspaceSlug={workspace.slug} workspace={workspace} />
         <DnDFileUploaderWrapper>
           <div
             className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
@@ -529,7 +529,7 @@ export default function ChatContainer({
               <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
             </div>
           )}
-          <WorkspaceModelPicker workspaceSlug={workspace.slug} />
+          <WorkspaceModelPicker workspaceSlug={workspace.slug} workspace={workspace} />
           <DnDFileUploaderWrapper>
             <div className="flex flex-col h-full w-full pb-20 md:pb-0">
               <div className="contents">

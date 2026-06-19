@@ -13,7 +13,7 @@ import {
 } from "../contexts/TTSProvider";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 
-export default function WorkspaceChat({ loading, workspace }) {
+export default function WorkspaceChat({ loading, workspace, initialHistory = null }) {
   useWatchForAutoPlayAssistantTTSResponse();
   const { threadSlug = null } = useParams();
   // Stores { key, workspace, history } currently rendered. Lags the props so
@@ -29,19 +29,34 @@ export default function WorkspaceChat({ loading, workspace }) {
         return false;
       }
 
+      const historyKey = `${workspace.slug}:${threadSlug ?? "default"}`;
+      if (
+        initialHistory !== null &&
+        initialHistory !== undefined &&
+        !threadSlug
+      ) {
+        setLoaded({
+          key: historyKey,
+          workspace,
+          threadSlug,
+          history: initialHistory,
+        });
+        return;
+      }
+
       const chatHistory = threadSlug
         ? await Workspace.threads.chatHistory(workspace.slug, threadSlug)
         : await Workspace.chatHistory(workspace.slug);
 
       setLoaded({
-        key: `${workspace.slug}:${threadSlug ?? "default"}`,
+        key: historyKey,
         workspace,
         threadSlug,
         history: chatHistory,
       });
     }
     getHistory();
-  }, [workspace, loading, threadSlug]);
+  }, [workspace, loading, threadSlug, initialHistory]);
 
   const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
   if (loaded === null) {

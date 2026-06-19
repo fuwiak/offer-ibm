@@ -1,5 +1,6 @@
 import { API_BASE, fullApiUrl } from "@/utils/constants";
 import { baseHeaders, safeJsonParse, userFromStorage } from "@/utils/request";
+import { cachedFetch, invalidateCache } from "@/utils/requestCache";
 import { filterWorkspacesForViewer } from "@/utils/offerKp/userWorkspaceProfiles";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import WorkspaceThread from "@/models/workspaceThread";
@@ -39,6 +40,7 @@ const Workspace = {
         return { workspace: null, message: e.message };
       });
 
+    invalidateCache(`workspace:slug:${slug}`);
     return { workspace, message };
   },
   modifyEmbeddings: async function (slug, changes = {}) {
@@ -237,13 +239,15 @@ const Workspace = {
     return filterWorkspacesForViewer(workspaces, user?.role);
   },
   bySlug: async function (slug = "") {
-    const workspace = await fetch(`${API_BASE}/workspace/${slug}`, {
-      headers: baseHeaders(),
-    })
-      .then((res) => res.json())
-      .then((res) => res.workspace)
-      .catch(() => null);
-    return workspace;
+    if (!slug) return null;
+    return cachedFetch(`workspace:slug:${slug}`, async () => {
+      return fetch(`${API_BASE}/workspace/${slug}`, {
+        headers: baseHeaders(),
+      })
+        .then((res) => res.json())
+        .then((res) => res.workspace)
+        .catch(() => null);
+    });
   },
   delete: async function (slug) {
     const result = await fetch(`${API_BASE}/workspace/${slug}`, {

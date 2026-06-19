@@ -19,6 +19,11 @@ const { fetchCometApiModels } = require("../AiProviders/cometapi");
 const { parseFoundryBasePath } = require("../AiProviders/foundry");
 const { getDockerModels } = require("../AiProviders/dockerModelRunner");
 const { getAllLemonadeModels } = require("../AiProviders/lemonade");
+const { offerKpLog, offerKpLogTimed } = require("../offerKpApp/offerKpLog");
+
+const LMSTUDIO_MODELS_TIMEOUT_MS = Number(
+  process.env.LMSTUDIO_MODELS_TIMEOUT_MS || 4000
+);
 
 const SUPPORT_CUSTOM_MODELS = [
   "openai",
@@ -84,7 +89,7 @@ async function getCustomModels(provider = "", apiKey = null, basePath = null) {
     case "openrouter":
       return await getOfferKpOpenRouterModels();
     case "lmstudio":
-      return await getLMStudioModels(basePath, apiKey);
+      return await getOfferKpLMStudioModels(basePath, apiKey);
     case "koboldcpp":
       return await getKoboldCPPModels(basePath);
     case "litellm":
@@ -346,6 +351,9 @@ async function liteLLMModels(basePath = null, apiKey = null) {
 }
 
 async function getLMStudioModels(basePath = null, _apiKey = null) {
+  const timer = offerKpLogTimed("LM Studio list models", {
+    basePath: basePath || process.env.LMSTUDIO_BASE_PATH,
+  });
   try {
     const apiKey =
       _apiKey === true
@@ -358,20 +366,43 @@ async function getLMStudioModels(basePath = null, _apiKey = null) {
         basePath || process.env.LMSTUDIO_BASE_PATH
       ),
       apiKey: apiKey || null,
+      timeout: LMSTUDIO_MODELS_TIMEOUT_MS,
     });
     const models = await openai.models
       .list()
       .then((results) => results.data)
       .catch((e) => {
-        console.error(`LMStudio:listModels`, e.message);
+        offerKpLog("warn", "LMStudio:listModels failed", { error: e.message });
         return [];
       });
 
+    timer.done({ count: models.length });
     return { models, error: null };
   } catch (e) {
-    console.error(`LMStudio:getLMStudioModels`, e.message);
+    timer.fail(e);
     return { models: [], error: "Could not fetch LMStudio Models" };
   }
+}
+
+async function getOfferKpLMStudioModels(basePath = null, apiKey = null) {
+  const remote = await getLMStudioModels(basePath, apiKey);
+  const allowed = filterOfferKpModels(remote.models || []);
+  if (allowed.length > 0) {
+    offerKpLog("info", "LM Studio models filtered for OfferKP", {
+      remote: remote.models?.length || 0,
+      allowed: allowed.length,
+    });
+    return { models: allowed, error: remote.error };
+  }
+
+  const fallback = OFFER_KP_ALLOWED_MODELS.filter(
+    (m) => m.provider === "lmstudio"
+  );
+  offerKpLog("warn", "Using static LM Studio model list", {
+    reason: remote.error || "no allowed remote models",
+    count: fallback.length,
+  });
+  return { models: fallback, error: null };
 }
 
 async function getKoboldCPPModels(basePath = null) {

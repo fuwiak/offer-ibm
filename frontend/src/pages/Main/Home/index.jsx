@@ -423,7 +423,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
         </div>
       )}
       <TextSizeMenu />
-      <WorkspaceModelPicker workspaceSlug={workspace?.slug} />
+      <WorkspaceModelPicker workspaceSlug={workspace?.slug} workspace={workspace} />
       <DnDFileUploaderWrapper>
         <div
           className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${

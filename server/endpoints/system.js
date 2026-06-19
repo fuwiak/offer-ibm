@@ -1350,6 +1350,7 @@ function systemEndpoints(app) {
     "/system/custom-models",
     [validatedRequest, flexUserRoleValid([ROLES.admin])],
     async (request, response) => {
+      const started = Date.now();
       try {
         const { provider, apiKey = null, basePath = null } = reqBody(request);
         const { models, error } = await getCustomModels(
@@ -1357,12 +1358,18 @@ function systemEndpoints(app) {
           apiKey,
           basePath
         );
+        console.log(
+          `[OfferKP-LLM] custom-models provider=${provider} count=${models?.length || 0} ms=${Date.now() - started}${error ? ` error=${error}` : ""}`
+        );
         return response.status(200).json({
           models,
           error,
         });
       } catch (error) {
-        console.error(error);
+        console.error(
+          `[OfferKP-LLM] custom-models failed ms=${Date.now() - started}`,
+          error
+        );
         response.status(500).end();
       }
     }

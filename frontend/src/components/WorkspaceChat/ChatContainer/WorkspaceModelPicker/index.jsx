@@ -26,7 +26,10 @@ function fetchModelName(slug, setModelName) {
   );
 }
 
-export default function WorkspaceModelPicker({ workspaceSlug = null }) {
+export default function WorkspaceModelPicker({
+  workspaceSlug = null,
+  workspace = null,
+}) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const { slug: urlSlug } = useParams();
@@ -82,7 +85,9 @@ export default function WorkspaceModelPicker({ workspaceSlug = null }) {
   if (offerKpMode) {
     if (!!user && user.role !== "admin") return null;
     if (!slug || isMobile) return null;
-    return <OfferKpAnthropicModelPicker workspaceSlug={slug} />;
+    return (
+      <OfferKpAnthropicModelPicker workspaceSlug={slug} workspace={workspace} />
+    );
   }
 
   if (!!user && user.role !== "admin") return null;

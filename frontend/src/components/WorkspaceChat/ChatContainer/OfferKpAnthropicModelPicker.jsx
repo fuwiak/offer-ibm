@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { CaretDown } from "@phosphor-icons/react";
-import System from "@/models/system";
 import Workspace from "@/models/workspace";
 import showToast from "@/utils/toast";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
@@ -107,7 +106,10 @@ function ModelDropdown({
   );
 }
 
-export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
+export default function OfferKpAnthropicModelPicker({
+  workspaceSlug,
+  workspace = null,
+}) {
   const { t } = useTranslation();
   const [openMenu, setOpenMenu] = useState(null);
   const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_MODEL);
@@ -125,18 +127,14 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (workspace?.chatModel) {
+      setSelectedModel(resolveOfferKpModel(workspace.chatModel));
+      return;
+    }
     if (!workspaceSlug) return;
-    const [workspace, systemSettings] = await Promise.all([
-      Workspace.bySlug(workspaceSlug),
-      System.keys(),
-    ]);
-    const current =
-      workspace?.chatModel ??
-      systemSettings?.LMSTUDIO_MODEL_PREF ??
-      systemSettings?.LLMModel ??
-      OFFER_KP_DEFAULT_MODEL;
-    setSelectedModel(resolveOfferKpModel(current));
-  }, [workspaceSlug]);
+    const ws = await Workspace.bySlug(workspaceSlug);
+    setSelectedModel(resolveOfferKpModel(ws?.chatModel));
+  }, [workspaceSlug, workspace?.chatModel]);
 
   useEffect(() => {
     refresh();
