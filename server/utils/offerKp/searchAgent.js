@@ -61,7 +61,7 @@ function shopDbSearchAgentEnabled() {
 }
 
 function shopDbSearchAgentLlmEnabled() {
-  const flag = (process.env.SHOP_DB_SEARCH_AGENT_LLM || "1")
+  const flag = (process.env.SHOP_DB_SEARCH_AGENT_LLM || "0")
     .trim()
     .toLowerCase();
   return !["0", "false", "no", "off"].includes(flag);

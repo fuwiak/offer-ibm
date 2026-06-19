@@ -299,6 +299,24 @@ async function runProductSearchAgent({
     },
   });
 
+  if (
+    !signals.hasHardware &&
+    !skuCodes.length &&
+    !isPriceOnlyQuery(message) &&
+    !isOfferFollowUp(message) &&
+    !isCatalogRelayRequest(message)
+  ) {
+    shopDbLog.skip("product search agent skipped — not a catalog query");
+    return {
+      products: [],
+      strategies: [],
+      searchText,
+      parsed,
+      signals,
+      tablesUsed: [],
+    };
+  }
+
   const strategies = [];
   let products = [];
 
@@ -400,6 +418,7 @@ module.exports = {
   extractSkuCodes,
   isCatalogRelayRequest,
   isOfferFollowUp,
+  isPriceOnlyQuery,
   isSkuOnlyQuery,
   hasHardwareSignals,
   searchByExactSku,

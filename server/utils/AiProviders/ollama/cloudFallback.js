@@ -1,7 +1,7 @@
 const { Ollama } = require("ollama");
 
 function ollamaCloudFallbackEnabled() {
-  const flag = String(process.env.OLLAMA_CLOUD_FALLBACK ?? "1")
+  const flag = String(process.env.OLLAMA_CLOUD_FALLBACK ?? "0")
     .trim()
     .toLowerCase();
   if (flag === "0" || flag === "false" || flag === "no") return false;

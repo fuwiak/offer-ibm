@@ -14,6 +14,11 @@ const { parseHardwareQuery, extractSearchTerms } = require("./hardwareQuery");
 const {
   buildProductSearchText,
   runProductSearchAgent,
+  hasHardwareSignals,
+  extractSkuCodes,
+  isPriceOnlyQuery,
+  isOfferFollowUp,
+  isCatalogRelayRequest,
 } = require("./productSearchAgent");
 const {
   getShopBaseUrl,
@@ -44,6 +49,20 @@ function shopDbEnrichEnabled() {
   if (["0", "false", "no", "off"].includes(flag)) return false;
   if (["1", "true", "yes", "on"].includes(flag)) return isShopDbConfigured();
   return isShopDbConfigured();
+}
+
+function shouldRunShopEnrich(message, options = {}) {
+  const text = String(message || "").trim();
+  if (!text) return false;
+
+  const searchText = buildProductSearchText(message, options);
+  if (hasHardwareSignals(searchText)) return true;
+  if (extractSkuCodes(text).length) return true;
+  if (isPriceOnlyQuery(text)) return true;
+  if (isCatalogRelayRequest(text)) return true;
+  if (isOfferFollowUp(text)) return true;
+
+  return false;
 }
 
 function htmlToPlainText(html) {
@@ -199,6 +218,17 @@ async function getShopDbContext(message, options = {}) {
       contextTexts: [],
       sources: [],
       flags: { shopDbSkippedEmptyMessage: true },
+    };
+  }
+
+  if (!shouldRunShopEnrich(message, options)) {
+    shopDbLog.skip("enrich skipped — not a catalog query", {
+      messageLen: message.length,
+    });
+    return {
+      contextTexts: [],
+      sources: [],
+      flags: { shopDbSkippedNotCatalog: true },
     };
   }
 

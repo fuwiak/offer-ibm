@@ -34,6 +34,10 @@ function applyOfferKpLlmDefaults() {
     process.env.OLLAMA_BASE_PATH =
       defaults.OLLAMA_BASE_PATH || "http://212.41.6.162:11434";
   }
+  if (!envIsSet("OLLAMA_CLOUD_FALLBACK")) {
+    process.env.OLLAMA_CLOUD_FALLBACK =
+      defaults.OLLAMA_CLOUD_FALLBACK || "0";
+  }
 
   if (!resolveOpenRouterApiKey()) {
     for (const key of ENV_KEYS) {
