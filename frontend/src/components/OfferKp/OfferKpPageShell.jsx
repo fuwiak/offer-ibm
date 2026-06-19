@@ -1,7 +1,4 @@
-import { useTranslation } from "react-i18next";
 export default function OfferKpPageShell({ title, subtitle, children }) {
-  const { t } = useTranslation("offerKp");
-
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full offerKp-chat-shell offerKp-home-shell overflow-hidden">
       <header className="offerKp-suite-page-header px-6 md:px-10 lg:px-14 py-6 border-b border-theme-sidebar-border shrink-0">
@@ -13,13 +10,6 @@ export default function OfferKpPageShell({ title, subtitle, children }) {
         </div>
       </header>
       <div className="flex-1 overflow-y-auto px-6 md:px-10 lg:px-14 py-6">{children}</div>
-      <footer className="offerKp-footer-bar shrink-0">
-        <span>{t("home.version")}</span>
-        <span className="flex gap-4">
-          <a href="/offerKp">{t("home.privacy")}</a>
-          <a href="/offerKp">{t("home.terms")}</a>
-        </span>
-      </footer>
     </div>
   );
 }

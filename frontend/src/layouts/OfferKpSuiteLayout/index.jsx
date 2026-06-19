@@ -22,10 +22,6 @@ export default function OfferKpSuiteLayout({ children, rightPanel = null }) {
         </div>
         <footer className="offerKp-footer-bar shrink-0 px-6">
           <span>{t("home.version")} · {t("admin.enterpriseEdition")}</span>
-          <span className="flex gap-4">
-            <a href="/offerKp">{t("home.privacy")}</a>
-            <a href="/offerKp">{t("home.terms")}</a>
-          </span>
           <span className="flex items-center gap-1 text-theme-text-secondary">
             🛡 {t("layout.documentsRetention")}
           </span>

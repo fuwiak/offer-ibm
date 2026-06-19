@@ -492,15 +492,6 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
           )}
         </div>
       </DnDFileUploaderWrapper>
-      {showOfferKpHome && (
-        <footer className="offerKp-footer-bar shrink-0">
-          <span>{ta("home.version")}</span>
-          <span className="flex gap-4">
-            <a href="/offerKp">{ta("home.privacy")}</a>
-            <a href="/offerKp">{ta("home.terms")}</a>
-          </span>
-        </footer>
-      )}
       <ChatTooltips />
     </div>
   );
