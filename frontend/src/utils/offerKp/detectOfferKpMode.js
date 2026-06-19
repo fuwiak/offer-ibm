@@ -7,7 +7,6 @@ export function isOfferKpWorkspace(slug) {
 }
 
 const OFFER_KP_APP_PREFIXES = [
-  "/notifications",
   "/dashboard",
   "/account",
   "/chat",

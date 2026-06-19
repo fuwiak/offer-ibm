@@ -13,7 +13,7 @@ const ISSUE_TYPES = [
 
 export default function SavModal({ onClose }) {
   const { t } = useTranslation("offerKp");
-  const { addSavTicket, savTickets, addNotification } = useOfferKp();
+  const { addSavTicket, savTickets } = useOfferKp();
   const fileRef = useRef(null);
   const [form, setForm] = useState({
     issueType: "",
@@ -46,12 +46,6 @@ export default function SavModal({ onClose }) {
       orderRef: form.orderRef,
       description: form.description,
       photoCount: photos.length,
-    });
-    addNotification({
-      id: `sav-${ticketId}`,
-      type: "sav_update",
-      message: `SAV ticket ${ticketId} created — our team will respond within 24h`,
-      href: "/notifications",
     });
     setSubmitted(true);
     setTimeout(onClose, 2500);

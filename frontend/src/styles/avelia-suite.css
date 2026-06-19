@@ -425,7 +425,7 @@
   margin: 0;
 }
 
-/* Top-right of main content column: notifications + text size + profile */
+/* Top-right of main content column: text size + profile */
 .offerKp-header-actions {
   position: absolute;
   top: 0;
@@ -454,99 +454,15 @@
 .offerKp-layout-main .offerKp-space-bar,
 .offerKp-chat-shell .offerKp-space-bar,
 .offerKp-home-shell .offerKp-space-bar {
-  padding-right: 140px;
+  padding-right: 96px;
 }
 
 @media (min-width: 768px) {
   .offerKp-layout-main .offerKp-space-bar,
   .offerKp-chat-shell .offerKp-space-bar,
   .offerKp-home-shell .offerKp-space-bar {
-    padding-right: 156px;
+    padding-right: 108px;
   }
-}
-
-.offerKp-notifications-bell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 35px;
-  height: 35px;
-  border-radius: 9999px;
-  flex-shrink: 0;
-}
-
-/* Notifications bell (header) */
-.offerKp-notifications-bell__badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-  background: var(--theme-button-primary);
-  color: #fff;
-  border-radius: 0;
-}
-
-[data-theme="dark"] .offerKp-notifications-bell__badge {
-  color: #161616;
-}
-
-.offerKp-notifications-dropdown {
-  position: fixed;
-  left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(360px, calc(100vw - 32px));
-  background: var(--theme-bg-primary);
-  border: 1px solid var(--theme-sidebar-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  z-index: 200;
-}
-
-.offerKp-notifications-dropdown__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--theme-sidebar-border);
-}
-
-.offerKp-notifications-dropdown__list {
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.offerKp-notifications-dropdown__item {
-  display: flex;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-sidebar-border);
-}
-
-.offerKp-notifications-dropdown__item--unread {
-  background: var(--theme-sidebar-item-selected);
-}
-
-.offerKp-notifications-dropdown__footer {
-  display: block;
-  text-align: center;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.16px;
-  color: var(--theme-button-primary);
-  text-decoration: none;
-  border-top: 1px solid var(--theme-sidebar-border);
-}
-
-.offerKp-notifications-dropdown__footer:hover {
-  background: var(--theme-sidebar-item-hover);
 }
 
 /* User Workspaces — Carbon flat (unified with offer-kp shell) */

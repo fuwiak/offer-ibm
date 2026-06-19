@@ -44,15 +44,6 @@ const router = createBrowserRouter([
                 },
               },
               {
-                path: "notifications",
-                lazy: async () => {
-                  const { default: Notifications } = await import(
-                    "@/pages/Main/Notifications"
-                  );
-                  return { element: <Notifications /> };
-                },
-              },
-              {
                 path: "dashboard",
                 lazy: async () => {
                   const { default: Dashboard } = await import(

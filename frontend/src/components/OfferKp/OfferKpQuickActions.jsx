@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import {
-  Bell,
   Briefcase,
   ChartBar,
   ChartLineUp,
@@ -21,7 +20,6 @@ const ACTIONS = [
   { key: "salesReport", icon: ChartLineUp },
   { key: "sendMessage", icon: ChatCircle },
   { key: "quote", icon: FileText },
-  { key: "notifications", icon: Bell },
   { key: "commission", icon: Briefcase },
   { key: "unpaidInvoices", icon: Receipt },
   { key: "ordersThisMonth", icon: Coins },

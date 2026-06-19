@@ -6,14 +6,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import OfferKp from "@/models/offerKp";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
-import { mergeNotifications } from "@/utils/offerKp/notifications";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 
 const OfferKpContext = createContext(null);
-
-const NOTIFICATIONS_POLL_MS = 20 * 60 * 1000;
 
 const SEED_DOCUMENTS = [
   {
@@ -44,42 +40,10 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   const [documentPanelView, setDocumentPanelView] = useState("docs");
   const [activeWorkspaceSlug, setActiveWorkspaceSlug] = useState(null);
   const [activeThreadSlug, setActiveThreadSlug] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [localNotifications, setLocalNotifications] = useState([]);
   const [savedDocuments, setSavedDocuments] = useState(SEED_DOCUMENTS);
   const [savTickets, setSavTickets] = useState([]);
   const [quotePdfUrl, setQuotePdfUrl] = useState(null);
   const [docPreview, setDocPreview] = useState(null);
-
-  const refreshNotifications = useCallback(async () => {
-    if (!enabled) return;
-    try {
-      const data = await OfferKp.listNotifications();
-      setNotifications(
-        mergeNotifications(data.notifications || [], localNotifications)
-      );
-    } catch (e) {
-      if (e.status !== 401) console.error("[offerKp] notifications:", e.message);
-    }
-  }, [enabled, localNotifications]);
-
-  const addNotification = useCallback((notification) => {
-    const entry = {
-      id: notification.id || `local-${Date.now()}`,
-      read: false,
-      at: Date.now(),
-      ...notification,
-    };
-    setLocalNotifications((prev) => [entry, ...prev]);
-    setNotifications((prev) => mergeNotifications(prev, [entry]));
-  }, []);
-
-  useEffect(() => {
-    refreshNotifications();
-    if (!enabled) return undefined;
-    const timer = setInterval(refreshNotifications, NOTIFICATIONS_POLL_MS);
-    return () => clearInterval(timer);
-  }, [enabled, refreshNotifications]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -93,18 +57,6 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
     return () =>
       window.removeEventListener(OFFER_KP_QUOTE_PANEL_EVENT, onQuotePanel);
   }, [enabled]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllRead = useCallback(async () => {
-    try {
-      await OfferKp.markAllNotificationsRead();
-      setLocalNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (e) {
-      console.error("[offerKp] markAllRead:", e.message);
-    }
-  }, []);
 
   const addSavTicket = useCallback((ticket) => {
     setSavTickets((prev) => [{ id: Date.now(), status: "open", at: Date.now(), ...ticket }, ...prev]);
@@ -136,11 +88,6 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       activeWorkspaceSlug,
       activeThreadSlug,
       setActiveConversation,
-      notifications,
-      unreadCount,
-      markAllRead,
-      addNotification,
-      refreshNotifications,
       savedDocuments,
       addSavedDocument,
       savTickets,
@@ -161,11 +108,6 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       activeWorkspaceSlug,
       activeThreadSlug,
       setActiveConversation,
-      notifications,
-      unreadCount,
-      markAllRead,
-      addNotification,
-      refreshNotifications,
       savedDocuments,
       addSavedDocument,
       savTickets,
@@ -201,11 +143,6 @@ export function useOfferKp() {
       activeWorkspaceSlug: null,
       activeThreadSlug: null,
       setActiveConversation: () => {},
-      notifications: [],
-      unreadCount: 0,
-      markAllRead: () => {},
-      addNotification: () => {},
-      refreshNotifications: () => {},
       savedDocuments: [],
       addSavedDocument: () => {},
       savTickets: [],

@@ -53,7 +53,6 @@ export function handleOfferKpQuickActionKey(
   // Keys that navigate to dedicated pages
   const navAction = {
     dashboard: () => navigate(paths.offerKp.dashboard()),
-    notifications: () => navigate(paths.offerKp.notifications()),
   }[key];
 
   if (navAction) {
@@ -79,8 +78,6 @@ export function getHomeActionRoute(key) {
   switch (key) {
     case "dashboard":
       return paths.offerKp.dashboard();
-    case "notifications":
-      return paths.offerKp.notifications();
     default:
       if (HOME_CHAT_PROMPTS[key]) {
         return paths.offerKp.chat({ intent: key });

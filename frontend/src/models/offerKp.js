@@ -37,17 +37,6 @@ const OfferKp = {
     return res.json();
   },
 
-  async listNotifications() {
-    return offerKpFetch(`${API_BASE}/offerKp/notifications`);
-  },
-
-  async markAllNotificationsRead() {
-    return offerKpFetch(`${API_BASE}/offerKp/notifications/read-all`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-  },
-
   async getDashboardStats() {
     return offerKpFetch(`${API_BASE}/offerKp/dashboard/stats`);
   },

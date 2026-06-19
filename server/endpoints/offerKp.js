@@ -6,16 +6,9 @@ const { calculateQuote, OFFER_KP_PRODUCTS } = require("../utils/offerKpApp/prici
 const { offerKpRoleGuard } = require("../utils/middleware/offerKpRoleGuard");
 const { validatedRequest } = require("../utils/middleware/validatedRequest");
 const { streamOfferKpPublicChat } = require("../utils/chats/offerKpPublic");
-const { OfferKpNotifications } = require("../models/offerKpNotifications");
 const { buildDashboardStats } = require("../utils/offerKpApp/buildDashboardStats");
 const { OFFER_KP_ALLOWED_MODELS, OFFER_KP_DEFAULT_MODEL, OFFER_KP_MODEL_GROUPS } = require("../config/offerKp.models");
 
-const NOTIFICATIONS_POLL_MS = Number(
-  process.env.OFFER_KP_NOTIFICATIONS_POLL_MS || 20 * 60 * 1000
-);
-const NOTIFICATIONS_DISPLAY_LIMIT = Number(
-  process.env.OFFER_KP_NOTIFICATIONS_LIMIT || 20
-);
 const { v4: uuidv4 } = require("uuid");
 const {
   writeResponseChunk,
@@ -53,44 +46,6 @@ function offerKpEndpoints(app) {
       response.sendStatus(500).end();
     }
   });
-
-  app.get(
-    "/offerKp/notifications",
-    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
-    async (_request, response) => {
-      try {
-        const user = response.locals.offerKpUser;
-        const notifications = await OfferKpNotifications.list({
-          limit: NOTIFICATIONS_DISPLAY_LIMIT,
-          userId: user?.id,
-          role: user?.role,
-        });
-        const unreadCount = notifications.filter((n) => !n.read).length;
-        response.status(200).json({
-          notifications,
-          unreadCount,
-          pollIntervalMs: NOTIFICATIONS_POLL_MS,
-        });
-      } catch (e) {
-        console.error(e);
-        response.status(500).json({ error: e.message });
-      }
-    }
-  );
-
-  app.post(
-    "/offerKp/notifications/read-all",
-    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
-    async (_request, response) => {
-      try {
-        const result = await OfferKpNotifications.markAllRead();
-        response.status(200).json({ success: true, updated: result.count });
-      } catch (e) {
-        console.error(e);
-        response.status(500).json({ error: e.message });
-      }
-    }
-  );
 
   app.get(
     "/offerKp/dashboard/stats",

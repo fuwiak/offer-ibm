@@ -17,7 +17,6 @@ export default {
   },
   offerKp: {
     home: (options = {}) => applyOptions("/", options),
-    notifications: () => "/notifications",
     dashboard: () => "/dashboard",
     profile: () => "/account/profile",
     users: () => "/account/users",
