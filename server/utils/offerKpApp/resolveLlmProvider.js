@@ -42,7 +42,7 @@ function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
   ensureOllamaBasePath();
   ensureLmStudioBasePath();
 
-  const resolvedModel = resolveOfferKpModel(
+  let resolvedModel = resolveOfferKpModel(
     model ||
       process.env.LMSTUDIO_MODEL_PREF ||
       process.env.OLLAMA_MODEL_PREF ||
@@ -50,6 +50,14 @@ function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
       llmDefaults.OLLAMA_MODEL_PREF ||
       OFFER_KP_DEFAULT_MODEL
   );
+
+  // Deployment uses LM Studio — ignore stale cloud Ollama model ids in workspace.
+  if (
+    process.env.LLM_PROVIDER === "lmstudio" &&
+    resolveOfferKpProvider(resolvedModel) === "ollama"
+  ) {
+    resolvedModel = OFFER_KP_DEFAULT_MODEL;
+  }
 
   let resolvedProvider;
   if (isOfferKpAllowedModel(resolvedModel)) {

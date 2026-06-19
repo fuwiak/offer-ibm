@@ -13,6 +13,7 @@ const ALLOWED_PROVIDERS = new Set(["lmstudio", "ollama"]);
  * Ensures all workspaces use allowed OfferKP providers and models.
  */
 async function normalizeOfferKpWorkspaceLlms() {
+  const preferLocal = process.env.LLM_PROVIDER === "lmstudio";
   const defaultModel = resolveOfferKpModel(
     process.env.LMSTUDIO_MODEL_PREF ||
       process.env.OLLAMA_MODEL_PREF ||
@@ -32,10 +33,20 @@ async function normalizeOfferKpWorkspaceLlms() {
   });
 
   for (const ws of workspaces) {
-    const chatModel = resolveOfferKpModel(ws.chatModel || defaultModel);
-    const agentModel = resolveOfferKpModel(
+    let chatModel = resolveOfferKpModel(ws.chatModel || defaultModel);
+    let agentModel = resolveOfferKpModel(
       ws.agentModel || ws.chatModel || defaultModel
     );
+
+    if (preferLocal) {
+      if (resolveOfferKpProvider(chatModel) === "ollama") {
+        chatModel = OFFER_KP_DEFAULT_MODEL;
+      }
+      if (resolveOfferKpProvider(agentModel) === "ollama") {
+        agentModel = OFFER_KP_DEFAULT_MODEL;
+      }
+    }
+
     const chatProvider = resolveOfferKpProvider(chatModel);
     const agentProvider = resolveOfferKpProvider(agentModel);
 
@@ -45,6 +56,8 @@ async function normalizeOfferKpWorkspaceLlms() {
       ws.chatProvider !== chatProvider ||
       ws.agentProvider !== agentProvider;
     const needsModelFix =
+      ws.chatModel !== chatModel ||
+      ws.agentModel !== agentModel ||
       !isOfferKpAllowedModel(ws.chatModel) ||
       !isOfferKpAllowedModel(ws.agentModel);
 

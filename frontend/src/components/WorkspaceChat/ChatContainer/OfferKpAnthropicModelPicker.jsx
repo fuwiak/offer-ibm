@@ -78,14 +78,26 @@ export default function OfferKpAnthropicModelPicker({
   }, [open]);
 
   const refresh = useCallback(async () => {
-    if (workspace?.chatModel) {
-      setSelectedModel(resolveLocalPickerModel(workspace.chatModel));
-      return;
+    const ws =
+      workspace ||
+      (workspaceSlug ? await Workspace.bySlug(workspaceSlug) : null);
+    if (!ws) return;
+
+    const localModel = resolveLocalPickerModel(ws.chatModel);
+    setSelectedModel(localModel);
+
+    const needsSync =
+      ws.chatProvider !== "lmstudio" ||
+      ws.chatModel !== localModel ||
+      !OFFER_KP_LOCAL_MODELS.some((m) => m.id === ws.chatModel);
+
+    if (needsSync && workspaceSlug) {
+      await Workspace.update(workspaceSlug, {
+        chatProvider: "lmstudio",
+        chatModel: localModel,
+      }).catch(() => null);
     }
-    if (!workspaceSlug) return;
-    const ws = await Workspace.bySlug(workspaceSlug);
-    setSelectedModel(resolveLocalPickerModel(ws?.chatModel));
-  }, [workspaceSlug, workspace?.chatModel]);
+  }, [workspaceSlug, workspace]);
 
   useEffect(() => {
     refresh();
