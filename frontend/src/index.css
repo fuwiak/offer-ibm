@@ -241,13 +241,18 @@ onboarding flow since its background is dark and is the same fill as the inputs.
   border: 1px solid #ffffff;
 }
 
-html.carbon-ui :focus-visible {
+html.carbon-ui button:focus-visible,
+html.carbon-ui a:focus-visible {
   outline: 2px solid var(--theme-button-primary);
   outline-offset: 2px;
 }
 
 html.carbon-ui button:focus:not(:focus-visible),
-html.carbon-ui a:focus:not(:focus-visible) {
+html.carbon-ui a:focus:not(:focus-visible),
+html.carbon-ui textarea:focus,
+html.carbon-ui textarea:focus-visible,
+html.carbon-ui input:focus,
+html.carbon-ui input:focus-visible {
   outline: none;
 }
 

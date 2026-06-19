@@ -490,14 +490,6 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   background: var(--theme-bg-primary);
   border: 1px solid var(--theme-sidebar-border);
   box-shadow: var(--ibm-elevation-2);
-  transition:
-    border-color var(--ibm-transition-smooth),
-    box-shadow var(--ibm-transition-smooth);
-}
-
-.offerKp-home-prompt:focus-within {
-  border-color: var(--theme-button-primary);
-  box-shadow: var(--ibm-glow-primary-strong);
 }
 
 [data-theme="light"] .offerKp-home-prompt {
