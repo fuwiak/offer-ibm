@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+} from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { CaretDown } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
@@ -28,17 +35,82 @@ function ModelDropdown({
   saving,
   placeholder,
 }) {
+  const buttonRef = useRef(null);
+  const [menuRect, setMenuRect] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setMenuRect(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setMenuRect({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 220),
+    });
+  }, [open, label]);
+
   const activeInGroup = isActiveGroup
     ? models.find((m) => m.id === selectedModelId)
     : null;
   const displayName = activeInGroup?.name || placeholder;
 
+  const menu =
+    open &&
+    menuRect &&
+    createPortal(
+      <ul
+        role="listbox"
+        aria-label={label}
+        data-offer-kp-model-picker-menu=""
+        style={{
+          position: "fixed",
+          top: menuRect.top,
+          left: menuRect.left,
+          minWidth: menuRect.width,
+        }}
+        className="max-h-[240px] overflow-y-auto bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg shadow-lg py-1 z-[10000]"
+      >
+        {models.map((model) => (
+          <li
+            key={model.id}
+            role="option"
+            aria-selected={isActiveGroup && model.id === selectedModelId}
+          >
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => onSelect(model.id)}
+              className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                isActiveGroup && model.id === selectedModelId
+                  ? "bg-primary-button/20 text-white light:text-slate-900 font-medium"
+                  : "text-zinc-300 light:text-slate-700 hover:bg-zinc-700 light:hover:bg-slate-100"
+              }`}
+            >
+              {model.name || model.id}
+              {model.hint ? (
+                <span className="block text-[10px] opacity-60 font-normal">
+                  {model.hint}
+                </span>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>,
+      document.body
+    );
+
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         disabled={saving}
-        onClick={onToggle}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
         className={`group border-none cursor-pointer px-2.5 py-1 flex items-center gap-1 rounded-full transition-all ${
           open || isActiveGroup
             ? "bg-zinc-700 light:bg-slate-200"
@@ -68,40 +140,7 @@ function ModelDropdown({
         </span>
         <CaretDown size={12} className="shrink-0 opacity-70" />
       </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          aria-label={label}
-          className="absolute left-0 top-full mt-1 min-w-[220px] max-h-[240px] overflow-y-auto bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg shadow-lg py-1 z-40"
-        >
-          {models.map((model) => (
-            <li
-              key={model.id}
-              role="option"
-              aria-selected={isActiveGroup && model.id === selectedModelId}
-            >
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => onSelect(model.id)}
-                className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                  isActiveGroup && model.id === selectedModelId
-                    ? "bg-primary-button/20 text-white light:text-slate-900 font-medium"
-                    : "text-zinc-300 light:text-slate-700 hover:bg-zinc-700 light:hover:bg-slate-100"
-                }`}
-              >
-                {model.name || model.id}
-                {model.hint ? (
-                  <span className="block text-[10px] opacity-60 font-normal">
-                    {model.hint}
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {menu}
     </div>
   );
 }
@@ -117,6 +156,7 @@ export default function OfferKpAnthropicModelPicker({
   const [sidebarOpen, setSidebarOpen] = useState(
     () => window.localStorage.getItem("offerKp_sidebar_toggle") !== "closed"
   );
+  const rootRef = useRef(null);
 
   const isLocalActive = isLocalModel(selectedModel);
 
@@ -125,6 +165,21 @@ export default function OfferKpAnthropicModelPicker({
     window.addEventListener(SIDEBAR_TOGGLE_EVENT, handleToggle);
     return () => window.removeEventListener(SIDEBAR_TOGGLE_EVENT, handleToggle);
   }, []);
+
+  useEffect(() => {
+    if (!openMenu) return undefined;
+    function handlePointerDown(e) {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (rootRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-offer-kp-model-picker-menu]")) {
+        return;
+      }
+      setOpenMenu(null);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [openMenu]);
 
   const refresh = useCallback(async () => {
     if (workspace?.chatModel) {
@@ -173,48 +228,42 @@ export default function OfferKpAnthropicModelPicker({
   }
 
   return (
-    <>
-      {openMenu && (
-        <div
-          className="fixed inset-0 z-20"
-          onClick={() => setOpenMenu(null)}
-        />
-      )}
-      <div
-        className={`hidden md:flex absolute z-30 items-center gap-1.5 transition-all duration-500 top-[56px] md:top-[62px] ${
-          sidebarOpen ? "left-3" : "left-11"
-        }`}
-      >
-        <ModelDropdown
-          label="Local"
-          placeholder={
-            findOfferKpModel(OFFER_KP_DEFAULT_MODEL)?.name ||
-            t("chat_window.select_model")
-          }
-          models={OFFER_KP_LOCAL_MODELS}
-          selectedModelId={selectedModel}
-          isActiveGroup={isLocalActive}
-          open={openMenu === "local"}
-          onToggle={() =>
-            setOpenMenu((prev) => (prev === "local" ? null : "local"))
-          }
-          onSelect={handleSelect}
-          saving={saving}
-        />
-        <ModelDropdown
-          label="Cloud"
-          placeholder={t("chat_window.select_model", "Выбрать")}
-          models={OFFER_KP_CLOUD_MODELS}
-          selectedModelId={selectedModel}
-          isActiveGroup={!isLocalActive}
-          open={openMenu === "cloud"}
-          onToggle={() =>
-            setOpenMenu((prev) => (prev === "cloud" ? null : "cloud"))
-          }
-          onSelect={handleSelect}
-          saving={saving}
-        />
-      </div>
-    </>
+    <div
+      ref={rootRef}
+      data-offer-kp-model-picker=""
+      className={`hidden md:flex absolute z-50 items-center gap-1.5 transition-all duration-500 top-[56px] md:top-[62px] ${
+        sidebarOpen ? "left-3" : "left-11"
+      }`}
+    >
+      <ModelDropdown
+        label="Local"
+        placeholder={
+          findOfferKpModel(OFFER_KP_DEFAULT_MODEL)?.name ||
+          t("chat_window.select_model")
+        }
+        models={OFFER_KP_LOCAL_MODELS}
+        selectedModelId={selectedModel}
+        isActiveGroup={isLocalActive}
+        open={openMenu === "local"}
+        onToggle={() =>
+          setOpenMenu((prev) => (prev === "local" ? null : "local"))
+        }
+        onSelect={handleSelect}
+        saving={saving}
+      />
+      <ModelDropdown
+        label="Cloud"
+        placeholder={t("chat_window.select_model", "Выбрать")}
+        models={OFFER_KP_CLOUD_MODELS}
+        selectedModelId={selectedModel}
+        isActiveGroup={!isLocalActive}
+        open={openMenu === "cloud"}
+        onToggle={() =>
+          setOpenMenu((prev) => (prev === "cloud" ? null : "cloud"))
+        }
+        onSelect={handleSelect}
+        saving={saving}
+      />
+    </div>
   );
 }
