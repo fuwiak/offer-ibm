@@ -15,7 +15,7 @@ import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { formatRelativeTimeAgo, getThreadPrompts } from "@/utils/offerKp/threadMeta";
-import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal";
+import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal.jsx";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
