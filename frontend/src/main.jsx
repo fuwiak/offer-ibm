@@ -14,8 +14,10 @@ import OnboardingFlow from "@/pages/OnboardingFlow";
 import FirstRunSetup from "@/pages/FirstRunSetup";
 import "@/index.css";
 import { installAppLogger } from "@/utils/appLogger";
+import { installPerfLogger } from "@/utils/perfLogger";
 
 installAppLogger();
+installPerfLogger();
 
 const isDev = import.meta.env.DEV;
 const REACTWRAP = isDev ? React.Fragment : React.StrictMode;

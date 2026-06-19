@@ -12,6 +12,7 @@ const { Document } = require("../models/documents");
 const { DocumentVectors } = require("../models/vectors");
 const { WorkspaceChats } = require("../models/workspaceChats");
 const { getVectorDbClass } = require("../utils/helpers");
+const { offerKpPerfTimed } = require("../utils/offerKpApp/offerKpPerfLog");
 const { handleFileUpload, handlePfpUpload } = require("../utils/files/multer");
 const { validatedRequest } = require("../utils/middleware/validatedRequest");
 const { Telemetry } = require("../models/telemetry");
@@ -388,6 +389,9 @@ function workspaceEndpoints(app) {
     "/workspace/:slug",
     [validatedRequest, flexUserRoleValid([ROLES.all])],
     async (request, response) => {
+      const timer = offerKpPerfTimed("GET /workspace/:slug", {
+        slug: request.params.slug,
+      });
       try {
         const { slug } = request.params;
         const user = await userFromSession(request, response);
@@ -395,8 +399,10 @@ function workspaceEndpoints(app) {
           ? await Workspace.getWithUser(user, { slug })
           : await Workspace.get({ slug });
 
+        timer.done({ found: !!workspace });
         response.status(200).json({ workspace });
       } catch (e) {
+        timer.fail(e);
         console.error(e.message, e);
         response.sendStatus(500).end();
       }
@@ -407,6 +413,9 @@ function workspaceEndpoints(app) {
     "/workspace/:slug/chats",
     [validatedRequest, flexUserRoleValid([ROLES.all])],
     async (request, response) => {
+      const timer = offerKpPerfTimed("GET /workspace/:slug/chats", {
+        slug: request.params.slug,
+      });
       try {
         const { slug } = request.params;
         const user = await userFromSession(request, response);
@@ -415,6 +424,7 @@ function workspaceEndpoints(app) {
           : await Workspace.get({ slug });
 
         if (!workspace) {
+          timer.done({ found: false });
           response.sendStatus(400).end();
           return;
         }
@@ -422,8 +432,10 @@ function workspaceEndpoints(app) {
         const history = multiUserMode(response)
           ? await WorkspaceChats.forWorkspaceByUser(workspace.id, user.id)
           : await WorkspaceChats.forWorkspace(workspace.id);
+        timer.done({ count: history?.length ?? 0 });
         response.status(200).json({ history: convertToChatHistory(history) });
       } catch (e) {
+        timer.fail(e);
         console.error(e.message, e);
         response.sendStatus(500).end();
       }

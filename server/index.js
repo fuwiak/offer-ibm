@@ -66,6 +66,7 @@ const isRailway =
   !!process.env.RAILWAY_PROJECT_ID ||
   !!process.env.RAILWAY_SERVICE_ID;
 const enableHttpLogger =
+  process.env.OFFER_KP_PERF_LOG === "true" ||
   process.env.ENABLE_HTTP_LOGGER === "true" ||
   (isRailway && process.env.ENABLE_HTTP_LOGGER !== "false");
 
@@ -78,6 +79,11 @@ if (enableHttpLogger) {
   );
   console.log(
     "\x1b[32m[BOOT]\x1b[0m HTTP request logging enabled (Railway-friendly colors)"
+  );
+}
+if (process.env.OFFER_KP_PERF_LOG === "true") {
+  console.log(
+    `\x1b[32m[BOOT]\x1b[0m OfferKP perf logging enabled (SLOW_REQUEST_MS=${process.env.SLOW_REQUEST_MS || 500})`
   );
 }
 

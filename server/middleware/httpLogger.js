@@ -1,11 +1,16 @@
+const SLOW_MS = Number(process.env.SLOW_REQUEST_MS || 500);
+
 const httpLogger =
-  ({ enableTimestamps = false }) =>
+  ({ enableTimestamps = false, enableTiming = true }) =>
   (req, res, next) => {
+    const started = Date.now();
     // Capture the original res.end to log response status
     const originalEnd = res.end;
 
     res.end = function (chunk, encoding) {
       const code = res.statusCode;
+      const ms = Date.now() - started;
+      const slow = enableTiming && ms >= SLOW_MS;
       const statusColor =
         code >= 500
           ? "\x1b[41m\x1b[37m"
@@ -21,8 +26,10 @@ const httpLogger =
       const ts = enableTimestamps
         ? ` @ ${new Date().toISOString()}`
         : "";
+      const timing =
+        enableTiming ? ` \x1b[90m${ms}ms\x1b[0m${slow ? " \x1b[33mSLOW\x1b[0m" : ""}` : "";
       console.log(
-        `${tag} ${statusColor}${code}\x1b[0m ${req.method} ${req.originalUrl || req.path}${ts}`
+        `${tag} ${statusColor}${code}\x1b[0m ${req.method} ${req.originalUrl || req.path}${timing}${ts}`
       );
 
       // Call the original end method

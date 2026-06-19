@@ -36,6 +36,7 @@ const {
 const { Telemetry } = require("../models/telemetry");
 const { ApiKey } = require("../models/apiKeys");
 const { getCustomModels } = require("../utils/helpers/customModels");
+const { offerKpPerfTimed } = require("../utils/offerKpApp/offerKpPerfLog");
 const { WorkspaceChats } = require("../models/workspaceChats");
 const {
   flexUserRoleValid,
@@ -106,11 +107,14 @@ function systemEndpoints(app) {
   });
 
   app.get("/setup-complete", async (_, response) => {
+    const timer = offerKpPerfTimed("GET /setup-complete");
     try {
       const results = await SystemSettings.currentSettings();
+      timer.done();
       response.set("Cache-Control", "no-store");
       response.status(200).json({ results });
     } catch (e) {
+      timer.fail(e);
       console.error(e.message, e);
       response.sendStatus(500).end();
     }

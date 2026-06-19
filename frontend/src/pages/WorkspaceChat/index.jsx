@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import paths from "@/utils/paths";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
+import { perfMark, perfMeasure, perfTimed } from "@/utils/perfLogger";
 
 export default function WorkspaceChat() {
   const { loading, requiresAuth, mode } = usePasswordModal();
@@ -70,20 +71,36 @@ function ShowWorkspaceChat() {
   useEffect(() => {
     async function getWorkspace() {
       if (!slug) return;
+      perfMark("workspace-chat:load-start", { slug, threadSlug });
+      const wsTimer = perfTimed("workspace-chat:bySlug", { slug });
+
       const _workspace = await Workspace.bySlug(slug);
+      wsTimer.done({ found: !!_workspace });
+
       if (!_workspace) {
         setWorkspace(null);
         setLoadedSlug(slug);
+        perfMark("workspace-chat:missing", { slug });
         return;
       }
 
+      perfMark("workspace-chat:extras-start", { slug });
+      const extrasTimer = perfTimed("workspace-chat:extras", { slug });
       const [suggestedMessages, { showAgentCommand }] = await Promise.all([
         Workspace.getSuggestedMessages(slug),
         Workspace.agentCommandAvailable(slug),
       ]);
+      extrasTimer.done();
+
+      perfMark("workspace-chat:history-start", { slug, threadSlug });
+      const historyTimer = perfTimed("workspace-chat:history", {
+        slug,
+        threadSlug,
+      });
       const history = threadSlug
         ? await Workspace.threads.chatHistory(slug, threadSlug)
         : await Workspace.chatHistory(slug);
+      historyTimer.done({ count: history?.length ?? 0 });
 
       setWorkspace({
         ..._workspace,
@@ -92,6 +109,15 @@ function ShowWorkspaceChat() {
       });
       setChatHistory(history ?? []);
       setLoadedSlug(slug);
+      perfMark("workspace-chat:ready", {
+        slug,
+        historyCount: history?.length ?? 0,
+      });
+      perfMeasure(
+        "workspace-chat:load-start",
+        "workspace-chat:ready",
+        "workspace-chat:total"
+      );
 
       localStorage.setItem(
         LAST_VISITED_WORKSPACE,
