@@ -13,7 +13,6 @@ import { shouldUseOfferKpLayout as shouldUseOfferKpLayout } from "@/utils/offerK
 import { useLocation, useNavigate } from "react-router-dom";
 import paths from "@/utils/paths";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
-import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import { perfMark, perfMeasure, perfTimed } from "@/utils/perfLogger";
 
 export default function WorkspaceChat() {
@@ -138,16 +137,6 @@ function ShowWorkspaceChat() {
   const isWorkspaceRoot =
     !!slug && /^\/workspace\/[^/]+$/.test(pathname) && !threadSlug;
   const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
-
-  useEffect(() => {
-    function goHome() {
-      navigate({ pathname: paths.home(), search: `?new=${Date.now()}` }, {
-        replace: true,
-      });
-    }
-    window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, goHome);
-    return () => window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, goHome);
-  }, [navigate]);
 
   useEffect(() => {
     if (!offerKpMode || !isWorkspaceRoot || hasPendingMessage) return;
