@@ -1,12 +1,60 @@
 /* IBM Carbon — offer-kp app shell (see /DESIGN.md) */
 
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap");
+
+/* ── IBM Modern polish tokens ── */
+html.carbon-ui {
+  --ibm-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --ibm-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --ibm-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --ibm-glow-primary: 0 0 0 1px rgba(15, 98, 254, 0.18), 0 4px 20px rgba(15, 98, 254, 0.14);
+  --ibm-glow-primary-strong: 0 0 0 2px rgba(15, 98, 254, 0.28), 0 8px 28px rgba(15, 98, 254, 0.2);
+  --ibm-surface-shine: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0) 48%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  --ibm-transition-fast: 0.15s cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ibm-transition-smooth: 0.22s cubic-bezier(0.2, 0, 0.38, 0.9);
+}
+
+html.carbon-ui[data-theme="dark"] {
+  --ibm-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --ibm-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ibm-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.52);
+  --ibm-glow-primary: 0 0 0 1px rgba(120, 169, 255, 0.22), 0 4px 20px rgba(120, 169, 255, 0.16);
+  --ibm-glow-primary-strong: 0 0 0 2px rgba(120, 169, 255, 0.32), 0 8px 28px rgba(120, 169, 255, 0.22);
+  --ibm-surface-shine: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0) 48%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+}
 
 html.carbon-ui,
 html.carbon-ui body,
 html.carbon-ui #root {
   font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0.16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle IBM canvas mesh — depth without breaking flat geometry */
+html.carbon-ui body {
+  background:
+    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(15, 98, 254, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(15, 98, 254, 0.03) 0%, transparent 50%),
+    var(--theme-bg-container);
+}
+
+html.carbon-ui[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(120, 169, 255, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(120, 169, 255, 0.04) 0%, transparent 50%),
+    var(--theme-bg-container);
 }
 
 /* Flat geometry: Carbon default is 0px corners */
@@ -39,13 +87,18 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   background: var(--theme-bg-primary);
   color: var(--theme-checklist-button-text);
   cursor: pointer;
-  transition: background 0.11s ease, border-color 0.11s ease, color 0.11s ease;
+  transition:
+    background var(--ibm-transition-fast),
+    border-color var(--ibm-transition-fast),
+    color var(--ibm-transition-fast),
+    box-shadow var(--ibm-transition-fast);
 }
 
 .carbon-tertiary-btn:hover:not(:disabled) {
   background: var(--theme-checklist-button-hover-bg);
   border-color: var(--theme-checklist-button-hover-border);
   color: var(--theme-checklist-button-hover-border);
+  box-shadow: var(--ibm-glow-primary);
 }
 
 .carbon-tertiary-btn:disabled {
@@ -60,6 +113,23 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border-style: solid;
   border-color: var(--theme-sidebar-border);
   background: var(--theme-bg-sidebar);
+  box-shadow: var(--ibm-elevation-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.offerKp-sidebar-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ibm-surface-shine);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.offerKp-sidebar-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .offerKp-user-workspace-badge {
@@ -137,6 +207,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
     var(--offerKp-profile-tint) 0%,
     var(--theme-bg-primary) 80px
   );
+  box-shadow: inset var(--ibm-elevation-1);
 }
 
 [data-offerKp-profile] .offerKp-space-bar {
@@ -146,6 +217,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
     var(--offerKp-profile-tint-strong) 0%,
     var(--theme-bg-secondary) 55%
   );
+  box-shadow: var(--ibm-elevation-1);
 }
 
 [data-offerKp-profile] .offerKp-space-indicator {
@@ -250,9 +322,18 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border: none;
   border-radius: 0;
   cursor: pointer;
-  background: var(--theme-button-primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-button-primary) 92%, #ffffff 8%) 0%,
+    var(--theme-button-primary) 100%
+  );
   color: #ffffff;
-  transition: background 0.11s ease;
+  box-shadow: var(--ibm-elevation-1);
+  transition:
+    background var(--ibm-transition-fast),
+    box-shadow var(--ibm-transition-fast),
+    transform var(--ibm-transition-fast),
+    filter var(--ibm-transition-fast);
 }
 
 [data-theme="light"] .offerKp-btn-new-chat {
@@ -264,7 +345,14 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 }
 
 .offerKp-btn-new-chat:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+  box-shadow: var(--ibm-glow-primary);
+  transform: translateY(-1px);
+}
+
+.offerKp-btn-new-chat:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
 }
 
 .offerKp-nav-item {
@@ -286,6 +374,9 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   cursor: pointer;
   text-decoration: none;
   position: relative;
+  transition:
+    background var(--ibm-transition-fast),
+    color var(--ibm-transition-fast);
 }
 
 .offerKp-nav-item:hover {
@@ -368,17 +459,45 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   font-size: clamp(28px, 4vw, 42px);
   font-weight: 300;
   line-height: 1.2;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   color: var(--theme-text-primary);
   text-align: left;
   margin: 0 0 28px;
   width: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--theme-text-primary) 0%,
+    color-mix(in srgb, var(--theme-text-primary) 72%, var(--theme-button-primary) 28%) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-offerKp-profile] .offerKp-home-greeting {
+  background: linear-gradient(
+    90deg,
+    var(--theme-text-primary) 0%,
+    color-mix(in srgb, var(--theme-text-primary) 65%, var(--offerKp-profile-accent) 35%) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .offerKp-home-prompt {
   width: 100%;
   background: var(--theme-bg-primary);
   border: 1px solid var(--theme-sidebar-border);
+  box-shadow: var(--ibm-elevation-2);
+  transition:
+    border-color var(--ibm-transition-smooth),
+    box-shadow var(--ibm-transition-smooth);
+}
+
+.offerKp-home-prompt:focus-within {
+  border-color: var(--theme-button-primary);
+  box-shadow: var(--ibm-glow-primary-strong);
 }
 
 [data-theme="light"] .offerKp-home-prompt {
@@ -554,12 +673,23 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 .offerKp-prompt-send-btn--active {
   cursor: pointer;
-  background: var(--theme-button-primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-button-primary) 90%, #ffffff 10%) 0%,
+    var(--theme-button-primary) 100%
+  );
   color: #ffffff;
+  box-shadow: var(--ibm-elevation-1);
+  transition:
+    background var(--ibm-transition-fast),
+    box-shadow var(--ibm-transition-fast),
+    transform var(--ibm-transition-fast);
 }
 
 .offerKp-prompt-send-btn--active:hover {
   background: var(--theme-button-primary-hover);
+  box-shadow: var(--ibm-glow-primary);
+  transform: scale(1.04);
 }
 
 .offerKp-prompt-send-btn--disabled {
@@ -624,7 +754,24 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   letter-spacing: 0.16px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.11s ease, border-color 0.11s ease, box-shadow 0.11s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--ibm-elevation-1);
+  transition:
+    background var(--ibm-transition-fast),
+    border-color var(--ibm-transition-fast),
+    box-shadow var(--ibm-transition-smooth),
+    transform var(--ibm-transition-smooth);
+}
+
+.offerKp-quick-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ibm-surface-shine);
+  opacity: 0;
+  transition: opacity var(--ibm-transition-smooth);
+  pointer-events: none;
 }
 
 [data-theme="light"] .offerKp-quick-card {
@@ -634,6 +781,12 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 .offerKp-quick-card:hover {
   background: var(--theme-sidebar-item-hover);
   border-color: var(--theme-button-primary);
+  box-shadow: var(--ibm-glow-primary);
+  transform: translateY(-2px);
+}
+
+.offerKp-quick-card:hover::before {
+  opacity: 1;
 }
 
 .offerKp-quick-card:active {
@@ -641,6 +794,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border-color: var(--theme-button-primary);
   outline: 2px solid var(--theme-button-primary);
   outline-offset: -2px;
+  transform: translateY(0);
 }
 
 .offerKp-quick-card__icon {
@@ -699,10 +853,12 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border-radius: 0 !important;
   border: 1px solid var(--theme-sidebar-border);
   background: var(--theme-bg-primary);
+  box-shadow: var(--ibm-elevation-1);
+  position: relative;
 }
 
 [data-theme="light"] .offerKp-chat-shell {
-  box-shadow: none;
+  box-shadow: var(--ibm-elevation-2);
 }
 
 /* ── Current workspace / space indicator ── */
@@ -720,6 +876,10 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border-radius: 8px;
   border: 1px solid var(--theme-sidebar-border);
   background: var(--theme-bg-primary);
+  box-shadow: var(--ibm-elevation-1);
+  transition:
+    border-color var(--ibm-transition-fast),
+    box-shadow var(--ibm-transition-fast);
 }
 
 .offerKp-space-indicator--bar {
@@ -856,8 +1016,10 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 6px;
   border-radius: 8px;
   border: 1px solid var(--theme-sidebar-border);
-  background: var(--theme-bg-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--theme-bg-primary) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--ibm-elevation-3);
   animation: offerKp-space-menu-in 0.18s ease;
 }
 
@@ -1238,16 +1400,21 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   overflow-wrap: anywhere;
   color: var(--theme-text-primary);
   cursor: pointer;
+  box-shadow: var(--ibm-elevation-1);
   transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    color 0.15s ease;
+    border-color var(--ibm-transition-smooth),
+    background-color var(--ibm-transition-smooth),
+    color var(--ibm-transition-smooth),
+    box-shadow var(--ibm-transition-smooth),
+    transform var(--ibm-transition-smooth);
 }
 
 .offerKp-example-prompts__item:hover {
   border-color: var(--theme-button-primary);
   background: rgba(15, 98, 254, 0.06);
   color: var(--theme-button-primary);
+  box-shadow: var(--ibm-glow-primary);
+  transform: translateX(2px);
 }
 
 .offerKp-example-prompts__item:active {
@@ -1266,6 +1433,11 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--theme-sidebar-border);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--theme-bg-secondary) 60%, transparent) 100%
+  );
   font-size: 12px;
   letter-spacing: 0.32px;
   color: var(--theme-text-secondary);
@@ -1289,6 +1461,17 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   flex-direction: column;
   gap: 0;
   overflow: hidden;
+  box-shadow: var(--ibm-elevation-1);
+  transition:
+    box-shadow var(--ibm-transition-smooth),
+    border-color var(--ibm-transition-smooth),
+    transform var(--ibm-transition-smooth);
+}
+
+.offerKp-doc-card:hover {
+  border-color: var(--theme-button-primary);
+  box-shadow: var(--ibm-glow-primary);
+  transform: translateY(-1px);
 }
 
 .offerKp-doc-card__thumbnail {

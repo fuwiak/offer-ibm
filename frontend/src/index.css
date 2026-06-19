@@ -114,7 +114,7 @@
   --theme-bg-primary: #ffffff;
   --theme-bg-secondary: #ffffff;
   --theme-bg-sidebar: #ffffff;
-  --theme-bg-container: #f4f4f4;
+  --theme-bg-container: #f2f4f8;
   --theme-popup-menu-bg: #ffffff;
 
   --theme-bg-chat: #ffffff;
@@ -239,6 +239,16 @@ onboarding flow since its background is dark and is the same fill as the inputs.
 [data-layout="onboarding"] > * input:not([data-theme="light"]),
 [data-layout="onboarding"] > * textarea:not([data-theme="light"]) {
   border: 1px solid #ffffff;
+}
+
+html.carbon-ui :focus-visible {
+  outline: 2px solid var(--theme-button-primary);
+  outline-offset: 2px;
+}
+
+html.carbon-ui button:focus:not(:focus-visible),
+html.carbon-ui a:focus:not(:focus-visible) {
+  outline: none;
 }
 
 html,
