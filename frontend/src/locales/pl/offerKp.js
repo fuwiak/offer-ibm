@@ -284,6 +284,14 @@ const TRANSLATIONS = {
       rows: "wierszy",
       truncated: "obcięto",
       noResults: "Uruchom zapytanie lub wybierz tabelę, aby zobaczyć wyniki.",
+      askTitle: "Zapytaj bazę (AI)",
+      ask: "Zapytaj",
+      asking: "Myślę…",
+      askPlaceholder:
+        "np. ile aktywnych produktów jest w katalogu? top 10 wg sprzedaży?",
+      askHint:
+        "AI napisze bezpieczne SELECT, wykona je i sformułuje odpowiedź. Ctrl/⌘ + Enter, aby zapytać.",
+      noAnswer: "Brak odpowiedzi.",
     },
     workspacesTitle: "Przestrzenie robocze",
     userWorkspaces: {

@@ -284,6 +284,14 @@ const TRANSLATIONS = {
       rows: "rows",
       truncated: "truncated",
       noResults: "Run a query or pick a table to see results.",
+      askTitle: "Ask the database (AI)",
+      ask: "Ask",
+      asking: "Thinking…",
+      askPlaceholder:
+        "e.g. how many active products are in the catalog? top 10 by sales?",
+      askHint:
+        "AI writes a safe SELECT, runs it and phrases the answer. Ctrl/⌘ + Enter to ask.",
+      noAnswer: "No answer returned.",
     },
     workspacesTitle: "Workspaces",
     userWorkspaces: {

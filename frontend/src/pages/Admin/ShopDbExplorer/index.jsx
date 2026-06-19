@@ -8,6 +8,7 @@ import {
   Play,
   ArrowClockwise,
   Warning,
+  Sparkle,
 } from "@phosphor-icons/react";
 
 function ResultTable({ columns, rows }) {
@@ -79,6 +80,9 @@ export default function ShopDbExplorer() {
   const [loadingTables, setLoadingTables] = useState(true);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState("");
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState(null);
 
   const loadTables = async () => {
     setLoadingTables(true);
@@ -130,6 +134,25 @@ export default function ShopDbExplorer() {
       setResult(null);
     } finally {
       setRunning(false);
+    }
+  };
+
+  const askDb = async () => {
+    if (!question.trim()) return;
+    setAsking(true);
+    setError(null);
+    setAnswer(null);
+    try {
+      const data = await OfferKp.dbAsk(question, 50);
+      setAnswer(data.answer || "");
+      if (data.sql) setSql(data.sql);
+      setResult(data.result || null);
+      setActiveTable(null);
+      setSchema([]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAsking(false);
     }
   };
 
@@ -243,6 +266,46 @@ export default function ShopDbExplorer() {
 
         {/* Query + results */}
         <div className="flex flex-col gap-4 min-w-0">
+          {/* Natural-language ask (LLM → SQL → answer) */}
+          <div className="bg-theme-bg-primary border border-theme-sidebar-border">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-theme-sidebar-border">
+              <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-theme-text-secondary">
+                <Sparkle size={13} weight="fill" className="text-primary-button" />
+                {t("admin.db.askTitle")}
+              </span>
+              <button
+                type="button"
+                onClick={askDb}
+                disabled={asking || !question.trim()}
+                className="flex items-center gap-2 text-xs px-3 py-1.5 bg-primary-button text-white disabled:opacity-50 hover:opacity-90"
+              >
+                <Sparkle size={13} weight="fill" />
+                {asking ? t("admin.db.asking") : t("admin.db.ask")}
+              </button>
+            </div>
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  askDb();
+                }
+              }}
+              rows={2}
+              placeholder={t("admin.db.askPlaceholder")}
+              className="w-full bg-theme-bg-chat-input text-sm p-3 text-theme-text-primary resize-y focus:outline-none"
+            />
+            {answer !== null && (
+              <div className="px-3 py-2 text-sm text-theme-text-primary border-t border-theme-sidebar-border whitespace-pre-wrap">
+                {answer || t("admin.db.noAnswer")}
+              </div>
+            )}
+            <div className="px-3 py-1.5 text-[10px] text-theme-text-secondary border-t border-theme-sidebar-border">
+              {t("admin.db.askHint")}
+            </div>
+          </div>
+
           <div className="bg-theme-bg-primary border border-theme-sidebar-border">
             <div className="flex items-center justify-between px-3 py-2 border-b border-theme-sidebar-border">
               <span className="text-xs font-semibold uppercase tracking-wide text-theme-text-secondary">

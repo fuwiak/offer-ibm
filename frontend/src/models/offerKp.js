@@ -126,6 +126,13 @@ const OfferKp = {
     });
   },
 
+  async dbAsk(question, limit) {
+    return offerKpFetch(`${API_BASE}/offerKp/db/ask`, {
+      method: "POST",
+      body: JSON.stringify({ question, limit }),
+    });
+  },
+
   quoteDocxDownloadUrl(storageFilename) {
     return `${API_BASE}/offerKp/quotes/docx/${encodeURIComponent(storageFilename)}`;
   },
