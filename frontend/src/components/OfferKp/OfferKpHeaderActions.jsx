@@ -1,7 +1,7 @@
 import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
 import UserButton from "@/components/UserMenu/UserButton";
 import { Database } from "@phosphor-icons/react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import useUser from "@/hooks/useUser";
 import paths from "@/utils/paths";
@@ -9,14 +9,16 @@ import paths from "@/utils/paths";
 /** Text size, catalog DB (admin) and profile — top-right of the main content column only. */
 export default function OfferKpHeaderActions() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user } = useUser();
   const { t } = useTranslation("offerKp");
   const isAdmin = !user || user?.role === "admin";
+  const onDbExplorer = pathname.startsWith(paths.offerKp.dbExplorer());
 
   return (
     <div className="offerKp-header-actions">
       <TextSizeMenu embedded />
-      {isAdmin && (
+      {isAdmin && !onDbExplorer && (
         <button
           type="button"
           onClick={() => navigate(paths.offerKp.dbExplorer())}

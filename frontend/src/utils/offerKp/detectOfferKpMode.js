@@ -15,6 +15,7 @@ const OFFER_KP_APP_PREFIXES = [
 const OFFER_KP_SUITE_PREFIXES = [
   "/settings/user-workspaces",
   "/offerKp-dashboard",
+  "/offerKp-db",
   "/supplier",
 ];
 
