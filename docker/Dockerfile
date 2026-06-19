@@ -23,7 +23,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
         # OCR pipeline: native tesseract (better Cyrillic than tesseract.js), Russian +
         # English trained data, poppler-utils for `pdftoppm` full-page rendering, and a
         # headless JRE for the optional @opendataloader/pdf parser.
-        tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng poppler-utils default-jre-headless && \
+        tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng poppler-utils default-jre-headless ripgrep && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
@@ -96,7 +96,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
         # OCR pipeline: native tesseract (better Cyrillic than tesseract.js), Russian +
         # English trained data, poppler-utils for `pdftoppm` full-page rendering, and a
         # headless JRE for the optional @opendataloader/pdf parser.
-        tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng poppler-utils default-jre-headless && \
+        tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng poppler-utils default-jre-headless ripgrep && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
@@ -159,6 +159,7 @@ WORKDIR /app
 FROM build AS backend-build
 COPY --chown=anythingllm:anythingllm ./server /app/server/
 WORKDIR /app/server
+ENV RIPGREP_SKIP_DOWNLOAD=true
 RUN yarn install --production --ignore-engines --network-timeout 100000 && \
     yarn add prisma@5.3.1 --ignore-engines --network-timeout 100000 && \
     npx prisma generate --schema=./prisma/schema.prisma && \

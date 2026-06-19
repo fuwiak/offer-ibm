@@ -263,12 +263,8 @@ function searchFilesWithRipgrepGlob({
   maxResults = 100,
 }) {
   const { spawnSync } = require("child_process");
-  let rgPath;
-  try {
-    ({ rgPath } = require("@vscode/ripgrep"));
-  } catch {
-    throw new Error("@vscode/ripgrep not installed");
-  }
+  const { resolveRipgrepPath } = require("./resolveRipgrepPath");
+  const rgPath = resolveRipgrepPath();
 
   // Build ripgrep arguments for file listing
   const args = [
@@ -317,12 +313,8 @@ function searchWithRipgrep({
   maxResults,
 }) {
   const { spawnSync } = require("child_process");
-  let rgPath;
-  try {
-    ({ rgPath } = require("@vscode/ripgrep"));
-  } catch {
-    throw new Error("@vscode/ripgrep not installed");
-  }
+  const { resolveRipgrepPath } = require("./resolveRipgrepPath");
+  const rgPath = resolveRipgrepPath();
 
   // Build ripgrep arguments
   const args = [
