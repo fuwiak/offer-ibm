@@ -16,25 +16,25 @@ import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 export default function WorkspaceChat({ loading, workspace, initialHistory = null }) {
   useWatchForAutoPlayAssistantTTSResponse();
   const { threadSlug = null } = useParams();
+  const historyKey = `${workspace?.slug ?? "none"}:${threadSlug ?? "default"}`;
   // Stores { key, workspace, history } currently rendered. Lags the props so
   // the previous chat stays mounted until the next one's history is ready,
   // avoiding a skeleton/loader flash on workspace/thread switches.
   const [loaded, setLoaded] = useState(null);
 
   useEffect(() => {
+    setLoaded(null);
+  }, [historyKey]);
+
+  useEffect(() => {
     async function getHistory() {
       if (loading) return;
       if (!workspace?.slug) {
-        setLoaded({ key: "none", workspace: null, history: [] });
+        setLoaded({ key: "none", workspace: null, threadSlug: null, history: [] });
         return false;
       }
 
-      const historyKey = `${workspace.slug}:${threadSlug ?? "default"}`;
-      if (
-        initialHistory !== null &&
-        initialHistory !== undefined &&
-        !threadSlug
-      ) {
+      if (initialHistory !== null && initialHistory !== undefined) {
         setLoaded({
           key: historyKey,
           workspace,
@@ -56,7 +56,7 @@ export default function WorkspaceChat({ loading, workspace, initialHistory = nul
       });
     }
     getHistory();
-  }, [workspace, loading, threadSlug, initialHistory]);
+  }, [workspace, loading, threadSlug, initialHistory, historyKey]);
 
   const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
   if (loaded === null) {

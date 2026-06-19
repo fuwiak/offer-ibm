@@ -62,14 +62,16 @@ function ShowWorkspaceChat() {
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(null);
   const [chatHistory, setChatHistory] = useState(null);
-  // Tracks which workspace `workspace` belongs to. While a new workspace's
-  // data is in flight, we keep the previous workspace's chat mounted
-  // (Slack/Linear-style transition) instead of flashing a skeleton.
-  const [loadedSlug, setLoadedSlug] = useState(null);
+  const historyKey = `${slug ?? ""}:${threadSlug ?? "default"}`;
+  const [loadedHistoryKey, setLoadedHistoryKey] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function getWorkspace() {
       if (!slug) return;
+      setChatHistory(null);
+      setLoadedHistoryKey(null);
       perfMark("workspace-chat:load-start", { slug, threadSlug });
       const wsTimer = perfTimed("workspace-chat:bySlug", { slug });
 
@@ -77,8 +79,11 @@ function ShowWorkspaceChat() {
       wsTimer.done({ found: !!_workspace });
 
       if (!_workspace) {
-        setWorkspace(null);
-        setLoadedSlug(slug);
+        if (!cancelled) {
+          setWorkspace(null);
+          setChatHistory([]);
+          setLoadedHistoryKey(historyKey);
+        }
         perfMark("workspace-chat:missing", { slug });
         return;
       }
@@ -101,13 +106,15 @@ function ShowWorkspaceChat() {
         : await Workspace.chatHistory(slug);
       historyTimer.done({ count: history?.length ?? 0 });
 
-      setWorkspace({
-        ..._workspace,
-        suggestedMessages,
-        showAgentCommand,
-      });
-      setChatHistory(history ?? []);
-      setLoadedSlug(slug);
+      if (!cancelled) {
+        setWorkspace({
+          ..._workspace,
+          suggestedMessages,
+          showAgentCommand,
+        });
+        setChatHistory(history ?? []);
+        setLoadedHistoryKey(historyKey);
+      }
       perfMark("workspace-chat:ready", {
         slug,
         historyCount: history?.length ?? 0,
@@ -127,7 +134,10 @@ function ShowWorkspaceChat() {
       );
     }
     getWorkspace();
-  }, [slug, threadSlug]);
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, threadSlug, historyKey]);
 
   const offerKpMode = shouldUseOfferKpLayout({
     workspaceSlug: workspace?.slug,
@@ -140,22 +150,24 @@ function ShowWorkspaceChat() {
 
   useEffect(() => {
     if (!offerKpMode || !isWorkspaceRoot || hasPendingMessage) return;
-    if (loadedSlug !== slug || chatHistory === null) return;
+    if (loadedHistoryKey !== historyKey || chatHistory === null) return;
     if (chatHistory.length > 0) return;
     navigate(paths.home(), { replace: true });
   }, [
     offerKpMode,
     isWorkspaceRoot,
     hasPendingMessage,
-    loadedSlug,
-    slug,
+    loadedHistoryKey,
+    historyKey,
     chatHistory,
     navigate,
   ]);
 
+  const historyLoading = loadedHistoryKey !== historyKey || chatHistory === null;
+
   const chat = (
     <WorkspaceChatContainer
-      loading={loadedSlug !== slug}
+      loading={historyLoading}
       workspace={workspace}
       initialHistory={chatHistory}
     />

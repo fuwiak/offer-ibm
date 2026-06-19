@@ -42,6 +42,8 @@ import TextSizeMenu from "./TextSizeMenu";
 import WorkspaceModelPicker from "./WorkspaceModelPicker";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
+import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
+import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 import SourcesSidebar, { SourcesSidebarProvider } from "./SourcesSidebar";
 
 export default function ChatContainer({
@@ -97,11 +99,30 @@ export default function ChatContainer({
     );
   }
 
+  function maybeRenameThreadFromFirstMessage(message = "") {
+    if (!threadSlug || chatHistory.length > 0) return;
+    const name = threadNameFromPrompt(message);
+    if (!name) return;
+    Workspace.threads
+      .update(workspace.slug, threadSlug, { name })
+      .then(({ thread }) => {
+        if (!thread?.name) return;
+        window.dispatchEvent(
+          new CustomEvent(THREAD_RENAME_EVENT, {
+            detail: { threadSlug, newName: thread.name },
+          })
+        );
+      })
+      .catch(() => {});
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const currentMessage =
       document.getElementById(PROMPT_INPUT_ID)?.value || "";
     if (!currentMessage) return false;
+
+    maybeRenameThreadFromFirstMessage(currentMessage);
 
     // Clear the localStorage draft for this thread/workspace so that if the
     // PromptInput remounts (empty→chat transition), it won't restore stale text
@@ -190,6 +211,10 @@ export default function ChatContainer({
     }
 
     if (!text || text === "") return false;
+
+    if (history.length === 0 && chatHistory.length === 0) {
+      maybeRenameThreadFromFirstMessage(text);
+    }
 
     // Clear the localStorage draft so that if the PromptInput remounts
     // (e.g. /reset causing empty→chat or chat→empty transitions),
@@ -410,8 +435,9 @@ export default function ChatContainer({
 
   const isEmpty =
     chatHistory.length === 0 && !sessionStorage.getItem(PENDING_HOME_MESSAGE);
+  const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && threadSlug);
 
-  if (isEmpty) {
+  if (showOfferKpHomeEmpty) {
     return (
       <div
         style={{ height: isMobile ? "100%" : "100%" }}
