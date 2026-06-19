@@ -11,6 +11,7 @@ import { CaretDown } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
 import showToast from "@/utils/toast";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
+import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
 import {
   OFFER_KP_LOCAL_MODELS,
@@ -78,9 +79,9 @@ export default function OfferKpAnthropicModelPicker({
   }, [open]);
 
   const refresh = useCallback(async () => {
-    const ws =
-      workspace ||
-      (workspaceSlug ? await Workspace.bySlug(workspaceSlug) : null);
+    if (!workspaceSlug) return;
+
+    const ws = await Workspace.bySlug(workspaceSlug);
     if (!ws) return;
 
     const localModel = resolveLocalPickerModel(ws.chatModel);
@@ -91,13 +92,16 @@ export default function OfferKpAnthropicModelPicker({
       ws.chatModel !== localModel ||
       !OFFER_KP_LOCAL_MODELS.some((m) => m.id === ws.chatModel);
 
-    if (needsSync && workspaceSlug) {
-      await Workspace.update(workspaceSlug, {
+    if (needsSync) {
+      const { workspace: synced } = await Workspace.update(workspaceSlug, {
         chatProvider: "lmstudio",
         chatModel: localModel,
-      }).catch(() => null);
+      }).catch(() => ({ workspace: null }));
+      if (synced?.chatModel) {
+        setSelectedModel(resolveLocalPickerModel(synced.chatModel));
+      }
     }
-  }, [workspaceSlug, workspace]);
+  }, [workspaceSlug]);
 
   useEffect(() => {
     refresh();
@@ -109,7 +113,11 @@ export default function OfferKpAnthropicModelPicker({
       refresh();
     }
     window.addEventListener(SAVE_LLM_SELECTOR_EVENT, onSaved);
-    return () => window.removeEventListener(SAVE_LLM_SELECTOR_EVENT, onSaved);
+    window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, refresh);
+    return () => {
+      window.removeEventListener(SAVE_LLM_SELECTOR_EVENT, onSaved);
+      window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, refresh);
+    };
   }, [refresh]);
 
   async function handleSelect(modelId) {
@@ -118,17 +126,25 @@ export default function OfferKpAnthropicModelPicker({
       return;
     }
     const meta = findOfferKpModel(modelId);
+    const previousModel = selectedModel;
+    setSelectedModel(modelId);
     setSaving(true);
     try {
-      const { message } = await Workspace.update(workspaceSlug, {
-        chatProvider: meta?.provider || "lmstudio",
-        chatModel: modelId,
-      });
+      const { message, workspace: updatedWorkspace } = await Workspace.update(
+        workspaceSlug,
+        {
+          chatProvider: meta?.provider || "lmstudio",
+          chatModel: modelId,
+        }
+      );
       if (message) throw new Error(message);
-      setSelectedModel(modelId);
+      setSelectedModel(
+        resolveLocalPickerModel(updatedWorkspace?.chatModel || modelId)
+      );
       window.dispatchEvent(new Event(SAVE_LLM_SELECTOR_EVENT));
       setOpen(false);
     } catch (err) {
+      setSelectedModel(previousModel);
       showToast(err.message || "Failed to save model", "error", { clear: true });
     } finally {
       setSaving(false);

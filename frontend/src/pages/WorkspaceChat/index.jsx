@@ -7,6 +7,7 @@ import PasswordModal, { usePasswordModal } from "@/components/Modals/Password";
 import { isMobile } from "react-device-detect";
 import { FullScreenLoader } from "@/components/Preloader";
 import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
+import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
 import OfferKpLayout from "@/layouts/OfferKpLayout";
 import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
 import { shouldUseOfferKpLayout as shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
@@ -138,6 +139,18 @@ function ShowWorkspaceChat() {
       cancelled = true;
     };
   }, [slug, threadSlug, historyKey]);
+
+  useEffect(() => {
+    if (!slug) return undefined;
+    async function syncWorkspaceModel() {
+      const updated = await Workspace.bySlug(slug);
+      if (!updated) return;
+      setWorkspace((prev) => (prev ? { ...prev, ...updated } : updated));
+    }
+    window.addEventListener(SAVE_LLM_SELECTOR_EVENT, syncWorkspaceModel);
+    return () =>
+      window.removeEventListener(SAVE_LLM_SELECTOR_EVENT, syncWorkspaceModel);
+  }, [slug]);
 
   const offerKpMode = shouldUseOfferKpLayout({
     workspaceSlug: workspace?.slug,

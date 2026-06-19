@@ -435,7 +435,7 @@ export default function ChatContainer({
 
   const isEmpty =
     chatHistory.length === 0 && !sessionStorage.getItem(PENDING_HOME_MESSAGE);
-  const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && threadSlug);
+  const showOfferKpHomeEmpty = isEmpty && (!threadSlug || offerKpMode);
 
   if (showOfferKpHomeEmpty) {
     return (

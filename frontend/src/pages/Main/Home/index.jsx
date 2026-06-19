@@ -38,6 +38,7 @@ import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import {
   OFFER_KP_NEW_CONVERSATION_EVENT,
 } from "@/utils/offerKp/startNewConversation";
+import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
 import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
 import WorkspaceModelPicker from "@/components/WorkspaceChat/ChatContainer/WorkspaceModelPicker";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
@@ -118,6 +119,18 @@ export default function Home() {
   useEffect(() => {
     setActiveConversation(workspace?.slug ?? null, threadSlug ?? null);
   }, [workspace?.slug, threadSlug, setActiveConversation]);
+
+  useEffect(() => {
+    if (!workspace?.slug) return undefined;
+    async function syncWorkspaceModel() {
+      const updated = await Workspace.bySlug(workspace.slug);
+      if (!updated) return;
+      setWorkspace((prev) => (prev ? { ...prev, ...updated } : updated));
+    }
+    window.addEventListener(SAVE_LLM_SELECTOR_EVENT, syncWorkspaceModel);
+    return () =>
+      window.removeEventListener(SAVE_LLM_SELECTOR_EVENT, syncWorkspaceModel);
+  }, [workspace?.slug]);
 
   useEffect(() => {
     async function init() {
