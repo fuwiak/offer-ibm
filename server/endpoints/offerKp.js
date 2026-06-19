@@ -21,6 +21,7 @@ const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
 const { runProductSearchAgent } = require("../utils/offerKp/productSearchAgent");
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 const shopDbExplorer = require("../utils/offerKp/db/explorer");
+const { askShopDb } = require("../utils/offerKp/db/askAgent");
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -689,6 +690,31 @@ function offerKpEndpoints(app) {
             .json({ error: e.message, code: e.code, reason: e.reason });
         }
         response.status(500).json({ error: e.message, code: e.code });
+      }
+    }
+  );
+
+  // Вопрос на естественном языке → SQL → ответ LLM по данным ShopDB.
+  app.post(
+    "/offerKp/db/ask",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        if (!requireOfferKpAdmin(response)) return;
+        const { question, limit } = reqBody(request);
+        if (!question || typeof question !== "string") {
+          return response.status(400).json({ error: "question is required" });
+        }
+        const result = await askShopDb({ question, limit });
+        response.status(200).json(result);
+      } catch (e) {
+        const status =
+          e.code === "EMPTY_QUESTION"
+            ? 400
+            : e.code === "SHOP_DB_NOT_CONFIGURED"
+              ? 503
+              : 500;
+        response.status(status).json({ error: e.message, code: e.code });
       }
     }
   );
