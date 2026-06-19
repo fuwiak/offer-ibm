@@ -15,7 +15,7 @@ const MCPCompatibilityLayer = require("../MCP");
 const { getAndClearInvocationAttachments } = require("../chats/agents");
 const { DocumentManager } = require("../DocumentManager");
 const { resolveAnthropicApiKey } = require("../offerKpApp/anthropicEnv");
-const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
+const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
 
 class AgentHandler {
   #invocationUUID;
@@ -436,13 +436,14 @@ class AgentHandler {
     return this.providerDefault();
   }
 
-  #providerSetupAndCheck() {
+  async #providerSetupAndCheck() {
     this.provider = this.invocation.workspace.agentProvider ?? null; // set provider to workspace agent provider if it exists
     this.model = this.#fetchModel();
 
-    const resolved = resolveLlmProviderAndModel({
+    const resolved = await resolveLlmProviderWithFallback({
       provider: this.provider,
       model: this.model,
+      log: (msg) => this.log(msg),
     });
     this.provider = resolved.provider;
     this.model = resolved.model;
@@ -640,7 +641,7 @@ class AgentHandler {
 
   async init() {
     await this.#validInvocation();
-    this.#providerSetupAndCheck();
+    await this.#providerSetupAndCheck();
 
     // Retrieve cached attachments (images, etc.) from the HTTP request
     this.attachments = getAndClearInvocationAttachments(this.#invocationUUID);

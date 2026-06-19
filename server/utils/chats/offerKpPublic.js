@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { Workspace } = require("../../models/workspace");
-const { getLLMProvider } = require("../helpers");
+const { getLLMProviderWithFallback } = require("../helpers");
 const { chatPrompt } = require("./index");
 const {
   writeResponseChunk,
@@ -35,9 +35,10 @@ async function streamOfferKpPublicChat(
     return;
   }
 
-  const LLMConnector = getLLMProvider({
+  const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace.chatProvider,
     model: workspace.chatModel,
+    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
   });
 
   const systemPrompt = await chatPrompt(workspace, null);

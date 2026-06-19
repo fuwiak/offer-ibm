@@ -596,6 +596,12 @@ function humanFileSize(bytes, si = false, dp = 1) {
   return bytes.toFixed(dp) + " " + units[u];
 }
 
+async function getLLMProviderWithFallback({ provider = null, model = null, log = null } = {}) {
+  const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
+  const resolved = await resolveLlmProviderWithFallback({ provider, model, log });
+  return getLLMProvider(resolved);
+}
+
 module.exports = {
   getEmbeddingEngineSelection,
   maximumChunkLength,
@@ -603,6 +609,7 @@ module.exports = {
   getLLMProviderClass,
   getBaseLLMProviderModel,
   getLLMProvider,
+  getLLMProviderWithFallback,
   toChunks,
   humanFileSize,
   reportEmbeddingProgress,

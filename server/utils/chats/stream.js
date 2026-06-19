@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const { DocumentManager } = require("../DocumentManager");
 const { WorkspaceChats } = require("../../models/workspaceChats");
 const { WorkspaceParsedFiles } = require("../../models/workspaceParsedFiles");
-const { getVectorDbClass, getLLMProvider } = require("../helpers");
+const { getVectorDbClass, getLLMProviderWithFallback } = require("../helpers");
 const { writeResponseChunk } = require("../helpers/chat/responses");
 const { grepAgents } = require("./agents");
 const {
@@ -64,9 +64,10 @@ async function streamChatWithWorkspace(
   });
   if (isAgentChat) return;
 
-  const LLMConnector = getLLMProvider({
+  const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace?.chatProvider,
     model: workspace?.chatModel,
+    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
   });
   const VectorDb = getVectorDbClass();
 

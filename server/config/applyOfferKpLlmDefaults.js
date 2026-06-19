@@ -17,10 +17,18 @@ function envIsSet(key) {
 function applyOfferKpLlmDefaults() {
   applyOpenRouterEnvAliases();
 
-  process.env.LLM_PROVIDER = defaults.LLM_PROVIDER || "ollama";
+  process.env.LLM_PROVIDER = defaults.LLM_PROVIDER || "lmstudio";
+  if (!envIsSet("LMSTUDIO_MODEL_PREF")) {
+    process.env.LMSTUDIO_MODEL_PREF =
+      defaults.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;
+  }
+  if (!envIsSet("LMSTUDIO_BASE_PATH")) {
+    process.env.LMSTUDIO_BASE_PATH =
+      defaults.LMSTUDIO_BASE_PATH || "http://87.228.90.43:1234/v1";
+  }
   if (!envIsSet("OLLAMA_MODEL_PREF")) {
     process.env.OLLAMA_MODEL_PREF =
-      defaults.OLLAMA_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;
+      defaults.OLLAMA_MODEL_PREF || "gpt-oss:20b";
   }
   if (!envIsSet("OLLAMA_BASE_PATH")) {
     process.env.OLLAMA_BASE_PATH =
@@ -65,7 +73,7 @@ if (require.main === module) {
   applyOfferKpLlmDefaults();
   syncOfferKpEnvFile();
   console.log(
-    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.OLLAMA_MODEL_PREF || process.env.OPENROUTER_MODEL_PREF}`
+    `\x1b[32m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} model=${process.env.LMSTUDIO_MODEL_PREF || process.env.OLLAMA_MODEL_PREF || process.env.OPENROUTER_MODEL_PREF}`
   );
 }
 

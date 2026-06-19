@@ -7,16 +7,15 @@ import showToast from "@/utils/toast";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
 import {
-  OFFER_KP_ALLOWED_MODELS,
+  OFFER_KP_MODEL_GROUPS,
   OFFER_KP_DEFAULT_MODEL,
   resolveOfferKpModel,
+  findOfferKpModel,
 } from "@/utils/offerKp/models";
-import { OFFER_KP_OLLAMA_PROVIDER } from "@/utils/offerKp/llmProviders";
 
 export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [models] = useState(OFFER_KP_ALLOWED_MODELS);
   const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_MODEL);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(
@@ -37,6 +36,7 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
     ]);
     const current =
       workspace?.chatModel ??
+      systemSettings?.LMSTUDIO_MODEL_PREF ??
       systemSettings?.LLMModel ??
       OFFER_KP_DEFAULT_MODEL;
     setSelectedModel(resolveOfferKpModel(current));
@@ -60,10 +60,11 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
       setOpen(false);
       return;
     }
+    const meta = findOfferKpModel(modelId);
     setSaving(true);
     try {
       const { message } = await Workspace.update(workspaceSlug, {
-        chatProvider: OFFER_KP_OLLAMA_PROVIDER,
+        chatProvider: meta?.provider || "lmstudio",
         chatModel: modelId,
       });
       if (message) throw new Error(message);
@@ -78,7 +79,7 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
   }
 
   const displayName =
-    models.find((m) => m.id === selectedModel)?.name || selectedModel;
+    findOfferKpModel(selectedModel)?.name || selectedModel;
 
   return (
     <>
@@ -118,27 +119,47 @@ export default function OfferKpAnthropicModelPicker({ workspaceSlug }) {
           {open && (
             <ul
               role="listbox"
-              className="absolute left-0 top-full mt-1 min-w-[220px] max-h-[280px] overflow-y-auto bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg shadow-lg py-1 z-40"
+              className="absolute left-0 top-full mt-1 min-w-[240px] max-h-[320px] overflow-y-auto bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg shadow-lg py-1 z-40"
             >
-              {models.map((model) => (
-                <li key={model.id} role="option" aria-selected={model.id === selectedModel}>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => handleSelect(model.id)}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                      model.id === selectedModel
-                        ? "bg-primary-button/20 text-white light:text-slate-900 font-medium"
-                        : "text-zinc-300 light:text-slate-700 hover:bg-zinc-700 light:hover:bg-slate-100"
-                    }`}
-                  >
-                    {model.name || model.id}
-                    {model.hint ? (
-                      <span className="block text-[10px] opacity-60 font-normal">
-                        {model.hint}
+              {OFFER_KP_MODEL_GROUPS.map((group) => (
+                <li key={group.id} role="presentation">
+                  <div className="px-3 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 light:text-slate-500">
+                      {group.label}
+                    </span>
+                    {group.hint ? (
+                      <span className="block text-[10px] text-zinc-500 light:text-slate-400 font-normal normal-case tracking-normal">
+                        {group.hint}
                       </span>
                     ) : null}
-                  </button>
+                  </div>
+                  <ul role="group" aria-label={group.label}>
+                    {group.models.map((model) => (
+                      <li
+                        key={model.id}
+                        role="option"
+                        aria-selected={model.id === selectedModel}
+                      >
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => handleSelect(model.id)}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                            model.id === selectedModel
+                              ? "bg-primary-button/20 text-white light:text-slate-900 font-medium"
+                              : "text-zinc-300 light:text-slate-700 hover:bg-zinc-700 light:hover:bg-slate-100"
+                          }`}
+                        >
+                          {model.name || model.id}
+                          {model.hint ? (
+                            <span className="block text-[10px] opacity-60 font-normal">
+                              {model.hint}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>

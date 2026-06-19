@@ -16,7 +16,7 @@ const {
   agentSkillsFromSystemSettings,
 } = require("./defaults");
 const { AgentHandler } = require(".");
-const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
+const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
 const {
   WorkspaceAgentInvocation,
 } = require("../../models/workspaceAgentInvocation");
@@ -193,13 +193,14 @@ class EphemeralAgentHandler extends AgentHandler {
     return this.providerDefault();
   }
 
-  #providerSetupAndCheck() {
+  async #providerSetupAndCheck() {
     this.provider = this.#workspace?.agentProvider ?? null;
     this.model = this.#fetchModel();
 
-    const resolved = resolveLlmProviderAndModel({
+    const resolved = await resolveLlmProviderWithFallback({
       provider: this.provider,
       model: this.model,
+      log: (msg) => this.log(msg),
     });
     this.provider = resolved.provider;
     this.model = resolved.model;
@@ -367,7 +368,7 @@ class EphemeralAgentHandler extends AgentHandler {
   }
 
   async init() {
-    this.#providerSetupAndCheck();
+    await this.#providerSetupAndCheck();
     return this;
   }
 

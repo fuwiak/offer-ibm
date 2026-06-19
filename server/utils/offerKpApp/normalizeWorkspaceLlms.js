@@ -3,15 +3,20 @@ const llmDefaults = require("../../config/offerKp.llm.defaults");
 const {
   OFFER_KP_DEFAULT_MODEL,
   resolveOfferKpModel,
+  resolveOfferKpProvider,
   isOfferKpAllowedModel,
 } = require("../../config/offerKp.models");
 
+const ALLOWED_PROVIDERS = new Set(["lmstudio", "ollama"]);
+
 /**
- * Ensures all workspaces use Ollama + allowed local models.
+ * Ensures all workspaces use allowed OfferKP providers and models.
  */
 async function normalizeOfferKpWorkspaceLlms() {
   const defaultModel = resolveOfferKpModel(
-    process.env.OLLAMA_MODEL_PREF ||
+    process.env.LMSTUDIO_MODEL_PREF ||
+      process.env.OLLAMA_MODEL_PREF ||
+      llmDefaults.LMSTUDIO_MODEL_PREF ||
       llmDefaults.OLLAMA_MODEL_PREF ||
       OFFER_KP_DEFAULT_MODEL
   );
@@ -27,8 +32,18 @@ async function normalizeOfferKpWorkspaceLlms() {
   });
 
   for (const ws of workspaces) {
+    const chatModel = resolveOfferKpModel(ws.chatModel || defaultModel);
+    const agentModel = resolveOfferKpModel(
+      ws.agentModel || ws.chatModel || defaultModel
+    );
+    const chatProvider = resolveOfferKpProvider(chatModel);
+    const agentProvider = resolveOfferKpProvider(agentModel);
+
     const needsProviderFix =
-      ws.chatProvider !== "ollama" || ws.agentProvider !== "ollama";
+      !ALLOWED_PROVIDERS.has(ws.chatProvider) ||
+      !ALLOWED_PROVIDERS.has(ws.agentProvider) ||
+      ws.chatProvider !== chatProvider ||
+      ws.agentProvider !== agentProvider;
     const needsModelFix =
       !isOfferKpAllowedModel(ws.chatModel) ||
       !isOfferKpAllowedModel(ws.agentModel);
@@ -38,10 +53,10 @@ async function normalizeOfferKpWorkspaceLlms() {
     await prisma.workspaces.update({
       where: { id: ws.id },
       data: {
-        chatProvider: "ollama",
-        agentProvider: "ollama",
-        chatModel: resolveOfferKpModel(ws.chatModel || defaultModel),
-        agentModel: resolveOfferKpModel(ws.agentModel || ws.chatModel || defaultModel),
+        chatProvider,
+        agentProvider,
+        chatModel,
+        agentModel,
       },
     });
   }
