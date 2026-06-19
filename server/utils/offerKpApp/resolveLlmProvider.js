@@ -4,9 +4,13 @@ const {
   resolveOfferKpModel,
   resolveOfferKpProvider,
   findOfferKpModel,
-  isOfferKpAllowedModel,
+  isOfferKpCloudModel,
 } = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
+
+function offerKpAllowOllama() {
+  return String(process.env.OFFER_KP_ALLOW_OLLAMA || "0").trim() === "1";
+}
 
 function ensureOllamaBasePath() {
   if (
@@ -32,49 +36,49 @@ function ensureLmStudioBasePath() {
   return process.env.LMSTUDIO_BASE_PATH;
 }
 
+function coerceToLocalModel(modelId) {
+  const resolved = resolveOfferKpModel(modelId);
+  if (offerKpAllowOllama() && isOfferKpCloudModel(resolved)) {
+    return resolved;
+  }
+  if (isOfferKpCloudModel(resolved) || resolveOfferKpProvider(resolved) === "ollama") {
+    return OFFER_KP_DEFAULT_MODEL;
+  }
+  return resolved;
+}
+
 /**
- * Resolve system/workspace LLM provider and model for offer-kp.
- * Provider follows model registry — stale workspace chatProvider is ignored.
- * @param {{ provider?: string|null, model?: string|null }} params
- * @returns {{ provider: string, model: string }}
+ * Resolve LLM for offer-kp. Chat/agents use LM Studio by default.
+ * Ollama only when OFFER_KP_ALLOW_OLLAMA=1 and a cloud model id is selected.
  */
 function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
-  ensureOllamaBasePath();
   ensureLmStudioBasePath();
 
-  let resolvedModel = resolveOfferKpModel(
+  const requestedModel =
     model ||
-      process.env.LMSTUDIO_MODEL_PREF ||
-      process.env.OLLAMA_MODEL_PREF ||
-      llmDefaults.LMSTUDIO_MODEL_PREF ||
-      llmDefaults.OLLAMA_MODEL_PREF ||
-      OFFER_KP_DEFAULT_MODEL
-  );
+    process.env.LMSTUDIO_MODEL_PREF ||
+    llmDefaults.LMSTUDIO_MODEL_PREF ||
+    OFFER_KP_DEFAULT_MODEL;
 
-  // Deployment uses LM Studio — ignore stale cloud Ollama model ids in workspace.
+  let resolvedModel = coerceToLocalModel(requestedModel);
+  let resolvedProvider = "lmstudio";
+
   if (
-    process.env.LLM_PROVIDER === "lmstudio" &&
-    resolveOfferKpProvider(resolvedModel) === "ollama"
+    offerKpAllowOllama() &&
+    isOfferKpCloudModel(resolvedModel) &&
+    provider !== "lmstudio"
   ) {
-    resolvedModel = OFFER_KP_DEFAULT_MODEL;
-  }
-
-  let resolvedProvider;
-  if (isOfferKpAllowedModel(resolvedModel)) {
-    resolvedProvider = resolveOfferKpProvider(resolvedModel);
-  } else if (
-    provider &&
-    ["lmstudio", "ollama"].includes(String(provider).trim())
-  ) {
-    resolvedProvider = String(provider).trim();
-  } else {
-    resolvedProvider = process.env.LLM_PROVIDER === "ollama" ? "ollama" : "lmstudio";
-  }
-
-  if (resolvedProvider === "lmstudio") {
-    process.env.LMSTUDIO_MODEL_PREF = resolvedModel;
-  } else {
+    resolvedProvider = "ollama";
+    ensureOllamaBasePath();
     process.env.OLLAMA_MODEL_PREF = resolvedModel;
+  } else {
+    if (requestedModel !== resolvedModel) {
+      offerKpLog("warn", "Rejected Ollama model — using LM Studio", {
+        requested: requestedModel,
+        using: resolvedModel,
+      });
+    }
+    process.env.LMSTUDIO_MODEL_PREF = resolvedModel;
   }
 
   const resolved = {
@@ -85,7 +89,7 @@ function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
   return resolved;
 }
 
-/** @deprecated cloud fallback removed — alias for resolveLlmProviderAndModel */
+/** @deprecated alias */
 async function resolveLlmProviderWithFallback(params = {}) {
   return resolveLlmProviderAndModel(params);
 }
@@ -95,4 +99,6 @@ module.exports = {
   resolveLlmProviderWithFallback,
   ensureOllamaBasePath,
   ensureLmStudioBasePath,
+  coerceToLocalModel,
+  offerKpAllowOllama,
 };

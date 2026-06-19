@@ -18,6 +18,9 @@ function applyOfferKpLlmDefaults() {
   applyOpenRouterEnvAliases();
 
   process.env.LLM_PROVIDER = defaults.LLM_PROVIDER || "lmstudio";
+  if (!envIsSet("OFFER_KP_ALLOW_OLLAMA")) {
+    process.env.OFFER_KP_ALLOW_OLLAMA = "0";
+  }
   if (!envIsSet("LMSTUDIO_MODEL_PREF")) {
     process.env.LMSTUDIO_MODEL_PREF =
       defaults.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL;

@@ -2,29 +2,25 @@ const prisma = require("../prisma");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
 const {
   OFFER_KP_DEFAULT_MODEL,
-  resolveOfferKpModel,
-  resolveOfferKpProvider,
-  isOfferKpAllowedModel,
+  isOfferKpCloudModel,
+  isOfferKpLocalModel,
 } = require("../../config/offerKp.models");
-
-const ALLOWED_PROVIDERS = new Set(["lmstudio", "ollama"]);
+const { coerceToLocalModel } = require("./resolveLlmProvider");
 
 /**
- * Ensures all workspaces use allowed OfferKP providers and models.
+ * Migrates all workspaces to LM Studio + local model ids.
  */
 async function normalizeOfferKpWorkspaceLlms() {
-  const preferLocal = process.env.LLM_PROVIDER === "lmstudio";
-  const defaultModel = resolveOfferKpModel(
+  const defaultModel = coerceToLocalModel(
     process.env.LMSTUDIO_MODEL_PREF ||
-      process.env.OLLAMA_MODEL_PREF ||
       llmDefaults.LMSTUDIO_MODEL_PREF ||
-      llmDefaults.OLLAMA_MODEL_PREF ||
       OFFER_KP_DEFAULT_MODEL
   );
 
   const workspaces = await prisma.workspaces.findMany({
     select: {
       id: true,
+      slug: true,
       chatProvider: true,
       agentProvider: true,
       chatModel: true,
@@ -33,45 +29,35 @@ async function normalizeOfferKpWorkspaceLlms() {
   });
 
   for (const ws of workspaces) {
-    let chatModel = resolveOfferKpModel(ws.chatModel || defaultModel);
-    let agentModel = resolveOfferKpModel(
+    const chatModel = coerceToLocalModel(ws.chatModel || defaultModel);
+    const agentModel = coerceToLocalModel(
       ws.agentModel || ws.chatModel || defaultModel
     );
 
-    if (preferLocal) {
-      if (resolveOfferKpProvider(chatModel) === "ollama") {
-        chatModel = OFFER_KP_DEFAULT_MODEL;
-      }
-      if (resolveOfferKpProvider(agentModel) === "ollama") {
-        agentModel = OFFER_KP_DEFAULT_MODEL;
-      }
-    }
-
-    const chatProvider = resolveOfferKpProvider(chatModel);
-    const agentProvider = resolveOfferKpProvider(agentModel);
-
-    const needsProviderFix =
-      !ALLOWED_PROVIDERS.has(ws.chatProvider) ||
-      !ALLOWED_PROVIDERS.has(ws.agentProvider) ||
-      ws.chatProvider !== chatProvider ||
-      ws.agentProvider !== agentProvider;
-    const needsModelFix =
+    const needsFix =
+      ws.chatProvider !== "lmstudio" ||
+      ws.agentProvider !== "lmstudio" ||
       ws.chatModel !== chatModel ||
       ws.agentModel !== agentModel ||
-      !isOfferKpAllowedModel(ws.chatModel) ||
-      !isOfferKpAllowedModel(ws.agentModel);
+      isOfferKpCloudModel(ws.chatModel) ||
+      isOfferKpCloudModel(ws.agentModel) ||
+      !isOfferKpLocalModel(chatModel) ||
+      !isOfferKpLocalModel(agentModel);
 
-    if (!needsProviderFix && !needsModelFix) continue;
+    if (!needsFix) continue;
 
     await prisma.workspaces.update({
       where: { id: ws.id },
       data: {
-        chatProvider,
-        agentProvider,
+        chatProvider: "lmstudio",
+        agentProvider: "lmstudio",
         chatModel,
         agentModel,
       },
     });
+    console.log(
+      `[OFFER_KP-LLM] workspace ${ws.slug} → lmstudio / ${chatModel}`
+    );
   }
 }
 

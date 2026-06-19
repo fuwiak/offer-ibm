@@ -95,6 +95,18 @@ export function resolveOfferKpModel(modelId) {
   return OFFER_KP_DEFAULT_MODEL;
 }
 
+export function isOfferKpCloudModel(modelId) {
+  return OFFER_KP_CLOUD_MODELS.some(
+    (m) => m.id === String(modelId || "").trim()
+  );
+}
+
+export function isOfferKpLocalModel(modelId) {
+  return OFFER_KP_LOCAL_MODELS.some(
+    (m) => m.id === String(modelId || "").trim()
+  );
+}
+
 export function resolveOfferKpProvider(modelId) {
   return findOfferKpModel(modelId)?.provider || "lmstudio";
 }
