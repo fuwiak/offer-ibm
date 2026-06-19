@@ -68,7 +68,7 @@ export default function UserButton({ embedded = false }) {
         ref={buttonRef}
         onClick={() => setShowMenu(!showMenu)}
         type="button"
-        className="uppercase transition-all duration-300 w-[35px] h-[35px] text-base font-semibold rounded-full flex items-center bg-theme-action-menu-bg hover:bg-theme-action-menu-item-hover justify-center text-white p-2 hover:border-slate-100 hover:border-opacity-50 border-transparent border"
+        className="uppercase transition-all duration-300 w-[35px] h-[35px] text-xs font-semibold leading-none rounded-full flex items-center justify-center shrink-0 bg-theme-action-menu-bg hover:bg-theme-action-menu-item-hover text-white hover:border-slate-100 hover:border-opacity-50 border-transparent border"
       >
         {mode === "multi" ? <UserDisplay /> : <Person size={14} />}
       </button>
@@ -76,7 +76,7 @@ export default function UserButton({ embedded = false }) {
       {showMenu && (
         <div
           ref={menuRef}
-          className="w-fit rounded-lg absolute top-12 right-0 bg-theme-action-menu-bg p-2 flex items-center-justify-center"
+          className="w-fit rounded-lg absolute top-[calc(100%+6px)] right-0 bg-theme-action-menu-bg p-2 flex items-center justify-center shadow-lg z-[60]"
         >
           <div className="flex flex-col gap-y-2">
             {mode === "multi" && !!user && (

@@ -398,22 +398,49 @@
   margin: 0;
 }
 
-/* Top-right: notifications + profile (no overlap) */
+/* Top-right: notifications + text size + profile */
 .offerKp-header-actions {
   position: absolute;
-  top: 12px;
-  right: 16px;
-  z-index: 40;
+  top: 0;
+  right: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  padding: 8px 12px;
+  pointer-events: none;
+}
+
+.offerKp-header-actions > * {
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {
   .offerKp-header-actions {
-    top: 36px;
-    right: 40px;
+    padding: 10px 16px;
   }
+}
+
+.offerKp-chat-shell .offerKp-space-bar,
+.offerKp-home-shell .offerKp-space-bar {
+  padding-right: 132px;
+}
+
+@media (min-width: 768px) {
+  .offerKp-chat-shell .offerKp-space-bar,
+  .offerKp-home-shell .offerKp-space-bar {
+    padding-right: 148px;
+  }
+}
+
+.offerKp-notifications-bell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 9999px;
+  flex-shrink: 0;
 }
 
 /* Notifications bell (header) */

@@ -1,5 +1,6 @@
 import { useLocation, useParams } from "react-router-dom";
 import NotificationsBell from "@/components/OfferKp/NotificationsBell";
+import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import UserButton from "./UserButton";
 
@@ -13,6 +14,7 @@ export default function UserMenu({ children }) {
       {offerKpMode ? (
         <div className="offerKp-header-actions">
           <NotificationsBell />
+          <TextSizeMenu embedded />
           <UserButton embedded />
         </div>
       ) : (
