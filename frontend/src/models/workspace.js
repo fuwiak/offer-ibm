@@ -374,6 +374,25 @@ const Workspace = {
     const data = await response.json();
     return data;
   },
+  getParsedFilePreview: async function (
+    slug,
+    fileId,
+    { threadSlug = null, limit = 25, offset = 0, sheetIndex = 0 } = {}
+  ) {
+    const basePath = new URL(
+      `${fullApiUrl()}/workspace/${slug}/parsed-files/${fileId}/preview`
+    );
+    if (threadSlug) basePath.searchParams.set("threadSlug", threadSlug);
+    basePath.searchParams.set("limit", String(limit));
+    basePath.searchParams.set("offset", String(offset));
+    basePath.searchParams.set("sheetIndex", String(sheetIndex));
+    const response = await fetch(basePath, {
+      method: "GET",
+      headers: baseHeaders(),
+    });
+    if (!response.ok) return { preview: null, error: response.statusText };
+    return response.json();
+  },
   uploadLink: async function (slug, link) {
     const response = await fetch(`${API_BASE}/workspace/${slug}/upload-link`, {
       method: "POST",

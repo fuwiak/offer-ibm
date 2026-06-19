@@ -3,6 +3,11 @@ const { EventLogs } = require("./eventLogs");
 const { Document } = require("./documents");
 const { documentsPath, directUploadsPath } = require("../utils/files");
 const { safeJsonParse } = require("../utils/http");
+const {
+  buildTabularPreview,
+  countContentLines,
+  isTabularFilename,
+} = require("../utils/parsedFilePreview");
 const fs = require("fs");
 const path = require("path");
 
@@ -180,12 +185,20 @@ const WorkspaceParsedFiles = {
 
       for (const file of files) {
         const metadata = safeJsonParse(file.metadata, {});
+        const displayName =
+          metadata.title ||
+          file.filename.replace(/-[0-9a-f-]{36}\.json$/i, "") ||
+          file.filename;
         totalTokens += file.tokenCountEstimate || 0;
         results.push({
           id: file.id,
-          title: metadata.title || metadata.location,
+          filename: file.filename,
+          title: displayName,
           location: metadata.location,
           token_count_estimate: file.tokenCountEstimate,
+          lineCount: metadata.lineCount ?? null,
+          isTabular:
+            metadata.isTabular ?? isTabularFilename(file.filename),
         });
       }
 
@@ -201,6 +214,93 @@ const WorkspaceParsedFiles = {
         contextWindow: Infinity,
         currentContextTokenCount: 0,
       };
+    }
+  },
+
+  getFilePreview: async function ({
+    workspace,
+    fileId,
+    user = null,
+    thread = null,
+    options = {},
+  }) {
+    try {
+      const parsedFile = await this.get({
+        id: parseInt(fileId),
+        workspaceId: workspace.id,
+        threadId: thread?.id || null,
+        ...(user ? { userId: user.id } : {}),
+      });
+      if (!parsedFile) return { preview: null, error: "NOT_FOUND" };
+
+      const metadata = safeJsonParse(parsedFile.metadata, {});
+      const location = metadata.location;
+      if (!location) return { preview: null, error: "NO_LOCATION" };
+
+      const sourceFile = path.join(
+        directUploadsPath,
+        path.basename(location)
+      );
+      if (!fs.existsSync(sourceFile)) {
+        return { preview: null, error: "SOURCE_MISSING" };
+      }
+
+      const content = fs.readFileSync(sourceFile, "utf-8");
+      const data = safeJsonParse(content, null);
+      const pageContent = data?.pageContent || "";
+      const isTabular =
+        metadata.isTabular ?? isTabularFilename(parsedFile.filename);
+
+      if (!pageContent) {
+        return {
+          preview: {
+            isTabular: false,
+            title:
+              metadata.title ||
+              parsedFile.filename.replace(/-[0-9a-f-]{36}\.json$/i, ""),
+            textPreview: "",
+            headers: [],
+            rows: [],
+            totalRows: 0,
+          },
+          error: null,
+        };
+      }
+
+      if (!isTabular) {
+        const lines = pageContent
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        return {
+          preview: {
+            isTabular: false,
+            title:
+              metadata.title ||
+              parsedFile.filename.replace(/-[0-9a-f-]{36}\.json$/i, ""),
+            textPreview: lines.slice(0, 12).join("\n"),
+            totalLines: lines.length,
+            headers: [],
+            rows: [],
+            totalRows: 0,
+          },
+          error: null,
+        };
+      }
+
+      const preview = buildTabularPreview(pageContent, options);
+      return {
+        preview: {
+          ...preview,
+          title:
+            metadata.title ||
+            parsedFile.filename.replace(/-[0-9a-f-]{36}\.json$/i, ""),
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Failed to get parsed file preview:", error);
+      return { preview: null, error: error.message };
     }
   },
 

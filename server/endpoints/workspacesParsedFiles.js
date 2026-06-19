@@ -12,6 +12,10 @@ const { CollectorApi } = require("../utils/collectorApi");
 const { WorkspaceThread } = require("../models/workspaceThread");
 const { WorkspaceParsedFiles } = require("../models/workspaceParsedFiles");
 const {
+  countContentLines,
+  isTabularFilename,
+} = require("../utils/parsedFilePreview");
+const {
   hasRestrictedContent,
   getRestrictedMessage,
 } = require("../utils/restrictedContent");
@@ -41,6 +45,43 @@ function workspaceParsedFilesEndpoints(app) {
         return response
           .status(200)
           .json({ files, contextWindow, currentContextTokenCount });
+      } catch (e) {
+        console.error(e.message, e);
+        return response.sendStatus(500).end();
+      }
+    }
+  );
+
+  app.get(
+    "/workspace/:slug/parsed-files/:fileId/preview",
+    [validatedRequest, flexUserRoleValid([ROLES.all]), validWorkspaceSlug],
+    async (request, response) => {
+      try {
+        const { fileId } = request.params;
+        const threadSlug = request.query.threadSlug || null;
+        const user = await userFromSession(request, response);
+        const workspace = response.locals.workspace;
+        const thread = threadSlug
+          ? await WorkspaceThread.get({ slug: String(threadSlug) })
+          : null;
+        const { preview, error } = await WorkspaceParsedFiles.getFilePreview({
+          workspace,
+          fileId,
+          user: multiUserMode(response) ? user : null,
+          thread: thread || null,
+          options: {
+            limit: request.query.limit,
+            offset: request.query.offset,
+            sheetIndex: request.query.sheetIndex,
+          },
+        });
+
+        if (!preview) {
+          const status = error === "NOT_FOUND" ? 404 : 500;
+          return response.status(status).json({ preview: null, error });
+        }
+
+        return response.status(200).json({ preview, error: null });
       } catch (e) {
         console.error(e.message, e);
         return response.sendStatus(500).end();
@@ -178,6 +219,9 @@ function workspaceParsedFilesEndpoints(app) {
         const files = await Promise.all(
           documents.map(async (doc) => {
             const metadata = { ...doc };
+            const pageContent = metadata.pageContent || "";
+            metadata.lineCount = countContentLines(pageContent);
+            metadata.isTabular = isTabularFilename(originalname);
             // Strip out pageContent
             delete metadata.pageContent;
             const filename = `${originalname}-${doc.id}.json`;
@@ -286,6 +330,9 @@ function workspaceParsedFilesEndpoints(app) {
         const files = await Promise.all(
           documents.map(async (doc) => {
             const metadata = { ...doc };
+            const pageContent = metadata.pageContent || "";
+            metadata.lineCount = countContentLines(pageContent);
+            metadata.isTabular = isTabularFilename(originalname);
             delete metadata.pageContent;
             const filename = `${originalname}-${doc.id}.json`;
             const { file, error: dbError } = await WorkspaceParsedFiles.create({

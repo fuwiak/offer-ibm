@@ -364,6 +364,13 @@ const TRANSLATIONS = {
     attachFile: "Dołącz plik",
     capacityUsed: "{{pct}}% pojemności projektu wykorzystane",
     fileLines: "{{count}} linii",
+    dbPreviewTitle: "Podgląd bazy danych",
+    dbPreviewHint: "Pierwsze wiersze z załączonych arkuszy — porównaj z odpowiedziami modelu.",
+    dbPreviewLoading: "Ładowanie wierszy…",
+    dbPreviewLoadError: "Nie udało się załadować podglądu.",
+    dbPreviewEmpty: "Brak danych tabelarycznych w tym pliku.",
+    dbPreviewRows: "Wiersze {{from}}–{{to}} z {{total}}",
+    dbPreviewTextTruncated: "Pokazano pierwsze 12 z {{total}} linii.",
     documentsRetention:
       "Dokumenty są przechowywane przez 30 dni w aktywnej historii sesji.",
     downloadPdf: "Pobierz PDF",

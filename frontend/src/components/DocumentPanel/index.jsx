@@ -15,7 +15,6 @@ import { saveAs } from "file-saver";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import Workspace from "@/models/workspace";
-import { safeJsonParse } from "@/utils/request";
 import { getThreadMeta, setThreadMeta } from "@/utils/offerKp/threadMeta";
 import { extractUserMemoryNotes } from "@/utils/offerKp/leadsInboxContext";
 import OfferKpThreadPanelSection from "@/components/OfferKp/OfferKpThreadPanelSection";
@@ -27,6 +26,10 @@ import DocPreviewPane from "@/components/OfferKp/DocPreviewPane";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import { canShowAdminThreadContextPanel } from "@/utils/offerKp/threadPanelAccess";
+import ThreadFileDataPreview, {
+  FileExtensionBadge,
+  displayName,
+} from "@/components/OfferKp/ThreadFileDataPreview";
 
 function fileExtension(filename = "") {
   const parts = filename.split(".");
@@ -113,10 +116,9 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
       ) : (
         <ul className="offerKp-thread-files__grid">
           {files.map((file) => {
-            const meta = safeJsonParse(file.metadata, {});
-            const ext = fileExtension(file.filename);
+            const ext = fileExtension(displayName(file));
             const Icon = fileIcon(ext);
-            const lines = meta?.lines ?? meta?.lineCount;
+            const lines = file.lineCount;
             return (
               <li key={file.id} className="offerKp-thread-files__card">
                 <Icon
@@ -125,19 +127,24 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
                   className="offerKp-thread-files__card-icon"
                 />
                 <span className="offerKp-thread-files__card-name">
-                  {file.filename}
+                  {displayName(file)}
                 </span>
                 {lines != null && (
                   <span className="offerKp-thread-files__card-meta">
                     {t("layout.fileLines", { count: lines })}
                   </span>
                 )}
-                <span className="offerKp-thread-files__card-type">{ext}</span>
+                <FileExtensionBadge file={file} />
               </li>
             );
           })}
         </ul>
       )}
+      <ThreadFileDataPreview
+        files={files}
+        workspaceSlug={workspaceSlug}
+        threadSlug={threadSlug}
+      />
     </section>
   );
 }

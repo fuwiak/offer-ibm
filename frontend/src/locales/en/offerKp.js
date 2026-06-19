@@ -364,6 +364,13 @@ const TRANSLATIONS = {
     attachFile: "Attach file",
     capacityUsed: "{{pct}}% of project capacity used",
     fileLines: "{{count}} lines",
+    dbPreviewTitle: "Database preview",
+    dbPreviewHint: "First rows from attached spreadsheets — compare with the model's answers.",
+    dbPreviewLoading: "Loading rows…",
+    dbPreviewLoadError: "Could not load preview.",
+    dbPreviewEmpty: "No tabular data in this file.",
+    dbPreviewRows: "Rows {{from}}–{{to}} of {{total}}",
+    dbPreviewTextTruncated: "Showing first 12 of {{total}} lines.",
     documentsRetention:
       "Documents are stored for 30 days in the active session history.",
     downloadPdf: "Download PDF",
