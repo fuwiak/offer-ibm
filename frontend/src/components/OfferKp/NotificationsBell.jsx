@@ -41,7 +41,7 @@ export default function NotificationsBell() {
       <button
         type="button"
         onClick={toggle}
-        className="offerKp-notifications-bell border-none bg-transparent p-2 cursor-pointer text-theme-text-primary hover:bg-theme-sidebar-item-hover relative"
+        className="offerKp-notifications-bell border-none bg-transparent cursor-pointer text-theme-text-primary hover:bg-theme-sidebar-item-hover relative"
         aria-label={t("layout.notifications")}
         aria-expanded={open}
       >
