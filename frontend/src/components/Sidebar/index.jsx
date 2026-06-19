@@ -85,21 +85,23 @@ export default function Sidebar() {
             <div className="flex flex-col h-full overflow-hidden">
               <div className="flex-grow flex flex-col min-w-[235px] min-h-0">
                 <div
-                  className={`relative flex flex-col w-full pt-[10px] overflow-y-auto no-scroll ${
+                  className={`relative flex flex-col w-full pt-[10px] ${
                     offerKpMode
-                      ? "flex-1 min-h-0 h-full"
-                      : "h-[calc(100%-60px)] justify-between"
+                      ? "flex-1 min-h-0 h-full overflow-hidden"
+                      : "overflow-y-auto no-scroll h-[calc(100%-60px)] justify-between"
                   }`}
                 >
                   <div
-                    className={`flex flex-col gap-y-[14px] ${
-                      offerKpMode ? "flex-1 min-h-0" : ""
+                    className={`flex flex-col ${
+                      offerKpMode
+                        ? "flex-1 min-h-0 h-full overflow-hidden gap-y-2"
+                        : "gap-y-[14px]"
                     }`}
                   >
                     {offerKpMode && (
                       <button
                         type="button"
-                        className="offerKp-btn-new-chat mb-2"
+                        className="offerKp-btn-new-chat shrink-0"
                         onClick={() => startNewConversation(navigate)}
                       >
                         <Plus size={16} weight="bold" aria-hidden />

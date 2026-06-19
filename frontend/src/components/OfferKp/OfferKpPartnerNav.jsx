@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChatCircle, Gear } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
+import OfferKpHomeThreadHistory from "@/components/OfferKp/OfferKpHomeThreadHistory";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 
 export default function OfferKpPartnerNav() {
   const { t } = useTranslation("offerKp");
   const { pathname } = useLocation();
+  const { threadSlug: routeThreadSlug = null } = useParams();
+  const { activeThreadSlug } = useOfferKp();
   const [workspaces, setWorkspaces] = useState([]);
 
   useEffect(() => {
@@ -22,8 +26,8 @@ export default function OfferKpPartnerNav() {
     pathname.startsWith("/bot");
 
   return (
-    <nav className="offerKp-partner-nav flex flex-col shrink-0">
-      <div className="flex flex-col">
+    <nav className="offerKp-partner-nav flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-col shrink-0">
         <Link
           to={paths.offerKp.home()}
           className={`offerKp-nav-item ${conversationActive ? "offerKp-nav-item--active" : ""}`}
@@ -35,9 +39,17 @@ export default function OfferKpPartnerNav() {
             {t("layout.conversation")}
           </span>
         </Link>
+      </div>
 
-        {workspaces.length > 0 && (
-          <ul className="mt-1 flex flex-col gap-px pl-3 pr-1">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <OfferKpHomeThreadHistory
+          variant="sidebar"
+          activeThreadSlug={routeThreadSlug ?? activeThreadSlug}
+        />
+      </div>
+
+      {workspaces.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-px pl-3 pr-1 shrink-0 border-t border-theme-sidebar-border pt-2">
             {workspaces.map((ws) => (
               <li
                 key={ws.slug}
@@ -62,7 +74,6 @@ export default function OfferKpPartnerNav() {
             ))}
           </ul>
         )}
-      </div>
     </nav>
   );
 }

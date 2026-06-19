@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   MagnifyingGlass,
@@ -14,6 +14,7 @@ import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { formatRelativeTimeAgo } from "@/utils/offerKp/threadMeta";
+import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -23,12 +24,17 @@ const DELETE_UNDO_MS = 60 * 60 * 1000; // 1 hour to undo a deletion
 export default function OfferKpHomeThreadHistory({
   workspace: workspaceProp = null,
   activeThreadSlug = null,
+  variant = "home",
 }) {
+  const isSidebar = variant === "sidebar";
   const { t, i18n } = useTranslation("offerKp");
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { threadSlug: routeThreadSlug = null } = useParams();
   const [workspace, setWorkspace] = useState(workspaceProp);
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(!workspaceProp);
+  const [threadsRefreshKey, setThreadsRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [pinnedThreadSlugs, setPinnedThreadSlugs] = useState([]);
   const [renamingSlug, setRenamingSlug] = useState(null);
@@ -69,6 +75,18 @@ export default function OfferKpHomeThreadHistory({
   }, [pinStorageKey]);
 
   useEffect(() => {
+    function bumpRefresh() {
+      setThreadsRefreshKey((n) => n + 1);
+    }
+    window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, bumpRefresh);
+    window.addEventListener("renameThread", bumpRefresh);
+    return () => {
+      window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, bumpRefresh);
+      window.removeEventListener("renameThread", bumpRefresh);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!workspace?.slug) return;
     let cancelled = false;
     async function load() {
@@ -83,7 +101,7 @@ export default function OfferKpHomeThreadHistory({
     return () => {
       cancelled = true;
     };
-  }, [workspace?.slug, pinnedThreadSlugs]);
+  }, [workspace?.slug, pinnedThreadSlugs, threadsRefreshKey, pathname, routeThreadSlug]);
 
   useEffect(() => {
     const stored = JSON.parse(
@@ -109,15 +127,23 @@ export default function OfferKpHomeThreadHistory({
     return () => clearInterval(id);
   }, [pendingDeletes.length]);
 
+  const rootClassName = isSidebar
+    ? "offerKp-sidebar-thread-history flex flex-col flex-1 min-h-0 w-full"
+    : "offerKp-home-thread-history mt-6 w-full";
+
   if (loading) {
     return (
-      <div className="offerKp-home-thread-history mt-6 w-full">
-        <Skeleton.default height={52} count={3} className="mb-2" />
+      <div className={rootClassName}>
+        <Skeleton.default
+          height={isSidebar ? 32 : 52}
+          count={isSidebar ? 4 : 3}
+          className="mb-2"
+        />
       </div>
     );
   }
 
-  if (!threads.length) return null;
+  if (!threads.length && !isSidebar) return null;
 
   const pendingDeleteSlugs = pendingDeletes.map((item) => item.slug);
   const filteredThreads = threads
@@ -216,10 +242,10 @@ export default function OfferKpHomeThreadHistory({
 
   return (
     <nav
-      className="offerKp-home-thread-history mt-6 w-full"
+      className={rootClassName}
       aria-label={t("home.threadHistory")}
     >
-      <div className="relative mb-2">
+      <div className={`relative mb-2 shrink-0 ${isSidebar ? "px-1" : ""}`}>
         <MagnifyingGlass
           size={14}
           className="absolute left-2 top-1/2 -translate-y-1/2 text-theme-text-secondary"
@@ -265,7 +291,11 @@ export default function OfferKpHomeThreadHistory({
           ))}
         </ul>
       )}
-      <ul className="offerKp-home-thread-history__list">
+      <ul
+        className={`offerKp-home-thread-history__list${
+          isSidebar ? " offerKp-sidebar-thread-history__list" : ""
+        }`}
+      >
         {filteredThreads.map((thread) => {
           const isActive = activeThreadSlug === thread.slug;
           const ago = formatRelativeTimeAgo(
@@ -275,10 +305,12 @@ export default function OfferKpHomeThreadHistory({
           const pinned = pinnedThreadSlugs.includes(thread.slug);
           return (
             <li key={thread.slug}>
-              <div className="flex items-center gap-1.5">
+              <div className={`flex items-center gap-1.5${isSidebar ? " group/thread-row" : ""}`}>
                 <button
                   type="button"
-                  className={`offerKp-home-thread-history__item flex-1${isActive ? " offerKp-home-thread-history__item--active" : ""}`}
+                  className={`offerKp-home-thread-history__item flex-1 min-w-0${
+                    isActive ? " offerKp-home-thread-history__item--active" : ""
+                  }`}
                   onClick={() => {
                     navigate(paths.offerKp.thread(workspace.slug, thread.slug));
                   }}
@@ -316,7 +348,7 @@ export default function OfferKpHomeThreadHistory({
                         {pinned ? "📌 " : ""}
                         {thread.name}
                       </span>
-                      {ago && (
+                      {ago && !isSidebar && (
                         <span className="offerKp-home-thread-history__meta">
                           {t("home.lastMessageAgo", { time: ago })}
                         </span>
@@ -324,7 +356,7 @@ export default function OfferKpHomeThreadHistory({
                     </>
                   )}
                 </button>
-                {workspace?.name && (
+                {!isSidebar && workspace?.name && (
                   <span
                     className="shrink-0 max-w-[72px] truncate rounded px-1.5 py-0.5 text-[10px] leading-tight border border-theme-sidebar-border text-theme-text-secondary bg-transparent opacity-60"
                     title={workspace.name}
@@ -335,7 +367,9 @@ export default function OfferKpHomeThreadHistory({
                 <button
                   type="button"
                   onClick={() => togglePin(thread.slug)}
-                  className={`shrink-0 border-none bg-transparent p-1 ${pinned ? "text-primary-button" : "text-theme-text-secondary"}`}
+                  className={`shrink-0 border-none bg-transparent p-1 ${
+                    isSidebar ? "opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100" : ""
+                  } ${pinned ? "text-primary-button" : "text-theme-text-secondary"}`}
                   aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
                 >
                   <PushPin size={14} weight={pinned ? "fill" : "regular"} />
@@ -346,7 +380,9 @@ export default function OfferKpHomeThreadHistory({
                     setRenamingSlug(thread.slug);
                     setRenameValue(thread.name || "");
                   }}
-                  className="shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-theme-text-primary"
+                  className={`shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-theme-text-primary${
+                    isSidebar ? " opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100" : ""
+                  }`}
                   aria-label="Rename conversation"
                 >
                   <PencilSimple size={14} />
@@ -354,7 +390,9 @@ export default function OfferKpHomeThreadHistory({
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteThread(thread)}
-                  className="shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-red-500"
+                  className={`shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-red-500${
+                    isSidebar ? " opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100" : ""
+                  }`}
                   aria-label={t("home.deleteConversation")}
                 >
                   <Trash size={14} />

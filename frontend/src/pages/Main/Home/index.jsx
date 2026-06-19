@@ -465,7 +465,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
                 showOfferKpHome ? handlePromptWorkspaceSelect : undefined
               }
             />
-            {showOfferKpHome && (
+            {showOfferKpHome && isMobile && (
               <OfferKpHomeThreadHistory
                 workspace={workspace}
                 activeThreadSlug={threadSlug ?? offerKp.activeThreadSlug}

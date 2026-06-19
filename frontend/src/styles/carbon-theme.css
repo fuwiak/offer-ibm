@@ -1658,6 +1658,43 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   letter-spacing: 0.16px;
 }
 
+/* Sidebar thread list (under «Диалог», ChatGPT-style) */
+.offerKp-sidebar-thread-history {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--theme-sidebar-border);
+}
+
+.offerKp-sidebar-thread-history__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top: none;
+  padding: 0 2px 8px;
+  scrollbar-width: thin;
+}
+
+.offerKp-sidebar-thread-history .offerKp-home-thread-history__item {
+  padding: 8px 10px;
+  border-bottom: none;
+  border-radius: 6px;
+}
+
+.offerKp-sidebar-thread-history .offerKp-home-thread-history__title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.offerKp-sidebar-thread-history .offerKp-home-thread-history__pending {
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
 /* ── Right panel: memory / instructions / files per thread ── */
 .offerKp-thread-panel-section {
   padding-bottom: 20px;

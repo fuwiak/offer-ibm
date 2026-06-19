@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import OfferKpPartnerNav from "@/components/OfferKp/OfferKpPartnerNav";
 import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
@@ -13,8 +13,8 @@ export default function OfferKpSidebarExtras() {
   const { isSupplier, isAdmin } = useOfferKpRole();
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 pb-2">
-      <CurrentWorkspaceIndicator variant="sidebar" className="mx-1 mb-3" />
+    <div className="flex flex-col flex-1 min-h-0 pb-2 overflow-hidden">
+      <CurrentWorkspaceIndicator variant="sidebar" className="mx-1 mb-3 shrink-0" />
       <OfferKpPartnerNav />
 
       {isSupplier && (
