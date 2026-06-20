@@ -102,9 +102,7 @@ export default function WorkspaceModelPicker({
         />
       )}
       <div
-        className={`hidden md:block absolute z-30 transition-all duration-500 ${
-          offerKpMode ? "top-[56px] md:top-[62px]" : "top-2"
-        } ${
+        className={`hidden md:block absolute z-30 transition-all duration-500 top-2 ${
           sidebarOpen ? "left-3" : "left-11"
         }`}
       >
