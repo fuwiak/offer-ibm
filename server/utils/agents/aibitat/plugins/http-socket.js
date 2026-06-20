@@ -127,6 +127,31 @@ const httpSocket = {
           }
 
           const {
+            extractRecentUserMessages,
+            shouldAutoApproveQuoteFileSkill,
+          } = require("../../../offerKp/quoteIntentJudge");
+          const userMessages = extractRecentUserMessages(aibitat._chats);
+          const workspace = aibitat.handlerProps?.invocation?.workspace ?? null;
+          if (
+            await shouldAutoApproveQuoteFileSkill({
+              skillName,
+              payload,
+              userMessages,
+              workspace,
+            })
+          ) {
+            console.log(
+              chalk.green(
+                `Skill ${skillName} auto-approved for commercial quote (КП) intent.`
+              )
+            );
+            return {
+              approved: true,
+              message: "Quote document intent - auto-approved.",
+            };
+          }
+
+          const {
             AgentSkillWhitelist,
           } = require("../../../../models/agentSkillWhitelist");
           const isWhitelisted = await AgentSkillWhitelist.isWhitelisted(
