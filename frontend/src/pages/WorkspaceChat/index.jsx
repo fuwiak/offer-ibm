@@ -18,13 +18,13 @@ import { perfMark, perfMeasure, perfTimed } from "@/utils/perfLogger";
 
 export default function WorkspaceChat() {
   const { loading, requiresAuth, mode } = usePasswordModal();
+  const { pathname } = useLocation();
 
   if (loading) return <FullScreenLoader />;
   if (requiresAuth !== false) {
     return <>{requiresAuth !== null && <PasswordModal mode={mode} />}</>;
   }
 
-  const { pathname } = useLocation();
   const offerKpBotRoute = pathname.startsWith("/bot");
 
   if (offerKpBotRoute) {
@@ -59,7 +59,7 @@ export default function WorkspaceChat() {
 
 function ShowWorkspaceChat() {
   const { slug, threadSlug = null } = useParams();
-  const { pathname, key: locationKey } = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(null);
   const [chatHistory, setChatHistory] = useState(null);
@@ -138,7 +138,7 @@ function ShowWorkspaceChat() {
     return () => {
       cancelled = true;
     };
-  }, [slug, threadSlug, historyKey, locationKey]);
+  }, [slug, threadSlug, historyKey]);
 
   useEffect(() => {
     if (!slug) return undefined;
@@ -176,7 +176,8 @@ function ShowWorkspaceChat() {
     navigate,
   ]);
 
-  const historyLoading = loadedHistoryKey !== historyKey || chatHistory === null;
+  const historyLoading =
+    loadedHistoryKey !== historyKey || chatHistory === null;
 
   const chat = (
     <WorkspaceChatContainer

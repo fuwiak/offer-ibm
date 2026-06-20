@@ -360,7 +360,9 @@ export default function PromptInput({
               }
             >
               <AttachmentManager attachments={attachments} />
-              <div className={`flex items-center ${offerKpHome ? "offerKp-home-prompt__row" : ""}`}>
+              <div
+                className={`flex items-center ${offerKpHome ? "offerKp-home-prompt__row" : ""}`}
+              >
                 <textarea
                   id={PROMPT_INPUT_ID}
                   ref={textareaRef}
@@ -440,7 +442,9 @@ function PromptInputToolbar({
     >
       <div
         className={
-          offerKpHome ? "offerKp-home-prompt__toolbar-left" : "flex items-center gap-x-0.25"
+          offerKpHome
+            ? "offerKp-home-prompt__toolbar-left"
+            : "flex items-center gap-x-0.25"
         }
       >
         <div
@@ -482,7 +486,9 @@ function PromptInputToolbar({
       </div>
       <div
         className={
-          offerKpHome ? "offerKp-home-prompt__toolbar-right" : "flex gap-x-2 items-center"
+          offerKpHome
+            ? "offerKp-home-prompt__toolbar-right"
+            : "flex gap-x-2 items-center"
         }
       >
         <SpeechToText sendCommand={sendCommand} offerKpHome={offerKpHome} />
@@ -601,7 +607,12 @@ function ToolsButton({
   );
 }
 
-function SendPromptButton({ formRef, promptInput, isDisabled, offerKpHome = false }) {
+function SendPromptButton({
+  formRef,
+  promptInput,
+  isDisabled,
+  offerKpHome = false,
+}) {
   const { t } = useTranslation();
 
   return (

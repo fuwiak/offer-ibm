@@ -75,7 +75,7 @@ export default function ChatContainer({
   }, [offerKpMode, offerKp]);
 
   const [loadingResponse, setLoadingResponse] = useState(false);
-  const [chatHistory, setChatHistory] = useState(knownHistory);
+  const [chatHistory, setChatHistory] = useState(knownHistory ?? []);
   const [socketId, setSocketId] = useState(null);
   const [websocket, setWebsocket] = useState(null);
   const { files, parseAttachments } = useContext(DndUploaderContext);
@@ -84,9 +84,8 @@ export default function ChatContainer({
   const pendingResetRef = useRef(false);
 
   useEffect(() => {
-    setChatHistory(knownHistory ?? []);
     pendingMessageChecked.current = false;
-  }, [activeThreadSlug, knownHistory]);
+  }, [activeThreadSlug]);
 
   const { listening, resetTranscript } = useSpeechRecognition({
     clearTranscriptOnListen: true,

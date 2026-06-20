@@ -129,7 +129,11 @@ function FileDownloadCard({ props }) {
                 title="Open in Preview"
               >
                 {previewing ? (
-                  <CircleNotch size={13} weight="bold" className="animate-spin" />
+                  <CircleNotch
+                    size={13}
+                    weight="bold"
+                    className="animate-spin"
+                  />
                 ) : (
                   <Eye size={13} weight="bold" />
                 )}

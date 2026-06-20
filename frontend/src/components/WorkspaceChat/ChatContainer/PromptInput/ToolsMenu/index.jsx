@@ -66,7 +66,10 @@ export default function ToolsMenu({
 }) {
   const { t } = useTranslation();
   const { user } = useUser();
-  const TABS = useMemo(() => getTabs(t, user, offerKpHome), [t, user, offerKpHome]);
+  const TABS = useMemo(
+    () => getTabs(t, user, offerKpHome),
+    [t, user, offerKpHome]
+  );
   const [activeTab, setActiveTab] = useState(TABS[0].key);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [maxHeight, setMaxHeight] = useState(360);

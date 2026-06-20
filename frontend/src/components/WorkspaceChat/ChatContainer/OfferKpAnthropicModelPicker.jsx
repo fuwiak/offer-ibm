@@ -28,7 +28,7 @@ function resolveLocalPickerModel(modelId) {
 
 export default function OfferKpAnthropicModelPicker({
   workspaceSlug,
-  workspace = null,
+  workspace: _workspace = null,
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -145,14 +145,15 @@ export default function OfferKpAnthropicModelPicker({
       setOpen(false);
     } catch (err) {
       setSelectedModel(previousModel);
-      showToast(err.message || "Failed to save model", "error", { clear: true });
+      showToast(err.message || "Failed to save model", "error", {
+        clear: true,
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  const displayName =
-    findOfferKpModel(selectedModel)?.name || selectedModel;
+  const displayName = findOfferKpModel(selectedModel)?.name || selectedModel;
 
   const menu =
     open &&
