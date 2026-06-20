@@ -26,6 +26,19 @@ export function goToStartScreen(navigate) {
   );
 }
 
+/** Open an existing thread and load its conversation history. */
+export function openThreadConversation(navigate, workspaceSlug, threadSlug, options = {}) {
+  if (!workspaceSlug || !threadSlug) return;
+
+  const target = paths.offerKp.thread(workspaceSlug, threadSlug);
+  const { pathname = "", replace = false } = options;
+
+  navigate(target, {
+    replace: replace || pathname === target,
+    state: { openThreadAt: Date.now() },
+  });
+}
+
 /** Create a fresh thread and open the empty chat composer. */
 export async function startNewConversation(navigate) {
   resetComposer();

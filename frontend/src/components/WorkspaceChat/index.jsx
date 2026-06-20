@@ -4,7 +4,7 @@ import LoadingChat from "./LoadingChat";
 import ChatContainer from "./ChatContainer";
 import paths from "@/utils/paths";
 import ModalWrapper from "../ModalWrapper";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { DnDFileUploaderProvider } from "./ChatContainer/DnDWrapper";
 import { WarningCircle } from "@phosphor-icons/react";
 import {
@@ -16,6 +16,7 @@ import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 export default function WorkspaceChat({ loading, workspace, initialHistory = null }) {
   useWatchForAutoPlayAssistantTTSResponse();
   const { threadSlug = null } = useParams();
+  const { key: locationKey } = useLocation();
   const historyKey = `${workspace?.slug ?? "none"}:${threadSlug ?? "default"}`;
   // Stores { key, workspace, history } currently rendered. Lags the props so
   // the previous chat stays mounted until the next one's history is ready,
@@ -34,7 +35,7 @@ export default function WorkspaceChat({ loading, workspace, initialHistory = nul
         return false;
       }
 
-      if (initialHistory !== null && initialHistory !== undefined) {
+      if (initialHistory !== null && initialHistory !== undefined && !loading) {
         setLoaded({
           key: historyKey,
           workspace,
@@ -56,7 +57,7 @@ export default function WorkspaceChat({ loading, workspace, initialHistory = nul
       });
     }
     getHistory();
-  }, [workspace, loading, threadSlug, initialHistory, historyKey]);
+  }, [workspace, loading, threadSlug, initialHistory, historyKey, locationKey]);
 
   const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
   if (loaded === null) {

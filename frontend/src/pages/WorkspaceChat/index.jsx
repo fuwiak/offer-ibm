@@ -59,7 +59,7 @@ export default function WorkspaceChat() {
 
 function ShowWorkspaceChat() {
   const { slug, threadSlug = null } = useParams();
-  const { pathname } = useLocation();
+  const { pathname, key: locationKey } = useLocation();
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(null);
   const [chatHistory, setChatHistory] = useState(null);
@@ -138,7 +138,7 @@ function ShowWorkspaceChat() {
     return () => {
       cancelled = true;
     };
-  }, [slug, threadSlug, historyKey]);
+  }, [slug, threadSlug, historyKey, locationKey]);
 
   useEffect(() => {
     if (!slug) return undefined;

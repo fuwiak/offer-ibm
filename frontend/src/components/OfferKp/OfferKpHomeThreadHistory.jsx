@@ -12,13 +12,13 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
-import paths from "@/utils/paths";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { formatRelativeTimeAgo, getThreadPrompts } from "@/utils/offerKp/threadMeta";
 import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPromptsModal";
 import {
   OFFER_KP_NEW_CONVERSATION_EVENT,
   goToStartScreen,
+  openThreadConversation,
 } from "@/utils/offerKp/startNewConversation";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
@@ -428,9 +428,8 @@ export default function OfferKpHomeThreadHistory({
                     isActive ? " offerKp-home-thread-history__item--active" : ""
                   }`}
                   onClick={() => {
-                    const target = paths.offerKp.thread(workspace.slug, thread.slug);
-                    navigate(target, {
-                      replace: pathname === target,
+                    openThreadConversation(navigate, workspace.slug, thread.slug, {
+                      pathname,
                     });
                   }}
                 >

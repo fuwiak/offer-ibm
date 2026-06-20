@@ -9,7 +9,7 @@ import Workspace from "@/models/workspace";
 import handleChat, { ABORT_STREAM_EVENT } from "@/utils/chat";
 import { isMobile } from "react-device-detect";
 import { SidebarMobileHeader } from "../../Sidebar";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { v4 } from "uuid";
 import handleSocketResponse, {
   websocketURI,
@@ -53,6 +53,8 @@ export default function ChatContainer({
 }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { threadSlug: routeThreadSlug = null } = useParams();
+  const activeThreadSlug = threadSlug ?? routeThreadSlug;
   const { t } = useTranslation();
   const { t: ta } = useTranslation("offerKp");
   const { user } = useUser();
@@ -81,6 +83,11 @@ export default function ChatContainer({
   const pendingMessageChecked = useRef(false);
   const pendingResetRef = useRef(false);
 
+  useEffect(() => {
+    setChatHistory(knownHistory ?? []);
+    pendingMessageChecked.current = false;
+  }, [activeThreadSlug, knownHistory]);
+
   const { listening, resetTranscript } = useSpeechRecognition({
     clearTranscriptOnListen: true,
   });
@@ -100,16 +107,16 @@ export default function ChatContainer({
   }
 
   function maybeRenameThreadFromFirstMessage(message = "") {
-    if (!threadSlug || chatHistory.length > 0) return;
+    if (!activeThreadSlug || chatHistory.length > 0) return;
     const name = threadNameFromPrompt(message);
     if (!name) return;
     Workspace.threads
-      .update(workspace.slug, threadSlug, { name })
+      .update(workspace.slug, activeThreadSlug, { name })
       .then(({ thread }) => {
         if (!thread?.name) return;
         window.dispatchEvent(
           new CustomEvent(THREAD_RENAME_EVENT, {
-            detail: { threadSlug, newName: thread.name },
+            detail: { threadSlug: activeThreadSlug, newName: thread.name },
           })
         );
       })
@@ -126,7 +133,7 @@ export default function ChatContainer({
 
     // Clear the localStorage draft for this thread/workspace so that if the
     // PromptInput remounts (empty→chat transition), it won't restore stale text
-    clearPromptInputDraft(threadSlug ?? workspace.slug);
+    clearPromptInputDraft(activeThreadSlug ?? workspace.slug);
 
     const prevChatHistory = [
       ...chatHistory,
@@ -219,7 +226,7 @@ export default function ChatContainer({
     // Clear the localStorage draft so that if the PromptInput remounts
     // (e.g. /reset causing empty→chat or chat→empty transitions),
     // it won't restore stale text.
-    clearPromptInputDraft(threadSlug ?? workspace.slug);
+    clearPromptInputDraft(activeThreadSlug ?? workspace.slug);
 
     // If we are auto-submitting
     // Then we can replace the current text since this is not accumulating.
@@ -313,15 +320,15 @@ export default function ChatContainer({
       const attachments = promptMessage?.attachments ?? parseAttachments();
       window.dispatchEvent(new CustomEvent(CLEAR_ATTACHMENTS_EVENT));
 
-      const conversationMemory = threadSlug
+      const conversationMemory = activeThreadSlug
         ? extractUserMemoryNotes(
-            getThreadMeta(workspace.slug, threadSlug).memory
+            getThreadMeta(workspace.slug, activeThreadSlug).memory
           )
         : null;
 
       await Workspace.multiplexStream({
         workspaceSlug: workspace.slug,
-        threadSlug,
+        threadSlug: activeThreadSlug,
         prompt: promptMessage.userMessage,
         chatHandler: (chatResult) =>
           handleChat(
@@ -435,7 +442,7 @@ export default function ChatContainer({
 
   const isEmpty =
     chatHistory.length === 0 && !sessionStorage.getItem(PENDING_HOME_MESSAGE);
-  const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && threadSlug);
+  const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && activeThreadSlug);
 
   if (showOfferKpHomeEmpty) {
     return (
@@ -485,7 +492,7 @@ export default function ChatContainer({
                 attachments={files}
                 centered={true}
                 workspaceSlug={workspace?.slug}
-                threadSlug={threadSlug}
+                threadSlug={activeThreadSlug}
                 placeholder={offerKpMode ? ta("home.inputPlaceholder") : undefined}
                 offerKpHome={offerKpMode}
                 onWorkspaceSelect={

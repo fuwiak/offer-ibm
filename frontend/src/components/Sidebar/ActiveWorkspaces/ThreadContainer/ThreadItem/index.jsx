@@ -14,7 +14,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
-import { startNewConversation } from "@/utils/offerKp/startNewConversation";
+import { startNewConversation, openThreadConversation } from "@/utils/offerKp/startNewConversation";
 
 const THREAD_CALLOUT_DETAIL_WIDTH = 26;
 export default function ThreadItem({
@@ -54,10 +54,15 @@ export default function ThreadItem({
   const opensOfferKpHome =
     offerKpMode && (linkTo === paths.home() || thread.virtual);
 
-  function handleHomeClick(event) {
-    if (!opensOfferKpHome) return;
+  function handleThreadClick(event) {
+    if (opensOfferKpHome) {
+      event.preventDefault();
+      startNewConversation(navigate);
+      return;
+    }
+    if (!offerKpMode || !thread?.slug || thread.virtual) return;
     event.preventDefault();
-    startNewConversation(navigate);
+    openThreadConversation(navigate, workspaceSlug, thread.slug, { pathname });
   }
 
   const { ref } = useScrollActiveItemIntoView({
@@ -198,7 +203,7 @@ export default function ThreadItem({
           <Link
             ref={ref}
             to={linkTo}
-            onClick={handleHomeClick}
+            onClick={handleThreadClick}
             data-tooltip-id="workspace-thread-name"
             data-tooltip-content={thread.name}
             className="w-full pl-2 py-1 overflow-hidden"
