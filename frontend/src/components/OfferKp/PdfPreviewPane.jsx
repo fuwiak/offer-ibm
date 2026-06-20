@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { saveAs } from "file-saver";
 import { X, DownloadSimple, FileDoc } from "@phosphor-icons/react";
+import { downloadBlob } from "@/utils/downloadBlob";
 
 /**
  * PDF preview in the right panel — blob URL + iframe (same as elia_front).
@@ -19,7 +19,7 @@ export default function PdfPreviewPane({ quotePdfUrl, onClose }) {
     try {
       const res = await fetch(quotePdfUrl.url);
       const blob = await res.blob();
-      saveAs(blob, quotePdfUrl.filename || "document.pdf");
+      await downloadBlob(blob, quotePdfUrl.filename || "document.pdf");
     } catch (e) {
       console.error("[PdfPreviewPane] export PDF:", e?.message || e);
     } finally {
@@ -36,7 +36,7 @@ export default function PdfPreviewPane({ quotePdfUrl, onClose }) {
       const xlsName =
         quotePdfUrl?.xlsFilename ||
         (quotePdfUrl?.filename || "document.pdf").replace(/\.pdf$/i, ".xlsx");
-      saveAs(blob, xlsName);
+      await downloadBlob(blob, xlsName);
     } catch (e) {
       console.error("[PdfPreviewPane] export XLS:", e?.message || e);
     } finally {

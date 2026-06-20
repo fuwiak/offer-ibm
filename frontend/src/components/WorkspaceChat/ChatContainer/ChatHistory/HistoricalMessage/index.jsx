@@ -298,7 +298,7 @@ const RenderChatContent = memo(
     // as normal since the user cannot think (lol)
     if (role !== "assistant")
       return (
-        <span
+        <div
           className="flex flex-col gap-y-1 text-white light:text-slate-900"
           dangerouslySetInnerHTML={{
             __html: DOMPurify.sanitize(renderMarkdown(message)),
@@ -332,7 +332,7 @@ const RenderChatContent = memo(
         {thoughtChain && (
           <ThoughtChainComponent content={thoughtChain} messageId={messageId} />
         )}
-        <span
+        <div
           className="flex flex-col gap-y-1 text-white light:text-slate-900"
           dangerouslySetInnerHTML={{
             __html: DOMPurify.sanitize(renderMarkdown(msgToRender)),

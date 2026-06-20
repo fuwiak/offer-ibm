@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from "react";
-import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 import { useOfferKp } from "@/contexts/OfferKpContext";
@@ -35,7 +35,7 @@ function FileDownloadCard({ props }) {
         previewMarkdown,
       });
       if (!blob) throw new Error("No blob");
-      saveAs(blob, saveName);
+      await downloadBlob(blob, saveName);
     } catch (e) {
       console.error("[FileDownloadCard] Download failed:", e?.message || e);
     } finally {

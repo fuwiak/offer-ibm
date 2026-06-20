@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import MarkdownIt from "markdown-it";
-import { saveAs } from "file-saver";
 import { X, DownloadSimple, CircleNotch } from "@phosphor-icons/react";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadDocxMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
@@ -28,7 +28,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
         storageFilename: docPreview?.storageFilename,
         previewMarkdown: docPreview?.markdown,
       });
-      saveAs(blob, filename || "document.docx");
+      await downloadBlob(blob, filename || "document.docx");
     } catch (e) {
       console.error("[DocPreviewPane] download error:", e?.message || e);
     } finally {

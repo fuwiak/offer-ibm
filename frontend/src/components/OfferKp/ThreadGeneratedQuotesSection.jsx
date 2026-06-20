@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { saveAs } from "file-saver";
 import {
   DownloadSimple,
   CircleNotch,
@@ -10,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { humanFileSize } from "@/utils/numbers";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 
@@ -39,7 +39,7 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
         filename: file.filename,
         previewMarkdown: file.previewMarkdown,
       });
-      saveAs(blob, saveName);
+      await downloadBlob(blob, saveName);
     } catch (e) {
       console.error("[ThreadGeneratedQuotesSection] download:", e?.message || e);
     } finally {

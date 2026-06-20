@@ -619,7 +619,12 @@ export default function DocumentPanel() {
       )}
 
       {documentPanelOpen && (
-        <div className="flex flex-col flex-1 min-h-0 min-w-0 w-full">{panelBody}</div>
+        <div
+          key={documentPanelView}
+          className="flex flex-col flex-1 min-h-0 min-w-0 w-full"
+        >
+          {panelBody}
+        </div>
       )}
     </aside>
   );
