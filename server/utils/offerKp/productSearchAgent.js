@@ -278,10 +278,13 @@ async function runProductSearchAgent({
   chatHistory = null,
   workspace = null,
   limit = 10,
+  parsedFileTexts = null,
 }) {
+  const parsedTexts = (parsedFileTexts || []).filter(Boolean);
   const searchText = buildProductSearchText(message, {
     chatHistory,
     history: chatHistory,
+    parsedFileTexts: parsedTexts,
   });
   const parsed = parseHardwareQuery(searchText);
   const terms = extractSearchTerms(searchText);
@@ -316,7 +319,8 @@ async function runProductSearchAgent({
     !skuCodes.length &&
     !isPriceOnlyQuery(message) &&
     !isOfferFollowUp(message) &&
-    !isCatalogRelayRequest(message)
+    !isCatalogRelayRequest(message) &&
+    !(parsedTexts.length && hasHardwareSignals(searchText))
   ) {
     shopDbLog.skip("product search agent skipped — not a catalog query");
     return {

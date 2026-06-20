@@ -172,7 +172,11 @@ async function emitAutoQuoteArtifacts({
 
   let draft = null;
   try {
-    draft = await matchInquiryToDraft(inquirySource, { workspace, chatHistory });
+    draft = await matchInquiryToDraft(inquirySource, {
+      workspace,
+      chatHistory,
+      parsedFileTexts,
+    });
   } catch (e) {
     console.error("[offerKp] matchInquiryToDraft:", e.message);
   }

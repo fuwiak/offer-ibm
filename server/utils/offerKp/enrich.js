@@ -27,8 +27,13 @@ const {
 const {
   TABLES,
   ENRICH_TABLES,
+  PRODUCT_COLUMNS: P,
+  CATEGORY_COLUMNS: C,
   SKU_COLUMNS: S,
 } = require("./db/schema");
+const { parseInquiryText } = require("./parseInquiry");
+const { matchInquiryLine } = require("./matchInquiryLines");
+const { STATUS } = require("./analogRules");
 
 const MAX_EXCERPT_CHARS = 2200;
 
@@ -58,6 +63,11 @@ function shouldRunShopEnrich(message, options = {}) {
     .join("\n");
   if (!combined) return false;
 
+  if (parsedTexts.length) {
+    const inquiryLines = parseInquiryText(combined);
+    if (inquiryLines.length || hasHardwareSignals(combined)) return true;
+  }
+
   const searchText = buildProductSearchText(message, options);
   if (hasHardwareSignals(searchText)) return true;
   if (extractSkuCodes(combined).length) return true;
@@ -65,6 +75,7 @@ function shouldRunShopEnrich(message, options = {}) {
   if (isCatalogRelayRequest(String(message || "").trim())) return true;
   if (isOfferFollowUp(String(message || "").trim())) return true;
   if (parsedTexts.length && isOfferFollowUp(combined)) return true;
+  if (/извлек|pdf|коммерческ|\bкп\b|оферт/i.test(combined)) return true;
 
   return false;
 }
@@ -201,8 +212,145 @@ function buildShopDbTablesFooter(flags = {}) {
   return `\n\n---\n**Таблицы БД (каталог):** ${tables.join(", ")}.${stratLine}`;
 }
 
+async function loadProductRow(productId) {
+  const id = parseInt(productId, 10);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const rows = await query(
+    `SELECT p.${P.id} AS id, p.${P.name} AS name, p.${P.summary} AS summary,
+            p.${P.description} AS description, p.${P.price} AS price,
+            p.${P.currency} AS currency, p.${P.url} AS product_url,
+            c.${C.name} AS category_name, c.${C.fullUrl} AS category_url
+     FROM ${TABLES.product} p
+     LEFT JOIN ${TABLES.category} c
+       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
+     WHERE p.${P.id} = ? AND p.${P.status} = 1
+     LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+function buildInquiryCatalogExcerpt(product, featureLines, skuRows, baseUrl, matched) {
+  const { excerpt, name, url, body } = buildProductExcerpt(
+    product,
+    featureLines,
+    skuRows,
+    baseUrl
+  );
+  const lines = excerpt.split("\n");
+  lines[0] = `[Каталог · purolat.com · PDF] ${name}`;
+  if (matched.requestedName && matched.requestedName !== matched.name) {
+    lines.splice(1, 0, `Запрошено в PDF: ${matched.requestedName}`);
+  }
+  if (matched.status && matched.status !== STATUS.IN_STOCK) {
+    lines.splice(
+      lines.findIndex((l) => l.startsWith("ID")) || 1,
+      0,
+      `Статус: ${matched.status}${matched.analogOf ? ` (${matched.analogOf})` : ""}`
+    );
+  }
+  const priceIdx = lines.findIndex((l) => l.startsWith("Цена:"));
+  if (priceIdx >= 0) {
+    lines.splice(
+      priceIdx + 1,
+      0,
+      `Кол-во по заявке: ${matched.quantity || 1} ${matched.unit || "шт"}`
+    );
+  }
+  return { excerpt: lines.join("\n"), name, url, body };
+}
+
+/**
+ * Построчный поиск в ShopDB по позициям из PDF/заявки (matchInquiry + аналоги).
+ */
+async function enrichInquiryLinesFromPdf(message, options = {}) {
+  const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
+  const combined = [parsedFileTexts.join("\n\n"), String(message || "").trim()]
+    .filter(Boolean)
+    .join("\n\n");
+  const lines = parseInquiryText(combined);
+  if (!lines.length) {
+    return { contextTexts: [], sources: [], productIds: new Set(), strategies: [] };
+  }
+
+  const maxLines = Math.min(15, lines.length);
+  const contextTexts = [];
+  const sources = [];
+  const productIds = new Set();
+  const baseUrl = getShopBaseUrl();
+
+  for (const line of lines.slice(0, maxLines)) {
+    const matched = await matchInquiryLine(line, {
+      workspace: options.workspace,
+      chatHistory: options.chatHistory || options.history || null,
+      parsedFileTexts,
+    });
+    if (!matched.productId) continue;
+
+    const pid = parseInt(matched.productId, 10);
+    if (productIds.has(pid)) continue;
+    productIds.add(pid);
+
+    const product =
+      (await loadProductRow(pid)) || {
+        id: pid,
+        name: matched.name,
+        price: matched.unitPriceNet,
+        currency: "RUB",
+        product_url: matched.productUrl,
+      };
+
+    const [featureMap, skuMap] = await Promise.all([
+      loadFeatureLines([pid]),
+      loadProductSkus([pid]),
+    ]);
+
+    const { name, url, excerpt, body } = buildInquiryCatalogExcerpt(
+      product,
+      featureMap.get(pid) || [],
+      skuMap.get(pid) || [],
+      baseUrl,
+      matched
+    );
+
+    const id = `shop-inquiry-${pid}-${uuidv4().slice(0, 8)}`;
+    contextTexts.push(excerpt);
+    sources.push({
+      id,
+      title: name,
+      text: body.slice(0, 1000) + (body.length > 1000 ? "..." : ""),
+      chunkSource: `link://${url}`,
+      url,
+      docSource: "Каталог · PDF",
+      score: 1,
+      shopProductId: pid,
+      shopCategory: product.category_name || null,
+      shopDbTables: [...FEATURE_TABLES],
+      shopMatchSources: matched.matchType
+        ? [matched.matchType, "inquiry_pdf"]
+        : ["inquiry_pdf"],
+    });
+  }
+
+  shopDbLog.ok("inquiry PDF enrich", {
+    lines: lines.length,
+    matched: contextTexts.length,
+  });
+
+  return {
+    contextTexts,
+    sources,
+    productIds,
+    strategies: contextTexts.length ? ["inquiry_pdf_lines"] : [],
+  };
+}
+
 async function getShopDbContext(message, options = {}) {
   const maxDocs = Math.min(10, Math.max(1, parseInt(options.maxDocs, 10) || 5));
+  const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
+  const effectiveMessage =
+    String(message || "").trim() ||
+    (parsedFileTexts.length ? "сформировать КП по прикреплённому документу" : "");
 
   if (!shopDbEnrichEnabled()) {
     shopDbLog.skip("enrich disabled", {
@@ -216,7 +364,7 @@ async function getShopDbContext(message, options = {}) {
     };
   }
 
-  if (!message || typeof message !== "string" || !message.trim()) {
+  if (!effectiveMessage) {
     shopDbLog.skip("enrich empty message");
     return {
       contextTexts: [],
@@ -225,9 +373,9 @@ async function getShopDbContext(message, options = {}) {
     };
   }
 
-  if (!shouldRunShopEnrich(message, options)) {
+  if (!shouldRunShopEnrich(effectiveMessage, options)) {
     shopDbLog.skip("enrich skipped — not a catalog query", {
-      messageLen: message.length,
+      messageLen: effectiveMessage.length,
     });
     return {
       contextTexts: [],
@@ -244,26 +392,36 @@ async function getShopDbContext(message, options = {}) {
   );
 
   const runEnrich = async () => {
-    const searchText = buildProductSearchText(message, options);
+    const searchText = buildProductSearchText(effectiveMessage, options);
 
     shopDbLog.enrichStart({
-      messageLen: message.length,
+      messageLen: effectiveMessage.length,
       searchTextLen: searchText.length,
       maxDocs,
       searchAgent: true,
+      parsedFiles: parsedFileTexts.length,
     });
 
+    const inquiryEnrich = await enrichInquiryLinesFromPdf(effectiveMessage, options);
+
     const agentResult = await runProductSearchAgent({
-      message,
+      message: effectiveMessage,
       chatHistory: options.chatHistory || options.history || null,
       workspace: options.workspace || null,
       limit: maxDocs * 3,
+      parsedFileTexts,
     });
 
-    const ranked = agentResult.products.slice(0, maxDocs);
+    const inquiryIds = inquiryEnrich.productIds || new Set();
+    const ranked = agentResult.products
+      .filter((p) => !inquiryIds.has(p.id))
+      .slice(0, maxDocs);
     const searchTerms = agentResult.signals?.searchTerms || extractSearchTerms(searchText);
     const searchTables = agentResult.tablesUsed || [];
-    const shopDbMatchStrategies = agentResult.strategies || [];
+    const shopDbMatchStrategies = [
+      ...(inquiryEnrich.strategies || []),
+      ...(agentResult.strategies || []),
+    ];
 
     const productIds = ranked.map((p) => p.id);
     const [featureMap, skuMap] = await Promise.all([
@@ -275,8 +433,8 @@ async function getShopDbContext(message, options = {}) {
     const allTablesUsed = new Set(searchTables);
     for (const t of FEATURE_TABLES) allTablesUsed.add(t);
 
-    const contextTexts = [];
-    const sources = [];
+    const contextTexts = [...(inquiryEnrich.contextTexts || [])];
+    const sources = [...(inquiryEnrich.sources || [])];
 
     for (const product of ranked) {
       const featureLines = featureMap.get(product.id) || [];
@@ -312,10 +470,11 @@ async function getShopDbContext(message, options = {}) {
 
     shopDbLog.enrichDone({
       hits: agentResult.products.length,
-      selected: ranked.length,
+      selected: ranked.length + (inquiryEnrich.contextTexts?.length || 0),
+      inquiryLines: inquiryEnrich.contextTexts?.length || 0,
       tables: [...allTablesUsed].sort(),
       strategies: shopDbMatchStrategies,
-      productIds: ranked.map((p) => p.id),
+      productIds: [...inquiryIds, ...productIds],
       titles: sources.map((s) => s.title),
       urls: sources.map((s) => s.url),
     });
@@ -324,8 +483,10 @@ async function getShopDbContext(message, options = {}) {
       contextTexts,
       sources,
       flags: {
-        shopDbSearchHitCount: agentResult.products.length,
-        shopDbDocCount: ranked.length,
+        shopDbSearchHitCount:
+          agentResult.products.length + (inquiryEnrich.contextTexts?.length || 0),
+        shopDbDocCount: contextTexts.length,
+        shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
         shopDbTerms: searchTerms,
         shopDbTablesUsed: [...allTablesUsed].sort(),
         shopDbMatchStrategies,

@@ -36,12 +36,31 @@ async function fetchProductStock(productId) {
 
 async function matchInquiryLine(inquiryLine, options = {}) {
   const searchText = inquiryLine.raw || inquiryLine.name;
-  const { products } = await runProductSearchAgent({
+  let { products } = await runProductSearchAgent({
     message: searchText,
     chatHistory: options.chatHistory,
     workspace: options.workspace,
     limit: 8,
+    parsedFileTexts: options.parsedFileTexts || null,
   });
+
+  if (!products.length) {
+    const {
+      runShopDbSearchAgent,
+      shopDbSearchAgentEnabled,
+    } = require("./searchAgent");
+    const { parseHardwareQuery } = require("./hardwareQuery");
+    if (shopDbSearchAgentEnabled()) {
+      const fallback = await runShopDbSearchAgent({
+        searchText,
+        parsed: parseHardwareQuery(searchText),
+        existingProducts: [],
+        limit: 8,
+        workspace: options.workspace,
+      });
+      products = fallback.products || [];
+    }
+  }
 
   const alternatives = [];
 
@@ -127,7 +146,12 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
 
   const matched = [];
   for (const line of lines) {
-    matched.push(await matchInquiryLine(line, options));
+    matched.push(
+      await matchInquiryLine(line, {
+        ...options,
+        parsedFileTexts: options.parsedFileTexts || null,
+      })
+    );
   }
 
   const subtotal = matched.reduce((s, l) => s + (l.lineTotal || 0), 0);
