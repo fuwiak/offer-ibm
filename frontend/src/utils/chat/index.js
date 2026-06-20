@@ -140,13 +140,13 @@ export default function handleChat(
         updatedHistory = {
           ...existingHistory,
           closed: close,
-          animate: !close,
+          animate: false,
           pending: false,
           chatId,
           metrics,
-          ...(chatResult.outputs?.length
-            ? { outputs: chatResult.outputs }
-            : {}),
+          outputs: chatResult.outputs?.length
+            ? chatResult.outputs
+            : existingHistory.outputs || [],
         };
 
         _chatHistory[chatIdx - 1] = { ..._chatHistory[chatIdx - 1], chatId }; // update prompt with chatID

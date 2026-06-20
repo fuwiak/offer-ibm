@@ -12,7 +12,14 @@ import {
   ThoughtChainComponent,
 } from "../ThoughtContainer";
 
-const PromptReply = ({ uuid, reply, pending, error, sources = [], outputs = [] }) => {
+const PromptReply = ({
+  uuid,
+  reply,
+  pending,
+  error,
+  sources = [],
+  outputs = [],
+}) => {
   if (!reply && sources.length === 0 && !pending && !error && !outputs?.length)
     return null;
 
@@ -41,13 +48,9 @@ const PromptReply = ({ uuid, reply, pending, error, sources = [], outputs = [] }
   }
 
   return (
-    <div key={uuid} className="flex justify-start w-full">
+    <div className="flex justify-start w-full">
       <div className="py-4 pl-0 pr-4 flex flex-col w-full">
-        <RenderAssistantChatContent
-          key={`${uuid}-prompt-reply-content`}
-          message={reply}
-          messageId={uuid}
-        />
+        <RenderAssistantChatContent message={reply} messageId={uuid} />
         <Citations sources={sources} />
         <HistoricalOutputs outputs={outputs} />
       </div>
@@ -56,52 +59,48 @@ const PromptReply = ({ uuid, reply, pending, error, sources = [], outputs = [] }
 };
 
 function RenderAssistantChatContent({ message, messageId }) {
-  const contentRef = useRef("");
   const thoughtChainRef = useRef(null);
+  const messageText = message || "";
+
+  const isThinking =
+    messageText.match(THOUGHT_REGEX_OPEN) &&
+    !messageText.match(THOUGHT_REGEX_CLOSE);
 
   useEffect(() => {
-    const thinking =
-      message.match(THOUGHT_REGEX_OPEN) && !message.match(THOUGHT_REGEX_CLOSE);
-
-    if (thinking && thoughtChainRef.current) {
-      thoughtChainRef.current.updateContent(message);
-      return;
+    if (isThinking && thoughtChainRef.current) {
+      thoughtChainRef.current.updateContent(messageText);
     }
+  }, [messageText, isThinking]);
 
-    const completeThoughtChain = message.match(THOUGHT_REGEX_COMPLETE)?.[0];
-    const msgToRender = message.replace(THOUGHT_REGEX_COMPLETE, "");
-
-    if (completeThoughtChain && thoughtChainRef.current) {
-      thoughtChainRef.current.updateContent(completeThoughtChain);
-    }
-
-    contentRef.current = msgToRender;
-  }, [message]);
-
-  const thinking =
-    message.match(THOUGHT_REGEX_OPEN) && !message.match(THOUGHT_REGEX_CLOSE);
-  if (thinking)
+  if (isThinking) {
     return (
       <ThoughtChainComponent
         ref={thoughtChainRef}
-        content=""
+        content={messageText}
         messageId={messageId}
       />
     );
+  }
+
+  let thoughtChain = null;
+  let msgToRender = messageText;
+  if (messageText.match(THOUGHT_REGEX_COMPLETE)) {
+    thoughtChain = messageText.match(THOUGHT_REGEX_COMPLETE)?.[0];
+    msgToRender = messageText.replace(THOUGHT_REGEX_COMPLETE, "");
+  }
 
   return (
     <div className="flex flex-col gap-y-1">
-      {message.match(THOUGHT_REGEX_COMPLETE) && (
+      {thoughtChain && (
         <ThoughtChainComponent
-          ref={thoughtChainRef}
-          content=""
+          content={thoughtChain}
           messageId={messageId}
         />
       )}
       <span
         className="break-words"
         dangerouslySetInnerHTML={{
-          __html: DOMPurify.sanitize(renderMarkdown(contentRef.current)),
+          __html: DOMPurify.sanitize(renderMarkdown(msgToRender)),
         }}
       />
     </div>
