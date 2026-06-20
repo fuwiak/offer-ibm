@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
@@ -6,13 +6,15 @@ import {
   MagnifyingGlass,
   FilePdf,
   FileXls,
+  FileDoc,
   CircleNotch,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import OfferKp from "@/models/offerKp";
-import { saveAs } from "file-saver";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
+import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
 
 const EMPTY_LINE = {
   name: "",
@@ -52,6 +54,7 @@ export default function QuoteDraftTable() {
     activeThreadSlug,
     setDocumentPanelView,
     setQuotePdfUrl,
+    setDocPreview,
   } = useOfferKp();
   const [busy, setBusy] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -73,6 +76,34 @@ export default function QuoteDraftTable() {
     return { subtotal, totalWeightKg };
   }, [lines]);
 
+  useEffect(() => {
+    if (!lines.length) return;
+    const markdown = buildQuoteMarkdown({
+      reference: quoteDraft?.reference || "DRAFT",
+      customer: quoteDraft?.customer || {},
+      lines,
+      subtotal: totals.subtotal,
+      total: totals.subtotal,
+      shipping: quoteDraft?.shipping || 0,
+    });
+    setDocPreview((prev) => ({
+      filename:
+        prev?.filename ||
+        quoteDraft?.sourceFilename ||
+        `KP-${quoteDraft?.reference || "DRAFT"}.docx`,
+      storageFilename: prev?.storageFilename,
+      markdown,
+    }));
+  }, [
+    lines,
+    totals.subtotal,
+    quoteDraft?.reference,
+    quoteDraft?.customer,
+    quoteDraft?.shipping,
+    quoteDraft?.sourceFilename,
+    setDocPreview,
+  ]);
+
   const updateLine = useCallback(
     (index, patch) => {
       setQuoteDraft((prev) => {
@@ -80,17 +111,20 @@ export default function QuoteDraftTable() {
         const next = current.map((l, i) =>
           i === index ? recalcLine({ ...l, ...patch }) : l
         );
+        const subtotal = next.reduce((s, l) => s + (l.lineTotal || 0), 0);
+        const totalWeightKg = next.reduce(
+          (s, l) => s + (l.weightKg || 0) * (l.quantity || 1),
+          0
+        );
         return {
           ...prev,
           hardwareLines: next,
           preview: {
             ...(prev.preview || {}),
             lines: next,
-            subtotal: next.reduce((s, l) => s + (l.lineTotal || 0), 0),
-            totalWeightKg: next.reduce(
-              (s, l) => s + (l.weightKg || 0) * (l.quantity || 1),
-              0
-            ),
+            subtotal,
+            totalWeightKg,
+            total: subtotal,
           },
         };
       });
@@ -206,24 +240,45 @@ export default function QuoteDraftTable() {
         shipping: quoteDraft?.shipping || 0,
         createdAt: new Date(),
       };
-      const result =
-        kind === "pdf"
-          ? await OfferKp.generateQuotePdf(payload)
-          : await OfferKp.generateQuoteXlsx(payload);
-      const url =
-        kind === "pdf"
-          ? OfferKp.quotePdfDownloadUrl(result.storageFilename)
-          : OfferKp.quoteXlsxDownloadUrl(result.storageFilename);
+      let result;
+      let url;
+      if (kind === "pdf") {
+        result = await OfferKp.generateQuotePdf(payload);
+        url = OfferKp.quotePdfDownloadUrl(result.storageFilename);
+      } else if (kind === "xlsx") {
+        result = await OfferKp.generateQuoteXlsx(payload);
+        url = OfferKp.quoteXlsxDownloadUrl(result.storageFilename);
+      } else {
+        const markdown = buildQuoteMarkdown({
+          reference: payload.reference,
+          customer: payload.customer,
+          lines,
+          subtotal: totals.subtotal,
+          total: totals.subtotal,
+          shipping: payload.shipping,
+        });
+        result = await OfferKp.generateDocxFromMarkdown({
+          markdown,
+          filename: `KP-${payload.reference}.docx`,
+        });
+        url = OfferKp.quoteDocxDownloadUrl(result.storageFilename);
+        setDocPreview({
+          filename: result.filename,
+          storageFilename: result.storageFilename,
+          markdown,
+        });
+      }
       const token = window.localStorage.getItem(AUTH_TOKEN) || "";
       const res = await fetch(url, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
-      saveAs(blob, result.filename);
+      await downloadBlob(blob, result.filename);
       if (kind === "pdf") {
+        const blobUrl = URL.createObjectURL(blob);
         setQuotePdfUrl({
-          url,
+          url: blobUrl,
           filename: result.filename,
         });
         setDocumentPanelView("pdf");
@@ -249,9 +304,17 @@ export default function QuoteDraftTable() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0 border-b border-theme-sidebar-border">
-        <span className="text-xs font-medium text-theme-text-primary truncate">
-          {t("layout.tabCrossSection")} · {quoteDraft?.reference || "DRAFT"}
-        </span>
+        <div className="min-w-0">
+          <span className="text-xs font-medium text-theme-text-primary truncate block">
+            {t("layout.tabCrossSection")} · {quoteDraft?.reference || "DRAFT"}
+          </span>
+          <span className="text-[10px] text-theme-text-secondary">
+            {t("draftTable.manualHint", {
+              defaultValue:
+                "Ручная коррекция: кол-во, цена, статус, комментарии, позиции из базы.",
+            })}
+          </span>
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
@@ -325,6 +388,7 @@ export default function QuoteDraftTable() {
               <th>{t("draftTable.sum", { defaultValue: "Сумма" })}</th>
               <th>{t("draftTable.weight", { defaultValue: "Вес" })}</th>
               <th>{t("draftTable.status", { defaultValue: "Статус" })}</th>
+              <th>{t("draftTable.comment", { defaultValue: "Коммент." })}</th>
               <th />
             </tr>
           </thead>
@@ -426,6 +490,19 @@ export default function QuoteDraftTable() {
                     ))}
                   </select>
                 </td>
+                <td className="min-w-[100px]">
+                  <input
+                    type="text"
+                    value={line.comment || ""}
+                    onChange={(e) =>
+                      handleFieldChange(i, "comment", e.target.value, line)
+                    }
+                    placeholder={t("draftTable.commentPlaceholder", {
+                      defaultValue: "Комментарий",
+                    })}
+                    className="w-full bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none text-[10px]"
+                  />
+                </td>
                 <td>
                   <button
                     type="button"
@@ -450,13 +527,26 @@ export default function QuoteDraftTable() {
               <td className="text-right font-medium">
                 {totals.totalWeightKg.toFixed(3)} кг
               </td>
-              <td colSpan={2} />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>
       </div>
 
       <div className="flex items-center gap-2 px-3 py-2 shrink-0 border-t border-theme-sidebar-border">
+        <button
+          type="button"
+          onClick={() => exportFile("docx")}
+          disabled={!!busy}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-[#0c7d69] text-white text-xs font-medium disabled:opacity-60"
+        >
+          {busy === "docx" ? (
+            <CircleNotch size={14} className="animate-spin" />
+          ) : (
+            <FileDoc size={14} weight="fill" />
+          )}
+          DOCX
+        </button>
         <button
           type="button"
           onClick={() => exportFile("pdf")}

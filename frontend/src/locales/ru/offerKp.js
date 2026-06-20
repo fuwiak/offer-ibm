@@ -416,6 +416,7 @@ const TRANSLATIONS = {
     tabPreview: "Превью КП",
     tabDocument: "Документ",
     downloadDocx: "Скачать DOCX",
+    editQuoteLines: "Редактировать",
     collapsePanel: "Свернуть панель",
     expandPanel: "Развернуть панель",
     tabCrossSection: "Сводка позиций",
@@ -438,6 +439,10 @@ const TRANSLATIONS = {
     alternatives: "Аналоги",
     addFromDb: "Из базы",
     searchPlaceholder: "DIN 931 M8x40…",
+    comment: "Коммент.",
+    commentPlaceholder: "Комментарий",
+    manualHint:
+      "Ручная коррекция: кол-во, цена, статус, комментарии, позиции из базы.",
   },
   bot: {
     title: "OfferKP — Публичный",

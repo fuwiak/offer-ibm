@@ -281,10 +281,12 @@ export default function DocumentPanel() {
     document.getElementById("dnd-chat-file-uploader")?.click();
   }
 
+  const hasEditableQuoteLines =
+    (quoteDraft?.hardwareLines?.length ?? 0) > 0 ||
+    (quoteDraft?.preview?.lines?.length ?? 0) > 0;
   const showQuoteBuilder = documentPanelView === "builder";
   const showDraftTable =
-    documentPanelView === "draftTable" &&
-    (quoteDraft?.hardwareLines?.length > 0 || quoteDraft?.preview?.lines?.length > 0);
+    documentPanelView === "draftTable" && hasEditableQuoteLines;
   const showPdfPreview = documentPanelView === "pdf" && quotePdfUrl;
   const showQuotePreview =
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
@@ -368,7 +370,7 @@ export default function DocumentPanel() {
               {t("layout.tabQuote")}
             </button>
           )}
-          {quoteDraft?.hardwareLines?.length > 0 && (
+          {hasEditableQuoteLines && (
             <button
               type="button"
               onClick={() => setDocumentPanelView("draftTable")}

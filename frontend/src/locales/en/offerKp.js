@@ -414,6 +414,7 @@ const TRANSLATIONS = {
     tabPreview: "Preview",
     tabDocument: "Document",
     downloadDocx: "Download DOCX",
+    editQuoteLines: "Edit line items",
     collapsePanel: "Collapse panel",
     expandPanel: "Expand panel",
     tabCrossSection: "Product cross-section",

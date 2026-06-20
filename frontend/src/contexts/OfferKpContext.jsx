@@ -12,6 +12,10 @@ import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 import { OFFER_KP_QUOTE_FILES_EVENT } from "@/utils/offerKp/quoteFileEvents";
 import { mergeQuoteFiles } from "@/utils/offerKp/quoteFileDownload";
 import { revokeBlobUrl } from "@/utils/offerKp/openQuoteFilePreview";
+import {
+  loadQuoteDraft,
+  saveQuoteDraft,
+} from "@/utils/offerKp/quoteDraftStorage";
 
 const OfferKpContext = createContext(null);
 
@@ -66,6 +70,18 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
 
   const [docPreview, setDocPreview] = useState(null);
   const [threadQuoteFiles, setThreadQuoteFiles] = useState([]);
+  const quoteDraftRef = useRef(quoteDraft);
+  const activeWorkspaceRef = useRef(activeWorkspaceSlug);
+  const activeThreadRef = useRef(activeThreadSlug);
+
+  useEffect(() => {
+    quoteDraftRef.current = quoteDraft;
+  }, [quoteDraft]);
+
+  useEffect(() => {
+    activeWorkspaceRef.current = activeWorkspaceSlug;
+    activeThreadRef.current = activeThreadSlug;
+  }, [activeWorkspaceSlug, activeThreadSlug]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -101,12 +117,25 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   }, []);
 
   const setActiveConversation = useCallback((workspaceSlug, threadSlug) => {
+    const prevWs = activeWorkspaceRef.current;
+    const prevThread = activeThreadRef.current;
+    if (prevWs && prevThread) {
+      saveQuoteDraft(prevWs, prevThread, quoteDraftRef.current);
+    }
+    if (workspaceSlug && threadSlug) {
+      setQuoteDraft(loadQuoteDraft(workspaceSlug, threadSlug));
+    } else {
+      setQuoteDraft(INITIAL_QUOTE_DRAFT);
+    }
+    if (prevThread !== threadSlug) setThreadQuoteFiles([]);
     setActiveWorkspaceSlug(workspaceSlug);
-    setActiveThreadSlug((prev) => {
-      if (prev !== threadSlug) setThreadQuoteFiles([]);
-      return threadSlug;
-    });
+    setActiveThreadSlug(threadSlug);
   }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceSlug || !activeThreadSlug) return;
+    saveQuoteDraft(activeWorkspaceSlug, activeThreadSlug, quoteDraft);
+  }, [activeWorkspaceSlug, activeThreadSlug, quoteDraft]);
 
   const value = useMemo(
     () => ({

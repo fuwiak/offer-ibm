@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import MarkdownIt from "markdown-it";
-import { X, DownloadSimple, CircleNotch } from "@phosphor-icons/react";
+import { X, DownloadSimple, CircleNotch, PencilSimple } from "@phosphor-icons/react";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadDocxMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
+import { useOfferKp } from "@/contexts/OfferKpContext";
+import { openQuoteEditor } from "@/utils/offerKp/openQuoteEditor";
+import { parseQuoteMarkdown } from "@/utils/offerKp/parseQuoteMarkdown";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
@@ -13,11 +16,40 @@ const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
  */
 export default function DocPreviewPane({ docPreview, onClose }) {
   const { t } = useTranslation("offerKp");
+  const {
+    quoteDraft,
+    setQuoteDraft,
+    setDocumentPanelView,
+    setDocumentPanelOpen,
+    setDocPreview,
+  } = useOfferKp();
   const [downloading, setDownloading] = useState(false);
+  const canEdit = useMemo(
+    () => parseQuoteMarkdown(docPreview?.markdown || "").length > 0,
+    [docPreview?.markdown]
+  );
   const html = useMemo(
     () => md.render(docPreview?.markdown || ""),
     [docPreview?.markdown]
   );
+
+  async function handleEdit() {
+    try {
+      openQuoteEditor({
+        markdown: docPreview?.markdown,
+        lines: quoteDraft?.hardwareLines,
+        reference: quoteDraft?.reference,
+        customer: quoteDraft?.customer,
+        filename: docPreview?.filename,
+        setQuoteDraft,
+        setDocumentPanelView,
+        setDocumentPanelOpen,
+        setDocPreview,
+      });
+    } catch (e) {
+      console.error("[DocPreviewPane] edit error:", e?.message || e);
+    }
+  }
 
   async function handleDownload() {
     if (downloading) return;
@@ -46,6 +78,16 @@ export default function DocPreviewPane({ docPreview, onClose }) {
           {docPreview?.filename || "Document"}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={handleEdit}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover text-theme-text-primary text-[11px] font-semibold transition-colors"
+            >
+              <PencilSimple size={12} weight="bold" />
+              {t("layout.editQuoteLines", { defaultValue: "Редактировать" })}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDownload}
@@ -81,6 +123,16 @@ export default function DocPreviewPane({ docPreview, onClose }) {
       </div>
 
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-t border-theme-sidebar-border bg-theme-bg-secondary">
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleEdit}
+            className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md border border-theme-sidebar-border bg-transparent text-theme-text-primary hover:bg-theme-sidebar-item-hover text-xs font-medium transition-colors"
+          >
+            <PencilSimple size={14} weight="bold" />
+            {t("layout.editQuoteLines", { defaultValue: "Редактировать" })}
+          </button>
+        )}
         <button
           type="button"
           onClick={handleDownload}

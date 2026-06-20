@@ -6,12 +6,15 @@ import {
   Eye,
   FilePdf,
   FileDoc,
+  PencilSimple,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { humanFileSize } from "@/utils/numbers";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
+import { openQuoteEditor } from "@/utils/offerKp/openQuoteEditor";
+import { parseQuoteMarkdown } from "@/utils/offerKp/parseQuoteMarkdown";
 
 function fileIcon(kind, filename = "") {
   if (kind === "pdf" || /\.pdf$/i.test(filename)) return FilePdf;
@@ -21,6 +24,8 @@ function fileIcon(kind, filename = "") {
 export default function ThreadGeneratedQuotesSection({ files = [] }) {
   const { t } = useTranslation("offerKp");
   const {
+    quoteDraft,
+    setQuoteDraft,
     quotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
@@ -79,6 +84,42 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
     ]
   );
 
+  const handleEdit = useCallback(
+    (file) => {
+      const key = file.storageFilename;
+      if (!key || busyKey || !file.previewMarkdown) return;
+      if (!parseQuoteMarkdown(file.previewMarkdown).length) return;
+      setBusyKey(`ed:${key}`);
+      try {
+        openQuoteEditor({
+          markdown: file.previewMarkdown,
+          lines: quoteDraft?.hardwareLines,
+          reference: quoteDraft?.reference,
+          customer: quoteDraft?.customer,
+          filename: file.filename,
+          setQuoteDraft,
+          setDocumentPanelOpen,
+          setDocumentPanelView,
+          setDocPreview,
+        });
+      } catch (e) {
+        console.error("[ThreadGeneratedQuotesSection] edit:", e?.message || e);
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [
+      busyKey,
+      quoteDraft?.hardwareLines,
+      quoteDraft?.reference,
+      quoteDraft?.customer,
+      setQuoteDraft,
+      setDocumentPanelOpen,
+      setDocumentPanelView,
+      setDocPreview,
+    ]
+  );
+
   if (!files.length) return null;
 
   return (
@@ -94,9 +135,13 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
           const isPdf =
             file.kind === "pdf" || /\.pdf$/i.test(file.filename || "");
           const canPreviewDoc = !!file.previewMarkdown;
+          const canEditDoc =
+            !!file.previewMarkdown &&
+            parseQuoteMarkdown(file.previewMarkdown).length > 0;
           const busy =
             busyKey === `dl:${file.storageFilename}` ||
-            busyKey === `pv:${file.storageFilename}`;
+            busyKey === `pv:${file.storageFilename}` ||
+            busyKey === `ed:${file.storageFilename}`;
 
           return (
             <li key={file.storageFilename} className="offerKp-thread-quotes__item">
@@ -128,6 +173,21 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
                       <CircleNotch size={14} className="animate-spin" />
                     ) : (
                       <Eye size={14} weight="bold" />
+                    )}
+                  </button>
+                )}
+                {canEditDoc && (
+                  <button
+                    type="button"
+                    className="offerKp-thread-quotes__btn"
+                    title={t("layout.editQuoteLines", { defaultValue: "Edit" })}
+                    disabled={busy}
+                    onClick={() => handleEdit(file)}
+                  >
+                    {busy && busyKey?.startsWith("ed:") ? (
+                      <CircleNotch size={14} className="animate-spin" />
+                    ) : (
+                      <PencilSimple size={14} weight="bold" />
                     )}
                   </button>
                 )}

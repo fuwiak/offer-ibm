@@ -1,9 +1,11 @@
 import { memo, useState, useCallback } from "react";
-import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
+import { DownloadSimple, CircleNotch, Eye, PencilSimple } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
+import { openQuoteEditor } from "@/utils/offerKp/openQuoteEditor";
+import { parseQuoteMarkdown } from "@/utils/offerKp/parseQuoteMarkdown";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 
 /** Google-Drive-style document card (aligned with elia_front). */
@@ -15,14 +17,57 @@ function FileDownloadCard({ props }) {
   const { badge, badgeBg, badgeText, fileType } = getFileDisplayInfo(filename);
   const [downloading, setDownloading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const {
     enabled: offerKpEnabled,
+    quoteDraft,
+    setQuoteDraft,
     quotePdfUrl,
     setQuotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
     setDocPreview,
   } = useOfferKp();
+
+  const canEditDoc =
+    offerKpEnabled &&
+    !!previewMarkdown &&
+    parseQuoteMarkdown(previewMarkdown).length > 0;
+
+  const handleEdit = useCallback(async () => {
+    if (editing || !canEditDoc) return;
+    setEditing(true);
+    try {
+      openQuoteEditor({
+        markdown: previewMarkdown,
+        lines: quoteDraft?.hardwareLines,
+        reference: quoteDraft?.reference,
+        customer: quoteDraft?.customer,
+        filename: filename || storageFilename,
+        setQuoteDraft,
+        setDocumentPanelView,
+        setDocumentPanelOpen,
+        setDocPreview,
+      });
+    } catch (e) {
+      console.error("[FileDownloadCard] Edit failed:", e?.message || e);
+    } finally {
+      setEditing(false);
+    }
+  }, [
+    editing,
+    canEditDoc,
+    previewMarkdown,
+    quoteDraft?.hardwareLines,
+    quoteDraft?.reference,
+    quoteDraft?.customer,
+    filename,
+    storageFilename,
+    setQuoteDraft,
+    setDocumentPanelView,
+    setDocumentPanelOpen,
+    setDocPreview,
+  ]);
 
   const handleDownload = async () => {
     if (downloading) return;
@@ -129,6 +174,23 @@ function FileDownloadCard({ props }) {
                   <Eye size={13} weight="bold" />
                 )}
                 <span className="hidden sm:inline">Open in Preview</span>
+              </button>
+            )}
+
+            {canEditDoc && (
+              <button
+                type="button"
+                onClick={handleEdit}
+                disabled={editing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-bg-primary border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover transition-colors text-theme-text-primary text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Edit line items"
+              >
+                {editing ? (
+                  <CircleNotch size={13} weight="bold" className="animate-spin" />
+                ) : (
+                  <PencilSimple size={13} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Edit</span>
               </button>
             )}
 
