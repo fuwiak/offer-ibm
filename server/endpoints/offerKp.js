@@ -449,11 +449,12 @@ function offerKpEndpoints(app) {
     [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
     async (request, response) => {
       try {
-        const { message, chatHistory } = reqBody(request);
-        if (!message) {
+        const { message, chatHistory, parsedText } = reqBody(request);
+        const inquirySource = [parsedText, message].filter(Boolean).join("\n\n");
+        if (!inquirySource.trim()) {
           return response.status(400).json({ error: "message is required" });
         }
-        const draft = await matchInquiryToDraft(message, { chatHistory });
+        const draft = await matchInquiryToDraft(inquirySource, { chatHistory });
         response.status(200).json({ draft });
       } catch (e) {
         console.error("[offerKp] inquiry match:", e);

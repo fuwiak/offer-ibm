@@ -77,7 +77,54 @@ const PDF_STRATEGIES = [
     },
   },
 
-  // ── 3. tesseract OCR — Russian + English (основной кейс: ~99% документов) ───
+  // ── 3. OpenDataLoader (Java, reading order + tables as text) ───────────────
+  {
+    name: "opendataloader-pdf",
+    async fn(filePath) {
+      try {
+        const { extractWithOpenDataLoader } = require("../openDataLoader");
+        const {
+          shouldOcrInsteadOfPdfText,
+        } = require("../../processSingleFile/convert/asPDF/pdfTextQuality");
+        const text = await extractWithOpenDataLoader(filePath);
+        if (!text || shouldOcrInsteadOfPdfText(text, 1)) return null;
+        return text;
+      } catch (e) {
+        log("opendataloader-pdf", `failed: ${e.message}`);
+        return null;
+      }
+    },
+  },
+
+  // ── 4. pdftoppm + native tesseract (full-page render, 300 DPI) ─────────────
+  {
+    name: "pdftoppm-native",
+    async fn(filePath, ctx) {
+      try {
+        const OCRLoader = require("../OCRLoader");
+        const {
+          shouldOcrInsteadOfPdfText,
+        } = require("../../processSingleFile/convert/asPDF/pdfTextQuality");
+        const loader = new OCRLoader({ targetLanguages: "rus,eng" });
+        if (!(await loader.nativePipelineAvailable())) return null;
+        const docs = await loader.ocrPDFNative(filePath, {
+          firstPage: 1,
+          lastPage: null,
+          onPage: ctx.onPage || null,
+        });
+        const text = docs.map((d) => d.pageContent || "").join("\n");
+        if (!text || shouldOcrInsteadOfPdfText(text, docs.length || 1)) {
+          return null;
+        }
+        return text;
+      } catch (e) {
+        log("pdftoppm-native", `failed: ${e.message}`);
+        return null;
+      }
+    },
+  },
+
+  // ── 5. tesseract OCR — Russian + English (основной кейс: ~99% документов) ───
   {
     name: "tesseract-rus+eng",
     async fn(filePath, ctx) {
@@ -96,7 +143,7 @@ const PDF_STRATEGIES = [
     },
   },
 
-  // ── 4. tesseract OCR — English only (редкий случай чисто английских сканов) ──
+  // ── 6. tesseract OCR — English only (редкий случай чисто английских сканов) ──
   {
     name: "tesseract-eng",
     async fn(filePath, ctx) {

@@ -24,6 +24,66 @@ const UNREADABLE_SCAN_MESSAGE =
   "(возможно, скан низкого качества или повреждённый файл). Обработка остановлена.";
 
 /**
+ * Расширенная цепочка fallback (SmartOCRAgent → deep OCRLoader) вместо
+ * немедленного abort при плохом native probe или низком качестве результата.
+ */
+async function runExtendedOcrFallback({
+  fullFilePath,
+  filename,
+  loader,
+  options,
+  emit,
+  totalPages,
+}) {
+  console.warn(`[asPDF] Extended OCR fallback for ${filename}.`);
+  emit({ type: "stage", stage: "ocr" });
+
+  const agent = new SmartOCRAgent({
+    timeout: options?.ocr?.timeout ?? 300_000,
+    stopOnFirstGood: false,
+  });
+  const agentResult = await agent.processPDF(fullFilePath);
+
+  if (agentResult?.score?.isAcceptable) {
+    console.log(
+      `[asPDF] SmartOCRAgent "${agentResult.strategyUsed}" (${agentResult.score.words} words).`
+    );
+    return [
+      {
+        pageContent: agentResult.text,
+        metadata: {
+          source: fullFilePath,
+          extractionStrategy: agentResult.strategyUsed,
+        },
+      },
+    ];
+  }
+
+  console.log(`[asPDF] SmartOCRAgent insufficient; deep OCRLoader for ${filename}.`);
+  const docs = await loader.ocrPDF(fullFilePath, {
+    maxExecutionTime: options?.ocr?.timeout ?? 300_000,
+    batchSize: options?.ocr?.batchSize ?? 10,
+    onPage:
+      typeof options?.onProgress === "function"
+        ? ({ pageNumber, totalPages: tp }) =>
+            emit({
+              type: "page",
+              pageNumber,
+              totalPages: tp || totalPages || 0,
+            })
+        : null,
+  });
+
+  const combined = docs.map((d) => d.pageContent || "").join("\n");
+  if (!combined.trim() || isLikelyGarbledText(combined)) {
+    const err = new Error(UNREADABLE_SCAN_MESSAGE);
+    err.code = "UNREADABLE_SCAN";
+    throw err;
+  }
+  return docs;
+}
+
+/**
  * Извлекает текст страниц из PDF (цифровой слой → SmartOCRAgent → OCRLoader).
  * Это самая дорогая часть (OCR), поэтому результат кэшируется по «ленивому»
  * отпечатку файла — повторная загрузка того же PDF не запускает OCR заново.
@@ -91,25 +151,41 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
 
       if (isLikelyGarbledText(probeText)) {
         console.warn(
-          `[asPDF] First ${PROBE_PAGES} page(s) unreadable for ${filename}; aborting OCR early.`
+          `[asPDF] First ${PROBE_PAGES} page(s) low quality for ${filename}; trying extended fallback.`
         );
-        const err = new Error(UNREADABLE_SCAN_MESSAGE);
-        err.code = "UNREADABLE_SCAN";
-        throw err;
-      }
-
-      // First pages are readable → OCR the remaining pages.
-      let restDocs = [];
-      if (!totalPages || totalPages > PROBE_PAGES) {
-        restDocs = await loader.ocrPDFNative(fullFilePath, {
-          firstPage: PROBE_PAGES + 1,
-          lastPage: null,
-          totalPagesHint: totalPages,
-          onPage: ({ pageNumber }) =>
-            emit({ type: "page", pageNumber, totalPages: totalPages || 0 }),
+        docs = await runExtendedOcrFallback({
+          fullFilePath,
+          filename,
+          loader,
+          options,
+          emit,
+          totalPages,
         });
+      } else {
+        // First pages are readable → OCR the remaining pages.
+        let restDocs = [];
+        if (!totalPages || totalPages > PROBE_PAGES) {
+          restDocs = await loader.ocrPDFNative(fullFilePath, {
+            firstPage: PROBE_PAGES + 1,
+            lastPage: null,
+            totalPagesHint: totalPages,
+            onPage: ({ pageNumber }) =>
+              emit({ type: "page", pageNumber, totalPages: totalPages || 0 }),
+          });
+        }
+        docs = [...probeDocs, ...restDocs];
+        const combined = docs.map((d) => d.pageContent || "").join("\n");
+        if (isLikelyGarbledText(combined)) {
+          docs = await runExtendedOcrFallback({
+            fullFilePath,
+            filename,
+            loader,
+            options,
+            emit,
+            totalPages,
+          });
+        }
       }
-      docs = [...probeDocs, ...restDocs];
     } else if (onProgress) {
       // No native pipeline but caller wants live progress → tesseract.js stream.
       emit({ type: "stage", stage: "ocr" });

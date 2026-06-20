@@ -160,7 +160,14 @@ function buildProductSearchText(message, options = {}) {
   let text = String(message || "").trim();
   const parsedTexts = (options.parsedFileTexts || []).filter(Boolean);
   if (parsedTexts.length) {
-    text = `${parsedTexts.join("\n\n")}\n${text}`.trim();
+    let normalizedParsed = parsedTexts;
+    try {
+      const { normalizeOcrInquiryText } = require("./parseInquiry");
+      normalizedParsed = parsedTexts.map(normalizeOcrInquiryText);
+    } catch (_) {
+      /* optional */
+    }
+    text = `${normalizedParsed.join("\n\n")}\n${text}`.trim();
   }
   const history = options.chatHistory || options.history || [];
   const skuCodes = extractSkuCodes(text);
