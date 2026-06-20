@@ -1,9 +1,16 @@
 import paths from "@/utils/paths";
 import Workspace from "@/models/workspace";
 import { PROMPT_INPUT_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput";
-import { PENDING_HOME_MESSAGE, LAST_VISITED_WORKSPACE } from "@/utils/constants";
+import {
+  PENDING_HOME_MESSAGE,
+  LAST_VISITED_WORKSPACE,
+} from "@/utils/constants";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import showToast from "@/utils/toast";
+import {
+  threadNavLog,
+  threadSlugFromPath,
+} from "@/utils/offerKp/threadNavLogger";
 
 export const OFFER_KP_NEW_CONVERSATION_EVENT = "offerKp:new-conversation";
 
@@ -27,14 +34,33 @@ export function goToStartScreen(navigate) {
 }
 
 /** Open an existing thread and load its conversation history. */
-export function openThreadConversation(navigate, workspaceSlug, threadSlug, options = {}) {
-  if (!workspaceSlug || !threadSlug) return;
+export function openThreadConversation(
+  navigate,
+  workspaceSlug,
+  threadSlug,
+  options = {}
+) {
+  if (!workspaceSlug || !threadSlug) {
+    threadNavLog("open:skipped-missing-slug", { workspaceSlug, threadSlug });
+    return;
+  }
 
   const target = paths.offerKp.thread(workspaceSlug, threadSlug);
-  const { pathname = "", replace = false } = options;
+  const { pathname = "" } = options;
+  const currentThread = threadSlugFromPath(pathname);
+  const isSameThread = pathname === target && currentThread === threadSlug;
+
+  threadNavLog("open:navigate", {
+    from: pathname,
+    to: target,
+    workspaceSlug,
+    threadSlug,
+    currentThread,
+    isSameThread,
+  });
 
   navigate(target, {
-    replace: replace || pathname === target,
+    replace: isSameThread,
     state: { openThreadAt: Date.now() },
   });
 }

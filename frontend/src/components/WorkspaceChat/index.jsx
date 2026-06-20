@@ -12,6 +12,7 @@ import {
   useWatchForAutoPlayAssistantTTSResponse,
 } from "../contexts/TTSProvider";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
+import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
 export default function WorkspaceChat({
   loading,
@@ -27,13 +28,18 @@ export default function WorkspaceChat({
   const [loaded, setLoaded] = useState(null);
 
   useEffect(() => {
+    threadNavLog("chat:historyKey-changed", { historyKey, threadSlug });
     setLoaded(null);
-  }, [historyKey]);
+  }, [historyKey, threadSlug]);
 
   useEffect(() => {
     async function getHistory() {
-      if (loading) return;
+      if (loading) {
+        threadNavLog("chat:load-wait", { historyKey, loading, threadSlug });
+        return;
+      }
       if (!workspace?.slug) {
+        threadNavLog("chat:load-no-workspace", { historyKey });
         setLoaded({
           key: "none",
           workspace: null,
@@ -44,6 +50,11 @@ export default function WorkspaceChat({
       }
 
       if (initialHistory !== null && initialHistory !== undefined && !loading) {
+        threadNavLog("chat:loaded-from-parent", {
+          historyKey,
+          threadSlug,
+          count: initialHistory?.length ?? 0,
+        });
         setLoaded({
           key: historyKey,
           workspace,
@@ -53,10 +64,16 @@ export default function WorkspaceChat({
         return;
       }
 
+      threadNavLog("chat:fetch-history", { historyKey, threadSlug });
       const chatHistory = threadSlug
         ? await Workspace.threads.chatHistory(workspace.slug, threadSlug)
         : await Workspace.chatHistory(workspace.slug);
 
+      threadNavLog("chat:fetched", {
+        historyKey,
+        threadSlug,
+        count: chatHistory?.length ?? 0,
+      });
       setLoaded({
         key: historyKey,
         workspace,

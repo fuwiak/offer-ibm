@@ -45,6 +45,7 @@ import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
 import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 import SourcesSidebar, { SourcesSidebarProvider } from "./SourcesSidebar";
+import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
 export default function ChatContainer({
   workspace,
@@ -442,6 +443,28 @@ export default function ChatContainer({
   const isEmpty =
     chatHistory.length === 0 && !sessionStorage.getItem(PENDING_HOME_MESSAGE);
   const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && activeThreadSlug);
+
+  useEffect(() => {
+    threadNavLog("container:render-state", {
+      activeThreadSlug,
+      propThreadSlug: threadSlug,
+      routeThreadSlug,
+      offerKpMode,
+      isEmpty,
+      showOfferKpHomeEmpty,
+      historyCount: chatHistory.length,
+      pathname,
+    });
+  }, [
+    activeThreadSlug,
+    threadSlug,
+    routeThreadSlug,
+    offerKpMode,
+    isEmpty,
+    showOfferKpHomeEmpty,
+    chatHistory.length,
+    pathname,
+  ]);
 
   if (showOfferKpHomeEmpty) {
     return (

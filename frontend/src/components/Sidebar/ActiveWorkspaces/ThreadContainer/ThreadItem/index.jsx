@@ -14,7 +14,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
-import { startNewConversation, openThreadConversation } from "@/utils/offerKp/startNewConversation";
+import {
+  startNewConversation,
+  openThreadConversation,
+} from "@/utils/offerKp/startNewConversation";
+import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
 const THREAD_CALLOUT_DETAIL_WIDTH = 26;
 export default function ThreadItem({
@@ -62,7 +66,13 @@ export default function ThreadItem({
     }
     if (!offerKpMode || !thread?.slug || thread.virtual) return;
     event.preventDefault();
-    openThreadConversation(navigate, workspaceSlug, thread.slug, { pathname });
+    const wsSlug = urlSlug ?? workspaceSlug;
+    threadNavLog("thread-item:click", {
+      wsSlug,
+      threadSlug: thread.slug,
+      pathname,
+    });
+    openThreadConversation(navigate, wsSlug, thread.slug, { pathname });
   }
 
   const { ref } = useScrollActiveItemIntoView({
@@ -216,7 +226,13 @@ export default function ThreadItem({
                   : "text-theme-text-primary font-medium light:text-slate-800"
               }`}
             >
-              {pinned && <PushPin size={11} weight="fill" className="inline mb-[2px] mr-1" />}
+              {pinned && (
+                <PushPin
+                  size={11}
+                  weight="fill"
+                  className="inline mb-[2px] mr-1"
+                />
+              )}
               {thread.name}
             </p>
           </Link>

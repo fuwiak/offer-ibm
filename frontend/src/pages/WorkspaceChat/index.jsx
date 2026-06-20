@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import paths from "@/utils/paths";
 import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import { perfMark, perfMeasure, perfTimed } from "@/utils/perfLogger";
+import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
 export default function WorkspaceChat() {
   const { loading, requiresAuth, mode } = usePasswordModal();
@@ -71,6 +72,12 @@ function ShowWorkspaceChat() {
 
     async function getWorkspace() {
       if (!slug) return;
+      threadNavLog("page:load-start", {
+        slug,
+        threadSlug,
+        historyKey,
+        pathname,
+      });
       setChatHistory(null);
       setLoadedHistoryKey(null);
       perfMark("workspace-chat:load-start", { slug, threadSlug });
@@ -115,6 +122,12 @@ function ShowWorkspaceChat() {
         });
         setChatHistory(history ?? []);
         setLoadedHistoryKey(historyKey);
+        threadNavLog("page:load-done", {
+          slug,
+          threadSlug,
+          historyKey,
+          historyCount: history?.length ?? 0,
+        });
       }
       perfMark("workspace-chat:ready", {
         slug,
@@ -138,7 +151,7 @@ function ShowWorkspaceChat() {
     return () => {
       cancelled = true;
     };
-  }, [slug, threadSlug, historyKey]);
+  }, [slug, threadSlug, historyKey, pathname]);
 
   useEffect(() => {
     if (!slug) return undefined;
@@ -165,6 +178,7 @@ function ShowWorkspaceChat() {
     if (!offerKpMode || !isWorkspaceRoot || hasPendingMessage) return;
     if (loadedHistoryKey !== historyKey || chatHistory === null) return;
     if (chatHistory.length > 0) return;
+    threadNavLog("page:redirect-home-empty-workspace", { slug, pathname });
     navigate(paths.home(), { replace: true });
   }, [
     offerKpMode,
