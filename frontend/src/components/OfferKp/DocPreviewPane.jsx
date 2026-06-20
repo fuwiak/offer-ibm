@@ -3,14 +3,13 @@ import { useTranslation } from "react-i18next";
 import MarkdownIt from "markdown-it";
 import { saveAs } from "file-saver";
 import { X, DownloadSimple, CircleNotch } from "@phosphor-icons/react";
-import OfferKp from "@/models/offerKp";
-import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
-import { AUTH_TOKEN } from "@/utils/constants";
+import { downloadDocxMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
 /**
  * Renders an agent-generated document (markdown) as a paper-like preview.
+ * Download regenerates DOCX from the same markdown (matches elia_front).
  */
 export default function DocPreviewPane({ docPreview, onClose }) {
   const { t } = useTranslation("offerKp");
@@ -24,31 +23,12 @@ export default function DocPreviewPane({ docPreview, onClose }) {
     if (downloading) return;
     setDownloading(true);
     try {
-      let blob = null;
-      let downloadName = docPreview?.filename || docPreview?.storageFilename;
-
-      if (docPreview?.storageFilename) {
-        blob = await downloadQuoteFileBlob({
-          storageFilename: docPreview.storageFilename,
-          filename: docPreview.filename,
-        });
-      } else if (docPreview?.markdown) {
-        const result = await OfferKp.generateDocxFromMarkdown({
-          markdown: docPreview.markdown,
-          filename: docPreview.filename || "document.docx",
-        });
-        const token = window.localStorage.getItem(AUTH_TOKEN) || "";
-        const res = await fetch(
-          OfferKp.quoteDocxDownloadUrl(result.storageFilename),
-          { headers: { Authorization: token ? `Bearer ${token}` : "" } }
-        );
-        if (!res.ok) throw new Error("Download failed");
-        blob = await res.blob();
-        downloadName = result.filename || downloadName;
-      }
-
-      if (!blob) throw new Error("No blob");
-      saveAs(blob, downloadName || "document.docx");
+      const { blob, filename } = await downloadDocxMatchingPreview({
+        filename: docPreview?.filename,
+        storageFilename: docPreview?.storageFilename,
+        previewMarkdown: docPreview?.markdown,
+      });
+      saveAs(blob, filename || "document.docx");
     } catch (e) {
       console.error("[DocPreviewPane] download error:", e?.message || e);
     } finally {

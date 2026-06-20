@@ -33,6 +33,52 @@ export async function downloadQuoteFileBlob({ storageFilename, filename }) {
   return res.blob();
 }
 
+/**
+ * Download DOCX generated from the same markdown as the side-panel preview (elia pattern).
+ */
+export async function downloadDocxMatchingPreview({
+  filename,
+  storageFilename,
+  previewMarkdown,
+}) {
+  if (previewMarkdown?.trim()) {
+    const result = await OfferKp.generateDocxFromMarkdown({
+      markdown: previewMarkdown,
+      filename: filename || "document.docx",
+    });
+    const blob = await downloadQuoteFileBlob({
+      storageFilename: result.storageFilename,
+      filename: result.filename,
+    });
+    return { blob, filename: result.filename || filename || "document.docx" };
+  }
+
+  if (!storageFilename) {
+    throw new Error("No file to download");
+  }
+
+  const blob = await downloadQuoteFileBlob({ storageFilename, filename });
+  return { blob, filename: filename || storageFilename };
+}
+
+/** PDF as-is; DOCX from preview markdown when available. */
+export async function downloadFileMatchingPreview({
+  filename,
+  storageFilename,
+  previewMarkdown,
+}) {
+  const name = filename || storageFilename || "";
+  if (/\.pdf$/i.test(name)) {
+    const blob = await downloadQuoteFileBlob({ storageFilename, filename });
+    return { blob, filename: name };
+  }
+  return downloadDocxMatchingPreview({
+    filename,
+    storageFilename,
+    previewMarkdown,
+  });
+}
+
 /** Collect generated KP files from loaded chat history. */
 export function extractQuoteFilesFromHistory(history = []) {
   const byStorage = new Map();

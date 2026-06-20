@@ -2,7 +2,7 @@ import { memo, useState, useCallback } from "react";
 import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
-import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
+import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 
@@ -25,15 +25,17 @@ function FileDownloadCard({ props }) {
   } = useOfferKp();
 
   const handleDownload = async () => {
-    if (downloading || !storageFilename) return;
+    if (downloading) return;
+    if (!storageFilename && !previewMarkdown) return;
     setDownloading(true);
     try {
-      const blob = await downloadQuoteFileBlob({
-        storageFilename,
+      const { blob, filename: saveName } = await downloadFileMatchingPreview({
         filename,
+        storageFilename,
+        previewMarkdown,
       });
       if (!blob) throw new Error("No blob");
-      saveAs(blob, filename || storageFilename);
+      saveAs(blob, saveName);
     } catch (e) {
       console.error("[FileDownloadCard] Download failed:", e?.message || e);
     } finally {

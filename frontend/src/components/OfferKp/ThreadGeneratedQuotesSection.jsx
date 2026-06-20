@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { humanFileSize } from "@/utils/numbers";
-import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
+import { downloadFileMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 
 function fileIcon(kind, filename = "") {
@@ -34,11 +34,12 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
     if (!key || busyKey) return;
     setBusyKey(`dl:${key}`);
     try {
-      const blob = await downloadQuoteFileBlob({
+      const { blob, filename: saveName } = await downloadFileMatchingPreview({
         storageFilename: file.storageFilename,
         filename: file.filename,
+        previewMarkdown: file.previewMarkdown,
       });
-      saveAs(blob, file.filename || file.storageFilename);
+      saveAs(blob, saveName);
     } catch (e) {
       console.error("[ThreadGeneratedQuotesSection] download:", e?.message || e);
     } finally {
