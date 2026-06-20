@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
-import StorageFiles from "@/models/files";
+import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 
 /** Google-Drive-style document card that matches the image mockup */
@@ -30,8 +30,8 @@ function FileDownloadCard({ props }) {
 
   const fetchBlob = useCallback(async () => {
     if (!storageFilename) return null;
-    return StorageFiles.download(storageFilename);
-  }, [storageFilename]);
+    return downloadQuoteFileBlob({ storageFilename, filename });
+  }, [storageFilename, filename]);
 
   const openPdfPreview = useCallback(async () => {
     const blob = await fetchBlob();

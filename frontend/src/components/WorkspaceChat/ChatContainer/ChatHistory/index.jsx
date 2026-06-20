@@ -347,6 +347,7 @@ function buildMessages({
           sources={props.sources}
           error={props.error}
           closed={props.closed}
+          outputs={props.outputs}
         />
       );
     } else {

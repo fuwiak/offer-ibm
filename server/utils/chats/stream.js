@@ -371,6 +371,7 @@ async function streamChatWithWorkspace(
   }
 
   // КП + каталог: карточки файлов после текста ответа (кнопки Preview / Download в чате)
+  let quoteOutputs = [];
   if (llmCatalog.catalogInjected) {
     try {
       const {
@@ -388,6 +389,9 @@ async function streamChatWithWorkspace(
       if (quoteArtifacts?.summaryText) {
         completeText = `${completeText || ""}${quoteArtifacts.summaryText}`;
       }
+      if (quoteArtifacts?.outputs?.length) {
+        quoteOutputs = quoteArtifacts.outputs;
+      }
     } catch (e) {
       console.error("[offerKp] auto quote artifacts:", e?.message || e);
     }
@@ -404,6 +408,7 @@ async function streamChatWithWorkspace(
         attachments,
         metrics,
         ragTrace,
+        ...(quoteOutputs.length ? { outputs: quoteOutputs } : {}),
       },
       threadId: thread?.id || null,
       user,
@@ -416,6 +421,7 @@ async function streamChatWithWorkspace(
       error: false,
       chatId: chat.id,
       metrics,
+      ...(quoteOutputs.length ? { outputs: quoteOutputs } : {}),
     });
     return;
   }

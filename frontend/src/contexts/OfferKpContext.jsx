@@ -8,6 +8,8 @@ import {
 } from "react";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
+import { OFFER_KP_QUOTE_FILES_EVENT } from "@/utils/offerKp/quoteFileEvents";
+import { mergeQuoteFiles } from "@/utils/offerKp/quoteFileDownload";
 
 const OfferKpContext = createContext(null);
 
@@ -44,6 +46,7 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   const [savTickets, setSavTickets] = useState([]);
   const [quotePdfUrl, setQuotePdfUrl] = useState(null);
   const [docPreview, setDocPreview] = useState(null);
+  const [threadQuoteFiles, setThreadQuoteFiles] = useState([]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -53,10 +56,22 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       if (view) setDocumentPanelView(view);
       setDocumentPanelOpen(true);
     };
+    const onQuoteFiles = (e) => {
+      const incoming = e.detail?.files || [];
+      if (!incoming.length) return;
+      setThreadQuoteFiles((prev) => mergeQuoteFiles(prev, incoming));
+    };
     window.addEventListener(OFFER_KP_QUOTE_PANEL_EVENT, onQuotePanel);
-    return () =>
+    window.addEventListener(OFFER_KP_QUOTE_FILES_EVENT, onQuoteFiles);
+    return () => {
       window.removeEventListener(OFFER_KP_QUOTE_PANEL_EVENT, onQuotePanel);
+      window.removeEventListener(OFFER_KP_QUOTE_FILES_EVENT, onQuoteFiles);
+    };
   }, [enabled]);
+
+  const syncThreadQuoteFiles = useCallback((files = []) => {
+    setThreadQuoteFiles(mergeQuoteFiles([], files));
+  }, []);
 
   const addSavTicket = useCallback((ticket) => {
     setSavTickets((prev) => [{ id: Date.now(), status: "open", at: Date.now(), ...ticket }, ...prev]);
@@ -68,7 +83,10 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
 
   const setActiveConversation = useCallback((workspaceSlug, threadSlug) => {
     setActiveWorkspaceSlug(workspaceSlug);
-    setActiveThreadSlug(threadSlug);
+    setActiveThreadSlug((prev) => {
+      if (prev !== threadSlug) setThreadQuoteFiles([]);
+      return threadSlug;
+    });
   }, []);
 
   const value = useMemo(
@@ -96,6 +114,8 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       setQuotePdfUrl,
       docPreview,
       setDocPreview,
+      threadQuoteFiles,
+      syncThreadQuoteFiles,
     }),
     [
       enabled,
@@ -116,6 +136,8 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       setQuotePdfUrl,
       docPreview,
       setDocPreview,
+      threadQuoteFiles,
+      syncThreadQuoteFiles,
     ]
   );
 
@@ -151,6 +173,8 @@ export function useOfferKp() {
       setQuotePdfUrl: () => {},
       docPreview: null,
       setDocPreview: () => {},
+      threadQuoteFiles: [],
+      syncThreadQuoteFiles: () => {},
     }
   );
 }

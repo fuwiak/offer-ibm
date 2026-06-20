@@ -42,6 +42,7 @@ import { shouldReplayDraft, clearDraft } from "@/utils/offerKp/conversationNav";
 import OfferKpConversationView from "@/components/OfferKp/OfferKpConversationView";
 import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
 import { useOfferKp } from "@/contexts/OfferKpContext";
+import { extractQuoteFilesFromHistory, mergeQuoteFiles } from "@/utils/offerKp/quoteFileDownload";
 
 export default function ChatContainer({
   workspace,
@@ -84,6 +85,21 @@ export default function ChatContainer({
     setChatHistory(knownHistory ?? []);
     pendingMessageChecked.current = false;
   }, [activeThreadSlug, knownHistory]);
+
+  useEffect(() => {
+    if (!offerKpMode || !offerKp.syncThreadQuoteFiles) return;
+    const files = mergeQuoteFiles(
+      extractQuoteFilesFromHistory(knownHistory ?? []),
+      extractQuoteFilesFromHistory(chatHistory)
+    );
+    offerKp.syncThreadQuoteFiles(files);
+  }, [
+    offerKpMode,
+    activeThreadSlug,
+    knownHistory,
+    chatHistory,
+    offerKp.syncThreadQuoteFiles,
+  ]);
 
   const { listening, resetTranscript } = useSpeechRecognition({
     clearTranscriptOnListen: true,

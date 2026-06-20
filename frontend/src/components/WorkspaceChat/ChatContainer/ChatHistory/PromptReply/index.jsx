@@ -4,6 +4,7 @@ import { Warning } from "@phosphor-icons/react";
 import renderMarkdown from "@/utils/chat/markdown";
 import DOMPurify from "@/utils/chat/purify";
 import Citations from "../Citation";
+import HistoricalOutputs from "../HistoricalMessage/HistoricalOutputs";
 import {
   THOUGHT_REGEX_CLOSE,
   THOUGHT_REGEX_COMPLETE,
@@ -11,8 +12,9 @@ import {
   ThoughtChainComponent,
 } from "../ThoughtContainer";
 
-const PromptReply = ({ uuid, reply, pending, error, sources = [] }) => {
-  if (!reply && sources.length === 0 && !pending && !error) return null;
+const PromptReply = ({ uuid, reply, pending, error, sources = [], outputs = [] }) => {
+  if (!reply && sources.length === 0 && !pending && !error && !outputs?.length)
+    return null;
 
   if (pending) {
     return (
@@ -47,6 +49,7 @@ const PromptReply = ({ uuid, reply, pending, error, sources = [] }) => {
           messageId={uuid}
         />
         <Citations sources={sources} />
+        <HistoricalOutputs outputs={outputs} />
       </div>
     </div>
   );

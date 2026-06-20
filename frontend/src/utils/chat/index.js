@@ -3,10 +3,37 @@ import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/Threa
 import { emitAssistantMessageCompleteEvent } from "@/components/contexts/TTSProvider";
 import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
+import { OFFER_KP_QUOTE_FILES_EVENT } from "@/utils/offerKp/quoteFileEvents";
+
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
 
 function streamChunkText(value) {
   return value == null ? "" : String(value);
+}
+
+function outputTypeForPayload(payload = {}) {
+  const name = payload.filename || payload.storageFilename || "";
+  return /\.pdf$/i.test(name) ? "PdfFileDownload" : "DocxFileDownload";
+}
+
+function appendOutputToAssistant(history, payload) {
+  if (!payload?.storageFilename) return;
+  const output = {
+    type: outputTypeForPayload(payload),
+    payload,
+  };
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    if (msg.role !== "assistant" || msg.type === "fileDownloadCard") continue;
+    const prev = msg.outputs || [];
+    if (
+      prev.some((o) => o?.payload?.storageFilename === payload.storageFilename)
+    ) {
+      return;
+    }
+    history[i] = { ...msg, outputs: [...prev, output] };
+    return;
+  }
 }
 
 // For handling of chat responses in the frontend by their various types.
@@ -117,6 +144,9 @@ export default function handleChat(
           pending: false,
           chatId,
           metrics,
+          ...(chatResult.outputs?.length
+            ? { outputs: chatResult.outputs }
+            : {}),
         };
 
         _chatHistory[chatIdx - 1] = { ..._chatHistory[chatIdx - 1], chatId }; // update prompt with chatID
@@ -154,24 +184,24 @@ export default function handleChat(
     setChatHistory([..._chatHistory]);
   } else if (type === "fileDownloadCard" && chatResult.content) {
     setLoadingResponse(false);
-    const card = {
-      type: "fileDownloadCard",
-      uuid: uuid || v4(),
-      content: chatResult.content,
-      role: "assistant",
-      sources: [],
-      closed: true,
-      error: null,
-      animate: false,
-      pending: false,
-      metrics,
-    };
-    _chatHistory.push(card);
+    appendOutputToAssistant(_chatHistory, chatResult.content);
+    window.dispatchEvent(
+      new CustomEvent(OFFER_KP_QUOTE_FILES_EVENT, {
+        detail: { files: [chatResult.content] },
+      })
+    );
     setChatHistory([..._chatHistory]);
   } else if (type === "offerKpQuotePanel" && chatResult.content) {
     window.dispatchEvent(
       new CustomEvent(OFFER_KP_QUOTE_PANEL_EVENT, { detail: chatResult.content })
     );
+    if (chatResult.content?.generatedFiles?.length) {
+      window.dispatchEvent(
+        new CustomEvent(OFFER_KP_QUOTE_FILES_EVENT, {
+          detail: { files: chatResult.content.generatedFiles },
+        })
+      );
+    }
   } else if (type === "agentInitWebsocketConnection") {
     setWebsocket(chatResult.websocketUUID);
   } else if (type === "stopGeneration") {

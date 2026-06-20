@@ -1884,6 +1884,68 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   color: var(--theme-text-secondary);
 }
 
+.offerKp-thread-quotes__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.offerKp-thread-quotes__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-sidebar-border);
+  border-radius: 10px;
+  background: var(--theme-bg-secondary);
+}
+
+.offerKp-thread-quotes__icon {
+  color: var(--theme-text-secondary);
+}
+
+.offerKp-thread-quotes__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme-text-primary);
+}
+
+.offerKp-thread-quotes__size {
+  font-size: 10px;
+  color: var(--theme-text-secondary);
+}
+
+.offerKp-thread-quotes__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.offerKp-thread-quotes__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-primary);
+  color: var(--theme-text-secondary);
+  cursor: pointer;
+}
+
+.offerKp-thread-quotes__btn:hover:not(:disabled) {
+  background: var(--theme-sidebar-item-hover);
+  color: var(--theme-text-primary);
+}
+
+.offerKp-thread-quotes__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .offerKp-thread-db-preview {
   margin-top: 16px;
   padding-top: 14px;

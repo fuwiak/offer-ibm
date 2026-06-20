@@ -128,7 +128,9 @@ _Источник цен: каталог ${catalogLabel} (MySQL)._
 function buildQuoteArtifactsSummary({ reference, pdf, docx }) {
   const fileLines = [];
   if (pdf?.filename) {
-    fileLines.push(`- **${pdf.filename}** (PDF) — карточка ниже, предпросмотр справа`);
+    fileLines.push(
+      `- **${pdf.filename}** (PDF) — карточка ниже, предпросмотр справа`
+    );
   }
   if (docx?.filename) {
     fileLines.push(`- **${docx.filename}** (Word) — карточка ниже`);
@@ -139,6 +141,56 @@ function buildQuoteArtifactsSummary({ reference, pdf, docx }) {
     : "- файлы сформированы, но не удалось сохранить на сервере";
 
   return `\n\n---\n\n**Коммерческое предложение ${reference} готово.**\n\n**Где файлы:**\n${filesBlock}\n\n**Предпросмотр:** таблица позиций открыта в панели справа.\n**Скачивание:** кнопка «Download» на карточке каждого файла в этом сообщении.`;
+}
+
+function buildQuoteFileOutputs({ pdf, docx, markdown }) {
+  const outputs = [];
+  if (docx) {
+    outputs.push({
+      type: "DocxFileDownload",
+      payload: {
+        filename: docx.filename,
+        storageFilename: docx.storageFilename,
+        fileSize: docx.fileSize,
+        previewMarkdown: markdown,
+        skipAutoPreview: true,
+      },
+    });
+  }
+  if (pdf) {
+    outputs.push({
+      type: "PdfFileDownload",
+      payload: {
+        filename: pdf.filename,
+        storageFilename: pdf.storageFilename,
+        fileSize: pdf.fileSize,
+        skipAutoPreview: true,
+      },
+    });
+  }
+  return outputs;
+}
+
+function buildGeneratedFilesList({ pdf, docx, markdown }) {
+  const files = [];
+  if (pdf) {
+    files.push({
+      kind: "pdf",
+      filename: pdf.filename,
+      storageFilename: pdf.storageFilename,
+      fileSize: pdf.fileSize,
+    });
+  }
+  if (docx) {
+    files.push({
+      kind: "docx",
+      filename: docx.filename,
+      storageFilename: docx.storageFilename,
+      fileSize: docx.fileSize,
+      previewMarkdown: markdown,
+    });
+  }
+  return files;
 }
 
 function buildQuoteLinesFromCatalog(products, meta) {
@@ -282,17 +334,22 @@ async function emitAutoQuoteArtifacts({
   const docx = docxResult.status === "fulfilled" ? docxResult.value : null;
   if (!pdf && !docx) return null;
 
+  const outputs = buildQuoteFileOutputs({ pdf, docx, markdown });
+  const generatedFiles = buildGeneratedFilesList({ pdf, docx, markdown });
+
   writeResponseChunk(response, {
     uuid,
     type: "offerKpQuotePanel",
     content: {
       documentPanelView: "draftTable",
+      generatedFiles,
       quoteDraft: {
         step: 3,
         reference,
         customer: meta.customer,
         priceMode: "public",
         hardwareLines: draft?.lines || lines,
+        generatedFiles,
         lines: lines.map((l) => ({
           productId: l.article || "catalog",
           lengthMm: l.lengthMm || 0,
@@ -319,32 +376,11 @@ async function emitAutoQuoteArtifacts({
     error: false,
   });
 
-  if (docx) {
+  for (const output of outputs) {
     writeResponseChunk(response, {
       uuid: uuidv4(),
       type: "fileDownloadCard",
-      content: {
-        filename: docx.filename,
-        storageFilename: docx.storageFilename,
-        fileSize: docx.fileSize,
-        previewMarkdown: markdown,
-        skipAutoPreview: true,
-      },
-      close: false,
-      error: false,
-    });
-  }
-
-  if (pdf) {
-    writeResponseChunk(response, {
-      uuid: uuidv4(),
-      type: "fileDownloadCard",
-      content: {
-        filename: pdf.filename,
-        storageFilename: pdf.storageFilename,
-        fileSize: pdf.fileSize,
-        skipAutoPreview: true,
-      },
+      content: output.payload,
       close: false,
       error: false,
     });
@@ -359,7 +395,7 @@ async function emitAutoQuoteArtifacts({
     error: false,
   });
 
-  return { summaryText, reference };
+  return { summaryText, reference, outputs, generatedFiles };
 }
 
 function hasInquirySignals(message) {
@@ -377,6 +413,8 @@ module.exports = {
   parseQuoteMeta,
   buildMarkdownQuote,
   buildQuoteArtifactsSummary,
+  buildQuoteFileOutputs,
+  buildGeneratedFilesList,
   emitAutoQuoteArtifacts,
   hasInquirySignals,
 };

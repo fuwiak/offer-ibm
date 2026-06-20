@@ -3,6 +3,7 @@ const {
   parseQuoteMeta,
   buildMarkdownQuote,
   buildQuoteArtifactsSummary,
+  buildQuoteFileOutputs,
 } = require("../../../utils/offerKp/autoQuoteArtifacts");
 
 describe("autoQuoteArtifacts", () => {
@@ -63,5 +64,24 @@ ID товара (shop_product.id): 42
     expect(summary).toContain("KP-PUR-20260101-01.pdf");
     expect(summary).toContain("панели справа");
     expect(summary).not.toContain("null");
+  });
+
+  it("buildQuoteFileOutputs persists download metadata", () => {
+    const outputs = buildQuoteFileOutputs({
+      pdf: {
+        filename: "Quotation_Customer.pdf",
+        storageFilename: "quote-abc.pdf",
+        fileSize: 1024,
+      },
+      docx: {
+        filename: "KP-test.docx",
+        storageFilename: "doc-abc.docx",
+        fileSize: 2048,
+      },
+      markdown: "# KP",
+    });
+    expect(outputs).toHaveLength(2);
+    expect(outputs[0].payload.storageFilename).toBe("doc-abc.docx");
+    expect(outputs[1].payload.storageFilename).toBe("quote-abc.pdf");
   });
 });
