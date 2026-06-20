@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { default as WorkspaceChatContainer } from "@/components/WorkspaceChat";
 import Sidebar from "@/components/Sidebar";
-import { useParams } from "react-router-dom";
+import { useParams, useOutletContext } from "react-router-dom";
 import Workspace from "@/models/workspace";
 import PasswordModal, { usePasswordModal } from "@/components/Modals/Password";
 import { isMobile } from "react-device-detect";
@@ -17,6 +17,7 @@ import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import { perfMark, perfMeasure, perfTimed } from "@/utils/perfLogger";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
+/** Full-page shell for /bot and legacy direct workspace URLs. */
 export default function WorkspaceChat() {
   const { loading, requiresAuth, mode } = usePasswordModal();
   const { pathname } = useLocation();
@@ -58,7 +59,9 @@ export default function WorkspaceChat() {
   );
 }
 
-function ShowWorkspaceChat() {
+/** Workspace chat content — renders inside Main layout outlet or standalone shell. */
+export function ShowWorkspaceChat() {
+  const { embeddedInMain = false } = useOutletContext() ?? {};
   const { slug, threadSlug = null } = useParams();
   const { pathname, state: locationState } = useLocation();
   const navigate = useNavigate();
@@ -202,7 +205,17 @@ function ShowWorkspaceChat() {
     />
   );
 
-  if (!offerKpMode) return chat;
+  const chatPanel = embeddedInMain ? (
+    <div className="flex flex-1 min-h-0 min-w-0 h-full w-full overflow-hidden">
+      {chat}
+    </div>
+  ) : (
+    chat
+  );
+
+  if (!offerKpMode) return chatPanel;
+
+  if (embeddedInMain) return chatPanel;
 
   return (
     <OfferKpLayout

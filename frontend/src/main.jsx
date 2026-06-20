@@ -88,6 +88,24 @@ const router = createBrowserRouter([
                   return { element: <ChatLauncher /> };
                 },
               },
+              {
+                path: "workspace/:slug/t/:threadSlug",
+                lazy: async () => {
+                  const { ShowWorkspaceChat } = await import(
+                    "@/pages/WorkspaceChat"
+                  );
+                  return { element: <ShowWorkspaceChat /> };
+                },
+              },
+              {
+                path: "workspace/:slug",
+                lazy: async () => {
+                  const { ShowWorkspaceChat } = await import(
+                    "@/pages/WorkspaceChat"
+                  );
+                  return { element: <ShowWorkspaceChat /> };
+                },
+              },
             ],
       },
       {
@@ -179,24 +197,6 @@ const router = createBrowserRouter([
             "@/pages/WorkspaceSettings"
           );
           return { element: <AdminRoute Component={WorkspaceSettings} /> };
-        },
-      },
-      {
-        path: "/workspace/:slug/t/:threadSlug",
-        lazy: async () => {
-          const { default: WorkspaceChat } = await import(
-            "@/pages/WorkspaceChat"
-          );
-          return { element: <PrivateRoute Component={WorkspaceChat} /> };
-        },
-      },
-      {
-        path: "/workspace/:slug",
-        lazy: async () => {
-          const { default: WorkspaceChat } = await import(
-            "@/pages/WorkspaceChat"
-          );
-          return { element: <PrivateRoute Component={WorkspaceChat} /> };
         },
       },
       {

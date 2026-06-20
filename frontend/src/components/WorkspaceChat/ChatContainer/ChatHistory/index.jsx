@@ -25,6 +25,7 @@ import useChatHistoryScrollHandle from "@/hooks/useChatHistoryScrollHandle";
 import { ThoughtExpansionProvider } from "./ThoughtContainer";
 import { MessageActionsProvider } from "./MessageActionsContext";
 import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
+import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
 export default forwardRef(function (
   {
@@ -34,6 +35,7 @@ export default forwardRef(function (
     updateHistory,
     regenerateAssistantMessage,
     websocket = null,
+    offerKpMode = false,
   },
   ref
 ) {
@@ -196,6 +198,15 @@ export default forwardRef(function (
     ]
   );
   const lastMessageInfo = useMemo(() => getLastMessageInfo(history), [history]);
+
+  useEffect(() => {
+    threadNavLog("history:compiled", {
+      threadSlug,
+      historyCount: history.length,
+      compiledCount: compiledHistory.length,
+    });
+  }, [threadSlug, history.length, compiledHistory.length]);
+
   const renderStatusResponse = useCallback(
     (item, index) => {
       const hasSubsequentMessages = index < compiledHistory.length - 1;
@@ -214,7 +225,11 @@ export default forwardRef(function (
     <MessageActionsProvider>
       <ThoughtExpansionProvider>
         <div
-          className={`markdown text-white/80 light:text-theme-text-primary font-light ${textSizeClass} h-full md:h-[83%] pb-[100px] pt-6 md:pt-0 md:pb-20 md:mx-0 overflow-y-scroll flex flex-col items-center justify-start ${showScrollbar ? "show-scrollbar" : "no-scroll"}`}
+          className={`markdown text-white/80 light:text-theme-text-primary font-light ${textSizeClass} ${
+            offerKpMode
+              ? "flex-1 min-h-0 overflow-y-auto"
+              : "h-full md:h-[83%] overflow-y-scroll"
+          } pb-[100px] pt-6 md:pt-0 md:pb-20 md:mx-0 flex flex-col items-center justify-start ${showScrollbar ? "show-scrollbar" : "no-scroll"}`}
           id="chat-history"
           ref={chatHistoryRef}
           onScroll={handleScroll}
