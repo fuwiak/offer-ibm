@@ -323,7 +323,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
 
       sessionStorage.setItem(
         PENDING_HOME_MESSAGE,
-        JSON.stringify({ message, attachments })
+        JSON.stringify({ message, attachments, pendingAt: Date.now() })
       );
 
       if (targetThread) {

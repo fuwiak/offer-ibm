@@ -274,16 +274,22 @@ export default function ChatContainer({
     pendingMessageChecked.current = true;
 
     const pending = safeJsonParse(sessionStorage.getItem(PENDING_HOME_MESSAGE));
-    if (pending?.message) {
-      setTimeout(() => {
-        sessionStorage.removeItem(PENDING_HOME_MESSAGE);
-        sendCommand({
-          text: pending.message,
-          attachments: pending.attachments || [],
-          autoSubmit: true,
-        });
-      }, 100);
+    if (!pending?.message) return;
+
+    const pendingAt = Number(pending.pendingAt) || 0;
+    if (!pendingAt || Date.now() - pendingAt > 15000) {
+      sessionStorage.removeItem(PENDING_HOME_MESSAGE);
+      return;
     }
+
+    setTimeout(() => {
+      sessionStorage.removeItem(PENDING_HOME_MESSAGE);
+      sendCommand({
+        text: pending.message,
+        attachments: pending.attachments || [],
+        autoSubmit: true,
+      });
+    }, 100);
   }, [workspace?.slug]);
 
   useEffect(() => {

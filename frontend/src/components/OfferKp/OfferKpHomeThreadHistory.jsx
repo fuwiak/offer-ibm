@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { useNavigate, useLocation, useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   MagnifyingGlass,
@@ -21,8 +21,9 @@ import OfferKpThreadPromptsModal from "@/components/OfferKp/OfferKpThreadPrompts
 import {
   OFFER_KP_NEW_CONVERSATION_EVENT,
   goToStartScreen,
-  openThreadConversation,
 } from "@/utils/offerKp/startNewConversation";
+import { PENDING_HOME_MESSAGE } from "@/utils/constants";
+import paths from "@/utils/paths";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 import showToast from "@/utils/toast";
 import * as Skeleton from "react-loading-skeleton";
@@ -462,21 +463,22 @@ export default function OfferKpHomeThreadHistory({
               <div
                 className={`flex items-center gap-1.5${isSidebar ? " group/thread-row" : ""}`}
               >
-                <button
-                  type="button"
+                <Link
+                  to={paths.offerKp.thread(
+                    urlWorkspaceSlug ?? workspace?.slug,
+                    thread.slug
+                  )}
                   className={`offerKp-home-thread-history__item flex-1 min-w-0${
                     isActive ? " offerKp-home-thread-history__item--active" : ""
                   }`}
                   onClick={() => {
                     const wsSlug = urlWorkspaceSlug ?? workspace?.slug;
+                    sessionStorage.removeItem(PENDING_HOME_MESSAGE);
                     threadNavLog("sidebar:click", {
                       wsSlug,
                       threadSlug: thread.slug,
                       urlWorkspaceSlug,
                       listWorkspaceSlug: workspace?.slug,
-                      pathname,
-                    });
-                    openThreadConversation(navigate, wsSlug, thread.slug, {
                       pathname,
                     });
                   }}
@@ -521,7 +523,7 @@ export default function OfferKpHomeThreadHistory({
                       )}
                     </>
                   )}
-                </button>
+                </Link>
                 {!isSidebar && workspace?.name && (
                   <span
                     className="shrink-0 max-w-[72px] truncate rounded px-1.5 py-0.5 text-[10px] leading-tight border border-theme-sidebar-border text-theme-text-secondary bg-transparent opacity-60"

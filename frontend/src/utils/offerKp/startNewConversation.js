@@ -59,10 +59,15 @@ export function openThreadConversation(
     isSameThread,
   });
 
-  navigate(target, {
-    replace: isSameThread,
-    state: { openThreadAt: Date.now() },
-  });
+  // Opening an existing thread must not replay a stale home draft.
+  sessionStorage.removeItem(PENDING_HOME_MESSAGE);
+  window.dispatchEvent(
+    new CustomEvent(PROMPT_INPUT_EVENT, {
+      detail: { messageContent: "", writeMode: "replace" },
+    })
+  );
+
+  navigate(target, { replace: isSameThread });
 }
 
 /** Create a fresh thread and open the empty chat composer. */

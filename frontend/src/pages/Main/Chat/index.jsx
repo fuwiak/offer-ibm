@@ -45,7 +45,7 @@ export default function ChatLauncherPage() {
 
         sessionStorage.setItem(
           PENDING_HOME_MESSAGE,
-          JSON.stringify({ message, attachments: [] })
+          JSON.stringify({ message, attachments: [], pendingAt: Date.now() })
         );
 
         navigate(paths.offerKp.thread(workspace.slug, thread.slug), { replace: true });
