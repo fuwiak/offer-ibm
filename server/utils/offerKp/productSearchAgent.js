@@ -14,7 +14,6 @@ const shopDbLog = require("./shopDbLog");
 const {
   parseHardwareQuery,
   extractSearchTerms,
-  rankProducts,
   scoreProduct,
   STOPWORDS,
   PRICE_ONLY_RE,
@@ -130,8 +129,7 @@ function isOfferFollowUp(text) {
   const t = String(text || "").trim();
   if (!t || hasHardwareSignals(t)) return false;
   return (
-    /коммерческ|оферт|\bкп\b|предложен/i.test(t) ||
-    /ofert|propozycj/i.test(t)
+    /коммерческ|оферт|\bкп\b|предложен/i.test(t) || /ofert|propozycj/i.test(t)
   );
 }
 
@@ -144,7 +142,8 @@ function collectPriorHardwareContext(history, maxMessages = 5) {
     if (!isUserHistoryEntry(entry)) continue;
     const content = historyMessageText(entry);
     if (!content || content === parts.join("\n")) continue;
-    if (isCatalogRelayRequest(content) && !hasHardwareSignals(content)) continue;
+    if (isCatalogRelayRequest(content) && !hasHardwareSignals(content))
+      continue;
     if (hasHardwareSignals(content) || content.length >= 24) {
       parts.unshift(content);
     }
@@ -164,7 +163,7 @@ function buildProductSearchText(message, options = {}) {
     try {
       const { normalizeOcrInquiryText } = require("./parseInquiry");
       normalizedParsed = parsedTexts.map(normalizeOcrInquiryText);
-    } catch (_) {
+    } catch {
       /* optional */
     }
     text = `${normalizedParsed.join("\n\n")}\n${text}`.trim();
@@ -174,7 +173,8 @@ function buildProductSearchText(message, options = {}) {
 
   const needsHistory =
     isPriceOnlyQuery(String(message || "").trim()) ||
-    (skuCodes.length && isSkuOnlyQuery(String(message || "").trim(), skuCodes)) ||
+    (skuCodes.length &&
+      isSkuOnlyQuery(String(message || "").trim(), skuCodes)) ||
     isCatalogRelayRequest(String(message || "").trim()) ||
     isOfferFollowUp(String(message || "").trim()) ||
     (parsedTexts.length && isOfferFollowUp(text));
@@ -189,7 +189,11 @@ function buildProductSearchText(message, options = {}) {
   return text;
 }
 
-function mapSearchRows(rows, matchSource, tables = [TABLES.product, TABLES.category]) {
+function mapSearchRows(
+  rows,
+  matchSource,
+  tables = [TABLES.product, TABLES.category]
+) {
   return rows.map((r) => ({
     ...r,
     _tables: tables,
@@ -201,7 +205,9 @@ function mapSearchRows(rows, matchSource, tables = [TABLES.product, TABLES.categ
 }
 
 async function searchByExactSku(skuCodes, limit) {
-  const codes = [...new Set(skuCodes.map((c) => String(c).trim()).filter(Boolean))];
+  const codes = [
+    ...new Set(skuCodes.map((c) => String(c).trim()).filter(Boolean)),
+  ];
   if (!codes.length) return [];
 
   const placeholders = codes.map(() => "?").join(",");

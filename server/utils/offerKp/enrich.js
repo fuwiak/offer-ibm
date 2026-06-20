@@ -20,10 +20,7 @@ const {
   isOfferFollowUp,
   isCatalogRelayRequest,
 } = require("./productSearchAgent");
-const {
-  getShopBaseUrl,
-  buildProductUrl,
-} = require("./productUrl");
+const { getShopBaseUrl, buildProductUrl } = require("./productUrl");
 const {
   TABLES,
   ENRICH_TABLES,
@@ -230,7 +227,13 @@ async function loadProductRow(productId) {
   return rows[0] || null;
 }
 
-function buildInquiryCatalogExcerpt(product, featureLines, skuRows, baseUrl, matched) {
+function buildInquiryCatalogExcerpt(
+  product,
+  featureLines,
+  skuRows,
+  baseUrl,
+  matched
+) {
   const { excerpt, name, url, body } = buildProductExcerpt(
     product,
     featureLines,
@@ -270,7 +273,12 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     .join("\n\n");
   const lines = parseInquiryText(combined);
   if (!lines.length) {
-    return { contextTexts: [], sources: [], productIds: new Set(), strategies: [] };
+    return {
+      contextTexts: [],
+      sources: [],
+      productIds: new Set(),
+      strategies: [],
+    };
   }
 
   const maxLines = Math.min(15, lines.length);
@@ -291,14 +299,13 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     if (productIds.has(pid)) continue;
     productIds.add(pid);
 
-    const product =
-      (await loadProductRow(pid)) || {
-        id: pid,
-        name: matched.name,
-        price: matched.unitPriceNet,
-        currency: "RUB",
-        product_url: matched.productUrl,
-      };
+    const product = (await loadProductRow(pid)) || {
+      id: pid,
+      name: matched.name,
+      price: matched.unitPriceNet,
+      currency: "RUB",
+      product_url: matched.productUrl,
+    };
 
     const [featureMap, skuMap] = await Promise.all([
       loadFeatureLines([pid]),
@@ -350,7 +357,9 @@ async function getShopDbContext(message, options = {}) {
   const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
   const effectiveMessage =
     String(message || "").trim() ||
-    (parsedFileTexts.length ? "сформировать КП по прикреплённому документу" : "");
+    (parsedFileTexts.length
+      ? "сформировать КП по прикреплённому документу"
+      : "");
 
   if (!shopDbEnrichEnabled()) {
     shopDbLog.skip("enrich disabled", {
@@ -402,7 +411,10 @@ async function getShopDbContext(message, options = {}) {
       parsedFiles: parsedFileTexts.length,
     });
 
-    const inquiryEnrich = await enrichInquiryLinesFromPdf(effectiveMessage, options);
+    const inquiryEnrich = await enrichInquiryLinesFromPdf(
+      effectiveMessage,
+      options
+    );
 
     const agentResult = await runProductSearchAgent({
       message: effectiveMessage,
@@ -416,7 +428,8 @@ async function getShopDbContext(message, options = {}) {
     const ranked = agentResult.products
       .filter((p) => !inquiryIds.has(p.id))
       .slice(0, maxDocs);
-    const searchTerms = agentResult.signals?.searchTerms || extractSearchTerms(searchText);
+    const searchTerms =
+      agentResult.signals?.searchTerms || extractSearchTerms(searchText);
     const searchTables = agentResult.tablesUsed || [];
     const shopDbMatchStrategies = [
       ...(inquiryEnrich.strategies || []),
@@ -484,7 +497,8 @@ async function getShopDbContext(message, options = {}) {
       sources,
       flags: {
         shopDbSearchHitCount:
-          agentResult.products.length + (inquiryEnrich.contextTexts?.length || 0),
+          agentResult.products.length +
+          (inquiryEnrich.contextTexts?.length || 0),
         shopDbDocCount: contextTexts.length,
         shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
         shopDbTerms: searchTerms,
