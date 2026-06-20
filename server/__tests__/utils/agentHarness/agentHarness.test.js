@@ -1,5 +1,6 @@
 const { AgentHarness } = require("../../../utils/agentHarness/AgentHarness");
 const { BaseBlock } = require("../../../utils/agentHarness/BaseBlock");
+const { OfferKpDocumentTriggerBlock } = require("../../../utils/agentHarness/blocks/offerKpDocumentTriggerBlock");
 const { OfferKpQuoteIntentBlock } = require("../../../utils/agentHarness/blocks/offerKpQuoteIntentBlock");
 const { ToolRegistryBlock } = require("../../../utils/agentHarness/blocks/toolRegistryBlock");
 
@@ -45,6 +46,34 @@ describe("AgentHarness", () => {
 
     expect(result.approved).toBe(true);
     expect(originalApproval).not.toHaveBeenCalled();
+  });
+
+  it("auto-approves docx/pdf when quote document trigger is active", async () => {
+    const aibitat = {
+      _chats: [{ from: "USER", content: "сделай кп" }],
+      introspect: jest.fn(),
+      requestToolApproval: jest.fn(),
+    };
+
+    const harness = new AgentHarness({
+      aibitat,
+      ctx: { invocation: { prompt: "сделай кп" }, workspace: null },
+    });
+    harness
+      .use(new OfferKpDocumentTriggerBlock())
+      .use(new ToolRegistryBlock());
+    await harness.install();
+
+    expect(harness.state.get("quoteDocumentRequest")).toBe(true);
+    expect(aibitat.introspect).toHaveBeenCalledWith(
+      "@agent: Creating Word document…"
+    );
+
+    const pdf = await harness.resolveToolApproval({
+      skillName: "create-pdf-file",
+      payload: { filename: "Kp_test.pdf" },
+    });
+    expect(pdf?.approved).toBe(true);
   });
 
   it("merges context layers in buildContext pipeline", async () => {

@@ -1,4 +1,5 @@
 const { BaseBlock } = require("./BaseBlock");
+const { harnessLog } = require("./harnessLog");
 
 const PIPELINE_HOOKS = {
   toolApproval: "beforeToolApproval",
@@ -37,12 +38,11 @@ class AgentHarness {
   }
 
   log(message, meta = null) {
+    harnessLog("info", message, meta);
     const fn = this.ctx.log;
     if (typeof fn === "function") {
       fn(`[AgentHarness] ${message}`, meta);
-      return;
     }
-    console.log(`[AgentHarness] ${message}`, meta || "");
   }
 
   /**
@@ -53,6 +53,11 @@ class AgentHarness {
   async runPipeline(kind, payload = {}) {
     const hookName = PIPELINE_HOOKS[kind];
     if (!hookName) return null;
+
+    harnessLog("info", `pipeline.${kind}`, {
+      skillName: payload.skillName || null,
+      blockCount: this.blocks.length,
+    });
 
     if (kind === "context") {
       let baseContext = payload.baseContext ?? "";
@@ -88,12 +93,22 @@ class AgentHarness {
   }
 
   async install() {
+    harnessLog("info", "harness.install.start", {
+      blocks: this.blocks.map((b) => b.name),
+      workspaceId: this.ctx.workspace?.id ?? null,
+    });
+
     for (const block of this.blocks) {
       await block.install(this);
       this.log(`block installed: ${block.name}`);
     }
     this.aibitat.harness = this;
     this.state.set("installedAt", Date.now());
+
+    harnessLog("info", "harness.install.done", {
+      blocks: this.listBlocks(),
+      sessionId: this.state.get("sessionId") || null,
+    });
     return this;
   }
 }

@@ -31,14 +31,24 @@ function wantsFileCreation(message = "") {
   const m = message.toLowerCase();
   return (
     /\bpdf\b/.test(m) ||
-    /\bcreate\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(m) ||
-    /\bgenerate\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(m) ||
-    /\bmake\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(m) ||
+    /\bcreate\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(
+      m
+    ) ||
+    /\bgenerate\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(
+      m
+    ) ||
+    /\bmake\s+(a\s+)?(pdf|document|doc|file|report|quotation|quote|presentation|spreadsheet|excel)\b/.test(
+      m
+    ) ||
     /\bexport\s+(as\s+|to\s+)?(pdf|document|doc|file)\b/.test(m) ||
     /\bconvert\s+.{0,40}\b(pdf|document|doc)\b/.test(m) ||
     // French
-    /\bcréer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(m) ||
-    /\bgénérer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(m) ||
+    /\bcréer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(
+      m
+    ) ||
+    /\bgénérer?\s+(un\s+)?(pdf|document|devis|rapport|fichier|présentation)\b/.test(
+      m
+    ) ||
     /\btélécharger\s+(au\s+format\s+)?(pdf|document)\b/.test(m) ||
     // Russian — commercial offers / documents (purolat.com)
     /коммерческ(ое|ого|ая)\s+предложен/i.test(m) ||
@@ -69,10 +79,25 @@ async function grepAgents({
 }) {
   const { shopDbEnrichEnabled } = require("../offerKp/enrich");
   const { isCatalogRelayRequest } = require("../offerKp/productSearchAgent");
-  // КП и запросы «передай каталог» — stream с MySQL enrich, не агент без цен
+  const {
+    isQuoteDocumentRequest,
+    quoteDocumentStatusMessage,
+  } = require("../offerKp/quoteRequestPhrases");
+  const { offerKpLog } = require("../offerKpApp/offerKpLog");
+
+  const quoteDocRequest = isQuoteDocumentRequest(message);
+  // «Сделай КП» → @agent (Word+PDF через harness); иначе при ShopDB — catalog stream
   const routeKpViaCatalogStream =
     shopDbEnrichEnabled() &&
+    !quoteDocRequest &&
     (wantsFileCreation(message) || isCatalogRelayRequest(message));
+
+  if (quoteDocRequest) {
+    offerKpLog("info", "Quote phrase → routing to @agent", {
+      message: String(message).slice(0, 160),
+      workspace: workspace?.slug || null,
+    });
+  }
 
   let nativeToolingEnabled = false;
 
@@ -84,7 +109,7 @@ async function grepAgents({
   // Auto-trigger agent when user asks for file/PDF creation without typing @agent
   const autoAgent =
     agentHandles.length === 0 &&
-    wantsFileCreation(message) &&
+    (wantsFileCreation(message) || quoteDocRequest) &&
     !routeKpViaCatalogStream;
 
   if (agentHandles.length > 0 || nativeToolingEnabled || autoAgent) {
@@ -126,7 +151,9 @@ async function grepAgents({
       writeResponseChunk(response, {
         id: uuid,
         type: "statusResponse",
-        textResponse: "Creating document…",
+        textResponse: quoteDocRequest
+          ? quoteDocumentStatusMessage()
+          : "Creating document…",
         sources: [],
         close: true,
         error: null,

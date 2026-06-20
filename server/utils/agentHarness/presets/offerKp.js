@@ -3,6 +3,8 @@ const {
   MemoryBlock,
   ContextManagerBlock,
   OrchestrationBlock,
+  HarnessTelemetryBlock,
+  OfferKpDocumentTriggerBlock,
   OfferKpQuoteIntentBlock,
   ToolRegistryBlock,
 } = require("../blocks");
@@ -26,7 +28,9 @@ async function buildOfferKpHarness({ aibitat, invocation = null, log = null }) {
   harness
     .use(new MemoryBlock())
     .use(new ContextManagerBlock())
+    .use(new HarnessTelemetryBlock())
     .use(new OrchestrationBlock())
+    .use(new OfferKpDocumentTriggerBlock())
     .use(new OfferKpQuoteIntentBlock())
     .use(new ToolRegistryBlock());
 
