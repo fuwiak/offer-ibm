@@ -5,6 +5,10 @@ import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
 
+function streamChunkText(value) {
+  return value == null ? "" : String(value);
+}
+
 // For handling of chat responses in the frontend by their various types.
 export default function handleChat(
   chatResult,
@@ -122,7 +126,7 @@ export default function handleChat(
       } else {
         updatedHistory = {
           ...existingHistory,
-          content: existingHistory.content + textResponse,
+          content: existingHistory.content + streamChunkText(textResponse),
           ...(sources && sources.length > 0 ? { sources } : {}),
           error,
           closed: close,
@@ -138,7 +142,7 @@ export default function handleChat(
         uuid,
         sources,
         error,
-        content: textResponse,
+        content: streamChunkText(textResponse),
         role: "assistant",
         closed: close,
         animate: !close,

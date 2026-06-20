@@ -125,6 +125,22 @@ _Источник цен: каталог ${catalogLabel} (MySQL)._
 `;
 }
 
+function buildQuoteArtifactsSummary({ reference, pdf, docx }) {
+  const fileLines = [];
+  if (pdf?.filename) {
+    fileLines.push(`- **${pdf.filename}** (PDF) — карточка ниже, предпросмотр справа`);
+  }
+  if (docx?.filename) {
+    fileLines.push(`- **${docx.filename}** (Word) — карточка ниже`);
+  }
+
+  const filesBlock = fileLines.length
+    ? fileLines.join("\n")
+    : "- файлы сформированы, но не удалось сохранить на сервере";
+
+  return `\n\n---\n\n**Коммерческое предложение ${reference} готово.**\n\n**Где файлы:**\n${filesBlock}\n\n**Предпросмотр:** таблица позиций открыта в панели справа.\n**Скачивание:** кнопка «Download» на карточке каждого файла в этом сообщении.`;
+}
+
 function buildQuoteLinesFromCatalog(products, meta) {
   const { quantity, dimensions } = meta;
   return products.map((p) => {
@@ -207,14 +223,17 @@ async function emitAutoQuoteArtifacts({
       }))
     : buildQuoteLinesFromCatalog(products.slice(0, 5), meta);
 
-  const subtotal = draft?.subtotal ?? lines.reduce((s, l) => s + l.lineTotal, 0);
+  const subtotal =
+    draft?.subtotal ?? lines.reduce((s, l) => s + l.lineTotal, 0);
   const shipping = 0;
   const total = subtotal + shipping;
   const { currency, vatRate } = localeForCountry(meta.customer.country);
   const vatAmount = Number((total * vatRate).toFixed(2));
-  const reference = draft?.reference || generateQuoteReference({
-    prefix: QUOTE_BRAND.referencePrefix,
-  });
+  const reference =
+    draft?.reference ||
+    generateQuoteReference({
+      prefix: QUOTE_BRAND.referencePrefix,
+    });
 
   const quoteData = {
     reference,
@@ -248,43 +267,20 @@ async function emitAutoQuoteArtifacts({
     }),
   ]);
   if (pdfResult.status === "rejected") {
-    console.error("[offerKp] auto quote PDF:", pdfResult.reason?.message || pdfResult.reason);
+    console.error(
+      "[offerKp] auto quote PDF:",
+      pdfResult.reason?.message || pdfResult.reason
+    );
   }
   if (docxResult.status === "rejected") {
-    console.error("[offerKp] auto quote DOCX:", docxResult.reason?.message || docxResult.reason);
+    console.error(
+      "[offerKp] auto quote DOCX:",
+      docxResult.reason?.message || docxResult.reason
+    );
   }
   const pdf = pdfResult.status === "fulfilled" ? pdfResult.value : null;
   const docx = docxResult.status === "fulfilled" ? docxResult.value : null;
-  if (!pdf && !docx) return false;
-
-  if (docx) {
-    writeResponseChunk(response, {
-      uuid: uuidv4(),
-      type: "fileDownloadCard",
-      content: {
-        filename: docx.filename,
-        storageFilename: docx.storageFilename,
-        fileSize: docx.fileSize,
-        previewMarkdown: markdown,
-      },
-      close: false,
-      error: false,
-    });
-  }
-
-  if (pdf) {
-    writeResponseChunk(response, {
-      uuid: uuidv4(),
-      type: "fileDownloadCard",
-      content: {
-        filename: pdf.filename,
-        storageFilename: pdf.storageFilename,
-        fileSize: pdf.fileSize,
-      },
-      close: false,
-      error: false,
-    });
-  }
+  if (!pdf && !docx) return null;
 
   writeResponseChunk(response, {
     uuid,
@@ -312,12 +308,58 @@ async function emitAutoQuoteArtifacts({
           totalWeightKg: draft?.totalWeightKg || 0,
         },
       },
+      pdfFile: pdf
+        ? {
+            filename: pdf.filename,
+            storageFilename: pdf.storageFilename,
+          }
+        : null,
     },
     close: false,
     error: false,
   });
 
-  return true;
+  if (docx) {
+    writeResponseChunk(response, {
+      uuid: uuidv4(),
+      type: "fileDownloadCard",
+      content: {
+        filename: docx.filename,
+        storageFilename: docx.storageFilename,
+        fileSize: docx.fileSize,
+        previewMarkdown: markdown,
+        skipAutoPreview: true,
+      },
+      close: false,
+      error: false,
+    });
+  }
+
+  if (pdf) {
+    writeResponseChunk(response, {
+      uuid: uuidv4(),
+      type: "fileDownloadCard",
+      content: {
+        filename: pdf.filename,
+        storageFilename: pdf.storageFilename,
+        fileSize: pdf.fileSize,
+        skipAutoPreview: true,
+      },
+      close: false,
+      error: false,
+    });
+  }
+
+  const summaryText = buildQuoteArtifactsSummary({ reference, pdf, docx });
+  writeResponseChunk(response, {
+    uuid,
+    type: "textResponseChunk",
+    textResponse: summaryText,
+    close: false,
+    error: false,
+  });
+
+  return { summaryText, reference };
 }
 
 function hasInquirySignals(message) {
@@ -334,6 +376,7 @@ module.exports = {
   parseCatalogBlock,
   parseQuoteMeta,
   buildMarkdownQuote,
+  buildQuoteArtifactsSummary,
   emitAutoQuoteArtifacts,
   hasInquirySignals,
 };

@@ -2,6 +2,7 @@ const {
   parseCatalogBlock,
   parseQuoteMeta,
   buildMarkdownQuote,
+  buildQuoteArtifactsSummary,
 } = require("../../../utils/offerKp/autoQuoteArtifacts");
 
 describe("autoQuoteArtifacts", () => {
@@ -50,5 +51,17 @@ ID товара (shop_product.id): 42
     expect(md).toContain("PUR-20260101-01");
     expect(md).toContain("Rod");
     expect(md).toContain("НДС 23%");
+  });
+
+  it("buildQuoteArtifactsSummary lists file locations", () => {
+    const summary = buildQuoteArtifactsSummary({
+      reference: "PUR-20260101-01",
+      pdf: { filename: "KP-PUR-20260101-01.pdf" },
+      docx: { filename: "KP-PUR-20260101-01.docx" },
+    });
+    expect(summary).toContain("PUR-20260101-01");
+    expect(summary).toContain("KP-PUR-20260101-01.pdf");
+    expect(summary).toContain("панели справа");
+    expect(summary).not.toContain("null");
   });
 });

@@ -7,8 +7,13 @@ import { useOfferKp } from "@/contexts/OfferKpContext";
 
 /** Google-Drive-style document card that matches the image mockup */
 function FileDownloadCard({ props }) {
-  const { filename, storageFilename, fileSize, previewMarkdown } =
-    props.content || {};
+  const {
+    filename,
+    storageFilename,
+    fileSize,
+    previewMarkdown,
+    skipAutoPreview = false,
+  } = props.content || {};
   const isPdf = /\.pdf$/i.test(filename || "");
   const canPreviewDoc = !isPdf && !!previewMarkdown;
   const { badge, badgeBg, badgeText, fileType } = getFileDisplayInfo(filename);
@@ -23,34 +28,64 @@ function FileDownloadCard({ props }) {
   } = useOfferKp();
   const autoPreviewedRef = useRef(null);
 
-  // Auto-open right panel doc preview (markdown/DOCX) after server or agent file card.
+  const fetchBlob = useCallback(async () => {
+    if (!storageFilename) return null;
+    return StorageFiles.download(storageFilename);
+  }, [storageFilename]);
+
+  const openPdfPreview = useCallback(async () => {
+    const blob = await fetchBlob();
+    if (!blob) throw new Error("No blob");
+    const blobUrl = URL.createObjectURL(blob);
+    setQuotePdfUrl({ url: blobUrl, filename: filename || storageFilename });
+    setDocumentPanelOpen(true);
+    setDocumentPanelView("pdf");
+  }, [
+    fetchBlob,
+    filename,
+    storageFilename,
+    setQuotePdfUrl,
+    setDocumentPanelOpen,
+    setDocumentPanelView,
+  ]);
+
+  // Auto-open right panel after server or agent file card (unless quote flow owns the panel).
   useEffect(() => {
-    if (!offerKpEnabled || !canPreviewDoc || !previewMarkdown) return;
+    if (!offerKpEnabled || skipAutoPreview) return;
     const key = storageFilename || filename;
     if (!key || autoPreviewedRef.current === key) return;
+
+    if (canPreviewDoc && previewMarkdown) {
+      autoPreviewedRef.current = key;
+      setDocPreview({
+        filename: filename || storageFilename,
+        storageFilename,
+        markdown: previewMarkdown,
+      });
+      setDocumentPanelOpen(true);
+      setDocumentPanelView("doc");
+      return;
+    }
+
+    if (!isPdf) return;
     autoPreviewedRef.current = key;
-    setDocPreview({
-      filename: filename || storageFilename,
-      storageFilename,
-      markdown: previewMarkdown,
+    openPdfPreview().catch((e) => {
+      console.error("[FileDownloadCard] Auto PDF preview failed:", e?.message || e);
+      autoPreviewedRef.current = null;
     });
-    setDocumentPanelOpen(true);
-    setDocumentPanelView("doc");
   }, [
     offerKpEnabled,
+    skipAutoPreview,
     canPreviewDoc,
     previewMarkdown,
+    isPdf,
     storageFilename,
     filename,
     setDocPreview,
     setDocumentPanelOpen,
     setDocumentPanelView,
+    openPdfPreview,
   ]);
-
-  const fetchBlob = useCallback(async () => {
-    if (!storageFilename) return null;
-    return StorageFiles.download(storageFilename);
-  }, [storageFilename]);
 
   const handleDownload = async () => {
     if (downloading) return;
@@ -83,12 +118,7 @@ function FileDownloadCard({ props }) {
     if (!isPdf) return;
     setPreviewing(true);
     try {
-      const blob = await fetchBlob();
-      if (!blob) throw new Error("No blob");
-      const blobUrl = URL.createObjectURL(blob);
-      setQuotePdfUrl({ url: blobUrl, filename: filename || storageFilename });
-      setDocumentPanelOpen(true);
-      setDocumentPanelView("pdf");
+      await openPdfPreview();
     } catch (e) {
       console.error("[FileDownloadCard] Preview failed:", e?.message || e);
     } finally {

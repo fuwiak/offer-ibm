@@ -231,15 +231,14 @@ async function streamChatWithWorkspace(
     vectorHits: vectorSearchResults.sources.length,
     backfilledHits: Math.max(
       0,
-      (filledSources?.sources?.length || 0) - (vectorSearchResults?.sources?.length || 0)
+      (filledSources?.sources?.length || 0) -
+        (vectorSearchResults?.sources?.length || 0)
     ),
     parsedFilesCount: parsedFiles.length,
   };
 
   externalContexts = await shopEnrichPromise;
-  const {
-    applyExternalContextsForLlm,
-  } = require("../offerKp/catalogPrompt");
+  const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(
     updatedMessage,
     externalContexts
@@ -256,7 +255,8 @@ async function streamChatWithWorkspace(
     kind: ctx.kind || "external",
     contexts: Array.isArray(ctx.contextTexts) ? ctx.contextTexts.length : 0,
     sources: Array.isArray(ctx.sources) ? ctx.sources.length : 0,
-    catalogInjected: ctx.kind === "shopdb" ? llmCatalog.catalogInjected : undefined,
+    catalogInjected:
+      ctx.kind === "shopdb" ? llmCatalog.catalogInjected : undefined,
   }));
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
@@ -373,8 +373,10 @@ async function streamChatWithWorkspace(
   // КП + каталог: карточки файлов после текста ответа (кнопки Preview / Download в чате)
   if (llmCatalog.catalogInjected) {
     try {
-      const { emitAutoQuoteArtifacts } = require("../offerKp/autoQuoteArtifacts");
-      await emitAutoQuoteArtifacts({
+      const {
+        emitAutoQuoteArtifacts,
+      } = require("../offerKp/autoQuoteArtifacts");
+      const quoteArtifacts = await emitAutoQuoteArtifacts({
         response,
         uuid,
         message: updatedMessage,
@@ -383,6 +385,9 @@ async function streamChatWithWorkspace(
         chatHistory: rawHistory,
         parsedFileTexts,
       });
+      if (quoteArtifacts?.summaryText) {
+        completeText = `${completeText || ""}${quoteArtifacts.summaryText}`;
+      }
     } catch (e) {
       console.error("[offerKp] auto quote artifacts:", e?.message || e);
     }
