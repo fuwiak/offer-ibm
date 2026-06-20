@@ -461,7 +461,10 @@ export default function ChatContainer({
           </div>
         )}
         <TextSizeMenu />
-        <WorkspaceModelPicker workspaceSlug={workspace.slug} workspace={workspace} />
+        <WorkspaceModelPicker
+          workspaceSlug={workspace.slug}
+          workspace={workspace}
+        />
         <DnDFileUploaderWrapper>
           <div
             className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
@@ -472,7 +475,9 @@ export default function ChatContainer({
           >
             <div
               className={`flex flex-col w-full shrink-0 ${
-                offerKpMode ? "max-w-[920px] items-start" : "items-center max-w-[750px]"
+                offerKpMode
+                  ? "max-w-[920px] items-start"
+                  : "items-center max-w-[750px]"
               }`}
             >
               {offerKpMode ? (
@@ -493,7 +498,9 @@ export default function ChatContainer({
                 centered={true}
                 workspaceSlug={workspace?.slug}
                 threadSlug={activeThreadSlug}
-                placeholder={offerKpMode ? ta("home.inputPlaceholder") : undefined}
+                placeholder={
+                  offerKpMode ? ta("home.inputPlaceholder") : undefined
+                }
                 offerKpHome={offerKpMode}
                 onWorkspaceSelect={
                   offerKpMode
@@ -543,7 +550,11 @@ export default function ChatContainer({
     <SourcesSidebarProvider>
       <div
         style={{
-          height: isMobile ? "100%" : offerKpMode ? "100%" : "calc(100% - 32px)",
+          height: isMobile
+            ? "100%"
+            : offerKpMode
+              ? "100%"
+              : "calc(100% - 32px)",
         }}
         className={`relative flex w-full h-full z-[2] flex-1 min-w-0 ${
           offerKpMode
@@ -565,7 +576,10 @@ export default function ChatContainer({
               <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
             </div>
           )}
-          <WorkspaceModelPicker workspaceSlug={workspace.slug} workspace={workspace} />
+          <WorkspaceModelPicker
+            workspaceSlug={workspace.slug}
+            workspace={workspace}
+          />
           <DnDFileUploaderWrapper>
             <div className="flex flex-col h-full w-full pb-20 md:pb-0">
               <div className="contents">
