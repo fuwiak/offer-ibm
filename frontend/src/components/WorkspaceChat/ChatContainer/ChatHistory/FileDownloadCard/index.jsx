@@ -1,19 +1,15 @@
-import { memo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback } from "react";
 import { saveAs } from "file-saver";
 import { DownloadSimple, CircleNotch, Eye } from "@phosphor-icons/react";
 import { humanFileSize } from "@/utils/numbers";
 import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
+import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 
-/** Google-Drive-style document card that matches the image mockup */
+/** Google-Drive-style document card (aligned with elia_front). */
 function FileDownloadCard({ props }) {
-  const {
-    filename,
-    storageFilename,
-    fileSize,
-    previewMarkdown,
-    skipAutoPreview = false,
-  } = props.content || {};
+  const { filename, storageFilename, fileSize, previewMarkdown } =
+    props.content || {};
   const isPdf = /\.pdf$/i.test(filename || "");
   const canPreviewDoc = !isPdf && !!previewMarkdown;
   const { badge, badgeBg, badgeText, fileType } = getFileDisplayInfo(filename);
@@ -21,77 +17,21 @@ function FileDownloadCard({ props }) {
   const [previewing, setPreviewing] = useState(false);
   const {
     enabled: offerKpEnabled,
+    quotePdfUrl,
     setQuotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
     setDocPreview,
   } = useOfferKp();
-  const autoPreviewedRef = useRef(null);
-
-  const fetchBlob = useCallback(async () => {
-    if (!storageFilename) return null;
-    return downloadQuoteFileBlob({ storageFilename, filename });
-  }, [storageFilename, filename]);
-
-  const openPdfPreview = useCallback(async () => {
-    const blob = await fetchBlob();
-    if (!blob) throw new Error("No blob");
-    const blobUrl = URL.createObjectURL(blob);
-    setQuotePdfUrl({ url: blobUrl, filename: filename || storageFilename });
-    setDocumentPanelOpen(true);
-    setDocumentPanelView("pdf");
-  }, [
-    fetchBlob,
-    filename,
-    storageFilename,
-    setQuotePdfUrl,
-    setDocumentPanelOpen,
-    setDocumentPanelView,
-  ]);
-
-  // Auto-open right panel after server or agent file card (unless quote flow owns the panel).
-  useEffect(() => {
-    if (!offerKpEnabled || skipAutoPreview) return;
-    const key = storageFilename || filename;
-    if (!key || autoPreviewedRef.current === key) return;
-
-    if (canPreviewDoc && previewMarkdown) {
-      autoPreviewedRef.current = key;
-      setDocPreview({
-        filename: filename || storageFilename,
-        storageFilename,
-        markdown: previewMarkdown,
-      });
-      setDocumentPanelOpen(true);
-      setDocumentPanelView("doc");
-      return;
-    }
-
-    if (!isPdf) return;
-    autoPreviewedRef.current = key;
-    openPdfPreview().catch((e) => {
-      console.error("[FileDownloadCard] Auto PDF preview failed:", e?.message || e);
-      autoPreviewedRef.current = null;
-    });
-  }, [
-    offerKpEnabled,
-    skipAutoPreview,
-    canPreviewDoc,
-    previewMarkdown,
-    isPdf,
-    storageFilename,
-    filename,
-    setDocPreview,
-    setDocumentPanelOpen,
-    setDocumentPanelView,
-    openPdfPreview,
-  ]);
 
   const handleDownload = async () => {
-    if (downloading) return;
+    if (downloading || !storageFilename) return;
     setDownloading(true);
     try {
-      const blob = await fetchBlob();
+      const blob = await downloadQuoteFileBlob({
+        storageFilename,
+        filename,
+      });
       if (!blob) throw new Error("No blob");
       saveAs(blob, filename || storageFilename);
     } catch (e) {
@@ -101,7 +41,7 @@ function FileDownloadCard({ props }) {
     }
   };
 
-  const handlePreview = async () => {
+  const handlePreview = useCallback(async () => {
     if (previewing || !offerKpEnabled) return;
 
     if (canPreviewDoc) {
@@ -118,26 +58,46 @@ function FileDownloadCard({ props }) {
     if (!isPdf) return;
     setPreviewing(true);
     try {
-      await openPdfPreview();
+      await openStoredFilePreview({
+        filename,
+        storageFilename,
+        previewMarkdown,
+        setQuotePdfUrl,
+        setDocumentPanelOpen,
+        setDocumentPanelView,
+        setDocPreview,
+        previousPdfUrl: quotePdfUrl?.url,
+      });
     } catch (e) {
       console.error("[FileDownloadCard] Preview failed:", e?.message || e);
     } finally {
       setPreviewing(false);
     }
-  };
+  }, [
+    previewing,
+    offerKpEnabled,
+    canPreviewDoc,
+    filename,
+    storageFilename,
+    previewMarkdown,
+    isPdf,
+    setDocPreview,
+    setDocumentPanelOpen,
+    setDocumentPanelView,
+    setQuotePdfUrl,
+    quotePdfUrl?.url,
+  ]);
 
   return (
     <div className="flex justify-center w-full my-2">
       <div className="w-full max-w-[750px] mr-4">
         <div className="flex items-center gap-3 bg-theme-bg-secondary light:bg-slate-50 border border-theme-sidebar-border rounded-xl px-3 py-2.5">
-          {/* File icon badge */}
           <div
             className={`${badgeBg} ${badgeText} rounded-lg flex items-center justify-center flex-shrink-0 h-[44px] w-[44px] text-xs font-bold select-none`}
           >
             {badge}
           </div>
 
-          {/* Name + type */}
           <div className="flex flex-col min-w-0 flex-1">
             <p className="text-theme-text-primary text-sm font-medium truncate leading-snug">
               {filename || "Unknown file"}
@@ -148,11 +108,10 @@ function FileDownloadCard({ props }) {
             </p>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Open in Preview — PDF only */}
             {offerKpEnabled && (isPdf || canPreviewDoc) && (
               <button
+                type="button"
                 onClick={handlePreview}
                 disabled={previewing}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-theme-bg-primary border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover transition-colors text-theme-text-primary text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -171,8 +130,8 @@ function FileDownloadCard({ props }) {
               </button>
             )}
 
-            {/* Download */}
             <button
+              type="button"
               onClick={handleDownload}
               disabled={downloading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover transition-colors text-theme-text-secondary text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"

@@ -11,7 +11,6 @@ import {
   CaretRight,
   NotePencil,
 } from "@phosphor-icons/react";
-import { saveAs } from "file-saver";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import Workspace from "@/models/workspace";
@@ -23,6 +22,7 @@ import QuoteStepper from "@/components/OfferKp/QuoteStepper";
 import QuotePreview from "@/components/OfferKp/QuotePreview";
 import QuoteDraftTable from "@/components/OfferKp/QuoteDraftTable";
 import DocPreviewPane from "@/components/OfferKp/DocPreviewPane";
+import PdfPreviewPane from "@/components/OfferKp/PdfPreviewPane";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import { canShowAdminThreadContextPanel } from "@/utils/offerKp/threadPanelAccess";
@@ -446,7 +446,7 @@ export default function DocumentPanel() {
               showAdminThreadContext
                 ? "docs"
                 : quoteDraft?.reference
-                  ? "builder"
+                  ? "draftTable"
                   : "docs"
             );
           }}
@@ -622,77 +622,5 @@ export default function DocumentPanel() {
         <div className="flex flex-col flex-1 min-h-0 min-w-0 w-full">{panelBody}</div>
       )}
     </aside>
-  );
-}
-
-function PdfPreviewPane({ quotePdfUrl, onClose }) {
-  const { t } = useTranslation("offerKp");
-  const [exporting, setExporting] = useState(false);
-
-  async function handleExport() {
-    if (exporting || !quotePdfUrl?.url) return;
-    setExporting(true);
-    try {
-      const res = await fetch(quotePdfUrl.url);
-      const blob = await res.blob();
-      saveAs(blob, quotePdfUrl.filename || "document.pdf");
-    } catch {
-      console.error("Export failed");
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary gap-2">
-        <span
-          className="text-xs text-theme-text-secondary truncate min-w-0"
-          title={quotePdfUrl?.filename}
-        >
-          {quotePdfUrl?.filename || "document.pdf"}
-        </span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <DownloadSimple size={13} weight="bold" />
-            {exporting ? "…" : t("layout.downloadPdf")}
-          </button>
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-theme-text-secondary hover:text-theme-text-primary p-0.5 rounded"
-              title="Close preview"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <iframe
-        src={quotePdfUrl?.url}
-        title="PDF Preview"
-        className="flex-1 w-full border-0 bg-white"
-        style={{ minHeight: 0 }}
-      />
-
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-t border-theme-sidebar-border bg-theme-bg-secondary">
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={exporting}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary-button hover:opacity-90 text-white text-xs font-medium transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <DownloadSimple size={14} weight="bold" />
-          {exporting ? "…" : t("layout.downloadPdf")}
-        </button>
-      </div>
-    </div>
   );
 }

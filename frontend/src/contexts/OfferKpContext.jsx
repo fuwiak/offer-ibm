@@ -4,12 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 import { OFFER_KP_QUOTE_FILES_EVENT } from "@/utils/offerKp/quoteFileEvents";
 import { mergeQuoteFiles } from "@/utils/offerKp/quoteFileDownload";
+import { revokeBlobUrl } from "@/utils/offerKp/openQuoteFilePreview";
 
 const OfferKpContext = createContext(null);
 
@@ -44,7 +46,24 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   const [activeThreadSlug, setActiveThreadSlug] = useState(null);
   const [savedDocuments, setSavedDocuments] = useState(SEED_DOCUMENTS);
   const [savTickets, setSavTickets] = useState([]);
-  const [quotePdfUrl, setQuotePdfUrl] = useState(null);
+  const [quotePdfUrl, setQuotePdfUrlState] = useState(null);
+  const quotePdfBlobRef = useRef(null);
+
+  const setQuotePdfUrl = useCallback((next) => {
+    if (quotePdfBlobRef.current && quotePdfBlobRef.current !== next?.url) {
+      revokeBlobUrl(quotePdfBlobRef.current);
+    }
+    quotePdfBlobRef.current = next?.url?.startsWith("blob:") ? next.url : null;
+    setQuotePdfUrlState(next);
+  }, []);
+
+  useEffect(
+    () => () => {
+      revokeBlobUrl(quotePdfBlobRef.current);
+    },
+    []
+  );
+
   const [docPreview, setDocPreview] = useState(null);
   const [threadQuoteFiles, setThreadQuoteFiles] = useState([]);
 

@@ -4,7 +4,7 @@ import MarkdownIt from "markdown-it";
 import { saveAs } from "file-saver";
 import { X, DownloadSimple, CircleNotch } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
-import StorageFiles from "@/models/files";
+import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
 import { AUTH_TOKEN } from "@/utils/constants";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
@@ -27,7 +27,12 @@ export default function DocPreviewPane({ docPreview, onClose }) {
       let blob = null;
       let downloadName = docPreview?.filename || docPreview?.storageFilename;
 
-      if (docPreview?.markdown) {
+      if (docPreview?.storageFilename) {
+        blob = await downloadQuoteFileBlob({
+          storageFilename: docPreview.storageFilename,
+          filename: docPreview.filename,
+        });
+      } else if (docPreview?.markdown) {
         const result = await OfferKp.generateDocxFromMarkdown({
           markdown: docPreview.markdown,
           filename: docPreview.filename || "document.docx",
@@ -40,8 +45,6 @@ export default function DocPreviewPane({ docPreview, onClose }) {
         if (!res.ok) throw new Error("Download failed");
         blob = await res.blob();
         downloadName = result.filename || downloadName;
-      } else if (docPreview?.storageFilename) {
-        blob = await StorageFiles.download(docPreview.storageFilename);
       }
 
       if (!blob) throw new Error("No blob");

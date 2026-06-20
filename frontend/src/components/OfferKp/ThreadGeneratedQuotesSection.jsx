@@ -11,6 +11,7 @@ import {
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { humanFileSize } from "@/utils/numbers";
 import { downloadQuoteFileBlob } from "@/utils/offerKp/quoteFileDownload";
+import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
 
 function fileIcon(kind, filename = "") {
   if (kind === "pdf" || /\.pdf$/i.test(filename)) return FilePdf;
@@ -20,6 +21,7 @@ function fileIcon(kind, filename = "") {
 export default function ThreadGeneratedQuotesSection({ files = [] }) {
   const { t } = useTranslation("offerKp");
   const {
+    quotePdfUrl,
     setDocumentPanelView,
     setDocumentPanelOpen,
     setQuotePdfUrl,
@@ -50,27 +52,16 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
       if (!key || busyKey) return;
       setBusyKey(`pv:${key}`);
       try {
-        if (file.previewMarkdown) {
-          setDocPreview({
-            filename: file.filename || file.storageFilename,
-            storageFilename: file.storageFilename,
-            markdown: file.previewMarkdown,
-          });
-          setDocumentPanelOpen(true);
-          setDocumentPanelView("doc");
-          return;
-        }
-        const blob = await downloadQuoteFileBlob({
-          storageFilename: file.storageFilename,
+        await openStoredFilePreview({
           filename: file.filename,
+          storageFilename: file.storageFilename,
+          previewMarkdown: file.previewMarkdown,
+          setQuotePdfUrl,
+          setDocumentPanelOpen,
+          setDocumentPanelView,
+          setDocPreview,
+          previousPdfUrl: quotePdfUrl?.url,
         });
-        const blobUrl = URL.createObjectURL(blob);
-        setQuotePdfUrl({
-          url: blobUrl,
-          filename: file.filename || file.storageFilename,
-        });
-        setDocumentPanelOpen(true);
-        setDocumentPanelView("pdf");
       } catch (e) {
         console.error("[ThreadGeneratedQuotesSection] preview:", e?.message || e);
       } finally {
@@ -83,6 +74,7 @@ export default function ThreadGeneratedQuotesSection({ files = [] }) {
       setDocumentPanelOpen,
       setDocumentPanelView,
       setQuotePdfUrl,
+      quotePdfUrl?.url,
     ]
   );
 
