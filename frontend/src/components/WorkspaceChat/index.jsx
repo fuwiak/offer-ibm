@@ -18,10 +18,12 @@ export default function WorkspaceChat({
   loading,
   workspace,
   initialHistory = null,
+  readyHistoryKey = null,
 }) {
   useWatchForAutoPlayAssistantTTSResponse();
-  const { threadSlug = null } = useParams();
-  const historyKey = `${workspace?.slug ?? "none"}:${threadSlug ?? "default"}`;
+  const { slug: urlSlug = null, threadSlug = null } = useParams();
+  const historyKey = `${urlSlug ?? workspace?.slug ?? "none"}:${threadSlug ?? "default"}`;
+  const historyReady = readyHistoryKey === historyKey;
   // Stores { key, workspace, history } currently rendered. Lags the props so
   // the previous chat stays mounted until the next one's history is ready,
   // avoiding a skeleton/loader flash on workspace/thread switches.
@@ -34,8 +36,14 @@ export default function WorkspaceChat({
 
   useEffect(() => {
     async function getHistory() {
-      if (loading) {
-        threadNavLog("chat:load-wait", { historyKey, loading, threadSlug });
+      if (loading || !historyReady) {
+        threadNavLog("chat:load-wait", {
+          historyKey,
+          loading,
+          historyReady,
+          readyHistoryKey,
+          threadSlug,
+        });
         return;
       }
       if (!workspace?.slug) {
@@ -49,7 +57,7 @@ export default function WorkspaceChat({
         return false;
       }
 
-      if (initialHistory !== null && initialHistory !== undefined && !loading) {
+      if (initialHistory !== null && initialHistory !== undefined) {
         threadNavLog("chat:loaded-from-parent", {
           historyKey,
           threadSlug,
@@ -82,10 +90,34 @@ export default function WorkspaceChat({
       });
     }
     getHistory();
-  }, [workspace, loading, threadSlug, initialHistory, historyKey]);
+  }, [
+    workspace,
+    loading,
+    historyReady,
+    readyHistoryKey,
+    threadSlug,
+    initialHistory,
+    historyKey,
+  ]);
+
+  const routeSynced =
+    loaded &&
+    loaded.key === historyKey &&
+    loaded.threadSlug === threadSlug &&
+    (!urlSlug || loaded.workspace?.slug === urlSlug);
+
+  if (!routeSynced && loaded !== null) {
+    threadNavLog("chat:route-out-of-sync", {
+      historyKey,
+      threadSlug,
+      loadedKey: loaded?.key,
+      loadedThread: loaded?.threadSlug,
+      loadedWorkspace: loaded?.workspace?.slug,
+    });
+  }
 
   const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
-  if (loaded === null) {
+  if (!routeSynced) {
     if (hasPendingMessage) {
       return (
         <div className="transition-all duration-500 relative md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-theme-bg-secondary w-full h-full" />

@@ -55,7 +55,7 @@ export default function ChatContainer({
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { threadSlug: routeThreadSlug = null } = useParams();
-  const activeThreadSlug = threadSlug ?? routeThreadSlug;
+  const activeThreadSlug = routeThreadSlug ?? threadSlug;
   const { t } = useTranslation();
   const { t: ta } = useTranslation("offerKp");
   const { user } = useUser();
@@ -85,8 +85,9 @@ export default function ChatContainer({
   const pendingResetRef = useRef(false);
 
   useEffect(() => {
+    setChatHistory(knownHistory ?? []);
     pendingMessageChecked.current = false;
-  }, [activeThreadSlug]);
+  }, [activeThreadSlug, knownHistory]);
 
   const { listening, resetTranscript } = useSpeechRecognition({
     clearTranscriptOnListen: true,

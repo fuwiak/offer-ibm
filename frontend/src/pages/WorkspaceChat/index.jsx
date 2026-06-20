@@ -60,7 +60,7 @@ export default function WorkspaceChat() {
 
 function ShowWorkspaceChat() {
   const { slug, threadSlug = null } = useParams();
-  const { pathname } = useLocation();
+  const { pathname, state: locationState } = useLocation();
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(null);
   const [chatHistory, setChatHistory] = useState(null);
@@ -151,7 +151,7 @@ function ShowWorkspaceChat() {
     return () => {
       cancelled = true;
     };
-  }, [slug, threadSlug, historyKey, pathname]);
+  }, [slug, threadSlug, historyKey, pathname, locationState?.openThreadAt]);
 
   useEffect(() => {
     if (!slug) return undefined;
@@ -197,7 +197,8 @@ function ShowWorkspaceChat() {
     <WorkspaceChatContainer
       loading={historyLoading}
       workspace={workspace}
-      initialHistory={chatHistory}
+      initialHistory={historyLoading ? null : chatHistory}
+      readyHistoryKey={loadedHistoryKey}
     />
   );
 
