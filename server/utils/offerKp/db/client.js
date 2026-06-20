@@ -1,4 +1,9 @@
 const mysql = require("mysql2/promise");
+const {
+  getCachedQuery,
+  setCachedQuery,
+  clearShopDbCache,
+} = require("./cache");
 
 let pool = null;
 
@@ -7,6 +12,7 @@ function resetPool() {
     pool.end().catch(() => {});
     pool = null;
   }
+  clearShopDbCache();
 }
 
 function buildDatabaseUrl() {
@@ -123,8 +129,14 @@ function getPool() {
 }
 
 async function query(sql, params = []) {
+  const cached = getCachedQuery(sql, params);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const p = getPool();
   const [rows] = await p.execute(sql, params);
+  setCachedQuery(sql, params, rows);
   return rows;
 }
 

@@ -10,6 +10,11 @@
  */
 
 const { query } = require("./db/client");
+const {
+  getCachedAgentResult,
+  setCachedAgentResult,
+  makeCacheKey,
+} = require("./db/cache");
 const shopDbLog = require("./shopDbLog");
 const {
   parseHardwareQuery,
@@ -276,6 +281,26 @@ function rankAgentProducts(products, terms, parsed, skuCodes = []) {
   return scored.map((s) => s.p);
 }
 
+function buildProductSearchAgentCacheKey({
+  message,
+  chatHistory = null,
+  limit = 10,
+  parsedFileTexts = null,
+}) {
+  const parsedTexts = (parsedFileTexts || []).filter(Boolean);
+  const searchText = buildProductSearchText(message, {
+    chatHistory,
+    history: chatHistory,
+    parsedFileTexts: parsedTexts,
+  });
+  return makeCacheKey("productSearchAgent", [
+    searchText,
+    sqlLimit(limit),
+    String(message || "").trim(),
+    parsedTexts.join("\n\n"),
+  ]);
+}
+
 /**
  * Главная точка входа агента поиска товаров.
  */
@@ -286,6 +311,21 @@ async function runProductSearchAgent({
   limit = 10,
   parsedFileTexts = null,
 }) {
+  const agentCacheKey = buildProductSearchAgentCacheKey({
+    message,
+    chatHistory,
+    limit,
+    parsedFileTexts,
+  });
+  const cachedAgent = getCachedAgentResult(agentCacheKey);
+  if (cachedAgent) {
+    shopDbLog.skip("product search agent cache hit", {
+      messageLen: String(message || "").length,
+      hits: cachedAgent.products?.length || 0,
+    });
+    return cachedAgent;
+  }
+
   const parsedTexts = (parsedFileTexts || []).filter(Boolean);
   const searchText = buildProductSearchText(message, {
     chatHistory,
@@ -329,7 +369,7 @@ async function runProductSearchAgent({
     !(parsedTexts.length && hasHardwareSignals(searchText))
   ) {
     shopDbLog.skip("product search agent skipped — not a catalog query");
-    return {
+    const skipped = {
       products: [],
       strategies: [],
       searchText,
@@ -337,6 +377,8 @@ async function runProductSearchAgent({
       signals,
       tablesUsed: [],
     };
+    setCachedAgentResult(agentCacheKey, skipped);
+    return skipped;
   }
 
   const strategies = [];
@@ -424,7 +466,7 @@ async function runProductSearchAgent({
     titles: products.map((p) => p.name?.slice(0, 60)),
   });
 
-  return {
+  const result = {
     products,
     strategies: [...new Set(strategies)],
     searchText,
@@ -432,6 +474,8 @@ async function runProductSearchAgent({
     signals,
     tablesUsed: [...tablesUsed].sort(),
   };
+  setCachedAgentResult(agentCacheKey, result);
+  return result;
 }
 
 module.exports = {
