@@ -3,11 +3,8 @@ import { useParams } from "react-router-dom";
 import Workspace from "@/models/workspace";
 import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
 import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
+import { threadHistoryKey } from "@/utils/offerKp/conversationNav";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
-
-export function threadHistoryKey(slug, threadSlug = null) {
-  return `${slug ?? ""}:${threadSlug ?? "default"}`;
-}
 
 /**
  * Loads workspace + chat history for the current URL thread.

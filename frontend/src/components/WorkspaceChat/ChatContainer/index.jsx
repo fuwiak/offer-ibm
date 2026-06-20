@@ -24,28 +24,24 @@ import SpeechRecognition, {
 import { ChatTooltips } from "./ChatTooltips";
 import { MetricsProvider } from "./ChatHistory/HistoricalMessage/Actions/RenderMetrics";
 import useChatContainerQuickScroll from "@/hooks/useChatContainerQuickScroll";
-import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import { clearPromptInputDraft } from "@/hooks/usePromptInputStorage";
-import { safeJsonParse } from "@/utils/request";
 import { useTranslation } from "react-i18next";
 import paths from "@/utils/paths";
 import QuickActions from "@/components/lib/QuickActions";
-import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
 import SuggestedMessages from "@/components/lib/SuggestedMessages";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import { getThreadMeta } from "@/utils/offerKp/threadMeta";
 import { extractUserMemoryNotes } from "@/utils/offerKp/leadsInboxContext";
-import { handleOfferKpQuickActionKey } from "@/utils/offerKp/homeActions";
-import { useOfferKp } from "@/contexts/OfferKpContext";
 import useUser from "@/hooks/useUser";
 import TextSizeMenu from "./TextSizeMenu";
 import WorkspaceModelPicker from "./WorkspaceModelPicker";
-import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
-import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
-import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 import SourcesSidebar, { SourcesSidebarProvider } from "./SourcesSidebar";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
+import { shouldReplayDraft, clearDraft } from "@/utils/offerKp/conversationNav";
+import OfferKpConversationView from "@/components/OfferKp/OfferKpConversationView";
+import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
+import { useOfferKp } from "@/contexts/OfferKpContext";
 
 export default function ChatContainer({
   workspace,
@@ -53,7 +49,7 @@ export default function ChatContainer({
   knownHistory = [],
 }) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, state: locationState } = useLocation();
   const { threadSlug: routeThreadSlug = null } = useParams();
   const activeThreadSlug = routeThreadSlug ?? threadSlug;
   const { t } = useTranslation();
@@ -271,26 +267,20 @@ export default function ChatContainer({
 
   useEffect(() => {
     if (pendingMessageChecked.current || !workspace?.slug) return;
+    if (!shouldReplayDraft({ locationState })) return;
+
     pendingMessageChecked.current = true;
-
-    const pending = safeJsonParse(sessionStorage.getItem(PENDING_HOME_MESSAGE));
-    if (!pending?.message) return;
-
-    const pendingAt = Number(pending.pendingAt) || 0;
-    if (!pendingAt || Date.now() - pendingAt > 15000) {
-      sessionStorage.removeItem(PENDING_HOME_MESSAGE);
-      return;
-    }
+    const draft = locationState.draft;
+    clearDraft(navigate, pathname);
 
     setTimeout(() => {
-      sessionStorage.removeItem(PENDING_HOME_MESSAGE);
       sendCommand({
-        text: pending.message,
-        attachments: pending.attachments || [],
+        text: draft.message,
+        attachments: draft.attachments || [],
         autoSubmit: true,
       });
     }, 100);
-  }, [workspace?.slug]);
+  }, [workspace?.slug, locationState, pathname, navigate]);
 
   useEffect(() => {
     async function fetchReply() {
@@ -447,9 +437,8 @@ export default function ChatContainer({
     };
   }, [socketId]);
 
-  const isEmpty =
-    chatHistory.length === 0 && !sessionStorage.getItem(PENDING_HOME_MESSAGE);
-  const showOfferKpHomeEmpty = isEmpty && !(offerKpMode && activeThreadSlug);
+  const isEmpty = chatHistory.length === 0;
+  const showLegacyHomeEmpty = isEmpty && !offerKpMode;
 
   useEffect(() => {
     threadNavLog("container:render-state", {
@@ -458,7 +447,6 @@ export default function ChatContainer({
       routeThreadSlug,
       offerKpMode,
       isEmpty,
-      showOfferKpHomeEmpty,
       historyCount: chatHistory.length,
       pathname,
     });
@@ -468,27 +456,44 @@ export default function ChatContainer({
     routeThreadSlug,
     offerKpMode,
     isEmpty,
-    showOfferKpHomeEmpty,
     chatHistory.length,
     pathname,
   ]);
 
-  if (showOfferKpHomeEmpty) {
+  if (offerKpMode) {
+    return (
+      <SourcesSidebarProvider>
+        <div className="relative flex w-full h-full flex-1 min-h-0 min-w-0">
+          <OfferKpConversationView
+            workspace={workspace}
+            activeThreadSlug={activeThreadSlug}
+            greetingName={greetingName}
+            ta={ta}
+            chatHistory={chatHistory}
+            chatHistoryRef={chatHistoryRef}
+            handleSubmit={handleSubmit}
+            sendCommand={sendCommand}
+            loadingResponse={loadingResponse}
+            files={files}
+            regenerateAssistantMessage={regenerateAssistantMessage}
+            websocket={websocket}
+            setChatHistory={setChatHistory}
+            navigate={navigate}
+            offerKp={offerKp}
+          />
+          <SourcesSidebar />
+        </div>
+      </SourcesSidebarProvider>
+    );
+  }
+
+  if (showLegacyHomeEmpty) {
     return (
       <div
         style={{ height: isMobile ? "100%" : "100%" }}
-        className={`transition-all duration-500 relative w-full h-full overflow-hidden flex flex-col flex-1 min-w-0 ${
-          offerKpMode
-            ? "offerKp-chat-shell offerKp-home-shell"
-            : "md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-zinc-900 light:bg-white border-none light:border-solid light:border light:border-theme-modal-border"
-        }`}
+        className={`transition-all duration-500 relative w-full h-full overflow-hidden flex flex-col flex-1 min-w-0 md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-zinc-900 light:bg-white border-none light:border-solid light:border light:border-theme-modal-border`}
       >
         {isMobile && <SidebarMobileHeader workspace={workspace} />}
-        {offerKpMode && (
-          <div className="offerKp-space-bar shrink-0">
-            <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
-          </div>
-        )}
         <TextSizeMenu />
         <WorkspaceModelPicker
           workspaceSlug={workspace.slug}
@@ -496,28 +501,12 @@ export default function ChatContainer({
         />
         <DnDFileUploaderWrapper>
           <div
-            className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
-              offerKpMode
-                ? "items-start justify-start px-6 md:px-10 lg:px-14 py-8 md:py-12"
-                : "items-center justify-center"
-            }`}
+            className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto items-center justify-center`}
           >
-            <div
-              className={`flex flex-col w-full shrink-0 ${
-                offerKpMode
-                  ? "max-w-[920px] items-start"
-                  : "items-center max-w-[750px]"
-              }`}
-            >
-              {offerKpMode ? (
-                <h1 className="offerKp-home-greeting">
-                  {ta("home.greeting", { name: greetingName })}
-                </h1>
-              ) : (
-                <h1 className="text-theme-text-primary text-xl md:text-2xl mb-11 text-center font-normal">
-                  {t("main-page.greeting")}
-                </h1>
-              )}
+            <div className="flex flex-col w-full items-center max-w-[750px] px-4 shrink-0">
+              <h1 className="text-theme-text-primary text-xl md:text-2xl mb-11 text-center font-normal">
+                {t("main-page.greeting")}
+              </h1>
               <PromptInput
                 workspace={workspace}
                 submit={handleSubmit}
@@ -525,49 +514,24 @@ export default function ChatContainer({
                 sendCommand={sendCommand}
                 attachments={files}
                 centered={true}
-                workspaceSlug={workspace?.slug}
-                threadSlug={activeThreadSlug}
-                placeholder={
-                  offerKpMode ? ta("home.inputPlaceholder") : undefined
+              />
+              <QuickActions
+                hasAvailableWorkspace={!!workspace}
+                onCreateAgent={() => navigate(paths.settings.agentSkills())}
+                onEditWorkspace={() =>
+                  navigate(
+                    paths.workspace.settings.generalAppearance(workspace.slug)
+                  )
                 }
-                offerKpHome={offerKpMode}
-                onWorkspaceSelect={
-                  offerKpMode
-                    ? (ws) => switchToWorkspace(navigate, ws)
-                    : undefined
+                onUploadDocument={() =>
+                  document.getElementById("dnd-chat-file-uploader")?.click()
                 }
               />
-              {offerKpMode ? (
-                <OfferKpQuickActions
-                  onAction={(key) =>
-                    handleOfferKpQuickActionKey(key, {
-                      navigate,
-                      offerKp,
-                      sendCommand,
-                    })
-                  }
-                />
-              ) : (
-                <QuickActions
-                  hasAvailableWorkspace={!!workspace}
-                  onCreateAgent={() => navigate(paths.settings.agentSkills())}
-                  onEditWorkspace={() =>
-                    navigate(
-                      paths.workspace.settings.generalAppearance(workspace.slug)
-                    )
-                  }
-                  onUploadDocument={() =>
-                    document.getElementById("dnd-chat-file-uploader")?.click()
-                  }
-                />
-              )}
             </div>
-            {!offerKpMode && (
-              <SuggestedMessages
-                suggestedMessages={workspace?.suggestedMessages}
-                sendCommand={sendCommand}
-              />
-            )}
+            <SuggestedMessages
+              suggestedMessages={workspace?.suggestedMessages}
+              sendCommand={sendCommand}
+            />
           </div>
         </DnDFileUploaderWrapper>
         <ChatTooltips />
@@ -579,32 +543,13 @@ export default function ChatContainer({
     <SourcesSidebarProvider>
       <div
         style={{
-          height: isMobile
-            ? "100%"
-            : offerKpMode
-              ? "100%"
-              : "calc(100% - 32px)",
+          height: isMobile ? "100%" : "calc(100% - 32px)",
         }}
-        className={`relative flex w-full h-full z-[2] flex-1 min-h-0 min-w-0 ${
-          offerKpMode
-            ? "offerKp-chat-shell flex-col"
-            : "md:ml-[2px] md:mr-[16px] md:my-[16px]"
-        }`}
+        className="relative flex w-full h-full z-[2] flex-1 min-h-0 min-w-0 md:ml-[2px] md:mr-[16px] md:my-[16px]"
       >
-        {!offerKpMode && <TextSizeMenu />}
-        <div
-          className={`flex-1 min-h-0 min-w-0 transition-all duration-500 relative h-full overflow-hidden ${
-            offerKpMode
-              ? "flex flex-col"
-              : "md:rounded-[16px] bg-zinc-900 light:bg-white text-white light:text-slate-900 border-none light:border-solid light:border light:border-theme-modal-border"
-          }`}
-        >
+        <TextSizeMenu />
+        <div className="flex-1 min-h-0 min-w-0 transition-all duration-500 relative h-full overflow-hidden md:rounded-[16px] bg-zinc-900 light:bg-white text-white light:text-slate-900 border-none light:border-solid light:border light:border-theme-modal-border">
           {isMobile && <SidebarMobileHeader workspace={workspace} />}
-          {offerKpMode && (
-            <div className="offerKp-space-bar shrink-0">
-              <CurrentWorkspaceIndicator workspace={workspace} variant="bar" />
-            </div>
-          )}
           <WorkspaceModelPicker
             workspaceSlug={workspace.slug}
             workspace={workspace}
@@ -620,7 +565,7 @@ export default function ChatContainer({
                   updateHistory={setChatHistory}
                   regenerateAssistantMessage={regenerateAssistantMessage}
                   websocket={websocket}
-                  offerKpMode={offerKpMode}
+                  offerKpMode={false}
                 />
               </MetricsProvider>
               <PromptInput

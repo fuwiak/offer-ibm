@@ -10,7 +10,6 @@ import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
 import { shouldUseOfferKpLayout as shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import { useLocation, useNavigate } from "react-router-dom";
 import paths from "@/utils/paths";
-import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import useWorkspaceThreadChat from "@/hooks/useWorkspaceThreadChat";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
@@ -59,8 +58,13 @@ export default function WorkspaceChat() {
 /** Workspace chat content — renders inside Main layout outlet or standalone shell. */
 export function ShowWorkspaceChat() {
   const { embeddedInMain = false } = useOutletContext() ?? {};
-  const { slug, threadSlug = null, workspace, history, loading } =
-    useWorkspaceThreadChat();
+  const {
+    slug,
+    threadSlug = null,
+    workspace,
+    history,
+    loading,
+  } = useWorkspaceThreadChat();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -71,10 +75,9 @@ export function ShowWorkspaceChat() {
 
   const isWorkspaceRoot =
     !!slug && /^\/workspace\/[^/]+$/.test(pathname) && !threadSlug;
-  const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
 
   useEffect(() => {
-    if (!offerKpMode || !isWorkspaceRoot || hasPendingMessage) return;
+    if (!offerKpMode || !isWorkspaceRoot) return;
     if (loading || history === null) return;
     if (history.length > 0) return;
     threadNavLog("page:redirect-home-empty-workspace", { slug, pathname });
@@ -82,7 +85,6 @@ export function ShowWorkspaceChat() {
   }, [
     offerKpMode,
     isWorkspaceRoot,
-    hasPendingMessage,
     loading,
     history,
     navigate,

@@ -10,8 +10,7 @@ import {
   TTSProvider,
   useWatchForAutoPlayAssistantTTSResponse,
 } from "../contexts/TTSProvider";
-import { PENDING_HOME_MESSAGE } from "@/utils/constants";
-import { threadHistoryKey } from "@/hooks/useWorkspaceThreadChat";
+import { threadHistoryKey } from "@/utils/offerKp/conversationNav";
 
 export default function WorkspaceChat({
   workspace = null,
@@ -21,14 +20,8 @@ export default function WorkspaceChat({
   useWatchForAutoPlayAssistantTTSResponse();
   const { slug: urlSlug = null, threadSlug = null } = useParams();
   const historyKey = threadHistoryKey(urlSlug ?? workspace?.slug, threadSlug);
-  const hasPendingMessage = !!sessionStorage.getItem(PENDING_HOME_MESSAGE);
 
   if (loading || history === null) {
-    if (hasPendingMessage) {
-      return (
-        <div className="transition-all duration-500 relative md:ml-[2px] md:mr-[16px] md:my-[16px] md:rounded-[16px] bg-theme-bg-secondary w-full h-full" />
-      );
-    }
     return <LoadingChat />;
   }
 
@@ -39,10 +32,7 @@ export default function WorkspaceChat({
           <div className="w-full max-w-2xl bg-theme-bg-secondary rounded-lg shadow border-2 border-theme-modal-border overflow-hidden">
             <div className="relative p-6 border-b rounded-t border-theme-modal-border">
               <div className="w-full flex gap-x-2 items-center">
-                <WarningCircle
-                  className="text-red-500 w-6 h-6"
-                  weight="fill"
-                />
+                <WarningCircle className="text-red-500 w-6 h-6" weight="fill" />
                 <h3 className="text-xl font-semibold text-red-500 overflow-hidden overflow-ellipsis whitespace-nowrap">
                   Workspace not found
                 </h3>

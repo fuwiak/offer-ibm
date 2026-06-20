@@ -1,9 +1,5 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
-import {
-  useNavigate,
-  useLocation,
-  useSearchParams,
-} from "react-router-dom";
+import React, { useState, useEffect, useContext } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { isMobile } from "react-device-detect";
 import { SidebarMobileHeader } from "@/components/Sidebar";
 import PromptInput, {
@@ -12,14 +8,10 @@ import PromptInput, {
 } from "@/components/WorkspaceChat/ChatContainer/PromptInput";
 import DnDFileUploaderWrapper, {
   DndUploaderContext,
-  DnDFileUploaderProvider,
   PASTE_ATTACHMENT_EVENT,
 } from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { useTranslation } from "react-i18next";
-import {
-  LAST_VISITED_WORKSPACE,
-  PENDING_HOME_MESSAGE,
-} from "@/utils/constants";
+import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
 import Workspace from "@/models/workspace";
 import paths from "@/utils/paths";
 import showToast from "@/utils/toast";
@@ -35,9 +27,11 @@ import {
 } from "@/utils/offerKp/homeActions";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
+import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import {
-  OFFER_KP_NEW_CONVERSATION_EVENT,
-} from "@/utils/offerKp/startNewConversation";
+  submitDraftFromHome,
+  openThread,
+} from "@/utils/offerKp/conversationNav";
 import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
 import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
 import WorkspaceModelPicker from "@/components/WorkspaceChat/ChatContainer/WorkspaceModelPicker";
@@ -78,14 +72,11 @@ export default function Home() {
   const { setActiveConversation } = useOfferKp();
   const [workspace, setWorkspace] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [threadSlug, setThreadSlug] = useState(null);
   const [conversationEpoch, setConversationEpoch] = useState(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
-  const pendingFilesRef = useRef([]);
 
   const resetConversation = () => {
-    setThreadSlug(null);
     setConversationEpoch((n) => n + 1);
     window.dispatchEvent(
       new CustomEvent(PROMPT_INPUT_EVENT, {
@@ -107,7 +98,10 @@ export default function Home() {
 
     window.addEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, resetConversation);
     return () => {
-      window.removeEventListener(OFFER_KP_NEW_CONVERSATION_EVENT, resetConversation);
+      window.removeEventListener(
+        OFFER_KP_NEW_CONVERSATION_EVENT,
+        resetConversation
+      );
     };
   }, [
     pathname,
@@ -118,8 +112,8 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    setActiveConversation(workspace?.slug ?? null, threadSlug ?? null);
-  }, [workspace?.slug, threadSlug, setActiveConversation]);
+    setActiveConversation(workspace?.slug ?? null, null);
+  }, [workspace?.slug, setActiveConversation]);
 
   useEffect(() => {
     if (!workspace?.slug) return undefined;
@@ -158,26 +152,11 @@ export default function Home() {
     init();
   }, [pathname, t, searchParams.get("space")]);
 
-  // When workspace/thread becomes available and we have pending files, trigger upload
   useEffect(() => {
-    if (workspace && threadSlug && pendingFilesRef.current.length > 0) {
-      const files = pendingFilesRef.current;
-      pendingFilesRef.current = [];
-      window.dispatchEvent(
-        new CustomEvent(PASTE_ATTACHMENT_EVENT, { detail: { files } })
-      );
-    }
-  }, [workspace, threadSlug]);
-
-  // Handle paste events when no thread exists yet
-  useEffect(() => {
-    if (threadSlug) return;
-
     async function handlePaste(e) {
       const files = e.detail?.files;
       if (!files?.length) return;
 
-      pendingFilesRef.current = files;
       let ws = workspace;
       if (!ws) {
         ws = await createDefaultWorkspace(t("new-workspace.placeholder"));
@@ -185,29 +164,33 @@ export default function Home() {
         setWorkspace(ws);
       }
       const { thread } = await Workspace.threads.new(ws.slug);
-      if (thread) setThreadSlug(thread.slug);
+      if (thread?.slug) {
+        openThread(navigate, ws.slug, thread.slug, { pathname });
+      }
     }
 
     window.addEventListener(PASTE_ATTACHMENT_EVENT, handlePaste);
     return () =>
       window.removeEventListener(PASTE_ATTACHMENT_EVENT, handlePaste);
-  }, [workspace, threadSlug]);
+  }, [workspace, navigate, pathname, t]);
 
-  async function handleDropWithoutWorkspace(acceptedFiles) {
+  async function handleDropWithoutWorkspace(_acceptedFiles) {
     setDragging(false);
-    pendingFilesRef.current = acceptedFiles;
-    const ws = await createDefaultWorkspace(t("new-workspace.placeholder"));
+    let ws = await createDefaultWorkspace(t("new-workspace.placeholder"));
     if (!ws) return;
     setWorkspace(ws);
     const { thread } = await Workspace.threads.new(ws.slug);
-    if (thread) setThreadSlug(thread.slug);
+    if (thread?.slug) {
+      openThread(navigate, ws.slug, thread.slug, { pathname });
+    }
   }
 
-  async function handleDropWithWorkspace(acceptedFiles) {
+  async function handleDropWithWorkspace(_acceptedFiles) {
     setDragging(false);
-    pendingFilesRef.current = acceptedFiles;
     const { thread } = await Workspace.threads.new(workspace.slug);
-    if (thread) setThreadSlug(thread.slug);
+    if (thread?.slug) {
+      openThread(navigate, workspace.slug, thread.slug, { pathname });
+    }
   }
 
   if (workspaceLoading) {
@@ -220,20 +203,6 @@ export default function Home() {
 
   if (!workspace && user?.role === "default") {
     return <NoWorkspacesAssigned />;
-  }
-
-  if (workspace && threadSlug) {
-    return (
-      <DnDFileUploaderProvider workspace={workspace} threadSlug={threadSlug}>
-        <HomeContent
-          key={`home-chat-${conversationEpoch}`}
-          workspace={workspace}
-          setWorkspace={setWorkspace}
-          threadSlug={threadSlug}
-          setThreadSlug={setThreadSlug}
-        />
-      </DnDFileUploaderProvider>
-    );
   }
 
   return (
@@ -250,17 +219,15 @@ export default function Home() {
       }}
     >
       <HomeContent
-        key={`home-empty-${conversationEpoch}`}
+        key={`home-${conversationEpoch}`}
         workspace={workspace}
         setWorkspace={setWorkspace}
-        threadSlug={null}
-        setThreadSlug={setThreadSlug}
       />
     </DndUploaderContext.Provider>
   );
 }
 
-function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
+function HomeContent({ workspace, setWorkspace }) {
   const { t } = useTranslation();
   const { t: ta } = useTranslation("offerKp");
   const { pathname } = useLocation();
@@ -302,7 +269,6 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
     setLoading(true);
     try {
       let targetWorkspace = workspace;
-      let targetThread = threadSlug;
 
       if (!targetWorkspace) {
         targetWorkspace = offerKpMode
@@ -315,29 +281,32 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
         setWorkspace(targetWorkspace);
       }
 
-      if (!targetThread) {
-        const { thread } = await Workspace.threads.new(targetWorkspace.slug);
-        targetThread = thread?.slug;
-        if (thread) setThreadSlug(thread.slug);
+      const { thread } = await Workspace.threads.new(targetWorkspace.slug);
+      if (!thread?.slug) {
+        setLoading(false);
+        return;
       }
 
-      sessionStorage.setItem(
-        PENDING_HOME_MESSAGE,
-        JSON.stringify({ message, attachments, pendingAt: Date.now() })
+      localStorage.setItem(
+        LAST_VISITED_WORKSPACE,
+        JSON.stringify({
+          slug: targetWorkspace.slug,
+          name: targetWorkspace.name,
+        })
       );
 
-      if (targetThread) {
-        navigate(
-          offerKpMode
-            ? paths.offerKp.thread(targetWorkspace.slug, targetThread)
-            : paths.workspace.thread(targetWorkspace.slug, targetThread)
-        );
+      if (offerKpMode) {
+        submitDraftFromHome(navigate, targetWorkspace.slug, thread.slug, {
+          message,
+          attachments,
+        });
       } else {
-        navigate(
-          offerKpMode
-            ? paths.workspace.chat(targetWorkspace.slug)
-            : paths.workspace.chat(targetWorkspace.slug)
-        );
+        navigate(paths.workspace.thread(targetWorkspace.slug, thread.slug), {
+          state: {
+            newConversation: true,
+            draft: { message, attachments },
+          },
+        });
       }
     } catch (error) {
       console.error("Error submitting message:", error);
@@ -407,7 +376,6 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
     ]);
 
     setWorkspace({ ...ws, suggestedMessages, showAgentCommand });
-    setThreadSlug(null);
     window.dispatchEvent(
       new CustomEvent(PROMPT_INPUT_EVENT, {
         detail: { messageContent: "", writeMode: "replace" },
@@ -437,7 +405,10 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
         </div>
       )}
       <TextSizeMenu />
-      <WorkspaceModelPicker workspaceSlug={workspace?.slug} workspace={workspace} />
+      <WorkspaceModelPicker
+        workspaceSlug={workspace?.slug}
+        workspace={workspace}
+      />
       <DnDFileUploaderWrapper>
         <div
           className={`flex flex-col flex-1 min-h-0 w-full overflow-y-auto ${
@@ -448,7 +419,9 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
         >
           <div
             className={`flex flex-col w-full shrink-0 ${
-              showOfferKpHome ? "max-w-[920px] items-start" : "items-center max-w-[750px] px-4"
+              showOfferKpHome
+                ? "max-w-[920px] items-start"
+                : "items-center max-w-[750px] px-4"
             }`}
           >
             {showOfferKpHome ? (
@@ -470,7 +443,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
               attachments={files}
               centered={true}
               workspaceSlug={workspace?.slug}
-              threadSlug={threadSlug}
+              threadSlug={null}
               placeholder={
                 offerKpMode ? ta("home.inputPlaceholder") : undefined
               }
@@ -482,7 +455,7 @@ function HomeContent({ workspace, setWorkspace, threadSlug, setThreadSlug }) {
             {showOfferKpHome && isMobile && (
               <OfferKpHomeThreadHistory
                 workspace={workspace}
-                activeThreadSlug={threadSlug ?? offerKp.activeThreadSlug}
+                activeThreadSlug={offerKp.activeThreadSlug}
               />
             )}
             {showOfferKpHome ? (

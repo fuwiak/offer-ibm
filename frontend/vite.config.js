@@ -1,4 +1,5 @@
 import { defineConfig } from "vite"
+/// <reference types="vitest" />
 import { fileURLToPath, URL } from "url"
 import postcss from "./postcss.config.js"
 import react from "@vitejs/plugin-react"
@@ -20,9 +21,6 @@ export default defineConfig({
   server: {
     port: 3000,
     host: "localhost"
-  },
-  define: {
-    "process.env": process.env
   },
   css: {
     postcss
@@ -74,6 +72,11 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true
     }
+  },
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.js"],
+    setupFiles: ["src/test/setup.js"],
   },
   optimizeDeps: {
     include: ["@mintplex-labs/piper-tts-web"],

@@ -539,6 +539,22 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   gap: 8px;
 }
 
+/* Thread view composer — flex child at bottom of chat column */
+.offerKp-thread-prompt {
+  border-top: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-primary);
+}
+
+.offerKp-thread-prompt-inner {
+  width: 100%;
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+[data-theme="light"] .offerKp-thread-prompt {
+  background: #ffffff;
+}
+
 .offerKp-home-prompt__toolbar-icons {
   display: flex;
   align-items: center;

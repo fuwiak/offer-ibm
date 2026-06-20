@@ -22,7 +22,6 @@ import {
   OFFER_KP_NEW_CONVERSATION_EVENT,
   goToStartScreen,
 } from "@/utils/offerKp/startNewConversation";
-import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import paths from "@/utils/paths";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 import showToast from "@/utils/toast";
@@ -30,6 +29,18 @@ import * as Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 
 const DELETE_UNDO_MS = 60 * 60 * 1000; // 1 hour to undo a deletion
+
+function deleteAtFromNow(ms = DELETE_UNDO_MS) {
+  return Date.now() + ms;
+}
+
+function delayUntil(deleteAt) {
+  return Math.max(0, deleteAt - Date.now());
+}
+
+function msUntil(deleteAt, nowMs) {
+  return Math.max(0, deleteAt - nowMs);
+}
 
 export default function OfferKpHomeThreadHistory({
   workspace: workspaceProp = null,
@@ -54,7 +65,7 @@ export default function OfferKpHomeThreadHistory({
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [promptsThread, setPromptsThread] = useState(null);
   const [pendingDeletes, setPendingDeletes] = useState([]);
-  const [, setClockTick] = useState(0);
+  const [undoNowMs, setUndoNowMs] = useState(0);
   const deleteTimersRef = useRef({});
   const pinStorageKey = `offerKp_home_pinned_threads_${workspace?.slug || "default"}`;
   const pendingDeleteStorageKey = `offerKp_home_pending_deletes_${workspace?.slug || "default"}`;
@@ -163,7 +174,9 @@ export default function OfferKpHomeThreadHistory({
 
   useEffect(() => {
     if (!pendingDeletes.length) return undefined;
-    const id = setInterval(() => setClockTick((n) => n + 1), 30000);
+    const refresh = () => setUndoNowMs(Date.now());
+    refresh();
+    const id = setInterval(refresh, 30000);
     return () => clearInterval(id);
   }, [pendingDeletes.length]);
 
@@ -195,7 +208,7 @@ export default function OfferKpHomeThreadHistory({
     );
 
   function formatUndoTimeLeft(deleteAt) {
-    const msLeft = Math.max(0, deleteAt - Date.now());
+    const msLeft = msUntil(deleteAt, undoNowMs);
     const minutes = Math.ceil(msLeft / 60000);
     if (minutes >= 60) return "60 min";
     return `${minutes} min`;
@@ -258,14 +271,14 @@ export default function OfferKpHomeThreadHistory({
   function scheduleFinalDelete(slug, deleteAt) {
     if (deleteTimersRef.current[slug])
       clearTimeout(deleteTimersRef.current[slug]);
-    const delay = Math.max(0, deleteAt - Date.now());
+    const delay = delayUntil(deleteAt);
     deleteTimersRef.current[slug] = setTimeout(() => {
       finalizeDelete(slug);
     }, delay);
   }
 
   function requestDelete(thread) {
-    const deleteAt = Date.now() + DELETE_UNDO_MS;
+    const deleteAt = deleteAtFromNow();
     setConfirmDeleteThread(null);
     setPendingDeletes((prev) => {
       const next = [
@@ -299,7 +312,7 @@ export default function OfferKpHomeThreadHistory({
   }
 
   function requestDeleteAll() {
-    const deleteAt = Date.now() + DELETE_UNDO_MS;
+    const deleteAt = deleteAtFromNow();
     const threadsToDelete = threads.filter(
       (thread) => !pendingDeleteSlugs.includes(thread.slug)
     );
@@ -473,7 +486,6 @@ export default function OfferKpHomeThreadHistory({
                   }`}
                   onClick={() => {
                     const wsSlug = urlWorkspaceSlug ?? workspace?.slug;
-                    sessionStorage.removeItem(PENDING_HOME_MESSAGE);
                     threadNavLog("sidebar:click", {
                       wsSlug,
                       threadSlug: thread.slug,

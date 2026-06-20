@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Workspace from "@/models/workspace";
-import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 import { HOME_CHAT_PROMPTS } from "@/utils/offerKp/homeActions";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
+import { submitDraftFromHome } from "@/utils/offerKp/conversationNav";
 import paths from "@/utils/paths";
 import { FullScreenLoader } from "@/components/Preloader";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,9 @@ export default function ChatLauncherPage() {
 
     async function launch() {
       try {
-        const workspace = await resolvePartnerWorkspace(t("new-workspace.placeholder"));
+        const workspace = await resolvePartnerWorkspace(
+          t("new-workspace.placeholder")
+        );
         if (!workspace || cancelled) {
           setError("No workspace available");
           return;
@@ -43,12 +45,10 @@ export default function ChatLauncherPage() {
           return;
         }
 
-        sessionStorage.setItem(
-          PENDING_HOME_MESSAGE,
-          JSON.stringify({ message, attachments: [], pendingAt: Date.now() })
-        );
-
-        navigate(paths.offerKp.thread(workspace.slug, thread.slug), { replace: true });
+        submitDraftFromHome(navigate, workspace.slug, thread.slug, {
+          message,
+          attachments: [],
+        });
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Could not start conversation");

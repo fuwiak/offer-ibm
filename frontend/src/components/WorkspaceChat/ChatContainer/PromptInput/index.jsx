@@ -35,6 +35,8 @@ const MAX_EDIT_STACK_SIZE = 100;
  * @param {string} [props.threadSlug] - thread slug for home page context
  * @param {string} [props.placeholder] - overrides default send-message placeholder
  * @param {boolean} [props.offerKpHome] - enterprise home search bar styling
+ * @param {boolean} [props.offerKpThread] - thread view prompt bar (flex layout column)
+ * @param {'fixed' | 'flex'} [props.layout] - fixed/absolute overlay vs flex child
  * @param {(workspace: { slug: string, name: string }) => void} [props.onWorkspaceSelect] - workspace switch from prompt toolbar
  */
 export default function PromptInput({
@@ -48,6 +50,8 @@ export default function PromptInput({
   threadSlug = null,
   placeholder: placeholderProp,
   offerKpHome = false,
+  offerKpThread = false,
+  layout = "fixed",
   onWorkspaceSelect = null,
 }) {
   const { t } = useTranslation();
@@ -318,12 +322,16 @@ export default function PromptInput({
     }
   }
 
+  const useFlexLayout = layout === "flex";
+
   return (
     <div
       className={
-        centered
-          ? "w-full relative flex justify-center items-center"
-          : "w-full fixed md:absolute bottom-0 left-0 z-10 flex justify-center items-center pwa:pb-5"
+        useFlexLayout
+          ? "w-full relative flex justify-center items-center shrink-0"
+          : centered
+            ? "w-full relative flex justify-center items-center"
+            : "w-full fixed md:absolute bottom-0 left-0 z-10 flex justify-center items-center pwa:pb-5"
       }
     >
       <form
@@ -355,7 +363,9 @@ export default function PromptInput({
             <div
               className={
                 offerKpHome
-                  ? "offerKp-home-prompt flex flex-col overflow-hidden"
+                  ? offerKpThread
+                    ? "offerKp-home-prompt offerKp-thread-prompt-inner flex flex-col overflow-hidden"
+                    : "offerKp-home-prompt flex flex-col overflow-hidden"
                   : "bg-zinc-800 light:bg-white light:border light:border-slate-300 rounded-[20px] pwa:rounded-3xl flex flex-col px-5 overflow-hidden"
               }
             >
