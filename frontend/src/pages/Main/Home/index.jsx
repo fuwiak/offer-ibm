@@ -72,6 +72,7 @@ async function createDefaultWorkspace(workspaceName = "My Workspace") {
 
 export default function Home() {
   const { t } = useTranslation();
+  const { user } = useUser();
   const { pathname, state: locationState } = useLocation();
   const navigate = useNavigate();
   const { setActiveConversation } = useOfferKp();
