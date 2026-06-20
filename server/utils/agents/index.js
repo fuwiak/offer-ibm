@@ -15,7 +15,9 @@ const MCPCompatibilityLayer = require("../MCP");
 const { getAndClearInvocationAttachments } = require("../chats/agents");
 const { DocumentManager } = require("../DocumentManager");
 const { resolveAnthropicApiKey } = require("../offerKpApp/anthropicEnv");
-const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
+const {
+  resolveLlmProviderWithFallback,
+} = require("../offerKpApp/resolveLlmProvider");
 
 class AgentHandler {
   #invocationUUID;
@@ -753,6 +755,20 @@ class AgentHandler {
 
     // Attach all required plugins for functions to operate.
     await this.#attachPlugins(args);
+
+    await this.#installAgentHarness();
+  }
+
+  async #installAgentHarness() {
+    const { buildOfferKpHarness } = require("../agentHarness");
+    this.harness = await buildOfferKpHarness({
+      aibitat: this.aibitat,
+      invocation: this.invocation,
+      log: (msg) => this.log(msg),
+    });
+    this.log(
+      `Agent harness ready: ${this.harness.listBlocks().join(", ")}`
+    );
   }
 
   /**
@@ -773,7 +789,9 @@ class AgentHandler {
 
   async startAgentCluster() {
     const stripped = this.#stripAgentCommand(this.invocation.prompt);
-    const { enrichUserPromptWithShopCatalog } = require("../offerKp/catalogPrompt");
+    const {
+      enrichUserPromptWithShopCatalog,
+    } = require("../offerKp/catalogPrompt");
     const content = await enrichUserPromptWithShopCatalog(stripped, {
       workspace: this.invocation.workspace,
       userId: this.invocation.user_id ?? null,

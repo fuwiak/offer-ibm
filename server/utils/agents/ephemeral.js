@@ -16,7 +16,9 @@ const {
   agentSkillsFromSystemSettings,
 } = require("./defaults");
 const { AgentHandler } = require(".");
-const { resolveLlmProviderWithFallback } = require("../offerKpApp/resolveLlmProvider");
+const {
+  resolveLlmProviderWithFallback,
+} = require("../offerKpApp/resolveLlmProvider");
 const {
   WorkspaceAgentInvocation,
 } = require("../../models/workspaceAgentInvocation");
@@ -494,11 +496,28 @@ class EphemeralAgentHandler extends AgentHandler {
 
     // Attach all required plugins for functions to operate.
     await this.#attachPlugins(args);
+
+    const { buildOfferKpHarness } = require("../agentHarness");
+    this.harness = await buildOfferKpHarness({
+      aibitat: this.aibitat,
+      invocation: {
+        workspace: this.#workspace,
+        workspace_id: this.#workspace?.id ?? null,
+        user_id: this.#userId ?? null,
+        thread_id: this.#threadId ?? null,
+      },
+      log: (msg) => this.log(msg),
+    });
+    this.log(
+      `Agent harness ready: ${this.harness.listBlocks().join(", ")}`
+    );
   }
 
   async startAgentCluster() {
     const stripped = this.#stripAgentCommand(this.#prompt);
-    const { enrichUserPromptWithShopCatalog } = require("../offerKp/catalogPrompt");
+    const {
+      enrichUserPromptWithShopCatalog,
+    } = require("../offerKp/catalogPrompt");
     const content = await enrichUserPromptWithShopCatalog(stripped, {
       workspace: this.#workspace,
       userId: this.#userId ?? null,
