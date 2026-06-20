@@ -304,6 +304,36 @@ const WorkspaceParsedFiles = {
     }
   },
 
+  /**
+   * Привязывает распознанные файлы к треду (например после создания треда с Home).
+   * @returns {Promise<number>} количество обновлённых записей
+   */
+  assignToThread: async function ({
+    fileIds = [],
+    workspaceId,
+    threadId,
+    userId = null,
+  }) {
+    const ids = [...new Set(fileIds.map((id) => parseInt(id, 10)).filter(Boolean))];
+    if (!ids.length || !workspaceId || !threadId) return 0;
+
+    try {
+      const result = await prisma.workspace_parsed_files.updateMany({
+        where: {
+          id: { in: ids },
+          workspaceId: parseInt(workspaceId),
+          threadId: null,
+          ...(userId ? { userId: parseInt(userId) } : {}),
+        },
+        data: { threadId: parseInt(threadId) },
+      });
+      return result.count || 0;
+    } catch (error) {
+      console.error("Failed to assign parsed files to thread:", error.message);
+      return 0;
+    }
+  },
+
   getContextFiles: async function (workspace, thread = null, user = null) {
     try {
       const files = await this.where({
@@ -330,6 +360,7 @@ const WorkspaceParsedFiles = {
 
         results.push({
           pageContent: data.pageContent,
+          title: file.filename?.replace(/-\d+\.json$/i, "") || metadata.title,
           token_count_estimate: file.tokenCountEstimate,
           ...metadata,
         });

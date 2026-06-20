@@ -123,11 +123,22 @@ async function streamChatWithWorkspace(
     messageLimit,
   });
 
+  // Inject parsed files early — shop enrich and КП matching need PDF text.
+  const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
+    workspace,
+    thread || null,
+    user || null
+  );
+  const parsedFileTexts = parsedFiles
+    .map((doc) => doc.pageContent)
+    .filter(Boolean);
+
   const shopEnrichPromise = collectExternalContexts({
     message: updatedMessage,
     workspace,
     language,
     chatHistory: rawHistory,
+    parsedFileTexts,
   });
 
   // Look for pinned documents
@@ -155,18 +166,15 @@ async function streamChatWithWorkspace(
       });
     });
 
-  // Inject any parsed files for this workspace/thread/user
-  const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
-    workspace,
-    thread || null,
-    user || null
-  );
   parsedFiles.forEach((doc) => {
-    const { pageContent, ...metadata } = doc;
-    contextTexts.push(doc.pageContent);
+    const { pageContent, title, ...metadata } = doc;
+    const docName = title || metadata?.source || "Прикреплённый документ";
+    const labeled = `=== ПРИКРЕПЛЁННЫЙ ДОКУМЕНТ: ${docName} ===\n${pageContent}\n=== КОНЕЦ ДОКУМЕНТА ===`;
+    contextTexts.push(labeled);
     sources.push({
       text:
         pageContent.slice(0, 1_000) + "...continued on in source document...",
+      title: docName,
       ...metadata,
     });
   });
@@ -373,6 +381,7 @@ async function streamChatWithWorkspace(
         catalogBlocks: llmCatalog.catalogBlocks || [],
         workspace,
         chatHistory: rawHistory,
+        parsedFileTexts,
       });
     } catch (e) {
       console.error("[offerKp] auto quote artifacts:", e?.message || e);

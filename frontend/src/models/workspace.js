@@ -374,6 +374,20 @@ const Workspace = {
     const data = await response.json();
     return data;
   },
+
+  assignParsedFilesToThread: async function (slug, threadSlug, fileIds = []) {
+    const response = await fetch(
+      `${API_BASE}/workspace/${slug}/parsed-files/assign-thread`,
+      {
+        method: "POST",
+        headers: baseHeaders(),
+        body: JSON.stringify({ threadSlug, fileIds }),
+      }
+    );
+    const data = await response.json();
+    return { response, data };
+  },
+
   getParsedFilePreview: async function (
     slug,
     fileId,

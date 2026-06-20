@@ -8,6 +8,7 @@ import PromptInput, {
 } from "@/components/WorkspaceChat/ChatContainer/PromptInput";
 import DnDFileUploaderWrapper, {
   DndUploaderContext,
+  DnDFileUploaderProvider,
   PASTE_ATTACHMENT_EVENT,
 } from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { useTranslation } from "react-i18next";
@@ -30,7 +31,6 @@ import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import {
   submitDraftFromHome,
-  openThread,
 } from "@/utils/offerKp/conversationNav";
 import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
 import TextSizeMenu from "@/components/WorkspaceChat/ChatContainer/TextSizeMenu";
@@ -74,7 +74,6 @@ export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversationEpoch, setConversationEpoch] = useState(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
-  const [dragging, setDragging] = useState(false);
 
   const resetConversation = () => {
     setConversationEpoch((n) => n + 1);
@@ -154,44 +153,23 @@ export default function Home() {
 
   useEffect(() => {
     async function handlePaste(e) {
-      const files = e.detail?.files;
-      if (!files?.length) return;
+      const pasted = e.detail?.files;
+      if (!pasted?.length) return;
 
       let ws = workspace;
       if (!ws) {
-        ws = await createDefaultWorkspace(t("new-workspace.placeholder"));
+        ws = shouldUseOfferKpLayout({ pathname })
+          ? await resolvePartnerWorkspace(t("new-workspace.placeholder"))
+          : await createDefaultWorkspace(t("new-workspace.placeholder"));
         if (!ws) return;
         setWorkspace(ws);
-      }
-      const { thread } = await Workspace.threads.new(ws.slug);
-      if (thread?.slug) {
-        openThread(navigate, ws.slug, thread.slug, { pathname });
       }
     }
 
     window.addEventListener(PASTE_ATTACHMENT_EVENT, handlePaste);
     return () =>
       window.removeEventListener(PASTE_ATTACHMENT_EVENT, handlePaste);
-  }, [workspace, navigate, pathname, t]);
-
-  async function handleDropWithoutWorkspace(_acceptedFiles) {
-    setDragging(false);
-    let ws = await createDefaultWorkspace(t("new-workspace.placeholder"));
-    if (!ws) return;
-    setWorkspace(ws);
-    const { thread } = await Workspace.threads.new(ws.slug);
-    if (thread?.slug) {
-      openThread(navigate, ws.slug, thread.slug, { pathname });
-    }
-  }
-
-  async function handleDropWithWorkspace(_acceptedFiles) {
-    setDragging(false);
-    const { thread } = await Workspace.threads.new(workspace.slug);
-    if (thread?.slug) {
-      openThread(navigate, workspace.slug, thread.slug, { pathname });
-    }
-  }
+  }, [workspace, pathname, t]);
 
   if (workspaceLoading) {
     return (
@@ -205,25 +183,20 @@ export default function Home() {
     return <NoWorkspacesAssigned />;
   }
 
-  return (
-    <DndUploaderContext.Provider
-      value={{
-        files: [],
-        ready: true,
-        dragging,
-        setDragging,
-        onDrop: workspace
-          ? handleDropWithWorkspace
-          : handleDropWithoutWorkspace,
-        parseAttachments: () => [],
-      }}
-    >
+  return workspace ? (
+    <DnDFileUploaderProvider workspace={workspace} threadSlug={null}>
       <HomeContent
         key={`home-${conversationEpoch}`}
         workspace={workspace}
         setWorkspace={setWorkspace}
       />
-    </DndUploaderContext.Provider>
+    </DnDFileUploaderProvider>
+  ) : (
+    <HomeContent
+      key={`home-${conversationEpoch}`}
+      workspace={workspace}
+      setWorkspace={setWorkspace}
+    />
   );
 }
 
@@ -285,6 +258,18 @@ function HomeContent({ workspace, setWorkspace }) {
       if (!thread?.slug) {
         setLoading(false);
         return;
+      }
+
+      const parsedFileIds = (files || [])
+        .filter((f) => f.document?.id && f.status === "added_context")
+        .map((f) => f.document.id);
+
+      if (parsedFileIds.length) {
+        await Workspace.assignParsedFilesToThread(
+          targetWorkspace.slug,
+          thread.slug,
+          parsedFileIds
+        );
       }
 
       localStorage.setItem(

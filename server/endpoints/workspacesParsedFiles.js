@@ -114,6 +114,49 @@ function workspaceParsedFilesEndpoints(app) {
   );
 
   app.post(
+    "/workspace/:slug/parsed-files/assign-thread",
+    [validatedRequest, flexUserRoleValid([ROLES.all]), validWorkspaceSlug],
+    async function (request, response) {
+      try {
+        const { fileIds = [], threadSlug = null } = reqBody(request);
+        if (!Array.isArray(fileIds) || !fileIds.length || !threadSlug) {
+          return response.status(400).json({
+            success: false,
+            error: "fileIds and threadSlug are required",
+          });
+        }
+
+        const user = await userFromSession(request, response);
+        const workspace = response.locals.workspace;
+        const thread = await WorkspaceThread.get({
+          slug: String(threadSlug),
+          workspace_id: workspace.id,
+          ...(user ? { user_id: user.id } : {}),
+        });
+
+        if (!thread) {
+          return response.status(404).json({
+            success: false,
+            error: "Thread not found",
+          });
+        }
+
+        const assigned = await WorkspaceParsedFiles.assignToThread({
+          fileIds,
+          workspaceId: workspace.id,
+          threadId: thread.id,
+          userId: user?.id || null,
+        });
+
+        return response.status(200).json({ success: true, assigned });
+      } catch (e) {
+        console.error(e.message, e);
+        return response.sendStatus(500).end();
+      }
+    }
+  );
+
+  app.post(
     "/workspace/:slug/embed-parsed-file/:fileId",
     [
       validatedRequest,

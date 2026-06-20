@@ -158,14 +158,19 @@ function collectPriorHardwareContext(history, maxMessages = 5) {
  */
 function buildProductSearchText(message, options = {}) {
   let text = String(message || "").trim();
+  const parsedTexts = (options.parsedFileTexts || []).filter(Boolean);
+  if (parsedTexts.length) {
+    text = `${parsedTexts.join("\n\n")}\n${text}`.trim();
+  }
   const history = options.chatHistory || options.history || [];
   const skuCodes = extractSkuCodes(text);
 
   const needsHistory =
-    isPriceOnlyQuery(text) ||
-    (skuCodes.length && isSkuOnlyQuery(text, skuCodes)) ||
-    isCatalogRelayRequest(text) ||
-    isOfferFollowUp(text);
+    isPriceOnlyQuery(String(message || "").trim()) ||
+    (skuCodes.length && isSkuOnlyQuery(String(message || "").trim(), skuCodes)) ||
+    isCatalogRelayRequest(String(message || "").trim()) ||
+    isOfferFollowUp(String(message || "").trim()) ||
+    (parsedTexts.length && isOfferFollowUp(text));
 
   if (needsHistory) {
     const prior = collectPriorHardwareContext(history);

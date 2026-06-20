@@ -154,6 +154,7 @@ async function collectExternalContexts({
   timeoutMs,
   language = null,
   chatHistory = null,
+  parsedFileTexts = null,
 }) {
   const shopEnabledFn = await loadOptional(
     "../offerKp/enrich",
@@ -167,6 +168,7 @@ async function collectExternalContexts({
         workspace,
         maxDocs: 5,
         chatHistory,
+        parsedFileTexts,
       });
       return [
         {

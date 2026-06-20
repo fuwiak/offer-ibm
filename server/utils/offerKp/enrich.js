@@ -52,15 +52,19 @@ function shopDbEnrichEnabled() {
 }
 
 function shouldRunShopEnrich(message, options = {}) {
-  const text = String(message || "").trim();
-  if (!text) return false;
+  const parsedTexts = (options.parsedFileTexts || []).filter(Boolean);
+  const combined = [parsedTexts.join("\n"), String(message || "").trim()]
+    .filter(Boolean)
+    .join("\n");
+  if (!combined) return false;
 
   const searchText = buildProductSearchText(message, options);
   if (hasHardwareSignals(searchText)) return true;
-  if (extractSkuCodes(text).length) return true;
-  if (isPriceOnlyQuery(text)) return true;
-  if (isCatalogRelayRequest(text)) return true;
-  if (isOfferFollowUp(text)) return true;
+  if (extractSkuCodes(combined).length) return true;
+  if (isPriceOnlyQuery(String(message || "").trim())) return true;
+  if (isCatalogRelayRequest(String(message || "").trim())) return true;
+  if (isOfferFollowUp(String(message || "").trim())) return true;
+  if (parsedTexts.length && isOfferFollowUp(combined)) return true;
 
   return false;
 }

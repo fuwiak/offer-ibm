@@ -157,12 +157,22 @@ async function emitAutoQuoteArtifacts({
   catalogBlocks = [],
   workspace = null,
   chatHistory = null,
+  parsedFileTexts = [],
 }) {
-  if (!wantsFileCreation(message) && !hasInquirySignals(message)) return false;
+  const inquirySource = [message, ...(parsedFileTexts || [])]
+    .filter(Boolean)
+    .join("\n\n");
+
+  if (
+    !wantsFileCreation(message) &&
+    !hasInquirySignals(inquirySource || message)
+  ) {
+    return false;
+  }
 
   let draft = null;
   try {
-    draft = await matchInquiryToDraft(message, { workspace, chatHistory });
+    draft = await matchInquiryToDraft(inquirySource, { workspace, chatHistory });
   } catch (e) {
     console.error("[offerKp] matchInquiryToDraft:", e.message);
   }
