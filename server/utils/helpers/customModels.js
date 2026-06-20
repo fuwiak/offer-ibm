@@ -2,6 +2,7 @@ const { fetchOpenRouterModels } = require("../AiProviders/openRouter");
 const {
   OFFER_KP_ALLOWED_MODELS,
   filterOfferKpModels,
+  mergeLmStudioRemoteModels,
 } = require("../../config/offerKp.models");
 const {
   fetchOpenRouterEmbeddingModels,
@@ -253,9 +254,7 @@ async function openAiModels(apiKey = null) {
 }
 
 async function anthropicModels(_apiKey = null) {
-  const {
-    resolveAnthropicApiKey,
-  } = require("../offerKpApp/anthropicEnv");
+  const { resolveAnthropicApiKey } = require("../offerKpApp/anthropicEnv");
   const apiKey =
     _apiKey === true
       ? resolveAnthropicApiKey()
@@ -385,21 +384,32 @@ async function getLMStudioModels(basePath = null, _apiKey = null) {
 }
 
 async function getOfferKpLMStudioModels(basePath = null, apiKey = null) {
-  const remote = await getLMStudioModels(basePath, apiKey);
-  const allowed = filterOfferKpModels(remote.models || []);
-  if (allowed.length > 0) {
-    offerKpLog("info", "LM Studio models filtered for OfferKP", {
-      remote: remote.models?.length || 0,
-      allowed: allowed.length,
+  const {
+    fetchLmStudioModelCatalog,
+    isLmStudioChatModelId,
+  } = require("../offerKpApp/lmStudioModels");
+
+  const catalog = await fetchLmStudioModelCatalog({ basePath, apiKey });
+  const chatRows = (catalog.models || []).filter((m) =>
+    isLmStudioChatModelId(m?.id)
+  );
+  const merged = mergeLmStudioRemoteModels(chatRows);
+
+  if (merged.length > 0) {
+    offerKpLog("info", "LM Studio models for OfferKP (live catalog)", {
+      basePath: basePath || process.env.LMSTUDIO_BASE_PATH,
+      remote: chatRows.length,
+      merged: merged.length,
+      ids: merged.map((m) => m.id),
     });
-    return { models: allowed, error: remote.error };
+    return { models: merged, error: null };
   }
 
   const fallback = OFFER_KP_ALLOWED_MODELS.filter(
     (m) => m.provider === "lmstudio"
   );
-  offerKpLog("warn", "Using static LM Studio model list", {
-    reason: remote.error || "no allowed remote models",
+  offerKpLog("warn", "Using static LM Studio model fallback", {
+    reason: "LM Studio /v1/models returned no chat models",
     count: fallback.length,
   });
   return { models: fallback, error: null };

@@ -13,17 +13,18 @@ import showToast from "@/utils/toast";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
+import System from "@/models/system";
 import {
   OFFER_KP_LOCAL_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   resolveOfferKpModel,
   findOfferKpModel,
+  mergeLmStudioRemoteModels,
+  isLmStudioChatModelId,
 } from "@/utils/offerKp/models";
 
-function resolveLocalPickerModel(modelId) {
-  const id = resolveOfferKpModel(modelId);
-  if (OFFER_KP_LOCAL_MODELS.some((m) => m.id === id)) return id;
-  return OFFER_KP_DEFAULT_MODEL;
+function resolveLocalPickerModel(modelId, availableModels = OFFER_KP_LOCAL_MODELS) {
+  return resolveOfferKpModel(modelId, availableModels);
 }
 
 export default function OfferKpAnthropicModelPicker({
@@ -33,6 +34,7 @@ export default function OfferKpAnthropicModelPicker({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_MODEL);
+  const [availableModels, setAvailableModels] = useState(OFFER_KP_LOCAL_MODELS);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => window.localStorage.getItem("offerKp_sidebar_toggle") !== "closed"
@@ -78,19 +80,34 @@ export default function OfferKpAnthropicModelPicker({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [open]);
 
+  useEffect(() => {
+    let cancelled = false;
+    System.customModels("lmstudio", null, null, 8000)
+      .then(({ models = [] }) => {
+        if (cancelled) return;
+        const chatOnly = models.filter((m) => isLmStudioChatModelId(m?.id || m));
+        const merged = mergeLmStudioRemoteModels(chatOnly, OFFER_KP_LOCAL_MODELS);
+        if (merged.length) setAvailableModels(merged);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!workspaceSlug) return;
 
     const ws = await Workspace.bySlug(workspaceSlug);
     if (!ws) return;
 
-    const localModel = resolveLocalPickerModel(ws.chatModel);
+    const localModel = resolveLocalPickerModel(ws.chatModel, availableModels);
     setSelectedModel(localModel);
 
+    const modelKnown = availableModels.some((m) => m.id === ws.chatModel);
     const needsSync =
       ws.chatProvider !== "lmstudio" ||
-      ws.chatModel !== localModel ||
-      !OFFER_KP_LOCAL_MODELS.some((m) => m.id === ws.chatModel);
+      (ws.chatModel !== localModel && !modelKnown);
 
     if (needsSync) {
       const { workspace: synced } = await Workspace.update(workspaceSlug, {
@@ -98,10 +115,12 @@ export default function OfferKpAnthropicModelPicker({
         chatModel: localModel,
       }).catch(() => ({ workspace: null }));
       if (synced?.chatModel) {
-        setSelectedModel(resolveLocalPickerModel(synced.chatModel));
+        setSelectedModel(
+          resolveLocalPickerModel(synced.chatModel, availableModels)
+        );
       }
     }
-  }, [workspaceSlug]);
+  }, [workspaceSlug, availableModels]);
 
   useEffect(() => {
     refresh();
@@ -125,7 +144,7 @@ export default function OfferKpAnthropicModelPicker({
       setOpen(false);
       return;
     }
-    const meta = findOfferKpModel(modelId);
+    const meta = findOfferKpModel(modelId, availableModels);
     const previousModel = selectedModel;
     setSelectedModel(modelId);
     setSaving(true);
@@ -139,7 +158,10 @@ export default function OfferKpAnthropicModelPicker({
       );
       if (message) throw new Error(message);
       setSelectedModel(
-        resolveLocalPickerModel(updatedWorkspace?.chatModel || modelId)
+        resolveLocalPickerModel(
+          updatedWorkspace?.chatModel || modelId,
+          availableModels
+        )
       );
       window.dispatchEvent(new Event(SAVE_LLM_SELECTOR_EVENT));
       setOpen(false);
@@ -153,7 +175,8 @@ export default function OfferKpAnthropicModelPicker({
     }
   }
 
-  const displayName = findOfferKpModel(selectedModel)?.name || selectedModel;
+  const displayName =
+    findOfferKpModel(selectedModel, availableModels)?.name || selectedModel;
 
   const menu =
     open &&
@@ -170,7 +193,7 @@ export default function OfferKpAnthropicModelPicker({
         }}
         className="max-h-[320px] overflow-y-auto bg-zinc-800 light:bg-white border border-zinc-700 light:border-slate-300 rounded-lg shadow-lg py-1 z-[10000]"
       >
-        {OFFER_KP_LOCAL_MODELS.map((model) => (
+        {availableModels.map((model) => (
           <li
             key={model.id}
             role="option"
