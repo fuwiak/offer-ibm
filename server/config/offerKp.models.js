@@ -24,16 +24,16 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
 const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
-const OFFER_KP_LOCAL_MODELS = Object.entries(OFFER_KP_MODEL_DISPLAY_OVERRIDES).map(
-  ([id, meta]) => ({
-    id,
-    name: meta.name,
-    provider: "lmstudio",
-    group: "local",
-    usage: "chat",
-    hint: meta.hint,
-  })
-);
+const OFFER_KP_LOCAL_MODELS = Object.entries(
+  OFFER_KP_MODEL_DISPLAY_OVERRIDES
+).map(([id, meta]) => ({
+  id,
+  name: meta.name,
+  provider: "lmstudio",
+  group: "local",
+  usage: "chat",
+  hint: meta.hint,
+}));
 
 const OFFER_KP_MODEL_GROUPS = [
   {
