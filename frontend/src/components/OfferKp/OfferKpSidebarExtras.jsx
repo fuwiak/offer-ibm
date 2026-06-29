@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import OfferKpPartnerNav from "@/components/OfferKp/OfferKpPartnerNav";
 import SidebarPrefsDock from "@/components/SidebarPrefsDock";

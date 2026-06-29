@@ -89,6 +89,9 @@ const TRANSLATIONS = {
     fr: "FR",
     kk: "KK",
   },
+  prefs: {
+    language: "Язык",
+  },
   conversations: {
     empty: "Нет доступных рабочих пространств для диалогов.",
   },

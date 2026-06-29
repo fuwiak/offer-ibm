@@ -15,6 +15,7 @@ import SettingsButton from "../SettingsButton";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { isMobile } from "react-device-detect";
 import { Tooltip } from "react-tooltip";
+import { useTranslation } from "react-i18next";
 
 export const MAX_ICONS = 3;
 export const ICON_COMPONENTS = {
@@ -30,6 +31,7 @@ export const ICON_COMPONENTS = {
 };
 
 export default function Footer() {
+  const { t } = useTranslation();
   const [footerData, setFooterData] = useState(false);
 
   useEffect(() => {
@@ -40,51 +42,47 @@ export default function Footer() {
     fetchFooterData();
   }, []);
 
-  // wait for some kind of non-false response from footer data first
-  // to prevent pop-in.
   if (footerData === false) return null;
 
-  if (!Array.isArray(footerData) || footerData.length === 0) {
-    return (
-      <div className="flex justify-center px-1 pb-1">
-        <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-          <ThemeSwitcher className="max-w-full" />
-          {!isMobile && <SettingsButton />}
-        </div>
-        <Tooltip
-          id="footer-item"
-          place="top"
-          delayShow={300}
-          className="tooltip !text-xs z-99"
-        />
-      </div>
-    );
-  }
+  const links = Array.isArray(footerData) ? footerData : [];
+  const hasLinks = links.length > 0;
+  const showSettings = !isMobile;
 
   return (
-    <div className="flex justify-center px-1 pb-1">
-      <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-        <ThemeSwitcher className="max-w-full" />
-        {footerData.map((item, index) => (
-          <a
-            key={index}
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="transition-all duration-300 flex w-fit h-fit p-2 p-2 rounded-full bg-theme-sidebar-footer-icon hover:bg-theme-sidebar-footer-icon-hover hover:border-slate-100"
-          >
-            {React.createElement(
-              ICON_COMPONENTS?.[item.icon] ?? ICON_COMPONENTS.Info,
-              {
-                weight: "fill",
-                className: "h-5 w-5",
-                color: "var(--theme-sidebar-footer-icon-fill)",
-              }
-            )}
-          </a>
-        ))}
-        {!isMobile && <SettingsButton />}
+    <div className="app-sidebar-footer">
+      <div className="app-sidebar-footer__prefs">
+        <span className="offerKp-sidebar-prefs__label">
+          {t("customization.items.theme.title")}
+        </span>
+        <ThemeSwitcher className="offerKp-sidebar-prefs__control" />
       </div>
+
+      {(hasLinks || showSettings) && (
+        <div className="app-sidebar-footer__actions">
+          {links.map((item, index) => (
+            <a
+              key={index}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="app-sidebar-footer__icon-btn carbon-allow-round"
+              data-tooltip-id="footer-item"
+              data-tooltip-content={item.url}
+            >
+              {React.createElement(
+                ICON_COMPONENTS?.[item.icon] ?? ICON_COMPONENTS.Info,
+                {
+                  weight: "fill",
+                  className: "h-4 w-4",
+                  color: "var(--theme-sidebar-footer-icon-fill)",
+                }
+              )}
+            </a>
+          ))}
+          {showSettings && <SettingsButton />}
+        </div>
+      )}
+
       <Tooltip
         id="footer-item"
         place="top"

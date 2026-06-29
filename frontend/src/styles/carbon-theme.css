@@ -11,6 +11,7 @@
   overflow: hidden;
   border: 1px solid var(--theme-sidebar-border);
   border-radius: 8px;
+  background: var(--theme-bg-sidebar);
 }
 
 .cursor-segmented-control__btn {
@@ -18,9 +19,9 @@
   flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
-  background: var(--theme-bg-sidebar);
+  background: transparent;
   border: none;
   border-right: 1px solid var(--theme-sidebar-border);
   color: var(--theme-text-secondary);
@@ -29,9 +30,11 @@
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
-  min-height: 32px;
-  padding: 0 6px;
-  transition: background 0.15s ease, color 0.15s ease;
+  min-height: 34px;
+  padding: 0 8px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .cursor-segmented-control__btn:last-child {
@@ -45,10 +48,18 @@
 
 .cursor-segmented-control__btn:hover:not(.cursor-segmented-control__btn--active) {
   background: var(--theme-sidebar-item-hover);
+  color: var(--theme-text-primary);
+}
+
+.cursor-segmented-control__btn:focus-visible {
+  outline: 2px solid var(--theme-text-primary);
+  outline-offset: -2px;
+  z-index: 1;
 }
 
 .cursor-segmented-control--labeled .cursor-segmented-control__btn {
-  padding: 0 10px;
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .cursor-segmented-control__label {
@@ -62,15 +73,17 @@
 
 .cursor-segmented-control--lang .cursor-segmented-control__label {
   font-size: 10px;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
-/* Sidebar footer dock (Claude Code–style prefs) */
+/* Sidebar footer dock */
 .offerKp-sidebar-footer {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 4px 4px;
+  gap: 0;
+  padding: 0;
+  margin-top: auto;
   border-top: 1px solid var(--theme-sidebar-border);
   background: var(--theme-bg-sidebar);
 }
@@ -78,21 +91,115 @@
 .offerKp-sidebar-footer__nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   min-width: 0;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--theme-sidebar-border);
 }
 
 .offerKp-sidebar-prefs {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 6px 8px;
+}
+
+.offerKp-sidebar-prefs__group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.offerKp-sidebar-prefs__label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-text-secondary);
+  line-height: 1.2;
+  padding-left: 2px;
+}
+
+.offerKp-sidebar-prefs__control {
   width: 100%;
   min-width: 0;
 }
 
-.offerKp-sidebar-prefs__row {
+/* Generic app sidebar footer (non-OfferKP workspaces) */
+.app-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
+  padding: 10px 8px 8px;
+}
+
+.app-sidebar-footer__prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   min-width: 0;
+}
+
+.app-sidebar-footer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 2px;
+  border-top: 1px solid var(--theme-sidebar-border);
+}
+
+.app-sidebar-footer__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--theme-sidebar-footer-icon);
+  transition: background 0.15s ease;
+}
+
+.app-sidebar-footer__icon-btn:hover {
+  background: var(--theme-sidebar-footer-icon-hover);
+}
+
+/* Settings page prefs panel */
+.prefs-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--theme-sidebar-border);
+}
+
+.prefs-settings-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prefs-settings-panel__title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--theme-text-primary);
+}
+
+.prefs-settings-panel__description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--theme-text-secondary);
+}
+
+.prefs-settings-panel__control {
+  max-width: 320px;
 }
 
 /* ── IBM Modern polish tokens ── */
@@ -174,6 +281,11 @@ html:not([data-theme="light"]) .offerKp-btn-new-chat:hover {
 [data-theme="dark"] .cursor-segmented-control__btn--active {
   background: #ffffff;
   color: #000000;
+}
+
+[data-theme="light"] .cursor-segmented-control__btn--active {
+  background: #161616;
+  color: #ffffff;
 }
 
 [data-theme="dark"] [data-offerKp-profile] .offerKp-sidebar-shell {

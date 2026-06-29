@@ -1,8 +1,10 @@
 import useUser from "@/hooks/useUser";
 import paths from "@/utils/paths";
 import { ArrowUUpLeft, Wrench } from "@phosphor-icons/react";
-import { Link } from "react-router-dom";
-import { useMatch } from "react-router-dom";
+import { Link, useMatch } from "react-router-dom";
+
+const iconBtnClass =
+  "app-sidebar-footer__icon-btn carbon-allow-round transition-colors duration-150";
 
 export default function SettingsButton() {
   const isInSettings = !!useMatch("/settings/*");
@@ -10,38 +12,37 @@ export default function SettingsButton() {
 
   if (!user || user?.role !== "admin") return null;
 
-  if (isInSettings)
+  if (isInSettings) {
     return (
-      <div className="flex w-fit">
-        <Link
-          to={paths.home()}
-          className="transition-all duration-300 p-2 rounded-full bg-theme-sidebar-footer-icon hover:bg-theme-sidebar-footer-icon-hover"
-          aria-label="Home"
-          data-tooltip-id="footer-item"
-          data-tooltip-content="Back to workspaces"
-        >
-          <ArrowUUpLeft
-            className="h-5 w-5 text-white light:text-slate-800"
-            weight="fill"
-          />
-        </Link>
-      </div>
-    );
-
-  return (
-    <div className="flex w-fit">
       <Link
-        to={paths.settings.interface()}
-        className="transition-all duration-300 p-2 rounded-full bg-theme-sidebar-footer-icon hover:bg-theme-sidebar-footer-icon-hover"
-        aria-label="Settings"
+        to={paths.home()}
+        className={iconBtnClass}
+        aria-label="Home"
         data-tooltip-id="footer-item"
-        data-tooltip-content="Open settings"
+        data-tooltip-content="Back to workspaces"
       >
-        <Wrench
-          className="h-5 w-5 text-white light:text-slate-800"
+        <ArrowUUpLeft
+          className="h-4 w-4"
           weight="fill"
+          color="var(--theme-sidebar-footer-icon-fill)"
         />
       </Link>
-    </div>
+    );
+  }
+
+  return (
+    <Link
+      to={paths.settings.interface()}
+      className={iconBtnClass}
+      aria-label="Settings"
+      data-tooltip-id="footer-item"
+      data-tooltip-content="Open settings"
+    >
+      <Wrench
+        className="h-4 w-4"
+        weight="fill"
+        color="var(--theme-sidebar-footer-icon-fill)"
+      />
+    </Link>
   );
 }
