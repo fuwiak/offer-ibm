@@ -43,6 +43,41 @@ function scoreText(text) {
   return { words, garbageRatio, isGood, isAcceptable };
 }
 
+// ─── PDF strategy groups (OCR first for scans) ────────────────────────────────
+
+const OCR_STRATEGY_NAMES = new Set([
+  "pdftoppm-native",
+  "tesseract-rus+eng",
+  "tesseract-eng",
+  "tesseract-env-langs",
+  "tesseract-legacy-oem",
+  "high-dpi-ocr",
+]);
+
+function partitionPdfStrategies() {
+  const ocr = [];
+  const text = [];
+  for (const strategy of PDF_STRATEGIES) {
+    if (OCR_STRATEGY_NAMES.has(strategy.name)) ocr.push(strategy);
+    else text.push(strategy);
+  }
+  return { ocr, text };
+}
+
+async function probePdfTextLayer(filePath) {
+  try {
+    const PDFLoader = require("../../processSingleFile/convert/asPDF/PDFLoader");
+    const loader = new PDFLoader(filePath, { splitPages: true });
+    const docs = await loader.load();
+    return {
+      text: docs.map((d) => d.pageContent || "").join("\n"),
+      pageCount: docs.length || 1,
+    };
+  } catch {
+    return { text: "", pageCount: 1 };
+  }
+}
+
 // ─── PDF strategies ───────────────────────────────────────────────────────────
 const PDF_STRATEGIES = [
   // ── 1. pdfjs standard text extraction ──────────────────────────────────────
@@ -533,11 +568,22 @@ class SmartOCRAgent {
 
   /**
    * Extract text from a PDF using the ordered fallback chain.
+   * Scans (low-quality / empty text layer) → OCR strategies first.
    * @param {string} filePath
    * @returns {Promise<{ text: string, strategyUsed: string, score: object }|null>}
    */
   async processPDF(filePath) {
-    return this._runStrategies(PDF_STRATEGIES, filePath, "PDF");
+    const { shouldOcrInsteadOfPdfText } = require("../../processSingleFile/convert/asPDF/pdfTextQuality");
+    const probe = await probePdfTextLayer(filePath);
+    const needsOcr =
+      !probe.text.trim() ||
+      shouldOcrInsteadOfPdfText(probe.text, probe.pageCount);
+    const { ocr, text } = partitionPdfStrategies();
+    const strategies = needsOcr ? [...ocr, ...text] : [...text, ...ocr];
+    this._log(
+      `PDF probe needsOcr=${needsOcr} — order: ${strategies.map((s) => s.name).join(" → ")}`
+    );
+    return this._runStrategies(strategies, filePath, "PDF");
   }
 
   /**

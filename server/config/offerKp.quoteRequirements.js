@@ -24,6 +24,12 @@ const OFFER_KP_MANDATORY_REQUIREMENTS = Object.freeze([
     hint: "Запрещены [цена], «уточните», TBD — только цифры из [Каталог · purolat.com].",
   },
   {
+    id: "invalid-quantity",
+    severity: "error",
+    description: "Количество в каждой строке — положительное число из PDF-заявки.",
+    hint: "Возьми кол-во из прикреплённого PDF (не 0 и не пусто); цену — из [Каталог · purolat.com].",
+  },
+  {
     id: "no-formula-sums",
     severity: "error",
     description: "Сумма строки — готовое число, не формула Excel.",

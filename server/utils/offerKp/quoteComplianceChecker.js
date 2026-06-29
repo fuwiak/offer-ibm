@@ -50,7 +50,7 @@ function cellLooksLikeFormula(value = "") {
 }
 
 function cellHasPricePlaceholder(value = "") {
-  return /\[цена\]|\[price\]|\[cena\]|уточните|do uzupełnienia|\bTBD\b/i.test(
+  return /\[цена\]|\[price\]|\[cena\]|\bуточните\b|do uzupełnienia|\bTBD\b/i.test(
     String(value || "")
   );
 }
@@ -95,14 +95,6 @@ function checkQuoteCompliance({ content = "" } = {}) {
       id: "no-empty-template",
       message: reqById["no-empty-template"].description,
       hint: reqById["no-empty-template"].hint,
-    });
-  }
-
-  if (cellHasPricePlaceholder(text)) {
-    violations.push({
-      id: "numeric-prices",
-      message: reqById["numeric-prices"].description,
-      hint: reqById["numeric-prices"].hint,
     });
   }
 
@@ -162,11 +154,20 @@ function checkQuoteCompliance({ content = "" } = {}) {
     const sumCell = String(row[sumIdx] || "").trim();
     const expected = multiplyLineTotal(qty, price);
 
-    if (!Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0) {
+    if (!Number.isFinite(price) || price <= 0) {
       pushOnce(violations, {
         id: "numeric-prices",
         message: reqById["numeric-prices"].description,
         hint: reqById["numeric-prices"].hint,
+      });
+      continue;
+    }
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      pushOnce(violations, {
+        id: "invalid-quantity",
+        message: reqById["invalid-quantity"].description,
+        hint: reqById["invalid-quantity"].hint,
       });
       continue;
     }

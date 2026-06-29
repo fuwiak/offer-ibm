@@ -35,9 +35,11 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     if (!isQuoteDocumentRequest(prompt)) return;
 
     harness.state.set("quoteDocumentRequest", true);
+    harness.state.set("catalogMaxDocs", 8);
     harness.state.set("contextGuidelines", [
       ...quoteDocumentAgentGuidelines(),
       ...layerGuidelines("constrain"),
+      "Количество по каждой позиции бери из прикреплённого PDF-файла в контексте; цену — из [Каталог · purolat.com]. Не ставь 0 в колонке «Кол-во», если в заявке указано число.",
     ]);
 
     harnessLog("info", "quoteDocument.trigger", {

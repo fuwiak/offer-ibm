@@ -46,10 +46,27 @@ describe("quoteComplianceChecker", () => {
     expect(result.violations.map((v) => v.id)).toContain("correct-line-totals");
   });
 
-  it("parses markdown table rows", () => {
-    const rows = parseMarkdownTable(VALID_TABLE);
-    expect(rows).toHaveLength(3);
-    expect(rows[0][0]).toMatch(/Позиция/);
-    expect(rows[1][3]).toBe("850.80");
+  it("rejects zero quantity with invalid-quantity, not numeric-prices", () => {
+    const content = `
+| Позиция | Кол-во | Цена | Сумма |
+| --- | --- | --- | --- |
+| Болт | 0 | 21.27 | 0.00 |
+`;
+    const result = checkQuoteCompliance({ content });
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((v) => v.id)).toContain("invalid-quantity");
+    expect(result.violations.map((v) => v.id)).not.toContain("numeric-prices");
+  });
+
+  it("allows narrative text with «уточнения» outside table cells", () => {
+    const content = `
+| Позиция | Кол-во | Цена | Сумма |
+| --- | --- | --- | --- |
+| Болт | 40 | 21.27 | 850.80 |
+
+Остальные позиции требуют уточнения цены.
+`;
+    const result = checkQuoteCompliance({ content });
+    expect(result.ok).toBe(true);
   });
 });

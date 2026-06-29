@@ -30,7 +30,7 @@ class BaseModelHarnessPreset {
 
   /** @returns {number} */
   catalogMaxDocs() {
-    return 2;
+    return 8;
   }
 
   /**

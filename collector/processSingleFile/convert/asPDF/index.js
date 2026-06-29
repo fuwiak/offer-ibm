@@ -110,25 +110,13 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
   const pageCount = docs.length;
   const report = textQualityReport(rawText, pageCount);
 
-  // ── Step 0: try opendataloader-pdf first (fast, high-quality reading order) ──
-  // It is optional (requires Java + the @opendataloader/pdf package); when it
-  // returns usable text we skip the heavier OCR pipeline entirely.
-  if (docs.length === 0 || report.needsOcr) {
-    const odl = await extractWithOpenDataLoader(fullFilePath);
-    if (odl && !shouldOcrInsteadOfPdfText(odl, 1)) {
-      console.log(`[asPDF] opendataloader-pdf produced usable text for ${filename}.`);
-      emit({ type: "stage", stage: "finalizing" });
-      return [{ pageContent: odl, metadata: { source: fullFilePath } }];
-    }
-  }
-
   if (docs.length === 0 || report.needsOcr) {
     console.log(
       `[asPDF] ${
         docs.length === 0 ? "No text layer" : "Low-quality text layer"
       } for ${filename} — ` +
-      `alnumRatio=${report.alnumRatio}, charsPerPage=${report.charsPerPage}. ` +
-      `Running OCR pipeline.`
+        `alnumRatio=${report.alnumRatio}, charsPerPage=${report.charsPerPage}. ` +
+        `Running OCR-first pipeline.`
     );
 
     const loader = new OCRLoader({ targetLanguages: options?.ocr?.langList });
@@ -136,9 +124,6 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
     const useNative = await loader.nativePipelineAvailable();
 
     if (useNative) {
-      // ── Reliable path: full-page render via pdftoppm + native tesseract. ────
-      // Probe the first pages and bail out early if they are unreadable so we
-      // do not waste minutes OCR-ing a broken/unreadable scan.
       emit({ type: "stage", stage: "ocr" });
       const probeDocs = await loader.ocrPDFNative(fullFilePath, {
         firstPage: 1,
@@ -162,7 +147,6 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
           totalPages,
         });
       } else {
-        // First pages are readable → OCR the remaining pages.
         let restDocs = [];
         if (!totalPages || totalPages > PROBE_PAGES) {
           restDocs = await loader.ocrPDFNative(fullFilePath, {
@@ -187,7 +171,6 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
         }
       }
     } else if (onProgress) {
-      // No native pipeline but caller wants live progress → tesseract.js stream.
       emit({ type: "stage", stage: "ocr" });
       docs = await loader.ocrPDF(fullFilePath, {
         maxExecutionTime: options?.ocr?.timeout ?? 300_000,
@@ -196,7 +179,6 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
           emit({ type: "page", pageNumber, totalPages: tp }),
       });
     } else {
-      // ── Fallback: SmartOCRAgent fast-path (stops on first good result) ──────
       const agent = new SmartOCRAgent({
         timeout: options?.ocr?.timeout ?? 300_000,
         stopOnFirstGood: true,
@@ -206,7 +188,7 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
       if (agentResult && agentResult.score.isAcceptable) {
         console.log(
           `[asPDF] SmartOCRAgent succeeded via "${agentResult.strategyUsed}" ` +
-          `(${agentResult.score.words} words).`
+            `(${agentResult.score.words} words).`
         );
         docs = [
           { pageContent: agentResult.text, metadata: { source: fullFilePath } },
@@ -221,10 +203,30 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
         });
       }
     }
+
+    // OpenDataLoader as fallback after OCR for scans
+    const ocrCombined = docs.map((d) => d.pageContent || "").join("\n");
+    if (!ocrCombined.trim() || shouldOcrInsteadOfPdfText(ocrCombined, docs.length || 1)) {
+      const odl = await extractWithOpenDataLoader(fullFilePath);
+      if (odl && !shouldOcrInsteadOfPdfText(odl, 1)) {
+        console.log(`[asPDF] opendataloader-pdf fallback for ${filename}.`);
+        emit({ type: "stage", stage: "finalizing" });
+        return [{ pageContent: odl, metadata: { source: fullFilePath } }];
+      }
+    }
+  } else {
+    // Digital PDF with good text layer — optional OpenDataLoader upgrade
+    const odl = await extractWithOpenDataLoader(fullFilePath);
+    if (odl && !shouldOcrInsteadOfPdfText(odl, 1)) {
+      console.log(`[asPDF] opendataloader-pdf produced usable text for ${filename}.`);
+      emit({ type: "stage", stage: "finalizing" });
+      return [{ pageContent: odl, metadata: { source: fullFilePath } }];
+    }
   }
 
   emit({ type: "stage", stage: "finalizing" });
   return docs;
+}
 }
 
 async function asPdf({

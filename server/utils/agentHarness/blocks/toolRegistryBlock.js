@@ -47,9 +47,10 @@ class ToolRegistryBlock extends BaseBlock {
 
       const harnessDecision = await harness.resolveToolApproval(params);
       if (harnessDecision) {
+        const approved = Boolean(harnessDecision.approved);
         console.log(
-          chalk.green(
-            `Skill ${params.skillName} approved by harness (${harnessDecision.message})`
+          chalk[approved ? "green" : "yellow"](
+            `Skill ${params.skillName} ${approved ? "approved" : "rejected"} by harness (${harnessDecision.message})`
           )
         );
         return harnessDecision;
