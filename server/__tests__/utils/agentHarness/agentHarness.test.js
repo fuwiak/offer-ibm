@@ -3,6 +3,9 @@ const { BaseBlock } = require("../../../utils/agentHarness/BaseBlock");
 const { OfferKpDocumentTriggerBlock } = require("../../../utils/agentHarness/blocks/offerKpDocumentTriggerBlock");
 const { OfferKpQuoteIntentBlock } = require("../../../utils/agentHarness/blocks/offerKpQuoteIntentBlock");
 const { ToolRegistryBlock } = require("../../../utils/agentHarness/blocks/toolRegistryBlock");
+const {
+  OfferKpQuoteComplianceBlock,
+} = require("../../../utils/agentHarness/blocks/offerKpQuoteComplianceBlock");
 
 describe("AgentHarness", () => {
   it("runs toolApproval pipeline and short-circuits on handled block", async () => {
@@ -61,6 +64,7 @@ describe("AgentHarness", () => {
     });
     harness
       .use(new OfferKpDocumentTriggerBlock())
+      .use(new OfferKpQuoteIntentBlock())
       .use(new ToolRegistryBlock());
     await harness.install();
 
@@ -74,6 +78,38 @@ describe("AgentHarness", () => {
       payload: { filename: "Kp_test.pdf" },
     });
     expect(pdf?.approved).toBe(true);
+  });
+
+  it("rejects invalid КП content via compliance checker before doc generation", async () => {
+    const aibitat = {
+      _chats: [{ from: "USER", content: "сделай кп" }],
+      introspect: jest.fn(),
+      requestToolApproval: jest.fn(),
+    };
+
+    const harness = new AgentHarness({
+      aibitat,
+      ctx: { invocation: { prompt: "сделай кп" }, workspace: null },
+    });
+    harness
+      .use(new OfferKpDocumentTriggerBlock())
+      .use(new OfferKpQuoteComplianceBlock())
+      .use(new OfferKpQuoteIntentBlock())
+      .use(new ToolRegistryBlock());
+    await harness.install();
+
+    const rejected = await harness.resolveToolApproval({
+      skillName: "create-docx-file",
+      payload: {
+        filename: "Kp_test.docx",
+        content:
+          "| Позиция | Кол-во | Цена | Сумма |\n| --- | --- | --- | --- |\n| Болт | 40 | 21.27 | =40*21.27 |",
+      },
+    });
+
+    expect(rejected?.approved).toBe(false);
+    expect(rejected?.message).toMatch(/проверку harness/i);
+    expect(harness.state.get("quoteComplianceOk")).toBe(false);
   });
 
   it("merges context layers in buildContext pipeline", async () => {

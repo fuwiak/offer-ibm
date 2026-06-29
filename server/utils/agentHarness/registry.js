@@ -22,6 +22,9 @@ const {
 const {
   OfferKpQuoteCalculatorBlock,
 } = require("./blocks/offerKpQuoteCalculatorBlock");
+const {
+  OfferKpQuoteComplianceBlock,
+} = require("./blocks/offerKpQuoteComplianceBlock");
 
 /** @type {Map<string, () => import("./BaseBlock").BaseBlock>} */
 const blockRegistry = new Map();
@@ -57,6 +60,7 @@ const DEFAULT_OFFER_KP_BLOCK_IDS = [
   "offerKp-catalog-context",
   "offerKp-quote-pdf-model",
   "offerKp-catalog-guidelines",
+  "offerKp-quote-compliance",
   "offerKp-quote-intent",
   "offerKp-quote-calculator",
   "offerKp-thread-follow-up",
@@ -118,6 +122,10 @@ function registerDefaultBlocks() {
   registerHarnessBlock(
     "offerKp-quote-calculator",
     () => new OfferKpQuoteCalculatorBlock()
+  );
+  registerHarnessBlock(
+    "offerKp-quote-compliance",
+    () => new OfferKpQuoteComplianceBlock()
   );
 }
 

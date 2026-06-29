@@ -71,7 +71,7 @@ module.exports.CreatePdfFile = {
               if (this.super.requestToolApproval) {
                 const approval = await this.super.requestToolApproval({
                   skillName: this.name,
-                  payload: { filename },
+                  payload: { filename, content },
                   description: `Create PDF document "${filename}"`,
                 });
                 if (!approval.approved) {

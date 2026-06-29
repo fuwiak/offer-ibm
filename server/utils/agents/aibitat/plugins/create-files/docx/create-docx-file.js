@@ -134,7 +134,11 @@ module.exports.CreateDocxFile = {
               if (this.super.requestToolApproval) {
                 const approval = await this.super.requestToolApproval({
                   skillName: this.name,
-                  payload: { filename: displayFilename, title: documentTitle },
+                  payload: {
+                    filename: displayFilename,
+                    title: documentTitle,
+                    content,
+                  },
                   description: `Create Word document "${displayFilename}"`,
                 });
                 if (!approval.approved) {

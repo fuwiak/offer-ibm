@@ -47,24 +47,6 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
       prompt: prompt.slice(0, 80),
     });
   }
-
-  async beforeToolApproval(params, harness) {
-    if (!harness.state.get("quoteDocumentRequest")) return null;
-
-    const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
-    if (!docSkills.has(params.skillName)) return null;
-
-    harnessLog("info", "quoteDocument.toolApproved", {
-      skillName: params.skillName,
-      filename: params.payload?.filename || null,
-    });
-
-    return {
-      handled: true,
-      approved: true,
-      message: `@agent: Creating ${params.skillName === "create-pdf-file" ? "PDF" : "Word"} document…`,
-    };
-  }
 }
 
 module.exports = { OfferKpDocumentTriggerBlock };
