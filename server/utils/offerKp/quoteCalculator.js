@@ -2,10 +2,7 @@
 
 function parseAmount(value) {
   if (value === null || value === undefined) return NaN;
-  const normalized = String(value)
-    .trim()
-    .replace(/\s/g, "")
-    .replace(",", ".");
+  const normalized = String(value).trim().replace(/\s/g, "").replace(",", ".");
   if (!normalized) return NaN;
   const num = Number(normalized);
   return Number.isFinite(num) ? num : NaN;
@@ -38,12 +35,14 @@ function evaluateSafeExpression(expression = "") {
   if (!/^[\d\s.+*/()-]+$/.test(cleaned)) return null;
 
   const parts = cleaned.split("*").map((part) => part.trim());
-  if (parts.length === 2 && parts.every((part) => /^\d+(?:\.\d+)?$/.test(part))) {
+  if (
+    parts.length === 2 &&
+    parts.every((part) => /^\d+(?:\.\d+)?$/.test(part))
+  ) {
     return multiplyLineTotal(parts[0], parts[1]);
   }
 
   try {
-    // eslint-disable-next-line no-new-func
     const value = Function(`"use strict"; return (${cleaned});`)();
     if (!Number.isFinite(value)) return null;
     return roundMoney(value);
