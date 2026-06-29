@@ -23,7 +23,10 @@ const {
   STOPWORDS,
   PRICE_ONLY_RE,
 } = require("./hardwareQuery");
-const { applyAnalogScoringPenalty } = require("./analogRules");
+const {
+  applyAnalogScoringPenalty,
+  applyMatchPriorityBonus,
+} = require("./analogRules");
 const { searchProductsExtended } = require("./shopDbSearch");
 const {
   shopDbSearchAgentEnabled,
@@ -266,12 +269,13 @@ function mergeProductHits(batches) {
   }));
 }
 
-function rankAgentProducts(products, terms, parsed, skuCodes = []) {
+function rankAgentProducts(products, terms, parsed, skuCodes = [], searchText = "") {
   const skuSet = new Set(skuCodes.map(String));
 
   const scored = products.map((p, index) => {
     let score = scoreProduct(p, parsed, terms);
     score = applyAnalogScoringPenalty(parsed, p, score);
+    score = applyMatchPriorityBonus(searchText, parsed, p, score);
     if (p._exactSku || p.shopMatchSources?.includes("exact_sku")) score += 1000;
     if (p.matched_sku && skuSet.has(String(p.matched_sku))) score += 500;
     return { p, score, index };
@@ -440,7 +444,7 @@ async function runProductSearchAgent({
     }
   }
 
-  products = rankAgentProducts(products, searchTerms, parsed, skuCodes);
+  products = rankAgentProducts(products, searchTerms, parsed, skuCodes, message);
 
   if (skuOnly && skuCodes.length) {
     const exactMatches = products.filter(

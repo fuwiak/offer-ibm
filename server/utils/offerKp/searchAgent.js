@@ -89,7 +89,7 @@ function parseExtendedHardwareQuery(message) {
   for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,5})\b/gi)) {
     if (!standardNumbers.includes(m[1])) standardNumbers.push(m[1]);
   }
-  for (const m of raw.matchAll(/\bgost\s*[- ]?\s*(\d{4,5})/gi)) {
+  for (const m of raw.matchAll(/(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi)) {
     const g = m[1];
     if (!standardNumbers.includes(g)) standardNumbers.push(g);
   }

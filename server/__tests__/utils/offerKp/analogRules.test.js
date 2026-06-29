@@ -3,7 +3,9 @@ const {
   threadMatchesExact,
   STATUS,
   getEquivalentStandards,
+  applyMatchPriorityBonus,
 } = require("../../../utils/offerKp/analogRules");
+const { parseHardwareQuery } = require("../../../utils/offerKp/hardwareQuery");
 
 describe("analogRules", () => {
   test("DIN 931 exact match with stock → В наличии", () => {
@@ -69,5 +71,33 @@ describe("analogRules", () => {
   test("threadMatchesExact", () => {
     expect(threadMatchesExact("bolt m8x40 zinc", { size: "8", length: "40" })).toBe(true);
     expect(threadMatchesExact("bolt m8x45 zinc", { size: "8", length: "40" })).toBe(false);
+  });
+
+  test("GOST 7798 query prefers DIN 931 over DIN 933 in scoring", () => {
+    const parsed = parseHardwareQuery("Болт ГОСТ 7798 M10x100 8.8");
+    const bolt931 = { name: "Болт DIN 931 M10x100 8.8 оцинк" };
+    const bolt933 = { name: "Болт DIN 933 M10x100 8.8 оцинк" };
+    const score931 = applyMatchPriorityBonus(
+      "Болт ГОСТ 7798 M10x100 8.8",
+      parsed,
+      bolt931,
+      100
+    );
+    const score933 = applyMatchPriorityBonus(
+      "Болт ГОСТ 7798 M10x100 8.8",
+      parsed,
+      bolt933,
+      100
+    );
+    expect(score931).toBeGreaterThan(score933);
+  });
+
+  test("GOST 11738 → DIN 912 analog", () => {
+    const result = classifyProductMatch("Винт ГОСТ 11738 M10x50 8.8 оц", {
+      name: "Винт DIN 912 M10x50 8.8 оцинк Н/Р",
+      stockCount: 15,
+    });
+    expect(result.matchType).toBe("analog");
+    expect(result.status).toBe(STATUS.ANALOG);
   });
 });

@@ -42,6 +42,13 @@ const ANALOG_RULES = [
     matchRule: "pin_dimensions",
     label: "DIN 6325 → ГОСТ 24296-93",
   },
+  {
+    din: "912",
+    analogs: ["11738"],
+    productType: "винт",
+    matchRule: "thread_coating_strength",
+    label: "DIN 912 → ГОСТ 11738",
+  },
 ];
 
 const STATUS = {
@@ -52,13 +59,16 @@ const STATUS = {
   NEEDS_REVIEW: "Требует проверки",
 };
 
+const GOST_STANDARD_RE = /(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi;
+const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{3,5})\b/gi;
+
 function extractStandardNumbers(text) {
   const raw = String(text || "");
   const numbers = new Set();
-  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,5})\b/gi)) {
+  for (const m of raw.matchAll(DIN_STANDARD_RE)) {
     numbers.add(m[1]);
   }
-  for (const m of raw.matchAll(/\bgost\s*[- ]?\s*(\d{4,5})/gi)) {
+  for (const m of raw.matchAll(GOST_STANDARD_RE)) {
     numbers.add(m[1]);
   }
   for (const m of raw.matchAll(/\biso\s*[- ]?\s*(\d{4})\b/gi)) {
@@ -244,6 +254,44 @@ function applyAnalogScoringPenalty(parsed, product, score) {
   return score;
 }
 
+function standardsInQuery(parsed, searchText) {
+  const fromParsed = parsed?.dinNumbers || [];
+  const fromText = extractStandardNumbers(searchText || "");
+  return [...new Set([...fromParsed, ...fromText].map(String))];
+}
+
+/**
+ * Бонусы/штрафы по OFFER_KP_MATCH_PRIORITIES (config/offerKp.harnessGuidelines.js).
+ */
+function applyMatchPriorityBonus(searchText, parsed, product, score) {
+  const { OFFER_KP_MATCH_PRIORITIES } = require("../../config/offerKp.harnessGuidelines");
+  const nameNorm = normalizeForMatch(product.name || "");
+  const requested = standardsInQuery(parsed, searchText);
+  let next = score;
+
+  for (const rule of OFFER_KP_MATCH_PRIORITIES) {
+    const hit = rule.requestStandards.some((std) =>
+      requested.some(
+        (r) => r === std || getEquivalentStandards(r).includes(std)
+      )
+    );
+    if (!hit) continue;
+
+    for (const prefer of rule.prefer || []) {
+      if (nameContainsStandard(nameNorm, prefer)) next += 30;
+    }
+    for (const deprioritize of rule.deprioritize || []) {
+      if (nameContainsStandard(nameNorm, deprioritize)) next -= 25;
+    }
+    if (rule.defaultVariant && rule.prefer?.includes("912")) {
+      if (/\bн\s*\/\s*р\b|н\/р|normal/i.test(nameNorm)) next += 10;
+      if (/\bп\s*\/\s*р\b|п\/р|partial/i.test(nameNorm)) next -= 5;
+    }
+  }
+
+  return next;
+}
+
 module.exports = {
   ANALOG_RULES,
   STATUS,
@@ -252,6 +300,7 @@ module.exports = {
   extractPinDimensions,
   classifyProductMatch,
   applyAnalogScoringPenalty,
+  applyMatchPriorityBonus,
   getEquivalentStandards,
   threadMatchesExact,
   pinMatchesExact,

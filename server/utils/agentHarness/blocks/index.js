@@ -4,6 +4,7 @@ const { OrchestrationBlock } = require("./orchestrationBlock");
 const { HarnessTelemetryBlock } = require("./harnessTelemetryBlock");
 const { OfferKpDocumentTriggerBlock } = require("./offerKpDocumentTriggerBlock");
 const { OfferKpQuoteIntentBlock } = require("./offerKpQuoteIntentBlock");
+const { OfferKpCatalogGuidelinesBlock } = require("./offerKpCatalogGuidelinesBlock");
 const { ToolRegistryBlock } = require("./toolRegistryBlock");
 
 module.exports = {
@@ -13,5 +14,6 @@ module.exports = {
   HarnessTelemetryBlock,
   OfferKpDocumentTriggerBlock,
   OfferKpQuoteIntentBlock,
+  OfferKpCatalogGuidelinesBlock,
   ToolRegistryBlock,
 };
