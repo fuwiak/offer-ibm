@@ -13,6 +13,9 @@ const { ToolRegistryBlock } = require("./toolRegistryBlock");
 const {
   OfferKpThreadFollowUpBlock,
 } = require("./offerKpThreadFollowUpBlock");
+const {
+  OfferKpQuotePdfModelBlock,
+} = require("./offerKpQuotePdfModelBlock");
 
 module.exports = {
   MemoryBlock,
@@ -23,5 +26,6 @@ module.exports = {
   OfferKpQuoteIntentBlock,
   OfferKpCatalogGuidelinesBlock,
   OfferKpThreadFollowUpBlock,
+  OfferKpQuotePdfModelBlock,
   ToolRegistryBlock,
 };

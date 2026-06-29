@@ -64,11 +64,6 @@ async function streamChatWithWorkspace(
   });
   if (isAgentChat) return;
 
-  const LLMConnector = await getLLMProviderWithFallback({
-    provider: workspace?.chatProvider,
-    model: workspace?.chatModel,
-    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
-  });
   const VectorDb = getVectorDbClass();
 
   const messageLimit = workspace?.openAiHistory || 20;
@@ -132,6 +127,24 @@ async function streamChatWithWorkspace(
   const parsedFileTexts = parsedFiles
     .map((doc) => doc.pageContent)
     .filter(Boolean);
+
+  const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+  const quotePdfModelSwitch = resolveQuotePdfModelSwitch({
+    message: updatedMessage,
+    workspace,
+    parsedFiles,
+    parsedFileTexts,
+  });
+  const effectiveChatModel =
+    quotePdfModelSwitch?.model || workspace?.chatModel;
+  const effectiveChatProvider =
+    quotePdfModelSwitch?.provider || workspace?.chatProvider;
+
+  const LLMConnector = await getLLMProviderWithFallback({
+    provider: effectiveChatProvider,
+    model: effectiveChatModel,
+    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
+  });
 
   const shopEnrichPromise = collectExternalContexts({
     message: updatedMessage,

@@ -207,6 +207,33 @@ class EphemeralAgentHandler extends AgentHandler {
     this.provider = resolved.provider;
     this.model = resolved.model;
 
+    try {
+      const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+      const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
+        this.#workspace,
+        this.#threadId ? { id: this.#threadId } : null,
+        this.#userId ? { id: this.#userId } : null
+      );
+      const modelSwitch = resolveQuotePdfModelSwitch({
+        message: this.#prompt,
+        workspace: this.#workspace,
+        parsedFiles,
+        parsedFileTexts: parsedFiles
+          .map((doc) => doc.pageContent)
+          .filter(Boolean),
+      });
+      if (modelSwitch?.model) {
+        this.model = modelSwitch.model;
+        this.log(
+          `Quote PDF model auto-switch ${modelSwitch.from} → ${modelSwitch.model}`
+        );
+      }
+    } catch (error) {
+      this.log(
+        `Quote PDF model switch skipped: ${error?.message || String(error)}`
+      );
+    }
+
     if (!this.provider)
       throw new Error("No valid provider found for the agent.");
     this.log(`Start ${this.#invocationUUID}::${this.provider}:${this.model}`);
