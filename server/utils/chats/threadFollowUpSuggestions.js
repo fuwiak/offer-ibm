@@ -94,7 +94,9 @@ function mergeFollowUpSuggestions(primary = [], secondary = []) {
 
   for (const list of [primary, secondary]) {
     for (const item of list || []) {
-      const normalized = String(item || "").replace(/\s+/g, " ").trim();
+      const normalized = String(item || "")
+        .replace(/\s+/g, " ")
+        .trim();
       if (!normalized || normalized.length > MAX_QUESTION_CHARS) continue;
       const key = normalized.toLowerCase();
       if (seen.has(key)) continue;
@@ -133,7 +135,8 @@ function extractAgentTurnForFollowUps(chats = []) {
   if (!prompt || !assistantText) return null;
 
   const chatHistory = list.slice(0, idx).map((entry) => ({
-    role: String(entry.from || "").toUpperCase() === "USER" ? "user" : "assistant",
+    role:
+      String(entry.from || "").toUpperCase() === "USER" ? "user" : "assistant",
     content: String(entry.content || ""),
   }));
 
