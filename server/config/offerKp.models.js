@@ -124,6 +124,23 @@ function isOfferKpLocalModel(modelId, models = OFFER_KP_LOCAL_MODELS) {
   return models.some((m) => m.id === String(modelId || "").trim());
 }
 
+function normalizeWorkspaceModelId(modelId) {
+  return String(modelId || "").trim();
+}
+
+/**
+ * Модель для chat и @agent: chatModel из UI-пикера — источник истины,
+ * если расходится с устаревшим agentModel.
+ * @param {object|null|undefined} workspace
+ * @returns {string}
+ */
+function resolveOfferKpEffectiveModel(workspace) {
+  const chat = normalizeWorkspaceModelId(workspace?.chatModel);
+  const agent = normalizeWorkspaceModelId(workspace?.agentModel);
+  if (chat && agent && chat !== agent) return chat;
+  return chat || agent || OFFER_KP_DEFAULT_MODEL;
+}
+
 module.exports = {
   OFFER_KP_MODEL_DISPLAY_OVERRIDES,
   OFFER_KP_LOCAL_MODELS,
@@ -140,4 +157,6 @@ module.exports = {
   filterOfferKpModels,
   resolveOfferKpModel,
   resolveOfferKpProvider,
+  resolveOfferKpEffectiveModel,
+  normalizeWorkspaceModelId,
 };

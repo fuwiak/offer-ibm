@@ -429,11 +429,16 @@ class AgentHandler {
       return fallback.model; // set its defined model based on fallback logic.
     }
 
-    // The provider was explicitly set, so check if the workspace has an agent model set.
-    if (this.invocation.workspace.agentModel)
-      return this.invocation.workspace.agentModel;
+    // The provider was explicitly set — prefer chatModel when UI picker diverges from stale agentModel.
+    const ws = this.invocation.workspace;
+    if (ws?.chatModel || ws?.agentModel) {
+      const {
+        resolveOfferKpEffectiveModel,
+      } = require("../../config/offerKp.models");
+      return resolveOfferKpEffectiveModel(ws);
+    }
 
-    // Otherwise, we have no model to use - so guess a default model to use via the provider
+    // Otherwise, guess a default model to use via the provider
     // and it's system ENV params and if that fails - we return either a base model or null.
     return this.providerDefault();
   }
@@ -451,7 +456,9 @@ class AgentHandler {
     this.model = resolved.model;
 
     try {
-      const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+      const {
+        resolveQuotePdfModelSwitch,
+      } = require("../offerKp/quotePdfModelRouter");
       const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
         this.invocation.workspace,
         this.invocation.thread_id ? { id: this.invocation.thread_id } : null,
@@ -797,7 +804,9 @@ class AgentHandler {
 
     const modelSwitch = this.harness.state.get("quotePdfModelSwitch");
     if (modelSwitch?.model && modelSwitch.model !== this.model) {
-      const { applyHarnessModelSwitch } = require("../agentHarness/applyModelSwitch");
+      const {
+        applyHarnessModelSwitch,
+      } = require("../agentHarness/applyModelSwitch");
       applyHarnessModelSwitch(this.harness, modelSwitch.model, modelSwitch);
       this.model = modelSwitch.model;
     }

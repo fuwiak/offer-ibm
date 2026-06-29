@@ -85,6 +85,8 @@ export default function LLMSelectorModal({
       const { message } = await Workspace.update(slug, {
         chatProvider: OFFER_KP_LMSTUDIO_PROVIDER,
         chatModel: validatedModel,
+        agentProvider: OFFER_KP_LMSTUDIO_PROVIDER,
+        agentModel: validatedModel,
       });
 
       if (!!message) throw new Error(message);

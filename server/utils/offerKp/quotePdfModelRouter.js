@@ -1,6 +1,6 @@
 "use strict";
 
-const { OFFER_KP_DEFAULT_MODEL } = require("../../config/offerKp.models");
+const { resolveOfferKpEffectiveModel } = require("../../config/offerKp.models");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const { parseInquiryText } = require("./parseInquiry");
 const { hasHardwareSignals } = require("./productSearchAgent");
@@ -131,7 +131,10 @@ function pickQuotePdfFallbackModel(currentModel, availableModels = null) {
 /**
  * Ответ не использует данные из PDF-заявки (модель «не видит» файл).
  */
-function responseMissesParsedQuote({ responseText = "", parsedFileTexts = [] } = {}) {
+function responseMissesParsedQuote({
+  responseText = "",
+  parsedFileTexts = [],
+} = {}) {
   const texts = (parsedFileTexts || []).filter(Boolean);
   if (!texts.length) return false;
 
@@ -206,8 +209,7 @@ function resolveQuotePdfModelSwitch({
   const combined = texts.join("\n");
   if (!parsedTextHasQuoteSignals(combined)) return null;
 
-  const currentModel =
-    normalizeModelId(workspace?.chatModel) || OFFER_KP_DEFAULT_MODEL;
+  const currentModel = resolveOfferKpEffectiveModel(workspace);
 
   if (!modelMatchesWeakList(currentModel)) return null;
 

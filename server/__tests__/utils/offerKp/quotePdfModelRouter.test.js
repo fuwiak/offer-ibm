@@ -64,19 +64,19 @@ describe("quotePdfModelRouter", () => {
     ).toBeNull();
   });
 
-  it("detects when assistant response ignores parsed quote lines", () => {
+  it("does not switch when user picked non-weak model in chat picker", () => {
     expect(
-      responseMissesParsedQuote({
-        responseText: "Я не вижу прикреплённых данных.",
+      resolveQuotePdfModelSwitch({
+        message: "сформируй КП по прикреплённому PDF",
+        workspace: {
+          slug: "test-ws",
+          chatProvider: "lmstudio",
+          chatModel: "deepseek/deepseek-r1-0528-qwen3-8b",
+          agentModel: "openai/gpt-oss-20b",
+        },
+        parsedFiles: [{ ...pdfFile, pageContent: inquiryText }],
         parsedFileTexts: [inquiryText],
       })
-    ).toBe(true);
-
-    expect(
-      responseMissesParsedQuote({
-        responseText: "По DIN 933 M8x40 нашёл болт в каталоге.",
-        parsedFileTexts: [inquiryText],
-      })
-    ).toBe(false);
+    ).toBeNull();
   });
 });

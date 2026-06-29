@@ -1,4 +1,7 @@
-const { OFFER_KP_DEFAULT_MODEL } = require("../../../config/offerKp.models");
+const {
+  OFFER_KP_DEFAULT_MODEL,
+  resolveOfferKpEffectiveModel,
+} = require("../../../config/offerKp.models");
 const {
   DefaultOfferKpHarnessPreset,
 } = require("./models/DefaultOfferKpHarnessPreset");
@@ -43,10 +46,10 @@ function resolveModelIdFromContext({
   workspace = null,
   invocation = null,
 } = {}) {
+  const ws = workspace || invocation?.workspace || null;
   return (
     normalizeModelId(model) ||
-    normalizeModelId(workspace?.chatModel) ||
-    normalizeModelId(invocation?.workspace?.chatModel) ||
+    (ws ? resolveOfferKpEffectiveModel(ws) : "") ||
     normalizeModelId(process.env.LMSTUDIO_MODEL_PREF) ||
     OFFER_KP_DEFAULT_MODEL
   );

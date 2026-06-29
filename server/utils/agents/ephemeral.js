@@ -187,11 +187,14 @@ class EphemeralAgentHandler extends AgentHandler {
       return fallback.model; // set its defined model based on fallback logic.
     }
 
-    // The provider was explicitly set, so check if the workspace has an agent model set.
-    if (this.#workspace?.agentModel) return this.#workspace.agentModel;
+    const ws = this.#workspace;
+    if (ws?.chatModel || ws?.agentModel) {
+      const {
+        resolveOfferKpEffectiveModel,
+      } = require("../../config/offerKp.models");
+      return resolveOfferKpEffectiveModel(ws);
+    }
 
-    // Otherwise, we have no model to use - so guess a default model to use via the provider
-    // and it's system ENV params and if that fails - we return either a base model or null.
     return this.providerDefault();
   }
 
@@ -208,7 +211,9 @@ class EphemeralAgentHandler extends AgentHandler {
     this.model = resolved.model;
 
     try {
-      const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+      const {
+        resolveQuotePdfModelSwitch,
+      } = require("../offerKp/quotePdfModelRouter");
       const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
         this.#workspace,
         this.#threadId ? { id: this.#threadId } : null,
@@ -539,7 +544,9 @@ class EphemeralAgentHandler extends AgentHandler {
 
     const modelSwitch = this.harness.state.get("quotePdfModelSwitch");
     if (modelSwitch?.model && modelSwitch.model !== this.model) {
-      const { applyHarnessModelSwitch } = require("../agentHarness/applyModelSwitch");
+      const {
+        applyHarnessModelSwitch,
+      } = require("../agentHarness/applyModelSwitch");
       applyHarnessModelSwitch(this.harness, modelSwitch.model, modelSwitch);
       this.model = modelSwitch.model;
     }

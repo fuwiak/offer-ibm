@@ -113,6 +113,8 @@ export default function OfferKpAnthropicModelPicker({
       const { workspace: synced } = await Workspace.update(workspaceSlug, {
         chatProvider: "lmstudio",
         chatModel: localModel,
+        agentProvider: "lmstudio",
+        agentModel: localModel,
       }).catch(() => ({ workspace: null }));
       if (synced?.chatModel) {
         setSelectedModel(
@@ -154,6 +156,8 @@ export default function OfferKpAnthropicModelPicker({
         {
           chatProvider: meta?.provider || "lmstudio",
           chatModel: modelId,
+          agentProvider: meta?.provider || "lmstudio",
+          agentModel: modelId,
         }
       );
       if (message) throw new Error(message);
