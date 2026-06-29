@@ -1,4 +1,5 @@
 const { BaseBlock } = require("../BaseBlock");
+const { applyHarnessModelSwitch } = require("../applyModelSwitch");
 const {
   resolveQuotePdfModelSwitch,
   quotePdfModelAutoSwitchEnabled,
@@ -52,16 +53,7 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
     });
     if (!modelSwitch) return;
 
-    harness.state.set("quotePdfModelSwitch", modelSwitch);
-    harness.ctx.modelId = modelSwitch.model;
-    harness.state.set("modelId", modelSwitch.model);
-
-    if (harness.aibitat) {
-      harness.aibitat.model = modelSwitch.model;
-      if (harness.aibitat.provider?.model !== undefined) {
-        harness.aibitat.provider.model = modelSwitch.model;
-      }
-    }
+    applyHarnessModelSwitch(harness, modelSwitch.model, modelSwitch);
 
     harness.log("quote PDF model auto-switch for agent", {
       from: modelSwitch.from,

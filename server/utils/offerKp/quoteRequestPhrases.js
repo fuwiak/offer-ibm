@@ -36,6 +36,9 @@ function isQuoteDocumentRequest(message = "") {
   if (!text) return false;
 
   if (SHORT_QUOTE_COMMAND_RES.some((re) => re.test(text))) return true;
+  if (/\b(сделай|сформируй|подготовь|сгенерируй)\s+кп\b/i.test(text)) {
+    return true;
+  }
   if (wantsFileCreation(text)) return true;
 
   if (
@@ -59,6 +62,7 @@ function quoteDocumentAgentGuidelines() {
   return [
     "Пользователь запросил коммерческое предложение (КП).",
     "Обязательно вызови create-docx-file и create-pdf-file с markdown таблицей КП.",
+    "Запрещено отвечать одной позицией, кратким описанием товара или списком из 1–2 SKU — нужна полная таблица КП по всем релевантным позициям из каталога.",
     "Цены только из блоков [Каталог · purolat.com] в контексте.",
     "Если в сообщении пользователя есть секция «=== ДАННЫЕ КАТАЛОГА PUROLAT.COM (MySQL) ===» или блоки [Каталог · purolat.com] — они уже подставлены сервером. Запрещено писать, что блоков каталога нет.",
     "После генерации кратко поясни состав КП в чате.",

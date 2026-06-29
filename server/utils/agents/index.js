@@ -450,6 +450,33 @@ class AgentHandler {
     this.provider = resolved.provider;
     this.model = resolved.model;
 
+    try {
+      const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+      const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
+        this.invocation.workspace,
+        this.invocation.thread_id ? { id: this.invocation.thread_id } : null,
+        this.invocation.user_id ? { id: this.invocation.user_id } : null
+      );
+      const modelSwitch = resolveQuotePdfModelSwitch({
+        message: this.invocation.prompt,
+        workspace: this.invocation.workspace,
+        parsedFiles,
+        parsedFileTexts: parsedFiles
+          .map((doc) => doc.pageContent)
+          .filter(Boolean),
+      });
+      if (modelSwitch?.model) {
+        this.model = modelSwitch.model;
+        this.log(
+          `Quote PDF model auto-switch ${modelSwitch.from} → ${modelSwitch.model}`
+        );
+      }
+    } catch (error) {
+      this.log(
+        `Quote PDF model switch skipped: ${error?.message || String(error)}`
+      );
+    }
+
     if (!this.provider)
       throw new Error("No valid provider found for the agent.");
     this.log(`Start ${this.#invocationUUID}::${this.provider}:${this.model}`);
@@ -764,9 +791,17 @@ class AgentHandler {
     this.harness = await buildOfferKpHarness({
       aibitat: this.aibitat,
       invocation: this.invocation,
-      model: this.invocation?.workspace?.chatModel ?? null,
+      model: this.model ?? this.invocation?.workspace?.chatModel ?? null,
       log: (msg) => this.log(msg),
     });
+
+    const modelSwitch = this.harness.state.get("quotePdfModelSwitch");
+    if (modelSwitch?.model && modelSwitch.model !== this.model) {
+      const { applyHarnessModelSwitch } = require("../agentHarness/applyModelSwitch");
+      applyHarnessModelSwitch(this.harness, modelSwitch.model, modelSwitch);
+      this.model = modelSwitch.model;
+    }
+
     this.log(
       `Agent harness ready (${this.harness.ctx.modelId}): ${this.harness.listBlocks().join(", ")}`
     );

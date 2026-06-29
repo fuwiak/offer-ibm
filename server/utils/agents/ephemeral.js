@@ -533,9 +533,17 @@ class EphemeralAgentHandler extends AgentHandler {
         user_id: this.#userId ?? null,
         thread_id: this.#threadId ?? null,
       },
-      model: this.#workspace?.chatModel ?? null,
+      model: this.model ?? this.#workspace?.chatModel ?? null,
       log: (msg) => this.log(msg),
     });
+
+    const modelSwitch = this.harness.state.get("quotePdfModelSwitch");
+    if (modelSwitch?.model && modelSwitch.model !== this.model) {
+      const { applyHarnessModelSwitch } = require("../agentHarness/applyModelSwitch");
+      applyHarnessModelSwitch(this.harness, modelSwitch.model, modelSwitch);
+      this.model = modelSwitch.model;
+    }
+
     this.log(
       `Agent harness ready (${this.harness.ctx.modelId}): ${this.harness.listBlocks().join(", ")}`
     );

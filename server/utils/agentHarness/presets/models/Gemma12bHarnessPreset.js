@@ -14,10 +14,16 @@ class Gemma12bHarnessPreset extends BaseModelHarnessPreset {
     return 2;
   }
 
-  extraGuidelines() {
-    return [
+  extraGuidelines({ quoteDocument = false } = {}) {
+    const lines = [
       "Сопоставляй позиции заявки строго с блоками [Каталог · purolat.com]; не копируй названия из PDF без проверки SKU.",
     ];
+    if (quoteDocument) {
+      lines.push(
+        "При запросе КП обязательно вызови create-docx-file и create-pdf-file; не ограничивайся текстовым ответом с одной позицией."
+      );
+    }
+    return lines;
   }
 }
 

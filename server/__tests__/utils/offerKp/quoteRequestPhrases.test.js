@@ -8,6 +8,9 @@ describe("quoteRequestPhrases", () => {
     expect(isQuoteDocumentRequest("сделай кп")).toBe(true);
     expect(isQuoteDocumentRequest("Сделать КП")).toBe(true);
     expect(isQuoteDocumentRequest("подготовь кп по заявке")).toBe(true);
+    expect(isQuoteDocumentRequest("извлечь продукты и сделай кп под них")).toBe(
+      true
+    );
   });
 
   it("detects Polish KP commands", () => {
