@@ -2038,6 +2038,14 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   background: var(--theme-bg-primary);
 }
 
+.offerKp-thread-followups--recovery .offerKp-thread-followups__label {
+  color: var(--theme-text-primary);
+}
+
+.offerKp-thread-followups--recovery .offerKp-thread-followups__item {
+  border-color: color-mix(in srgb, var(--theme-accent-primary, #ff6b35) 35%, var(--theme-sidebar-border));
+}
+
 .offerKp-thread-followups__label {
   margin: 0 0 8px;
   font-size: 11px;
