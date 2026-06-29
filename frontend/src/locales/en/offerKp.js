@@ -213,6 +213,9 @@ const TRANSLATIONS = {
       use: "Use in chat",
       remove: "Remove prompt",
     },
+    threadFollowUps: {
+      label: "Suggested follow-ups",
+    },
     version: "Offer KP AI v2.4.0",
     privacy: "Privacy Policy",
     terms: "Terms of Service",

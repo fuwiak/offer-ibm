@@ -414,6 +414,27 @@ async function streamChatWithWorkspace(
       user,
     });
 
+    if (thread?.id) {
+      try {
+        const {
+          emitThreadFollowUpSuggestions,
+        } = require("./threadFollowUpSuggestions");
+        await emitThreadFollowUpSuggestions({
+          response,
+          uuid,
+          workspace,
+          user,
+          thread,
+          prompt: message,
+          assistantText: completeText,
+          chatHistory: rawHistory,
+          language,
+        });
+      } catch (e) {
+        console.warn("[threadFollowUp] stream:", e?.message || e);
+      }
+    }
+
     writeResponseChunk(response, {
       uuid,
       type: "finalizeResponseStream",

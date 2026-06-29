@@ -3,6 +3,7 @@ import { safeJsonParse } from "../request";
 import { API_BASE } from "../constants";
 import { useEffect, useState } from "react";
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
+import { dispatchThreadFollowUps } from "@/utils/offerKp/threadFollowUpEvents";
 
 export const AGENT_SESSION_START = "agentSessionStart";
 export const AGENT_SESSION_END = "agentSessionEnd";
@@ -13,6 +14,7 @@ const handledEvents = [
   "wssFailure",
   "rechartVisualize",
   "toolApprovalRequest",
+  "threadFollowUpSuggestions",
   // Streaming events
   "reportStreamEvent",
 ];
@@ -23,9 +25,23 @@ export function websocketURI() {
   return `${wsProtocol}//${new URL(import.meta.env.VITE_API_BASE).host}`;
 }
 
-export default function handleSocketResponse(socket, event, setChatHistory) {
+export default function handleSocketResponse(
+  socket,
+  event,
+  setChatHistory,
+  streamContext = {}
+) {
   const data = safeJsonParse(event.data, null);
   if (data === null) return;
+
+  if (data.type === "threadFollowUpSuggestions") {
+    const suggestions = data.content?.suggestions || data.suggestions || [];
+    const { workspaceSlug, threadSlug } = streamContext;
+    if (workspaceSlug && threadSlug && Array.isArray(suggestions)) {
+      dispatchThreadFollowUps({ workspaceSlug, threadSlug, suggestions });
+    }
+    return;
+  }
 
   // Handle thread rename
   if (data.type === "rename_thread") {

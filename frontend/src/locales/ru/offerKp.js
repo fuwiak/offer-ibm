@@ -214,6 +214,9 @@ const TRANSLATIONS = {
       use: "Вставить в чат",
       remove: "Удалить промпт",
     },
+    threadFollowUps: {
+      label: "Продолжить разговор",
+    },
     version: "OfferKP v1.0",
     privacy: "Политика конфиденциальности",
     terms: "Условия использования",

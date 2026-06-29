@@ -9,7 +9,7 @@ function storageKey(workspaceSlug, threadSlug) {
 
 export function getThreadMeta(workspaceSlug, threadSlug) {
   if (!workspaceSlug || !threadSlug) {
-    return { memory: "", instructions: "", prompts: [] };
+    return { memory: "", instructions: "", prompts: [], followUpSuggestions: [] };
   }
   const stored = safeJsonParse(
     localStorage.getItem(storageKey(workspaceSlug, threadSlug)),
@@ -19,6 +19,9 @@ export function getThreadMeta(workspaceSlug, threadSlug) {
     memory: stored?.memory ?? "",
     instructions: stored?.instructions ?? "",
     prompts: Array.isArray(stored?.prompts) ? stored.prompts : [],
+    followUpSuggestions: Array.isArray(stored?.followUpSuggestions)
+      ? stored.followUpSuggestions
+      : [],
   };
 }
 
@@ -63,6 +66,27 @@ export function removeThreadPrompt(workspaceSlug, threadSlug, index) {
   );
   setThreadPrompts(workspaceSlug, threadSlug, next);
   return next;
+}
+
+export function getThreadFollowUpSuggestions(workspaceSlug, threadSlug) {
+  return getThreadMeta(workspaceSlug, threadSlug).followUpSuggestions;
+}
+
+export function setThreadFollowUpSuggestions(
+  workspaceSlug,
+  threadSlug,
+  suggestions
+) {
+  if (!workspaceSlug || !threadSlug) return;
+  setThreadMeta(workspaceSlug, threadSlug, {
+    followUpSuggestions: (suggestions || [])
+      .map((s) => String(s).trim())
+      .filter(Boolean),
+  });
+}
+
+export function clearThreadFollowUpSuggestions(workspaceSlug, threadSlug) {
+  setThreadFollowUpSuggestions(workspaceSlug, threadSlug, []);
 }
 
 export function formatRelativeTimeAgo(isoOrTs, locale = "en") {

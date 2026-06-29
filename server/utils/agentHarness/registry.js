@@ -10,6 +10,9 @@ const {
   OfferKpCatalogGuidelinesBlock,
 } = require("./blocks/offerKpCatalogGuidelinesBlock");
 const { ToolRegistryBlock } = require("./blocks/toolRegistryBlock");
+const {
+  OfferKpThreadFollowUpBlock,
+} = require("./blocks/offerKpThreadFollowUpBlock");
 
 /** @type {Map<string, () => import("./BaseBlock").BaseBlock>} */
 const blockRegistry = new Map();
@@ -44,6 +47,7 @@ const DEFAULT_OFFER_KP_BLOCK_IDS = [
   "offerKp-document-trigger",
   "offerKp-catalog-guidelines",
   "offerKp-quote-intent",
+  "offerKp-thread-follow-up",
   "tool-registry",
 ];
 
@@ -87,6 +91,10 @@ function registerDefaultBlocks() {
     () => new OfferKpQuoteIntentBlock()
   );
   registerHarnessBlock("tool-registry", () => new ToolRegistryBlock());
+  registerHarnessBlock(
+    "offerKp-thread-follow-up",
+    () => new OfferKpThreadFollowUpBlock()
+  );
 }
 
 registerDefaultBlocks();

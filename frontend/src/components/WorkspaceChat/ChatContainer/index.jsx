@@ -6,7 +6,7 @@ import PromptInput, {
   PROMPT_INPUT_ID,
 } from "./PromptInput";
 import Workspace from "@/models/workspace";
-import handleChat, { ABORT_STREAM_EVENT } from "@/utils/chat";
+import handleChat, { ABORT_STREAM_EVENT, clearThreadFollowUpOnSend } from "@/utils/chat";
 import { isMobile } from "react-device-detect";
 import { SidebarMobileHeader } from "../../Sidebar";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
@@ -144,6 +144,10 @@ export default function ChatContainer({
 
     maybeRenameThreadFromFirstMessage(currentMessage);
 
+    if (activeThreadSlug) {
+      clearThreadFollowUpOnSend(workspace.slug, activeThreadSlug);
+    }
+
     // Clear the localStorage draft for this thread/workspace so that if the
     // PromptInput remounts (empty→chat transition), it won't restore stale text
     clearPromptInputDraft(activeThreadSlug ?? workspace.slug);
@@ -234,6 +238,10 @@ export default function ChatContainer({
 
     if (history.length === 0 && chatHistory.length === 0) {
       maybeRenameThreadFromFirstMessage(text);
+    }
+
+    if (activeThreadSlug) {
+      clearThreadFollowUpOnSend(workspace.slug, activeThreadSlug);
     }
 
     // Clear the localStorage draft so that if the PromptInput remounts
@@ -350,7 +358,11 @@ export default function ChatContainer({
             setChatHistory,
             remHistory,
             _chatHistory,
-            setSocketId
+            setSocketId,
+            {
+              workspaceSlug: workspace.slug,
+              threadSlug: activeThreadSlug,
+            }
           ),
         attachments,
         conversationMemory: conversationMemory || null,
@@ -381,7 +393,10 @@ export default function ChatContainer({
         socket.addEventListener("message", (event) => {
           setLoadingResponse(true);
           try {
-            handleSocketResponse(socket, event, setChatHistory);
+            handleSocketResponse(socket, event, setChatHistory, {
+              workspaceSlug: workspace.slug,
+              threadSlug: activeThreadSlug,
+            });
           } catch {
             console.error("Failed to parse data");
             setAgentSessionActive(false);

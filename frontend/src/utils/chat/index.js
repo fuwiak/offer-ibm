@@ -4,8 +4,17 @@ import { emitAssistantMessageCompleteEvent } from "@/components/contexts/TTSProv
 import { isHiddenAgentStatusMessage } from "@/utils/offerKp/threadPanelAccess";
 import { OFFER_KP_QUOTE_PANEL_EVENT } from "@/utils/offerKp/quotePanelEvents";
 import { OFFER_KP_QUOTE_FILES_EVENT } from "@/utils/offerKp/quoteFileEvents";
+import { dispatchThreadFollowUps } from "@/utils/offerKp/threadFollowUpEvents";
+import { clearThreadFollowUpSuggestions } from "@/utils/offerKp/threadMeta";
 
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
+export { clearThreadFollowUpOnSend };
+
+function clearThreadFollowUpOnSend(workspaceSlug, threadSlug) {
+  if (!workspaceSlug || !threadSlug) return;
+  clearThreadFollowUpSuggestions(workspaceSlug, threadSlug);
+  dispatchThreadFollowUps({ workspaceSlug, threadSlug, suggestions: [] });
+}
 
 function streamChunkText(value) {
   return value == null ? "" : String(value);
@@ -43,7 +52,8 @@ export default function handleChat(
   setChatHistory,
   remHistory,
   _chatHistory,
-  setWebsocket
+  setWebsocket,
+  options = {}
 ) {
   const {
     uuid,
@@ -56,7 +66,17 @@ export default function handleChat(
     chatId = null,
     action = null,
     metrics = {},
+    suggestions = [],
   } = chatResult;
+
+  const { workspaceSlug = null, threadSlug = null } = options;
+
+  if (type === "threadFollowUpSuggestions") {
+    if (workspaceSlug && threadSlug && Array.isArray(suggestions)) {
+      dispatchThreadFollowUps({ workspaceSlug, threadSlug, suggestions });
+    }
+    return;
+  }
 
   if (
     type === "statusResponse" &&

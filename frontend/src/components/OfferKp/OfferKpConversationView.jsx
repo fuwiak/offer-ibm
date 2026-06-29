@@ -5,6 +5,7 @@ import PromptInput from "@/components/WorkspaceChat/ChatContainer/PromptInput";
 import WorkspaceModelPicker from "@/components/WorkspaceChat/ChatContainer/WorkspaceModelPicker";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
+import OfferKpThreadFollowUps from "@/components/OfferKp/OfferKpThreadFollowUps";
 import DnDFileUploaderWrapper from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
 import { MetricsProvider } from "@/components/WorkspaceChat/ChatContainer/ChatHistory/HistoricalMessage/Actions/RenderMetrics";
@@ -76,6 +77,12 @@ export default function OfferKpConversationView({
               />
             </MetricsProvider>
           )}
+          <OfferKpThreadFollowUps
+            workspaceSlug={workspace?.slug}
+            threadSlug={activeThreadSlug}
+            loading={loadingResponse}
+            sendCommand={sendCommand}
+          />
           <div className="offerKp-thread-prompt shrink-0 px-4 md:px-6 pb-4 pt-2">
             <PromptInput
               workspace={workspace}

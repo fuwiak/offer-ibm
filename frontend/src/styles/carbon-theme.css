@@ -1881,6 +1881,50 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   background: var(--theme-sidebar-item-hover);
 }
 
+.offerKp-thread-followups {
+  border-top: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-primary);
+}
+
+.offerKp-thread-followups__label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--theme-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.offerKp-thread-followups__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offerKp-thread-followups__item {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--theme-sidebar-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--theme-text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.11s ease, border-color 0.11s ease;
+}
+
+.offerKp-thread-followups__item:hover {
+  background: var(--theme-sidebar-item-hover);
+  border-color: var(--primary-button);
+}
+
 /* ── Right panel: memory / instructions / files per thread ── */
 .offerKp-thread-panel-section {
   padding-bottom: 20px;
