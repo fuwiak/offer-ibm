@@ -5,6 +5,7 @@ import PromptInput from "@/components/WorkspaceChat/ChatContainer/PromptInput";
 import WorkspaceModelPicker from "@/components/WorkspaceChat/ChatContainer/WorkspaceModelPicker";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
+import OfferKpNewChatFollowUps from "@/components/OfferKp/OfferKpNewChatFollowUps";
 import OfferKpThreadFollowUps from "@/components/OfferKp/OfferKpThreadFollowUps";
 import DnDFileUploaderWrapper from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
@@ -52,6 +53,7 @@ export default function OfferKpConversationView({
                 <h1 className="offerKp-home-greeting">
                   {ta("home.greeting", { name: greetingName })}
                 </h1>
+                <OfferKpNewChatFollowUps sendCommand={sendCommand} />
                 <OfferKpQuickActions
                   onAction={(key) =>
                     handleOfferKpQuickActionKey(key, {

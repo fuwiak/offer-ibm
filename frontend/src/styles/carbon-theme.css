@@ -2077,6 +2077,16 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   border-color: var(--primary-button);
 }
 
+.offerKp-new-chat-followups {
+  border-top: none;
+  background: transparent;
+  padding: 0;
+}
+
+.offerKp-new-chat-followups .offerKp-thread-followups__label {
+  margin-bottom: 10px;
+}
+
 /* ── Right panel: memory / instructions / files per thread ── */
 .offerKp-thread-panel-section {
   padding-bottom: 20px;

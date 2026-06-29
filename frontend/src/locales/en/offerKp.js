@@ -219,6 +219,21 @@ const TRANSLATIONS = {
     threadFollowUps: {
       label: "Suggested follow-ups",
     },
+    newChatFollowUps: {
+      label: "Start with a quote",
+      items: {
+        parseInquiry:
+          "Parse the attached inquiry and extract fastener line items for a quote",
+        draftFromList:
+          "Draft a commercial proposal from catalog purolat.com line items",
+        findAnalogs:
+          "Find DIN/GOST analogs for positions that are out of stock",
+        checkStock:
+          "Check stock and prices for the inquiry before building the quote",
+        exportQuoteDoc:
+          "Prepare a quote PDF/DOCX with line items, prices, and stock status",
+      },
+    },
     version: "Offer KP AI v2.4.0",
     privacy: "Privacy Policy",
     terms: "Terms of Service",
