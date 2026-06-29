@@ -371,15 +371,13 @@ class CollectorApi {
           const frame = buffer.slice(0, sepIndex);
           buffer = buffer.slice(sepIndex + 2);
 
-          const line = frame
-            .split("\n")
-            .find((l) => l.startsWith("data:"));
+          const line = frame.split("\n").find((l) => l.startsWith("data:"));
           if (!line) continue;
 
           let event;
           try {
             event = JSON.parse(line.slice(5).trim());
-          } catch (_) {
+          } catch {
             continue;
           }
 
@@ -397,7 +395,11 @@ class CollectorApi {
           reason: finalEvent.reason || null,
           documents: finalEvent.documents || [],
         };
-      return { success: false, reason: "Stream ended unexpectedly", documents: [] };
+      return {
+        success: false,
+        reason: "Stream ended unexpectedly",
+        documents: [],
+      };
     } catch (e) {
       this.log(e.message);
       return { success: false, reason: e.message, documents: [] };

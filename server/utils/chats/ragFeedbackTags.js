@@ -2,11 +2,11 @@
 
 /** Допустимые теги негативного фидбэка (legal RAG). */
 const RAG_FEEDBACK_TAGS = [
-  "fabricated_citation",   // ссылка на несуществующий документ
-  "wrong_jurisdiction",    // неверная юрисдикция
-  "outdated_law",          // устаревшая норма
-  "web_not_garant",        // ответ основан на вебе, а не на ГАРАНТ
-  "other",                 // иное
+  "fabricated_citation", // ссылка на несуществующий документ
+  "wrong_jurisdiction", // неверная юрисдикция
+  "outdated_law", // устаревшая норма
+  "web_not_garant", // ответ основан на вебе, а не на ГАРАНТ
+  "other", // иное
 ];
 
 const ALLOWED = new Set(RAG_FEEDBACK_TAGS);
@@ -36,7 +36,13 @@ function sanitizeFeedbackComment(comment) {
   if (typeof comment !== "string") return null;
   const trimmed = comment.trim();
   if (!trimmed) return null;
-  return trimmed.length > MAX_COMMENT_LEN ? trimmed.slice(0, MAX_COMMENT_LEN) : trimmed;
+  return trimmed.length > MAX_COMMENT_LEN
+    ? trimmed.slice(0, MAX_COMMENT_LEN)
+    : trimmed;
 }
 
-module.exports = { RAG_FEEDBACK_TAGS, sanitizeFeedbackTags, sanitizeFeedbackComment };
+module.exports = {
+  RAG_FEEDBACK_TAGS,
+  sanitizeFeedbackTags,
+  sanitizeFeedbackComment,
+};

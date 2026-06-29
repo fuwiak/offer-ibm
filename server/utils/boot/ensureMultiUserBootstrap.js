@@ -88,7 +88,11 @@ async function ensureMultiUserBootstrap() {
     );
   } catch (e) {
     console.error("[BOOT] Failed to create bootstrap admin:", e.message);
-    if (String(e.message || "").toLowerCase().includes("unique")) {
+    if (
+      String(e.message || "")
+        .toLowerCase()
+        .includes("unique")
+    ) {
       console.error(
         `[BOOT] Username "${adminUsername}" already exists with a different password. Either delete it from DB or change MULTI_USER_BOOTSTRAP_USERNAME.`
       );

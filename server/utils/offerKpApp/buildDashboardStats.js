@@ -12,7 +12,9 @@ function formatEuro(n) {
 
 function formatDelta(current, previous) {
   if (previous === 0) {
-    return current > 0 ? { delta: `+${current}`, up: true } : { delta: "0", up: true };
+    return current > 0
+      ? { delta: `+${current}`, up: true }
+      : { delta: "0", up: true };
   }
   const pct = Math.round(((current - previous) / previous) * 100);
   const sign = pct >= 0 ? "+" : "";
@@ -61,7 +63,9 @@ function buildPipelineFromQuotes(quotes) {
 async function buildDashboardStats() {
   const now = new Date();
   const thisMonth = monthStart(now);
-  const lastMonth = monthStart(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const lastMonth = monthStart(
+    new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  );
   const ytdStart = new Date(now.getFullYear(), 0, 1);
 
   const [quotes, partnerRequests] = await Promise.all([
@@ -75,7 +79,9 @@ async function buildDashboardStats() {
     }),
   ]);
 
-  const quotesThisMonth = quotes.filter((q) => new Date(q.createdAt) >= thisMonth);
+  const quotesThisMonth = quotes.filter(
+    (q) => new Date(q.createdAt) >= thisMonth
+  );
   const quotesLastMonth = quotes.filter(
     (q) =>
       new Date(q.createdAt) >= lastMonth && new Date(q.createdAt) < thisMonth

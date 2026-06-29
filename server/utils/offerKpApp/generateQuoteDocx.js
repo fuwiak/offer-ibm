@@ -35,7 +35,9 @@ function fmtDate(d) {
 }
 
 function addDays(d, days) {
-  const date = new Date(d instanceof Date ? d.getTime() : new Date(d).getTime());
+  const date = new Date(
+    d instanceof Date ? d.getTime() : new Date(d).getTime()
+  );
   date.setDate(date.getDate() + days);
   return date;
 }
@@ -71,8 +73,12 @@ function para(children, opts = {}) {
 function cell(children, opts = {}) {
   return new TableCell({
     children: Array.isArray(children) ? children : [children],
-    width: opts.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
-    shading: opts.fill ? { fill: opts.fill, color: "auto", type: "clear" } : undefined,
+    width: opts.width
+      ? { size: opts.width, type: WidthType.PERCENTAGE }
+      : undefined,
+    shading: opts.fill
+      ? { fill: opts.fill, color: "auto", type: "clear" }
+      : undefined,
     verticalAlign: VerticalAlign.CENTER,
     margins: { top: 60, bottom: 60, left: 90, right: 90 },
     borders: opts.borders ?? {
@@ -132,9 +138,16 @@ async function generateQuoteDocx(quoteData) {
         children: [
           cell(
             [
-              para(run(QUOTE_BRAND.companyName, { bold: true, size: 30, color: GREEN }), {
-                after: 20,
-              }),
+              para(
+                run(QUOTE_BRAND.companyName, {
+                  bold: true,
+                  size: 30,
+                  color: GREEN,
+                }),
+                {
+                  after: 20,
+                }
+              ),
               para(run(QUOTE_BRAND.tagline, { size: 15, color: GRAY })),
               para(run(QUOTE_BRAND.website, { size: 14, color: GRAY })),
             ],
@@ -196,9 +209,9 @@ async function generateQuoteDocx(quoteData) {
               ...(contact.name
                 ? [para(run(contact.name, { size: 17, color: GRAY }))]
                 : []),
-              ...([customer.address, customer.city, customer.country]
+              ...[customer.address, customer.city, customer.country]
                 .filter(Boolean)
-                .map((l) => para(run(l, { size: 17, color: GRAY })))),
+                .map((l) => para(run(l, { size: 17, color: GRAY }))),
               ...(contact.email
                 ? [para(run(contact.email, { size: 17, color: GRAY }))]
                 : []),
@@ -265,7 +278,9 @@ async function generateQuoteDocx(quoteData) {
           fill,
         }),
         cell(
-          para(run(`${ql.lengthMm || "—"} x ${ql.heightMm || "—"}`, { size: 17 })),
+          para(
+            run(`${ql.lengthMm || "—"} x ${ql.heightMm || "—"}`, { size: 17 })
+          ),
           { width: 20, fill }
         ),
         cell(para(run(`${qty} pcs`, { size: 17 })), { width: 10, fill }),
@@ -295,14 +310,25 @@ async function generateQuoteDocx(quoteData) {
     return new TableRow({
       children: [
         cell(
-          para(run(label, { bold: opts.bold, size: 17, color: opts.color || GRAY }), {
-            alignment: AlignmentType.RIGHT,
-          }),
+          para(
+            run(label, {
+              bold: opts.bold,
+              size: 17,
+              color: opts.color || GRAY,
+            }),
+            {
+              alignment: AlignmentType.RIGHT,
+            }
+          ),
           { width: 75, fill: opts.fill, borders: NO_BORDERS }
         ),
         cell(
           para(
-            run(value, { bold: opts.bold, size: opts.big ? 21 : 17, color: opts.color || NAVY }),
+            run(value, {
+              bold: opts.bold,
+              size: opts.big ? 21 : 17,
+              color: opts.color || NAVY,
+            }),
             { alignment: AlignmentType.RIGHT }
           ),
           { width: 25, fill: opts.fill, borders: NO_BORDERS }
@@ -340,7 +366,10 @@ async function generateQuoteDocx(quoteData) {
     ["Products", productNames || "—"],
     ["Dimensions (D × L)", dimsList || "—"],
     ["Quantity", `${totalQty} pcs`],
-    ["Delivery", customer.country ? `Delivery to ${customer.country}` : "To be confirmed"],
+    [
+      "Delivery",
+      customer.country ? `Delivery to ${customer.country}` : "To be confirmed",
+    ],
   ];
 
   const terms = [
@@ -363,7 +392,9 @@ async function generateQuoteDocx(quoteData) {
     sections: [
       {
         properties: {
-          page: { margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 } },
+          page: {
+            margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 },
+          },
         },
         children: [
           headerTable,
@@ -401,14 +432,20 @@ async function generateQuoteDocx(quoteData) {
           ),
           new Paragraph({ spacing: { before: 240 }, children: [] }),
           para(run("Best regards,", { bold: true, size: 18 })),
-          para(run(`${QUOTE_BRAND.companyName}`, { bold: true, size: 18, color: GREEN })),
+          para(
+            run(`${QUOTE_BRAND.companyName}`, {
+              bold: true,
+              size: 18,
+              color: GREEN,
+            })
+          ),
           new Paragraph({
             spacing: { before: 200 },
             children: [
-              run(
-                `${QUOTE_BRAND.companyName} — ${QUOTE_BRAND.website}`,
-                { size: 14, color: GRAY }
-              ),
+              run(`${QUOTE_BRAND.companyName} — ${QUOTE_BRAND.website}`, {
+                size: 14,
+                color: GRAY,
+              }),
             ],
           }),
           para(run(QUOTE_BRAND.catalogLabel, { size: 13, color: GRAY })),

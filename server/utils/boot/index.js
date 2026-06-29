@@ -14,9 +14,7 @@ const {
 } = require("./ensureOfferKpWorkspaceProfileColumn");
 const { ensureOfferKpTables } = require("./ensureOfferKpTables");
 const { ensureOfferKpBranding } = require("./ensureOfferKpBranding");
-const {
-  ensureShopDbEnrichBootTest,
-} = require("./ensureShopDbEnrichBootTest");
+const { ensureShopDbEnrichBootTest } = require("./ensureShopDbEnrichBootTest");
 
 // Testing SSL? You can make a self signed certificate and point the ENVs to that location
 // make a directory in server called 'sslcert' - cd into it

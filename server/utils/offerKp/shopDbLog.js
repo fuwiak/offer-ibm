@@ -41,7 +41,8 @@ function formatMeta(meta) {
 }
 
 function line(levelColor, levelLabel, message, meta) {
-  const metaStr = meta !== undefined ? ` ${C.dim}${formatMeta(meta)}${C.reset}` : "";
+  const metaStr =
+    meta !== undefined ? ` ${C.dim}${formatMeta(meta)}${C.reset}` : "";
   console.log(
     `${TAG} ${levelColor}${levelLabel}${C.reset} ${message}${metaStr}`
   );

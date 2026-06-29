@@ -31,10 +31,7 @@
 const OPENROUTER_GARANT_FACT_CHECK_ENABLED_IN_CODE = false;
 
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_MODELS = [
-  "deepseek/deepseek-r1",
-  "openai/gpt-4o-mini",
-];
+const DEFAULT_MODELS = ["deepseek/deepseek-r1", "openai/gpt-4o-mini"];
 
 // Маркеры ГАРАНТ-блоков в контексте
 const GARANT_MARKERS = ["[ГАРАНТ", "[Гарант", "GARANT", "КонсультантПлюс"];
@@ -60,7 +57,10 @@ function openRouterApiKey() {
 }
 
 function openRouterBaseUrl() {
-  return (process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
+  return (process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL).replace(
+    /\/$/,
+    ""
+  );
 }
 
 function parseModels() {
@@ -69,10 +69,13 @@ function parseModels() {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch (_) {
+  } catch {
     // try CSV
   }
-  const csv = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const csv = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return csv.length > 0 ? csv : DEFAULT_MODELS;
 }
 
@@ -93,7 +96,10 @@ function isEnabled() {
 }
 
 function logEvent(data) {
-  console.log(`\x1b[35m[OpenRouterGarantFactCheck]\x1b[0m`, JSON.stringify(data));
+  console.log(
+    `\x1b[35m[OpenRouterGarantFactCheck]\x1b[0m`,
+    JSON.stringify(data)
+  );
 }
 
 /**
@@ -152,7 +158,10 @@ async function callOpenRouterOnce(draftText, garantBundle, model, apiKey) {
         { role: "user", content: userContent },
       ],
       temperature: 0.05,
-      max_tokens: Math.max(512, Math.min(8192, Math.ceil(draftText.length * 1.3))),
+      max_tokens: Math.max(
+        512,
+        Math.min(8192, Math.ceil(draftText.length * 1.3))
+      ),
     }),
   });
 
@@ -162,7 +171,8 @@ async function callOpenRouterOnce(draftText, garantBundle, model, apiKey) {
   }
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content;
-  if (!text || typeof text !== "string" || text.trim().length < 5) return draftText;
+  if (!text || typeof text !== "string" || text.trim().length < 5)
+    return draftText;
   return text;
 }
 
@@ -176,8 +186,15 @@ async function callOpenRouterOnce(draftText, garantBundle, model, apiKey) {
  * @param {unknown[]} contextTexts - Полный контекст запроса
  * @returns {Promise<string>}
  */
-async function applyOpenRouterGarantFactCheck(draftText = "", contextTexts = []) {
-  if (!draftText || typeof draftText !== "string" || draftText.trim().length < 10) {
+async function applyOpenRouterGarantFactCheck(
+  draftText = "",
+  contextTexts = []
+) {
+  if (
+    !draftText ||
+    typeof draftText !== "string" ||
+    draftText.trim().length < 10
+  ) {
     return draftText;
   }
   if (!isEnabled()) {
@@ -210,7 +227,12 @@ async function applyOpenRouterGarantFactCheck(draftText = "", contextTexts = [])
     const model = models[i];
     const stepStart = Date.now();
     try {
-      const next = await callOpenRouterOnce(current, garantBundle, model, apiKey);
+      const next = await callOpenRouterOnce(
+        current,
+        garantBundle,
+        model,
+        apiKey
+      );
       const changed = next !== current;
       current = next;
       logEvent({
@@ -225,7 +247,12 @@ async function applyOpenRouterGarantFactCheck(draftText = "", contextTexts = [])
           : `OpenRouter (${model}): ответ без изменений на этом шаге.`,
       });
     } catch (e) {
-      logEvent({ phase: "step_error", stepIndex: i + 1, model, error: e.message });
+      logEvent({
+        phase: "step_error",
+        stepIndex: i + 1,
+        model,
+        error: e.message,
+      });
       // continue with current text
     }
   }

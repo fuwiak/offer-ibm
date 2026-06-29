@@ -91,10 +91,8 @@ function detectQuoteCreationIntentSync(userMessages = []) {
 function mightNeedLlmQuoteJudge(userMessages = []) {
   const combined = userMessages.join("\n").toLowerCase();
   if (!combined.trim()) return false;
-  return (
-    /doc|pdf|word|файл|документ|скач|download|gener|создай|create|make|подготов|przygot|wygener|ofert|кп|коммерческ|quote|propozycj/i.test(
-      combined
-    )
+  return /doc|pdf|word|файл|документ|скач|download|gener|создай|create|make|подготов|przygot|wygener|ofert|кп|коммерческ|quote|propozycj/i.test(
+    combined
   );
 }
 
@@ -114,7 +112,10 @@ async function detectQuoteCreationIntentWithLlm({
   workspace = null,
 } = {}) {
   if (!quoteIntentLlmJudgeEnabled()) return false;
-  if (!mightNeedLlmQuoteJudge(userMessages) && !payloadLooksLikeQuote({ payload })) {
+  if (
+    !mightNeedLlmQuoteJudge(userMessages) &&
+    !payloadLooksLikeQuote({ payload })
+  ) {
     return false;
   }
 

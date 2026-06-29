@@ -3,7 +3,9 @@ const InheritMultiple = require("./helpers/classes.js");
 const UnTooled = require("./helpers/untooled.js");
 const { formatFunctionsToTools } = require("./helpers/tooled.js");
 const { OllamaAILLM } = require("../../../AiProviders/ollama");
-const { ollamaChatWithCloudFallback } = require("../../../AiProviders/ollama/cloudFallback");
+const {
+  ollamaChatWithCloudFallback,
+} = require("../../../AiProviders/ollama/cloudFallback");
 const {
   isLocalOllamaReachable,
   isOllamaReachabilityError,
@@ -339,73 +341,73 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
   }
 
   async #streamNativeTools(messages, functions, eventHandler) {
-      this.resetUsage();
-      await OllamaAILLM.cacheContextWindows();
-      const msgUUID = v4();
-      const formattedMessages = this.#formatMessagesForOllamaTools(messages);
-      const tools = formatFunctionsToTools(functions);
+    this.resetUsage();
+    await OllamaAILLM.cacheContextWindows();
+    const msgUUID = v4();
+    const formattedMessages = this.#formatMessagesForOllamaTools(messages);
+    const tools = formatFunctionsToTools(functions);
 
-      const stream = await this.#chatWithFallback({
-        model: this.model,
-        messages: formattedMessages,
-        tools,
-        stream: true,
-        options: this.queryOptions,
-      });
+    const stream = await this.#chatWithFallback({
+      model: this.model,
+      messages: formattedMessages,
+      tools,
+      stream: true,
+      options: this.queryOptions,
+    });
 
-      let textResponse = "";
-      let toolCalls = null;
+    let textResponse = "";
+    let toolCalls = null;
 
-      for await (const chunk of stream) {
-        // Capture usage from final chunk (Ollama sends usage when done=true)
-        if (chunk.done === true) {
-          this.recordUsage({
-            prompt_tokens: chunk.prompt_eval_count || 0,
-            completion_tokens: chunk.eval_count || 0,
-          });
-        }
-
-        if (!chunk?.message) continue;
-
-        if (chunk.message.content) {
-          textResponse += chunk.message.content;
-          eventHandler?.("reportStreamEvent", {
-            type: "textResponseChunk",
-            uuid: msgUUID,
-            content: chunk.message.content,
-          });
-        }
-
-        if (chunk.message.tool_calls?.length > 0) {
-          toolCalls = chunk.message.tool_calls;
-          eventHandler?.("reportStreamEvent", {
-            uuid: `${msgUUID}:tool_call_invocation`,
-            type: "toolCallInvocation",
-            content: `Tool Call: ${toolCalls[0].function.name}(${JSON.stringify(toolCalls[0].function.arguments)})`,
-          });
-        }
+    for await (const chunk of stream) {
+      // Capture usage from final chunk (Ollama sends usage when done=true)
+      if (chunk.done === true) {
+        this.recordUsage({
+          prompt_tokens: chunk.prompt_eval_count || 0,
+          completion_tokens: chunk.eval_count || 0,
+        });
       }
 
-      if (toolCalls && toolCalls.length > 0) {
-        const toolCall = toolCalls[0];
-        const args =
-          typeof toolCall.function.arguments === "string"
-            ? safeJsonParse(toolCall.function.arguments, {})
-            : toolCall.function.arguments || {};
+      if (!chunk?.message) continue;
 
-        return {
-          textResponse,
-          functionCall: {
-            id: `ollama_${v4()}`,
-            name: toolCall.function.name,
-            arguments: args,
-          },
-          cost: 0,
+      if (chunk.message.content) {
+        textResponse += chunk.message.content;
+        eventHandler?.("reportStreamEvent", {
+          type: "textResponseChunk",
           uuid: msgUUID,
-        };
+          content: chunk.message.content,
+        });
       }
 
-      return { textResponse, functionCall: null, cost: 0, uuid: msgUUID };
+      if (chunk.message.tool_calls?.length > 0) {
+        toolCalls = chunk.message.tool_calls;
+        eventHandler?.("reportStreamEvent", {
+          uuid: `${msgUUID}:tool_call_invocation`,
+          type: "toolCallInvocation",
+          content: `Tool Call: ${toolCalls[0].function.name}(${JSON.stringify(toolCalls[0].function.arguments)})`,
+        });
+      }
+    }
+
+    if (toolCalls && toolCalls.length > 0) {
+      const toolCall = toolCalls[0];
+      const args =
+        typeof toolCall.function.arguments === "string"
+          ? safeJsonParse(toolCall.function.arguments, {})
+          : toolCall.function.arguments || {};
+
+      return {
+        textResponse,
+        functionCall: {
+          id: `ollama_${v4()}`,
+          name: toolCall.function.name,
+          arguments: args,
+        },
+        cost: 0,
+        uuid: msgUUID,
+      };
+    }
+
+    return { textResponse, functionCall: null, cost: 0, uuid: msgUUID };
   }
 
   async #streamUntooled(messages, functions, eventHandler) {

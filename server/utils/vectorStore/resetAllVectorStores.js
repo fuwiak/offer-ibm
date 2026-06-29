@@ -25,10 +25,7 @@ async function resetAllVectorStores({ vectorDbKey }) {
       reason: "System vector configuration changed",
     });
 
-    console.log(
-      "Resetting offerKp managed vector namespaces for",
-      vectorDbKey
-    );
+    console.log("Resetting offerKp managed vector namespaces for", vectorDbKey);
     const VectorDb = getVectorDbClass(vectorDbKey);
 
     if (vectorDbKey === "pgvector") {

@@ -269,7 +269,13 @@ function mergeProductHits(batches) {
   }));
 }
 
-function rankAgentProducts(products, terms, parsed, skuCodes = [], searchText = "") {
+function rankAgentProducts(
+  products,
+  terms,
+  parsed,
+  skuCodes = [],
+  searchText = ""
+) {
   const skuSet = new Set(skuCodes.map(String));
 
   const scored = products.map((p, index) => {
@@ -444,7 +450,13 @@ async function runProductSearchAgent({
     }
   }
 
-  products = rankAgentProducts(products, searchTerms, parsed, skuCodes, message);
+  products = rankAgentProducts(
+    products,
+    searchTerms,
+    parsed,
+    skuCodes,
+    message
+  );
 
   if (skuOnly && skuCodes.length) {
     const exactMatches = products.filter(

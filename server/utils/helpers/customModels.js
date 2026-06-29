@@ -12,7 +12,6 @@ const { perplexityModels } = require("../AiProviders/perplexity");
 const { fireworksAiModels } = require("../AiProviders/fireworksAi");
 const { ElevenLabsTTS } = require("../TextToSpeech/elevenLabs");
 const { fetchNovitaModels } = require("../AiProviders/novita");
-const { parseLMStudioBasePath } = require("../AiProviders/lmStudio");
 const { parseNvidiaNimBasePath } = require("../AiProviders/nvidiaNim");
 const { fetchPPIOModels } = require("../AiProviders/ppio");
 const { GeminiLLM } = require("../AiProviders/gemini");
@@ -20,11 +19,7 @@ const { fetchCometApiModels } = require("../AiProviders/cometapi");
 const { parseFoundryBasePath } = require("../AiProviders/foundry");
 const { getDockerModels } = require("../AiProviders/dockerModelRunner");
 const { getAllLemonadeModels } = require("../AiProviders/lemonade");
-const { offerKpLog, offerKpLogTimed } = require("../offerKpApp/offerKpLog");
-
-const LMSTUDIO_MODELS_TIMEOUT_MS = Number(
-  process.env.LMSTUDIO_MODELS_TIMEOUT_MS || 4000
-);
+const { offerKpLog } = require("../offerKpApp/offerKpLog");
 
 const SUPPORT_CUSTOM_MODELS = [
   "openai",
@@ -347,40 +342,6 @@ async function liteLLMModels(basePath = null, apiKey = null) {
   // Api Key was successful so lets save it for future uses
   if (models.length > 0 && !!apiKey) process.env.LITE_LLM_API_KEY = apiKey;
   return { models, error: null };
-}
-
-async function getLMStudioModels(basePath = null, _apiKey = null) {
-  const timer = offerKpLogTimed("LM Studio list models", {
-    basePath: basePath || process.env.LMSTUDIO_BASE_PATH,
-  });
-  try {
-    const apiKey =
-      _apiKey === true
-        ? process.env.LMSTUDIO_AUTH_TOKEN
-        : _apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
-
-    const { OpenAI: OpenAIApi } = require("openai");
-    const openai = new OpenAIApi({
-      baseURL: parseLMStudioBasePath(
-        basePath || process.env.LMSTUDIO_BASE_PATH
-      ),
-      apiKey: apiKey || null,
-      timeout: LMSTUDIO_MODELS_TIMEOUT_MS,
-    });
-    const models = await openai.models
-      .list()
-      .then((results) => results.data)
-      .catch((e) => {
-        offerKpLog("warn", "LMStudio:listModels failed", { error: e.message });
-        return [];
-      });
-
-    timer.done({ count: models.length });
-    return { models, error: null };
-  } catch (e) {
-    timer.fail(e);
-    return { models: [], error: "Could not fetch LMStudio Models" };
-  }
 }
 
 async function getOfferKpLMStudioModels(basePath = null, apiKey = null) {

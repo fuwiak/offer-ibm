@@ -19,8 +19,7 @@ async function streamOfferKpPublicChat(
   sessionId = "public",
   options = {}
 ) {
-  const slug =
-    process.env.OFFER_KP_PUBLIC_WORKSPACE || "offerKp-public";
+  const slug = process.env.OFFER_KP_PUBLIC_WORKSPACE || "offerKp-public";
   const workspace = await Workspace.get({ slug });
 
   if (!workspace) {
@@ -105,10 +104,14 @@ async function streamOfferKpPublicChat(
     const stream = await LLMConnector.streamGetChatCompletion(messages, {
       temperature: workspace.openAiTemp ?? LLMConnector.defaultTemp,
     });
-    const assistantText = await handleDefaultStreamResponseV2(response, stream, {
-      uuid,
-      sources,
-    });
+    const assistantText = await handleDefaultStreamResponseV2(
+      response,
+      stream,
+      {
+        uuid,
+        sources,
+      }
+    );
     if (assistantText) {
       appendPublicChatMessage(sessionId, "assistant", assistantText);
     }

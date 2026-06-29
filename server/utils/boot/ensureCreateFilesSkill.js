@@ -30,9 +30,7 @@ async function ensureCreateFilesSkillEnabled() {
     await SystemSettings.updateSettings({
       default_agent_skills: updated,
     });
-    console.log(
-      `[offerKp] Enabled agent skills: ${missing.join(", ")}`
-    );
+    console.log(`[offerKp] Enabled agent skills: ${missing.join(", ")}`);
   } catch (e) {
     console.error("[offerKp] ensureCreateFilesSkillEnabled error:", e.message);
   }

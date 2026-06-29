@@ -25,7 +25,10 @@ function coerceToLocalModel(modelId) {
 /**
  * Resolve LLM for offer-kp. Chat/agents use LM Studio only.
  */
-function resolveLlmProviderAndModel({ provider = null, model = null } = {}) {
+function resolveLlmProviderAndModel({
+  provider: _provider = null,
+  model = null,
+} = {}) {
   ensureLmStudioBasePath();
 
   const requestedModel =

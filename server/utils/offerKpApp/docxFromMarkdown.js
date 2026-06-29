@@ -17,7 +17,10 @@ const {
  * @param {string} [opts.filename]
  * @returns {Promise<{filename, storageFilename, filePath, fileSize}>}
  */
-async function generateDocxFromMarkdown({ markdown = "", filename = "document.docx" }) {
+async function generateDocxFromMarkdown({
+  markdown = "",
+  filename = "document.docx",
+}) {
   const libs = await loadLibraries();
   const { marked, docx } = libs;
   const { Document, Packer, Paragraph, TextRun } = docx;
@@ -29,7 +32,9 @@ async function generateDocxFromMarkdown({ markdown = "", filename = "document.do
   const html = marked.parse(markdown || "");
   const docElements = await htmlToDocxElements(html, libs, () => {}, theme);
   if (docElements.length === 0) {
-    docElements.push(new Paragraph({ children: [new TextRun({ text: markdown })] }));
+    docElements.push(
+      new Paragraph({ children: [new TextRun({ text: markdown })] })
+    );
   }
 
   const doc = new Document({
@@ -43,7 +48,9 @@ async function generateDocxFromMarkdown({ markdown = "", filename = "document.do
   });
 
   const buffer = await Packer.toBuffer(doc);
-  const displayFilename = /\.docx$/i.test(filename) ? filename : `${filename}.docx`;
+  const displayFilename = /\.docx$/i.test(filename)
+    ? filename
+    : `${filename}.docx`;
 
   const saved = await createFilesLib.saveGeneratedFile({
     fileType: "doc",

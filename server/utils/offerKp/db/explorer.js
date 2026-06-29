@@ -44,7 +44,14 @@ const FORBIDDEN_KEYWORDS = [
 ];
 
 /** Разрешённые стартовые токены запроса. */
-const ALLOWED_PREFIXES = ["select", "with", "show", "describe", "desc", "explain"];
+const ALLOWED_PREFIXES = [
+  "select",
+  "with",
+  "show",
+  "describe",
+  "desc",
+  "explain",
+];
 
 function clampLimit(limit) {
   const n = parseInt(limit, 10);
@@ -91,7 +98,10 @@ function validateReadOnlyQuery(rawSql) {
 
   for (const kw of FORBIDDEN_KEYWORDS) {
     if (new RegExp(`\\b${kw}\\b`, "i").test(lower)) {
-      return { ok: false, reason: `FORBIDDEN_KEYWORD:${kw.replace(/\\s\+/g, " ")}` };
+      return {
+        ok: false,
+        reason: `FORBIDDEN_KEYWORD:${kw.replace(/\\s\+/g, " ")}`,
+      };
     }
   }
 

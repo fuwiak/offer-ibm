@@ -95,8 +95,18 @@ class LMStudioLLM {
         .then(({ data: models }) => {
           models.forEach((model) => {
             if (model.type === "embeddings") return;
-            LMStudioLLM.modelContextWindows[model.id] =
-              model.max_context_length;
+            const loaded =
+              model.state === "loaded" &&
+              Number(model.loaded_context_length) > 0
+                ? Number(model.loaded_context_length)
+                : null;
+            const maxLen = Number(model.max_context_length) || 4096;
+            LMStudioLLM.modelContextWindows[model.id] = loaded ?? maxLen;
+            if (loaded && loaded < maxLen) {
+              LMStudioLLM.#slog(
+                `Model ${model.id}: loaded ctx=${loaded} (max ${maxLen})`
+              );
+            }
           });
         })
         .catch((e) => {

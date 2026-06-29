@@ -117,7 +117,9 @@ async function chatPrompt(
 
   const datePreamble = buildCurrentDatePreamble();
   const sourcePriority = buildLegalSourcePriorityInstructions();
-  basePrompt = [datePreamble, sourcePriority, basePrompt].filter(Boolean).join("\n\n");
+  basePrompt = [datePreamble, sourcePriority, basePrompt]
+    .filter(Boolean)
+    .join("\n\n");
 
   return await SystemPromptVariables.expandSystemPromptVariables(
     basePrompt,

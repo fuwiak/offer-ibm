@@ -140,8 +140,7 @@ function analyzePolish(text) {
 
   // Heurystyka: polskie diakrytyki są bardzo silnym sygnałem; w przeciwnym razie
   // wymagamy co najmniej dwóch trafień słów funkcyjnych.
-  result.score =
-    (result.diacritics ? 3 : 0) + Math.min(result.stopwordHits, 5);
+  result.score = (result.diacritics ? 3 : 0) + Math.min(result.stopwordHits, 5);
   result.isPolish = result.diacritics || result.stopwordHits >= 2;
 
   return result;

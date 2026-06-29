@@ -228,8 +228,7 @@ class MetaGenerator {
             tag: "title",
             props: null,
             content:
-              customTitle ??
-              "OfferKP | Формирование коммерческих предложений",
+              customTitle ?? "OfferKP | Формирование коммерческих предложений",
           };
         }
         // Override meta title

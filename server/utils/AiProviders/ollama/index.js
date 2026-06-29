@@ -9,7 +9,12 @@ const {
 } = require("../../helpers/chat/LLMPerformanceMonitor");
 const { Ollama } = require("ollama");
 const { v4: uuidv4 } = require("uuid");
-const { ollamaChatWithCloudFallback, ollamaListWithCloudFallback, ollamaShowWithCloudFallback, ollamaCloudFallbackEnabled } = require("./cloudFallback");
+const {
+  ollamaChatWithCloudFallback,
+  ollamaListWithCloudFallback,
+  ollamaShowWithCloudFallback,
+  ollamaCloudFallbackEnabled,
+} = require("./cloudFallback");
 
 // Docs: https://github.com/jmorganca/ollama/blob/main/docs/api.md
 class OllamaAILLM {

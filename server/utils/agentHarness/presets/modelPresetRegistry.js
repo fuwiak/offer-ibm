@@ -1,9 +1,13 @@
 const { OFFER_KP_DEFAULT_MODEL } = require("../../../config/offerKp.models");
-const { DefaultOfferKpHarnessPreset } = require("./models/DefaultOfferKpHarnessPreset");
+const {
+  DefaultOfferKpHarnessPreset,
+} = require("./models/DefaultOfferKpHarnessPreset");
 const { GptOss20bHarnessPreset } = require("./models/GptOss20bHarnessPreset");
 const { DeepseekR1HarnessPreset } = require("./models/DeepseekR1HarnessPreset");
 const { Gemma12bHarnessPreset } = require("./models/Gemma12bHarnessPreset");
-const { Gemma12bQatHarnessPreset } = require("./models/Gemma12bQatHarnessPreset");
+const {
+  Gemma12bQatHarnessPreset,
+} = require("./models/Gemma12bQatHarnessPreset");
 
 /** @type {Map<string, typeof import("./BaseModelHarnessPreset").BaseModelHarnessPreset>} */
 const presetByModelId = new Map();
@@ -14,7 +18,9 @@ const presetByPattern = [];
 function registerModelHarnessPreset(modelId, PresetClass) {
   const id = String(modelId || "").trim();
   if (!id || typeof PresetClass !== "function") {
-    throw new TypeError("registerModelHarnessPreset(modelId, PresetClass) invalid args");
+    throw new TypeError(
+      "registerModelHarnessPreset(modelId, PresetClass) invalid args"
+    );
   }
   presetByModelId.set(id, PresetClass);
 }
@@ -32,7 +38,11 @@ function normalizeModelId(modelId) {
   return String(modelId || "").trim();
 }
 
-function resolveModelIdFromContext({ model = null, workspace = null, invocation = null } = {}) {
+function resolveModelIdFromContext({
+  model = null,
+  workspace = null,
+  invocation = null,
+} = {}) {
   return (
     normalizeModelId(model) ||
     normalizeModelId(workspace?.chatModel) ||
@@ -70,12 +80,21 @@ function registerDefaultModelHarnessPresets() {
     DeepseekR1HarnessPreset
   );
   registerModelHarnessPreset("google/gemma-4-12b", Gemma12bHarnessPreset);
-  registerModelHarnessPreset("google/gemma-4-12b-qat", Gemma12bQatHarnessPreset);
+  registerModelHarnessPreset(
+    "google/gemma-4-12b-qat",
+    Gemma12bQatHarnessPreset
+  );
 
   registerModelHarnessPresetPattern(/^deepseek\//i, DeepseekR1HarnessPreset);
-  registerModelHarnessPresetPattern(/^google\/gemma-4-12b-qat/i, Gemma12bQatHarnessPreset);
+  registerModelHarnessPresetPattern(
+    /^google\/gemma-4-12b-qat/i,
+    Gemma12bQatHarnessPreset
+  );
   registerModelHarnessPresetPattern(/^google\/gemma/i, Gemma12bHarnessPreset);
-  registerModelHarnessPresetPattern(/^openai\/gpt-oss/i, GptOss20bHarnessPreset);
+  registerModelHarnessPresetPattern(
+    /^openai\/gpt-oss/i,
+    GptOss20bHarnessPreset
+  );
 }
 
 registerDefaultModelHarnessPresets();

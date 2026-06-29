@@ -1,6 +1,8 @@
 const { BaseBlock } = require("../BaseBlock");
 const { harnessLog } = require("../harnessLog");
-const { getOfferKpHarnessGuidelines } = require("../../../config/offerKp.harnessGuidelines");
+const {
+  getOfferKpHarnessGuidelines,
+} = require("../../../config/offerKp.harnessGuidelines");
 
 /**
  * Подставляет расширяемые LLM-инструкции OfferKP (единицы, статус, аналоги, приоритеты DIN/ГОСТ).

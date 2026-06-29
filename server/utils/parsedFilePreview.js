@@ -1,10 +1,4 @@
-const TABULAR_EXTENSIONS = new Set([
-  "csv",
-  "tsv",
-  "xlsx",
-  "xls",
-  "ods",
-]);
+const TABULAR_EXTENSIONS = new Set(["csv", "tsv", "xlsx", "xls", "ods"]);
 
 function parseCsvLine(line, delimiter = ",") {
   const result = [];

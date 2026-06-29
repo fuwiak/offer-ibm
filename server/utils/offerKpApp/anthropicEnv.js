@@ -34,9 +34,7 @@ function normalizeAnthropicModelId(model = "") {
   const raw = String(model).trim();
   if (!raw) {
     const llmDefaults = require("../../config/offerKp.llm.defaults");
-    return (
-      process.env.ANTHROPIC_MODEL_PREF || llmDefaults.ANTHROPIC_MODEL_PREF
-    );
+    return process.env.ANTHROPIC_MODEL_PREF || llmDefaults.ANTHROPIC_MODEL_PREF;
   }
   if (raw.includes("/")) return raw.split("/").pop();
   return raw;

@@ -13,6 +13,9 @@
  *   - "Яндекс"                    → Яндекс block
  *   - "Google" / "Google (изображения)" → Google block
  */
-const { buildExternalLinksSection, sourceUrl } = require("../garant/linksFooter");
+const {
+  buildExternalLinksSection,
+  sourceUrl,
+} = require("../garant/linksFooter");
 
 module.exports = { buildExternalLinksSection, sourceUrl };

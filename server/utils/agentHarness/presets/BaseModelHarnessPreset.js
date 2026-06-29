@@ -1,7 +1,7 @@
+const { resolveOfferKpBlockIds } = require("../registry");
 const {
-  resolveOfferKpBlockIds,
-} = require("../registry");
-const { getOfferKpHarnessGuidelines } = require("../../../config/offerKp.harnessGuidelines");
+  getOfferKpHarnessGuidelines,
+} = require("../../../config/offerKp.harnessGuidelines");
 
 /**
  * Базовый пресет harness для одной LLM-модели OfferKP.

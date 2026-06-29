@@ -129,7 +129,9 @@ function getVectorDbClass(getExactly = null) {
  * @returns {BaseLLMProvider}
  */
 function getLLMProvider({ provider = null, model = null } = {}) {
-  const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
+  const {
+    resolveLlmProviderAndModel,
+  } = require("../offerKpApp/resolveLlmProvider");
   const resolved = resolveLlmProviderAndModel({ provider, model });
   const LLMSelection = resolved.provider;
   model = resolved.model ?? model;
@@ -596,8 +598,13 @@ function humanFileSize(bytes, si = false, dp = 1) {
   return bytes.toFixed(dp) + " " + units[u];
 }
 
-async function getLLMProviderWithFallback({ provider = null, model = null } = {}) {
-  const { resolveLlmProviderAndModel } = require("../offerKpApp/resolveLlmProvider");
+async function getLLMProviderWithFallback({
+  provider = null,
+  model = null,
+} = {}) {
+  const {
+    resolveLlmProviderAndModel,
+  } = require("../offerKpApp/resolveLlmProvider");
   const resolved = resolveLlmProviderAndModel({ provider, model });
   return getLLMProvider(resolved);
 }

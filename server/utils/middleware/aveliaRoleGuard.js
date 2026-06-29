@@ -36,7 +36,11 @@ function offerKpRoleGuard({ requireAuth = false } = {}) {
     response.locals.sanitizeOfferKpQuote = (quote) => {
       if (!quote) return quote;
       if (user?.role === "supplier") return stripSupplierFields(quote);
-      if (user?.role === "partner" && quote.userId && quote.userId !== user.id) {
+      if (
+        user?.role === "partner" &&
+        quote.userId &&
+        quote.userId !== user.id
+      ) {
         return null;
       }
       return quote;

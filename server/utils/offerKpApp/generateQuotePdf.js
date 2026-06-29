@@ -14,13 +14,6 @@ const AMBER = rgb(0.72, 0.38, 0.04);
 const AMBER_BG = rgb(1, 0.97, 0.9);
 const TABLE_HEADER_TEXT = rgb(0.82, 0.86, 0.93);
 
-function fmtNum(num, decimals = 3) {
-  return new Intl.NumberFormat("fr-FR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(num);
-}
-
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
   return date.toLocaleDateString("fr-FR");
@@ -70,7 +63,12 @@ async function generateQuotePdf(quoteData) {
     const R = W - 38;
     const CW = R - L;
 
-    function txt(text, x, y, { font = regular, size = 8.5, color = DARK, maxWidth } = {}) {
+    function txt(
+      text,
+      x,
+      y,
+      { font = regular, size = 8.5, color = DARK, maxWidth } = {}
+    ) {
       if (!text) return;
       const str = toPdfSafeText(text);
       if (maxWidth) {
@@ -119,12 +117,16 @@ async function generateQuotePdf(quoteData) {
   // ═══════════════════════════════════════════════════════════════════
   // PAGE 1
   // ═══════════════════════════════════════════════════════════════════
-  const { W, H, L, R, CW, txt, rect, line, rightAlign } = makePage();
+  const { H, L, R, CW, txt, rect, line, rightAlign } = makePage();
   let y = H - 28;
 
   // Company info — top right
   const companyX = R - 180;
-  txt(QUOTE_BRAND.companyNameLatin, companyX, y, { font: bold, size: 8, color: DARK });
+  txt(QUOTE_BRAND.companyNameLatin, companyX, y, {
+    font: bold,
+    size: 8,
+    color: DARK,
+  });
   txt(QUOTE_BRAND.address, companyX, y - 11, { size: 7.5, color: GRAY });
   txt(QUOTE_BRAND.website, companyX, y - 21, { size: 7.5, color: GRAY });
   if (QUOTE_BRAND.email) {
@@ -132,7 +134,10 @@ async function generateQuotePdf(quoteData) {
   }
 
   txt("PUROLAT", L, y, { font: bold, size: 22, color: NAVY });
-  txt(QUOTE_BRAND.taglineLatin.toUpperCase(), L, y - 14, { size: 6, color: GRAY });
+  txt(QUOTE_BRAND.taglineLatin.toUpperCase(), L, y - 14, {
+    size: 6,
+    color: GRAY,
+  });
   txt(QUOTE_BRAND.catalogLabel, L, y - 22, { size: 6, color: GRAY });
 
   y -= 38;
@@ -142,11 +147,20 @@ async function generateQuotePdf(quoteData) {
   // ── QUOTATION banner ──────────────────────────────────────────────
   const bannerH = 30;
   rect(L, y - bannerH, CW, bannerH, { color: NAVY });
-  txt("COMMERCIAL OFFER", L + 14, y - 19, { font: bold, size: 14, color: WHITE });
-  txt(`${QUOTE_BRAND.catalogLabel} · ${QUOTE_BRAND.taglineLatin}`, L + 14, y - 27, {
-    size: 7,
-    color: TABLE_HEADER_TEXT,
+  txt("COMMERCIAL OFFER", L + 14, y - 19, {
+    font: bold,
+    size: 14,
+    color: WHITE,
   });
+  txt(
+    `${QUOTE_BRAND.catalogLabel} · ${QUOTE_BRAND.taglineLatin}`,
+    L + 14,
+    y - 27,
+    {
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    }
+  );
   y -= bannerH + 14;
 
   // ── Customer + Quote Reference ────────────────────────────────────
@@ -158,7 +172,10 @@ async function generateQuotePdf(quoteData) {
   y -= 14;
   txt(customer.name || "—", L, y, { font: bold, size: 10 });
   y -= 13;
-  if (customer.city) { txt(customer.city, L, y, { size: 8.5 }); y -= 11; }
+  if (customer.city) {
+    txt(customer.city, L, y, { size: 8.5 });
+    y -= 11;
+  }
   txt(customer.country || "", L, y, { size: 8.5 });
   y -= 11;
   if (customer.productLine) {
@@ -176,11 +193,16 @@ async function generateQuotePdf(quoteData) {
   ry -= 12;
   txt("Validity: 30 days", midX, ry, { size: 8.5 });
   ry -= 12;
-  txt("Payment: 50% deposit, balance before shipment — Bank transfer", midX, ry, {
-    size: 7.5,
-    color: GRAY,
-    maxWidth: R - midX - 5,
-  });
+  txt(
+    "Payment: 50% deposit, balance before shipment — Bank transfer",
+    midX,
+    ry,
+    {
+      size: 7.5,
+      color: GRAY,
+      maxWidth: R - midX - 5,
+    }
+  );
   ry -= 22;
   txt(`Contact: ${contact.name}`, midX, ry, { font: bold, size: 8 });
   ry -= 12;
@@ -197,27 +219,62 @@ async function generateQuotePdf(quoteData) {
   const groups = groupLinesByProduct(lines);
 
   for (const group of groups) {
-    const { productName, composition, groupLines, groupTotal, totalQty } = group;
+    const { productName, composition, groupLines, totalQty } = group;
 
     // Product header bar
     rect(L, y - 22, CW, 22, { color: NAVY });
     txt(productName, L + 10, y - 14, { font: bold, size: 9, color: WHITE });
     if (composition) {
-      txt(composition, L + 10, y - 22 + 5, { size: 7, color: TABLE_HEADER_TEXT });
+      txt(composition, L + 10, y - 22 + 5, {
+        size: 7,
+        color: TABLE_HEADER_TEXT,
+      });
     }
-    rightAlign(`${totalQty} units`, R - 6, y - 14, { font: bold, size: 9, color: WHITE });
+    rightAlign(`${totalQty} units`, R - 6, y - 14, {
+      font: bold,
+      size: 9,
+      color: WHITE,
+    });
     y -= 22 + 1;
 
     // Table header
     rect(L, y - 14, CW, 14, { color: rgb(0.18, 0.24, 0.42) });
     const COL = tableColumns(L, R);
-    txt("N°", COL.num + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("PRODUCT", COL.product + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("D × L (MM)", COL.dims + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("SPEC", COL.area + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("QTY", COL.qty + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("UNIT PRICE", COL.unitPrice + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
-    txt("TOTAL", COL.total + 2, y - 10, { font: bold, size: 7, color: TABLE_HEADER_TEXT });
+    txt("N°", COL.num + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("PRODUCT", COL.product + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("D × L (MM)", COL.dims + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("SPEC", COL.area + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("QTY", COL.qty + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("UNIT PRICE", COL.unitPrice + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
+    txt("TOTAL", COL.total + 2, y - 10, {
+      font: bold,
+      size: 7,
+      color: TABLE_HEADER_TEXT,
+    });
     y -= 14;
 
     // Table rows
@@ -228,7 +285,8 @@ async function generateQuotePdf(quoteData) {
       if (isEven) rect(L, y - rowH, CW, rowH, { color: LIGHT_GRAY });
 
       const qty = ql.quantity || 1;
-      const unitPrice = ql.unitPrice ?? (qty > 0 ? (ql.lineTotal || 0) / qty : 0);
+      const unitPrice =
+        ql.unitPrice ?? (qty > 0 ? (ql.lineTotal || 0) / qty : 0);
       const dims = `${ql.lengthMm} × ${ql.heightMm}`;
       const spec = ql.spec || "DIN/GOST";
 
@@ -277,8 +335,16 @@ async function generateQuotePdf(quoteData) {
 
   // TOTAL row
   rect(totalsX, y - 18, totalsW, 18, { color: NAVY });
-  txt("TOTAL excl. VAT", totalsX + 8, y - 12, { font: bold, size: 9, color: WHITE });
-  rightAlign(fmtMoney(total), R - 6, y - 12, { font: bold, size: 11, color: WHITE });
+  txt("TOTAL excl. VAT", totalsX + 8, y - 12, {
+    font: bold,
+    size: 9,
+    color: WHITE,
+  });
+  rightAlign(fmtMoney(total), R - 6, y - 12, {
+    font: bold,
+    size: 11,
+    color: WHITE,
+  });
   y -= 28;
 
   // No VAT note
@@ -315,15 +381,28 @@ async function generateQuotePdf(quoteData) {
   rect(L, y - 44, CW, 44, { color: NAVY });
   const aaText = "ACCEPTED & APPROVED";
   const aaW = bold.widthOfTextAtSize(aaText, 12);
-  txt(aaText, L + CW / 2 - aaW / 2, y - 18, { font: bold, size: 12, color: WHITE });
+  txt(aaText, L + CW / 2 - aaW / 2, y - 18, {
+    font: bold,
+    size: 12,
+    color: WHITE,
+  });
   const subAaText = "Read and approved — Order confirmed";
   const subAaW = oblique.widthOfTextAtSize(subAaText, 8.5);
-  txt(subAaText, L + CW / 2 - subAaW / 2, y - 31, { font: oblique, size: 8.5, color: TABLE_HEADER_TEXT });
-  txt("Signature and stamp", L + CW / 2 - oblique.widthOfTextAtSize("Signature and stamp", 7.5) / 2, y - 41, {
+  txt(subAaText, L + CW / 2 - subAaW / 2, y - 31, {
     font: oblique,
-    size: 7.5,
-    color: NAVY_LIGHT,
+    size: 8.5,
+    color: TABLE_HEADER_TEXT,
   });
+  txt(
+    "Signature and stamp",
+    L + CW / 2 - oblique.widthOfTextAtSize("Signature and stamp", 7.5) / 2,
+    y - 41,
+    {
+      font: oblique,
+      size: 7.5,
+      color: NAVY_LIGHT,
+    }
+  );
   y -= 56;
 
   // ── Terms & Conditions Extract ────────────────────────────────────
@@ -340,7 +419,10 @@ async function generateQuotePdf(quoteData) {
   rect(L, y - 20, CW, 20, { color: NAVY });
   const footerText = QUOTE_BRAND.footerLine;
   const ftW = regular.widthOfTextAtSize(footerText, 7.5);
-  txt(footerText, L + CW / 2 - ftW / 2, y - 13, { size: 7.5, color: TABLE_HEADER_TEXT });
+  txt(footerText, L + CW / 2 - ftW / 2, y - 13, {
+    size: 7.5,
+    color: TABLE_HEADER_TEXT,
+  });
   txt(
     QUOTE_BRAND.website,
     L + CW / 2 - regular.widthOfTextAtSize(QUOTE_BRAND.website, 6.5) / 2,
@@ -386,7 +468,13 @@ function groupLinesByProduct(lines) {
   for (const l of lines) {
     const key = l.productName || l.productId || "Product";
     if (!map.has(key)) {
-      map.set(key, { productName: key, composition: null, groupLines: [], groupTotal: 0, totalQty: 0 });
+      map.set(key, {
+        productName: key,
+        composition: null,
+        groupLines: [],
+        groupTotal: 0,
+        totalQty: 0,
+      });
     }
     const g = map.get(key);
     g.groupLines.push(l);
@@ -399,7 +487,9 @@ function groupLinesByProduct(lines) {
 function buildFootnotes(lines) {
   const fns = [];
   const totalQty = lines.reduce((s, l) => s + (l.quantity || 1), 0);
-  const productNames = [...new Set(lines.map((l) => l.productName || l.productId))].join(", ");
+  const productNames = [
+    ...new Set(lines.map((l) => l.productName || l.productId)),
+  ].join(", ");
   fns.push(
     `Catalog: ${QUOTE_BRAND.catalogLabel} · ${totalQty} pcs · ${productNames}`
   );

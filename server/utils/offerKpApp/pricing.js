@@ -1,10 +1,30 @@
 /** Каталог позиций для оферт purolat.com (упрощённые цены за шт.). */
 
 const OFFER_KP_PRODUCTS = [
-  { id: "din-975", name: "Threaded rod DIN 975", nameRu: "Штанга DIN 975", basePricePerUnit: 120 },
-  { id: "din-931", name: "Bolt DIN 931", nameRu: "Болт DIN 931", basePricePerUnit: 8.5 },
-  { id: "din-934", name: "Nut DIN 934", nameRu: "Гайка DIN 934", basePricePerUnit: 2.2 },
-  { id: "din-912", name: "Socket screw DIN 912", nameRu: "Винт DIN 912", basePricePerUnit: 15 },
+  {
+    id: "din-975",
+    name: "Threaded rod DIN 975",
+    nameRu: "Штанга DIN 975",
+    basePricePerUnit: 120,
+  },
+  {
+    id: "din-931",
+    name: "Bolt DIN 931",
+    nameRu: "Болт DIN 931",
+    basePricePerUnit: 8.5,
+  },
+  {
+    id: "din-934",
+    name: "Nut DIN 934",
+    nameRu: "Гайка DIN 934",
+    basePricePerUnit: 2.2,
+  },
+  {
+    id: "din-912",
+    name: "Socket screw DIN 912",
+    nameRu: "Винт DIN 912",
+    basePricePerUnit: 15,
+  },
   {
     id: "gost-8787",
     name: "Key steel GOST 8787-68",

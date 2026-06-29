@@ -130,11 +130,7 @@ const ANSWER_SYSTEM_PROMPT = `Ты ассистент по каталогу puro
 /** Просит LLM сформулировать ответ по строкам результата. */
 async function generateAnswer(LLMConnector, question, sql, result) {
   const rows = result.rows.slice(0, MAX_ANSWER_ROWS);
-  const dataBlock = JSON.stringify(
-    { columns: result.columns, rows },
-    null,
-    0
-  );
+  const dataBlock = JSON.stringify({ columns: result.columns, rows }, null, 0);
   const messages = [
     { role: "system", content: ANSWER_SYSTEM_PROMPT },
     {

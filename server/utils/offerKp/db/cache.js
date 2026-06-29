@@ -43,9 +43,7 @@ function makeCacheKey(sql, params = []) {
 
 function cloneRows(rows) {
   if (!Array.isArray(rows)) return rows;
-  return rows.map((row) =>
-    row && typeof row === "object" ? { ...row } : row
-  );
+  return rows.map((row) => (row && typeof row === "object" ? { ...row } : row));
 }
 
 class ShopDbQueryCache {

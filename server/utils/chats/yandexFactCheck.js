@@ -60,7 +60,10 @@ function folderId() {
 }
 
 function baseUrl() {
-  return (process.env.YANDEX_CLOUD_AI_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
+  return (process.env.YANDEX_CLOUD_AI_BASE_URL || DEFAULT_BASE_URL).replace(
+    /\/$/,
+    ""
+  );
 }
 
 function yandexResponsesUrl() {
@@ -85,8 +88,9 @@ function maxContextChars() {
 
 function isEnabled() {
   if (!YANDEX_FACT_CHECK_ENABLED_IN_CODE) {
-    const envOn =
-      ["1", "true", "yes"].includes((process.env.YANDEX_FACT_CHECK_ENABLED || "").toLowerCase());
+    const envOn = ["1", "true", "yes"].includes(
+      (process.env.YANDEX_FACT_CHECK_ENABLED || "").toLowerCase()
+    );
     if (!envOn) return false;
   }
   if (
@@ -135,7 +139,8 @@ function extractAssistantTextFromYandexResponse(data) {
     for (const item of out) {
       if (item?.type === "message" && Array.isArray(item?.content)) {
         for (const c of item.content) {
-          if (c?.type === "output_text" && typeof c?.text === "string") return c.text;
+          if (c?.type === "output_text" && typeof c?.text === "string")
+            return c.text;
         }
       }
       if (typeof item?.text === "string") return item.text;
@@ -205,7 +210,11 @@ async function callYandexChat(input, key, uri, maxOut) {
  * @returns {Promise<string>}
  */
 async function applyYandexFactCheck(draftText = "", contextTexts = []) {
-  if (!draftText || typeof draftText !== "string" || draftText.trim().length < 10) {
+  if (
+    !draftText ||
+    typeof draftText !== "string" ||
+    draftText.trim().length < 10
+  ) {
     return draftText;
   }
   if (!isEnabled()) {
@@ -215,15 +224,21 @@ async function applyYandexFactCheck(draftText = "", contextTexts = []) {
 
   const key = apiKey();
   const uri = modelUri();
-  const maxOut = Math.max(512, Math.min(8192, Math.ceil(draftText.length * 1.2)));
+  const maxOut = Math.max(
+    512,
+    Math.min(8192, Math.ceil(draftText.length * 1.2))
+  );
   const contextBundle = buildContextBundle(contextTexts);
   const input =
-    (contextBundle
-      ? `<context>\n${contextBundle}\n</context>\n\n`
-      : "") +
+    (contextBundle ? `<context>\n${contextBundle}\n</context>\n\n` : "") +
     `<draft>\n${draftText}\n</draft>`;
 
-  logEvent({ phase: "start", model: uri, draftLen: draftText.length, contextLen: contextBundle.length });
+  logEvent({
+    phase: "start",
+    model: uri,
+    draftLen: draftText.length,
+    contextLen: contextBundle.length,
+  });
   const t0 = Date.now();
 
   try {
@@ -231,7 +246,11 @@ async function applyYandexFactCheck(draftText = "", contextTexts = []) {
     try {
       data = await callYandexResponses(input, key, uri, maxOut);
     } catch (e) {
-      logEvent({ phase: "responses_failed", error: e.message, fallback: "chat/completions" });
+      logEvent({
+        phase: "responses_failed",
+        error: e.message,
+        fallback: "chat/completions",
+      });
       data = await callYandexChat(input, key, uri, maxOut);
     }
 

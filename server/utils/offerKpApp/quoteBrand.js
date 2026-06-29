@@ -8,7 +8,10 @@ const QUOTE_BRAND = {
   companyNameLatin: process.env.OFFER_KP_QUOTE_COMPANY_NAME_LATIN || "Purolat",
   tagline: "Крепёж и метизы — интернет-магазин",
   taglineLatin: "Fasteners and metalware e-shop",
-  website: (process.env.SHOP_BASE_URL || "https://purolat.com").replace(/\/$/, ""),
+  website: (process.env.SHOP_BASE_URL || "https://purolat.com").replace(
+    /\/$/,
+    ""
+  ),
   catalogLabel: "purolat.com",
   address: process.env.OFFER_KP_QUOTE_ADDRESS || "Saint Petersburg, Russia",
   email: process.env.OFFER_KP_QUOTE_EMAIL || "info@purolat.com",
@@ -32,8 +35,7 @@ const QUOTE_BRAND = {
     "3. ДОСТАВКА — условия и сроки согласуются отдельно.",
     "4. ОПЛАТА — по согласованию с менеджером purolat.com.",
   ],
-  warrantyNote:
-    "Certified products. Warranty per manufacturer documentation.",
+  warrantyNote: "Certified products. Warranty per manufacturer documentation.",
   warrantyNoteDocx:
     "Сертифицированная продукция. Гарантия — согласно паспорту изготовителя.",
   footerLine: "PUROLAT · purolat.com · Fasteners and metalware",

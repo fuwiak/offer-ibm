@@ -15,7 +15,8 @@ const { resolveAnthropicApiKey } = require("../../offerKpApp/anthropicEnv");
 class AnthropicLLM {
   constructor(embedder = null, modelPreference = null) {
     const apiKey = resolveAnthropicApiKey();
-    if (!apiKey) throw new Error("No Anthropic API key was set (CLAUDE_API_KEY).");
+    if (!apiKey)
+      throw new Error("No Anthropic API key was set (CLAUDE_API_KEY).");
 
     this.className = "AnthropicLLM";
     // Docs: https://www.npmjs.com/package/@anthropic-ai/sdk

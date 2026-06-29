@@ -110,8 +110,7 @@ async function allowWhenNoUsersOrValidated(request, response, next) {
   try {
     const count = await User.count();
     if (count === 0) {
-      response.locals.multiUserMode =
-        await SystemSettings.isMultiUserMode();
+      response.locals.multiUserMode = await SystemSettings.isMultiUserMode();
       return next();
     }
     return validatedRequest(request, response, next);

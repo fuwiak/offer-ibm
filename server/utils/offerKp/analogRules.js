@@ -264,7 +264,9 @@ function standardsInQuery(parsed, searchText) {
  * Бонусы/штрафы по OFFER_KP_MATCH_PRIORITIES (config/offerKp.harnessGuidelines.js).
  */
 function applyMatchPriorityBonus(searchText, parsed, product, score) {
-  const { OFFER_KP_MATCH_PRIORITIES } = require("../../config/offerKp.harnessGuidelines");
+  const {
+    OFFER_KP_MATCH_PRIORITIES,
+  } = require("../../config/offerKp.harnessGuidelines");
   const nameNorm = normalizeForMatch(product.name || "");
   const requested = standardsInQuery(parsed, searchText);
   let next = score;

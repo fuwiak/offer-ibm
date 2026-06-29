@@ -56,7 +56,10 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
   let finalUserPrompt = String(userPrompt || "").trim();
   const catalogInjected = catalogBlocks.length > 0;
   if (catalogInjected) {
-    finalUserPrompt = mergeCatalogIntoUserPrompt(finalUserPrompt, catalogBlocks);
+    finalUserPrompt = mergeCatalogIntoUserPrompt(
+      finalUserPrompt,
+      catalogBlocks
+    );
     shopDbLog.ok("catalog injected into user prompt", {
       blocks: catalogBlocks.length,
       userPromptLen: finalUserPrompt.length,
@@ -111,6 +114,8 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
     return trimmed;
   }
 
+  const maxDocs = options.maxDocs || (options.agentMode ? 2 : 5);
+
   let chatHistory = options.chatHistory || null;
   if (!chatHistory?.length && options.workspace?.id) {
     chatHistory = await loadChatHistoryForShopEnrich({
@@ -122,11 +127,14 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
 
   try {
     const r = await getShopDbContext(trimmed, {
-      maxDocs: options.maxDocs || 5,
+      maxDocs,
       chatHistory,
       workspace: options.workspace || null,
     });
-    const blocks = (r?.contextTexts || []).filter(isCatalogBlock);
+    let blocks = (r?.contextTexts || []).filter(isCatalogBlock);
+    if (options.agentMode && blocks.length > 2) {
+      blocks = blocks.slice(0, 2);
+    }
     if (!blocks.length) {
       if (r?.flags?.shopDbError || r?.flags?.shopDbTimeout) {
         shopDbLog.warn("agent/chat catalog not injected", {

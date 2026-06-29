@@ -26,8 +26,7 @@ function buildRagTrace({
     vectorHits: vectorSearchSources.length,
     backfilledHits: Math.max(
       0,
-      (filledSources?.sources?.length || 0) -
-        (vectorSearchSources?.length || 0)
+      (filledSources?.sources?.length || 0) - (vectorSearchSources?.length || 0)
     ),
     parsedFilesCount: parsedFiles.length,
     external: externalContexts.map((ctx) => ({

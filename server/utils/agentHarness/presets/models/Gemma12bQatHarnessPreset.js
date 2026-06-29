@@ -1,4 +1,3 @@
-const { BaseModelHarnessPreset } = require("../BaseModelHarnessPreset");
 const { Gemma12bHarnessPreset } = require("./Gemma12bHarnessPreset");
 
 /** google/gemma-4-12b-qat — QAT-квантизация, чуть меньше контекста. */

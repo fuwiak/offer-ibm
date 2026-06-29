@@ -23,10 +23,7 @@ const {
   isWithin,
   sanitizeFileName,
 } = require("../files");
-const {
-  collectExternalContexts,
-  dedupeSources,
-} = require("./generation");
+const { collectExternalContexts, dedupeSources } = require("./generation");
 const {
   hasRestrictedContent,
   getRestrictedMessage,

@@ -8,7 +8,9 @@ const {
 
 async function ensureOfferKpBranding() {
   try {
-    const customAppName = await SystemSettings.get({ label: "custom_app_name" });
+    const customAppName = await SystemSettings.get({
+      label: "custom_app_name",
+    });
     const metaTitle = await SystemSettings.get({ label: "meta_page_title" });
     const updates = {};
 

@@ -58,7 +58,9 @@ function yandexFolderForPolish() {
 }
 
 function yandexBaseUrl() {
-  return (process.env.YANDEX_CLOUD_AI_BASE_URL || DEFAULT_YANDEX_BASE_URL).replace(/\/$/, "");
+  return (
+    process.env.YANDEX_CLOUD_AI_BASE_URL || DEFAULT_YANDEX_BASE_URL
+  ).replace(/\/$/, "");
 }
 
 function yandexModelUri() {
@@ -72,11 +74,15 @@ function openRouterKey() {
 }
 
 function openRouterBaseUrl() {
-  return (process.env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL).replace(/\/$/, "");
+  return (
+    process.env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL
+  ).replace(/\/$/, "");
 }
 
 function openRouterModel() {
-  return (process.env.RUSSIAN_STYLE_POLISH_MODEL || DEFAULT_OPENROUTER_MODEL).trim();
+  return (
+    process.env.RUSSIAN_STYLE_POLISH_MODEL || DEFAULT_OPENROUTER_MODEL
+  ).trim();
 }
 
 function isPolishDisabled() {
@@ -101,7 +107,8 @@ function extractAssistantTextFromYandexResponse(data) {
     for (const item of out) {
       if (item?.type === "message" && Array.isArray(item?.content)) {
         for (const c of item.content) {
-          if (c?.type === "output_text" && typeof c?.text === "string") return c.text;
+          if (c?.type === "output_text" && typeof c?.text === "string")
+            return c.text;
         }
       }
       if (typeof item?.text === "string") return item.text;
@@ -120,7 +127,7 @@ function extractAssistantTextFromYandexResponse(data) {
  *
  * @returns {{ text: string, aliceLlmOk: boolean }}
  */
-async function polishWithYandexCloud(text, apiKey, folder) {
+async function polishWithYandexCloud(text, apiKey, _folder) {
   const uri = yandexModelUri();
   const maxOut = Math.max(512, Math.min(8192, Math.ceil(text.length * 1.15)));
   const t0 = Date.now();
@@ -143,7 +150,10 @@ async function polishWithYandexCloud(text, apiKey, folder) {
         max_output_tokens: maxOut,
       }),
     });
-    if (!res.ok) throw new Error(`Yandex responses ${res.status}: ${await res.text().catch(() => "")}`);
+    if (!res.ok)
+      throw new Error(
+        `Yandex responses ${res.status}: ${await res.text().catch(() => "")}`
+      );
     return res.json();
   }
 
@@ -164,7 +174,10 @@ async function polishWithYandexCloud(text, apiKey, folder) {
         max_tokens: maxOut,
       }),
     });
-    if (!res.ok) throw new Error(`Yandex chat ${res.status}: ${await res.text().catch(() => "")}`);
+    if (!res.ok)
+      throw new Error(
+        `Yandex chat ${res.status}: ${await res.text().catch(() => "")}`
+      );
     return res.json();
   }
 
@@ -174,7 +187,11 @@ async function polishWithYandexCloud(text, apiKey, folder) {
     data = await tryResponses();
     aliceLlmOk = true;
   } catch (e) {
-    logPolishEvent({ phase: "yandex_responses_failed", error: e.message, fallback: "chat/completions" });
+    logPolishEvent({
+      phase: "yandex_responses_failed",
+      error: e.message,
+      fallback: "chat/completions",
+    });
     try {
       data = await tryChat();
       aliceLlmOk = true;
@@ -190,7 +207,12 @@ async function polishWithYandexCloud(text, apiKey, folder) {
     return { text, aliceLlmOk };
   }
 
-  logPolishEvent({ phase: "yandex_done", ms: Date.now() - t0, inLen: text.length, outLen: result.length });
+  logPolishEvent({
+    phase: "yandex_done",
+    ms: Date.now() - t0,
+    inLen: text.length,
+    outLen: result.length,
+  });
   return { text: result, aliceLlmOk };
 }
 
@@ -230,7 +252,13 @@ async function polishWithOpenRouter(text, apiKey) {
     return text;
   }
 
-  logPolishEvent({ phase: "openrouter_done", model, ms: Date.now() - t0, inLen: text.length, outLen: result.length });
+  logPolishEvent({
+    phase: "openrouter_done",
+    model,
+    ms: Date.now() - t0,
+    inLen: text.length,
+    outLen: result.length,
+  });
   return result;
 }
 
@@ -254,12 +282,16 @@ async function applyRussianStylePolish(text) {
   }
 
   const yandexKey = yandexApiKeyForPolish();
-  const folder    = yandexFolderForPolish();
+  const folder = yandexFolderForPolish();
 
   // ── 1. Yandex Alice ──────────────────────────────────────────────────────────
   if (yandexKey && folder) {
     logPolishEvent({ phase: "yandex_start", model: yandexModelUri() });
-    const { text: out, aliceLlmOk } = await polishWithYandexCloud(text, yandexKey, folder);
+    const { text: out, aliceLlmOk } = await polishWithYandexCloud(
+      text,
+      yandexKey,
+      folder
+    );
     if (aliceLlmOk) return out;
     logPolishEvent({ phase: "yandex_unavailable_trying_openrouter" });
   }
@@ -267,7 +299,10 @@ async function applyRussianStylePolish(text) {
   // ── 2. OpenRouter fallback ───────────────────────────────────────────────────
   const orKey = openRouterKey();
   if (!orKey) {
-    logPolishEvent({ phase: "skip", reason: "no_yandex_and_no_openrouter_key" });
+    logPolishEvent({
+      phase: "skip",
+      reason: "no_yandex_and_no_openrouter_key",
+    });
     return text;
   }
 

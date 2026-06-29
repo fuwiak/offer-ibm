@@ -6,7 +6,8 @@ function ollamaCloudFallbackEnabled() {
     .toLowerCase();
   if (flag === "0" || flag === "false" || flag === "no") return false;
   return !!(
-    process.env.OLLAMA_AUTH_TOKEN && String(process.env.OLLAMA_AUTH_TOKEN).trim()
+    process.env.OLLAMA_AUTH_TOKEN &&
+    String(process.env.OLLAMA_AUTH_TOKEN).trim()
   );
 }
 
@@ -25,7 +26,9 @@ function ollamaCloudModel(localModel) {
 
 function isOllamaReachabilityError(error) {
   const msg = String(error?.message || error || "").toLowerCase();
-  const cause = String(error?.cause?.message || error?.cause || "").toLowerCase();
+  const cause = String(
+    error?.cause?.message || error?.cause || ""
+  ).toLowerCase();
   const combined = `${msg} ${cause}`;
   return (
     combined.includes("fetch failed") ||

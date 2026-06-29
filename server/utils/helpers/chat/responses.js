@@ -280,7 +280,7 @@ function createSseKeepaliveInterval(response, intervalMs = 12_000) {
   return setInterval(() => {
     try {
       response.write(": keepalive\n\n");
-    } catch (_) {
+    } catch {
       /* connection already closed */
     }
   }, intervalMs);
@@ -295,7 +295,11 @@ function createSseKeepaliveInterval(response, intervalMs = 12_000) {
  * @param {number} intervalMs
  * @returns {Promise<string>}
  */
-async function runChatPostProcessWithKeepalive(response, pipeline, intervalMs = 12_000) {
+async function runChatPostProcessWithKeepalive(
+  response,
+  pipeline,
+  intervalMs = 12_000
+) {
   const iv = createSseKeepaliveInterval(response, intervalMs);
   try {
     return await pipeline();

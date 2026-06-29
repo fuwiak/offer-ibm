@@ -1,9 +1,5 @@
 const mysql = require("mysql2/promise");
-const {
-  getCachedQuery,
-  setCachedQuery,
-  clearShopDbCache,
-} = require("./cache");
+const { getCachedQuery, setCachedQuery, clearShopDbCache } = require("./cache");
 
 let pool = null;
 

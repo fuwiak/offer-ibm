@@ -3,7 +3,7 @@
  */
 
 const { query } = require("./db/client");
-const { TABLES, PRODUCT_COLUMNS: P, SKU_COLUMNS: S } = require("./db/schema");
+const { TABLES, SKU_COLUMNS: S } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
 const { runProductSearchAgent } = require("./productSearchAgent");
 const { classifyProductMatch, STATUS } = require("./analogRules");
@@ -20,10 +20,7 @@ async function fetchProductStock(productId) {
      LIMIT 5`,
     [productId]
   );
-  const totalStock = rows.reduce(
-    (sum, r) => sum + (Number(r.count) || 0),
-    0
-  );
+  const totalStock = rows.reduce((sum, r) => sum + (Number(r.count) || 0), 0);
   const bestSku = rows[0] || {};
   return {
     sku: bestSku.sku || "",
@@ -155,7 +152,10 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
   }
 
   const subtotal = matched.reduce((s, l) => s + (l.lineTotal || 0), 0);
-  const totalWeightKg = matched.reduce((s, l) => s + (l.weightKg || 0) * (l.quantity || 1), 0);
+  const totalWeightKg = matched.reduce(
+    (s, l) => s + (l.weightKg || 0) * (l.quantity || 1),
+    0
+  );
 
   return {
     reference: generateQuoteReference({ prefix: "KP" }),

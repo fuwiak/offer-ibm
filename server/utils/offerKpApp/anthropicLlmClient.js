@@ -22,7 +22,12 @@ function getAnthropicLlmClient() {
   };
 }
 
-async function anthropicTextCompletion({ client, model, prompt, maxTokens = 4096 }) {
+async function anthropicTextCompletion({
+  client,
+  model,
+  prompt,
+  maxTokens = 4096,
+}) {
   const completion = await client.chat.completions.create({
     model,
     max_tokens: maxTokens,

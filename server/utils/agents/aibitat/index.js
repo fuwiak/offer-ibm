@@ -5,7 +5,9 @@ const Providers = require("./providers/index.js");
 const { Telemetry } = require("../../../models/telemetry.js");
 const { v4 } = require("uuid");
 const { ToolReranker } = require("./utils/toolReranker.js");
-const { resolveLlmProviderAndModel } = require("../../offerKpApp/resolveLlmProvider");
+const {
+  resolveLlmProviderAndModel,
+} = require("../../offerKpApp/resolveLlmProvider");
 
 /**
  * AIbitat is a class that manages the conversation between agents.

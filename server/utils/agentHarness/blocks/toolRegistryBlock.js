@@ -15,7 +15,9 @@ class ToolRegistryBlock extends BaseBlock {
     const aibitat = harness.aibitat;
     const previous = aibitat.requestToolApproval;
     if (typeof previous !== "function") {
-      harness.log("tool-registry: requestToolApproval not found, skipping wrap");
+      harness.log(
+        "tool-registry: requestToolApproval not found, skipping wrap"
+      );
       return;
     }
 

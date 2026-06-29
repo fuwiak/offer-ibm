@@ -20,7 +20,9 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
       return String(fromInvocation).trim();
     }
     const fromChats = extractRecentUserMessages(harness.aibitat._chats, 3);
-    return fromChats.find((m) => isQuoteDocumentRequest(m)) || fromChats.at(-1) || "";
+    return (
+      fromChats.find((m) => isQuoteDocumentRequest(m)) || fromChats.at(-1) || ""
+    );
   }
 
   async install(harness) {

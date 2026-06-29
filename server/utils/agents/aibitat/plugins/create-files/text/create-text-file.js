@@ -126,7 +126,9 @@ module.exports.CreateTextFile = {
                 displayFilename,
               });
 
-              const isMarkdownLike = /^(md|markdown|txt)$/i.test(finalExtension);
+              const isMarkdownLike = /^(md|markdown|txt)$/i.test(
+                finalExtension
+              );
               this.super.socket.send("fileDownloadCard", {
                 filename: savedFile.displayFilename,
                 storageFilename: savedFile.filename,

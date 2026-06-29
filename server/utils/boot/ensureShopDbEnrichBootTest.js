@@ -7,14 +7,10 @@ const {
 } = require("../offerKp/db/client");
 const { validateShopDbSchema } = require("../offerKp/db/validateSchema");
 const { LLM_CONTEXT_MARKERS } = require("../offerKp/db/schema");
-const {
-  shopDbEnrichEnabled,
-  getShopDbContext,
-} = require("../offerKp/enrich");
+const { shopDbEnrichEnabled, getShopDbContext } = require("../offerKp/enrich");
 const shopDbLog = require("../offerKp/shopDbLog");
 
-const BOOT_SAMPLE_QUERY =
-  "Штанга DIN 975 M36x2000 4.8 оцинк";
+const BOOT_SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
 
 function ensureStorageDirs() {
   const storageDir =

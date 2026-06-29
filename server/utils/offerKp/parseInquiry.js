@@ -94,7 +94,7 @@ function splitInquiryChunks(text) {
       }
     }
 
-    if (/^\d+[\.)]\s+/.test(trimmed)) {
+    if (/^\d+[.)]\s+/.test(trimmed)) {
       pushChunk(trimmed);
       continue;
     }
@@ -134,7 +134,7 @@ function parseInquiryLine(lineText) {
   const nonPiece = usesNonPieceUnit(raw);
 
   let name = raw
-    .replace(/^\d+[\.)]\s*/, "")
+    .replace(/^\d+[.)]\s*/, "")
     .replace(/\s*[-–—]\s*\d+\s*(?:шт|pcs).*$/i, "")
     .trim();
 

@@ -45,7 +45,11 @@ async function _post(path, body) {
       if (attempt > 0) {
         const delay = Math.min(8000, 350 * 2 ** (attempt - 1));
         await sleep(delay);
-        console.log("[Garant] POST retry", { path, attempt: attempt + 1, delayMs: delay });
+        console.log("[Garant] POST retry", {
+          path,
+          attempt: attempt + 1,
+          delayMs: delay,
+        });
       }
       const res = await fetch(url, {
         method: "POST",
@@ -100,7 +104,11 @@ async function _get(path) {
       if (attempt > 0) {
         const delay = Math.min(8000, 350 * 2 ** (attempt - 1));
         await sleep(delay);
-        console.log("[Garant] GET retry", { path, attempt: attempt + 1, delayMs: delay });
+        console.log("[Garant] GET retry", {
+          path,
+          attempt: attempt + 1,
+          delayMs: delay,
+        });
       }
       const res = await fetch(url, {
         method: "GET",
@@ -222,7 +230,11 @@ async function sutyazhnikSearch(text, options = {}) {
       return { documents: [] };
     }
     if (!res.ok) {
-      console.warn("[Garant] sutyazhnik-search HTTP", res.status, res.statusText);
+      console.warn(
+        "[Garant] sutyazhnik-search HTTP",
+        res.status,
+        res.statusText
+      );
       return { documents: [] };
     }
     const data = await res.json();

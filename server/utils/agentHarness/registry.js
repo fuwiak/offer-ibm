@@ -2,9 +2,13 @@ const { MemoryBlock } = require("./blocks/memoryBlock");
 const { ContextManagerBlock } = require("./blocks/contextManagerBlock");
 const { OrchestrationBlock } = require("./blocks/orchestrationBlock");
 const { HarnessTelemetryBlock } = require("./blocks/harnessTelemetryBlock");
-const { OfferKpDocumentTriggerBlock } = require("./blocks/offerKpDocumentTriggerBlock");
+const {
+  OfferKpDocumentTriggerBlock,
+} = require("./blocks/offerKpDocumentTriggerBlock");
 const { OfferKpQuoteIntentBlock } = require("./blocks/offerKpQuoteIntentBlock");
-const { OfferKpCatalogGuidelinesBlock } = require("./blocks/offerKpCatalogGuidelinesBlock");
+const {
+  OfferKpCatalogGuidelinesBlock,
+} = require("./blocks/offerKpCatalogGuidelinesBlock");
 const { ToolRegistryBlock } = require("./blocks/toolRegistryBlock");
 
 /** @type {Map<string, () => import("./BaseBlock").BaseBlock>} */
@@ -12,7 +16,9 @@ const blockRegistry = new Map();
 
 function registerHarnessBlock(id, factory) {
   if (!id || typeof factory !== "function") {
-    throw new TypeError("registerHarnessBlock(id, factory) requires a string id and factory");
+    throw new TypeError(
+      "registerHarnessBlock(id, factory) requires a string id and factory"
+    );
   }
   blockRegistry.set(id, factory);
 }
@@ -76,7 +82,10 @@ function registerDefaultBlocks() {
     "offerKp-catalog-guidelines",
     () => new OfferKpCatalogGuidelinesBlock()
   );
-  registerHarnessBlock("offerKp-quote-intent", () => new OfferKpQuoteIntentBlock());
+  registerHarnessBlock(
+    "offerKp-quote-intent",
+    () => new OfferKpQuoteIntentBlock()
+  );
   registerHarnessBlock("tool-registry", () => new ToolRegistryBlock());
 }
 

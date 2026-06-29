@@ -182,7 +182,12 @@ async function collectExternalContexts({
       const shopDbLog = require("../offerKp/shopDbLog");
       shopDbLog.enrichError(err, { phase: "collectExternalContexts" });
       return [
-        { kind: "shopdb", contextTexts: [], sources: [], flags: { shopDbError: true } },
+        {
+          kind: "shopdb",
+          contextTexts: [],
+          sources: [],
+          flags: { shopDbError: true },
+        },
       ];
     }
   }
