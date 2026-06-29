@@ -1,8 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import OfferKpPartnerNav from "@/components/OfferKp/OfferKpPartnerNav";
-import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
+import SidebarPrefsDock from "@/components/SidebarPrefsDock";
 import paths from "@/utils/paths";
 import OfferKpProfileNav from "@/components/OfferKp/OfferKpProfileNav";
 import { Gear } from "@phosphor-icons/react";
@@ -14,7 +13,7 @@ export default function OfferKpSidebarExtras() {
   const { isSupplier, isAdmin } = useOfferKpRole();
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 pb-2 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <CurrentWorkspaceIndicator variant="sidebar" className="mx-1 mb-3 shrink-0" />
       <OfferKpPartnerNav />
 
@@ -25,21 +24,19 @@ export default function OfferKpSidebarExtras() {
         </Link>
       )}
 
-      <div className="offerKp-partner-nav__footer border-t border-theme-sidebar-border mt-auto pt-2 shrink-0">
-        <OfferKpProfileNav />
-        {isAdmin && (
-          <Link to={paths.offerKp.settings()} className="offerKp-nav-item">
-            <span className="flex items-center gap-2">
-              <Gear size={18} />
-              {t("admin.settings")}
-            </span>
-          </Link>
-        )}
-      </div>
-
-      <div className="px-1 pt-2 shrink-0 flex flex-col gap-2">
-        <ThemeSwitcher />
-        <LanguageSwitcher />
+      <div className="offerKp-sidebar-footer shrink-0 mt-auto">
+        <div className="offerKp-sidebar-footer__nav">
+          <OfferKpProfileNav />
+          {isAdmin && (
+            <Link to={paths.offerKp.settings()} className="offerKp-nav-item">
+              <span className="flex items-center gap-2">
+                <Gear size={18} />
+                {t("admin.settings")}
+              </span>
+            </Link>
+          )}
+        </div>
+        <SidebarPrefsDock />
       </div>
     </div>
   );

@@ -8,13 +8,24 @@ const THEME_OPTIONS = [
   { key: "system", Icon: Monitor },
 ];
 
-export default function ThemeSwitcher({ className = "", variant = "compact" }) {
+export default function ThemeSwitcher({
+  className = "",
+  variant = "compact",
+}) {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
 
+  const rootClass = [
+    "cursor-segmented-control",
+    variant === "labeled" ? "cursor-segmented-control--labeled" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className={`cursor-theme-switcher${variant === "labeled" ? " cursor-theme-switcher--labeled" : ""} ${className}`.trim()}
+      className={rootClass}
       role="group"
       aria-label={t("customization.items.theme.title")}
     >
@@ -26,7 +37,7 @@ export default function ThemeSwitcher({ className = "", variant = "compact" }) {
           <button
             key={key}
             type="button"
-            className={`cursor-theme-switcher__btn${isActive ? " cursor-theme-switcher__btn--active" : ""}`}
+            className={`cursor-segmented-control__btn${isActive ? " cursor-segmented-control__btn--active" : ""}`}
             onClick={() => setTheme(key)}
             aria-pressed={isActive}
             aria-label={label}
@@ -34,7 +45,7 @@ export default function ThemeSwitcher({ className = "", variant = "compact" }) {
           >
             <Icon size={16} weight={isActive ? "fill" : "regular"} aria-hidden />
             {variant === "labeled" && (
-              <span className="cursor-theme-switcher__label">{label}</span>
+              <span className="cursor-segmented-control__label">{label}</span>
             )}
           </button>
         );

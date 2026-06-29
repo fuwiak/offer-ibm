@@ -46,9 +46,9 @@ export default function Footer() {
 
   if (!Array.isArray(footerData) || footerData.length === 0) {
     return (
-      <div className="flex justify-center mb-2">
-        <div className="flex items-center space-x-4">
-          <ThemeSwitcher />
+      <div className="flex justify-center px-1 pb-1">
+        <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
+          <ThemeSwitcher className="max-w-full" />
           {!isMobile && <SettingsButton />}
         </div>
         <Tooltip
@@ -62,9 +62,9 @@ export default function Footer() {
   }
 
   return (
-    <div className="flex justify-center mb-2">
-      <div className="flex items-center space-x-4">
-        <ThemeSwitcher />
+    <div className="flex justify-center px-1 pb-1">
+      <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
+        <ThemeSwitcher className="max-w-full" />
         {footerData.map((item, index) => (
           <a
             key={index}

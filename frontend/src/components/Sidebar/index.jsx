@@ -85,10 +85,10 @@ export default function Sidebar() {
             <div className="flex flex-col h-full overflow-hidden">
               <div className="flex-grow flex flex-col min-w-[235px] min-h-0">
                 <div
-                  className={`relative flex flex-col w-full pt-[10px] ${
+                  className={`flex flex-col flex-1 min-h-0 w-full pt-[10px] ${
                     offerKpMode
-                      ? "flex-1 min-h-0 h-full overflow-hidden"
-                      : "overflow-y-auto no-scroll h-[calc(100%-60px)] justify-between"
+                      ? "overflow-hidden"
+                      : "overflow-y-auto no-scroll"
                   }`}
                 >
                   <div
@@ -118,7 +118,7 @@ export default function Sidebar() {
                   </div>
                 </div>
                 {!offerKpMode && (
-                  <div className="absolute bottom-0 left-0 right-0 pb-3 bg-theme-bg-sidebar bg-opacity-80 backdrop-filter backdrop-blur-md z-10 rounded-b-[16px] light:bg-slate-200">
+                  <div className="shrink-0 pt-2 mt-auto border-t border-theme-sidebar-border light:border-theme-sidebar-border">
                     <Footer />
                   </div>
                 )}
@@ -230,9 +230,9 @@ export function SidebarMobileHeader({ workspace = null }) {
             </div>
 
             {/* Primary Body */}
-            <div className="h-full flex flex-col w-full justify-between pt-4 ">
-              <div className="h-auto md:sidebar-items">
-                <div className=" flex flex-col gap-y-4 overflow-y-scroll no-scroll pb-[60px]">
+            <div className="h-full flex flex-col w-full pt-4 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto no-scroll">
+                <div className="flex flex-col gap-y-4">
                   <NewWorkspaceButton
                     user={user}
                     showNewWsModal={showNewWsModal}
@@ -240,7 +240,7 @@ export function SidebarMobileHeader({ workspace = null }) {
                   <ActiveWorkspaces />
                 </div>
               </div>
-              <div className="z-99 absolute bottom-0 left-0 right-0 pt-2 pb-6 rounded-br-[26px] bg-theme-bg-sidebar bg-opacity-80 backdrop-filter backdrop-blur-md">
+              <div className="shrink-0 pt-2 pb-6 border-t border-theme-sidebar-border">
                 <Footer />
               </div>
             </div>

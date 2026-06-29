@@ -471,140 +471,136 @@ export default function OfferKpHomeThreadHistory({
           const hasPrompts =
             workspace?.slug &&
             getThreadPrompts(workspace.slug, thread.slug).length > 0;
+          const threadActions = (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPromptsThread(thread);
+                }}
+                className={`shrink-0 border-none bg-transparent p-1 ${hasPrompts ? "text-primary-button" : "text-theme-text-secondary hover:text-theme-text-primary"}`}
+                aria-label={t("home.threadPrompts.manage")}
+                title={t("home.threadPrompts.manage")}
+              >
+                <ChatText size={14} weight={hasPrompts ? "fill" : "regular"} />
+              </button>
+              <button
+                type="button"
+                onClick={() => togglePin(thread.slug)}
+                className={`shrink-0 border-none bg-transparent p-1 ${pinned ? "text-primary-button" : "text-theme-text-secondary"}`}
+                aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
+              >
+                <PushPin size={14} weight={pinned ? "fill" : "regular"} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenamingSlug(thread.slug);
+                  setRenameValue(thread.name || "");
+                }}
+                className="shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-theme-text-primary"
+                aria-label="Rename conversation"
+              >
+                <PencilSimple size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteThread(thread)}
+                className="shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-red-500"
+                aria-label={t("home.deleteConversation")}
+              >
+                <Trash size={14} />
+              </button>
+            </>
+          );
+
+          const threadLink = (
+            <Link
+              to={paths.offerKp.thread(
+                urlWorkspaceSlug ?? workspace?.slug,
+                thread.slug
+              )}
+              className={`offerKp-home-thread-history__item${
+                isSidebar ? "" : " flex-1 min-w-0"
+              }${isActive ? " offerKp-home-thread-history__item--active" : ""}`}
+              onClick={() => {
+                const wsSlug = urlWorkspaceSlug ?? workspace?.slug;
+                threadNavLog("sidebar:click", {
+                  wsSlug,
+                  threadSlug: thread.slug,
+                  urlWorkspaceSlug,
+                  listWorkspaceSlug: workspace?.slug,
+                  pathname,
+                });
+              }}
+            >
+              {renamingSlug === thread.slug ? (
+                <span className="flex items-center gap-1 w-full">
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitRename(thread);
+                      if (e.key === "Escape") {
+                        setRenamingSlug(null);
+                        setRenameValue("");
+                      }
+                    }}
+                    className="h-6 px-2 text-xs rounded border border-primary-button bg-transparent text-theme-text-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      submitRename(thread);
+                    }}
+                    className="border-none bg-transparent p-0"
+                  >
+                    <FloppyDisk size={13} />
+                  </button>
+                </span>
+              ) : (
+                <>
+                  <span className="offerKp-home-thread-history__title">
+                    {pinned ? "📌 " : ""}
+                    {thread.name}
+                  </span>
+                  {ago && !isSidebar && (
+                    <span className="offerKp-home-thread-history__meta">
+                      {t("home.lastMessageAgo", { time: ago })}
+                    </span>
+                  )}
+                </>
+              )}
+            </Link>
+          );
+
           return (
             <li key={thread.slug}>
-              <div
-                className={`flex items-center gap-1.5${isSidebar ? " group/thread-row" : ""}`}
-              >
-                <Link
-                  to={paths.offerKp.thread(
-                    urlWorkspaceSlug ?? workspace?.slug,
-                    thread.slug
-                  )}
-                  className={`offerKp-home-thread-history__item flex-1 min-w-0${
-                    isActive ? " offerKp-home-thread-history__item--active" : ""
-                  }`}
-                  onClick={() => {
-                    const wsSlug = urlWorkspaceSlug ?? workspace?.slug;
-                    threadNavLog("sidebar:click", {
-                      wsSlug,
-                      threadSlug: thread.slug,
-                      urlWorkspaceSlug,
-                      listWorkspaceSlug: workspace?.slug,
-                      pathname,
-                    });
-                  }}
-                >
-                  {renamingSlug === thread.slug ? (
-                    <span className="flex items-center gap-1 w-full">
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") submitRename(thread);
-                          if (e.key === "Escape") {
-                            setRenamingSlug(null);
-                            setRenameValue("");
-                          }
-                        }}
-                        className="h-6 px-2 text-xs rounded border border-primary-button bg-transparent text-theme-text-primary"
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          submitRename(thread);
-                        }}
-                        className="border-none bg-transparent p-0"
-                      >
-                        <FloppyDisk size={13} />
-                      </button>
+              {isSidebar ? (
+                <div className="offerKp-sidebar-thread-row">
+                  {threadLink}
+                  <div className="offerKp-sidebar-thread-row__actions">
+                    {threadActions}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  {threadLink}
+                  {workspace?.name && (
+                    <span
+                      className="shrink-0 max-w-[72px] truncate rounded px-1.5 py-0.5 text-[10px] leading-tight border border-theme-sidebar-border text-theme-text-secondary bg-transparent opacity-60"
+                      title={workspace.name}
+                    >
+                      {workspace.name}
                     </span>
-                  ) : (
-                    <>
-                      <span className="offerKp-home-thread-history__title">
-                        {pinned ? "📌 " : ""}
-                        {thread.name}
-                      </span>
-                      {ago && !isSidebar && (
-                        <span className="offerKp-home-thread-history__meta">
-                          {t("home.lastMessageAgo", { time: ago })}
-                        </span>
-                      )}
-                    </>
                   )}
-                </Link>
-                {!isSidebar && workspace?.name && (
-                  <span
-                    className="shrink-0 max-w-[72px] truncate rounded px-1.5 py-0.5 text-[10px] leading-tight border border-theme-sidebar-border text-theme-text-secondary bg-transparent opacity-60"
-                    title={workspace.name}
-                  >
-                    {workspace.name}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPromptsThread(thread);
-                  }}
-                  className={`shrink-0 border-none bg-transparent p-1 ${
-                    isSidebar
-                      ? "opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100"
-                      : ""
-                  } ${hasPrompts ? "text-primary-button" : "text-theme-text-secondary hover:text-theme-text-primary"}`}
-                  aria-label={t("home.threadPrompts.manage")}
-                  title={t("home.threadPrompts.manage")}
-                >
-                  <ChatText
-                    size={14}
-                    weight={hasPrompts ? "fill" : "regular"}
-                  />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => togglePin(thread.slug)}
-                  className={`shrink-0 border-none bg-transparent p-1 ${
-                    isSidebar
-                      ? "opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100"
-                      : ""
-                  } ${pinned ? "text-primary-button" : "text-theme-text-secondary"}`}
-                  aria-label={
-                    pinned ? "Unpin conversation" : "Pin conversation"
-                  }
-                >
-                  <PushPin size={14} weight={pinned ? "fill" : "regular"} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRenamingSlug(thread.slug);
-                    setRenameValue(thread.name || "");
-                  }}
-                  className={`shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-theme-text-primary${
-                    isSidebar
-                      ? " opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100"
-                      : ""
-                  }`}
-                  aria-label="Rename conversation"
-                >
-                  <PencilSimple size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteThread(thread)}
-                  className={`shrink-0 border-none bg-transparent p-1 text-theme-text-secondary hover:text-red-500${
-                    isSidebar
-                      ? " opacity-0 group-hover/thread-row:opacity-100 group-focus-within/thread-row:opacity-100"
-                      : ""
-                  }`}
-                  aria-label={t("home.deleteConversation")}
-                >
-                  <Trash size={14} />
-                </button>
-              </div>
+                  {threadActions}
+                </div>
+              )}
             </li>
           );
         })}

@@ -2,56 +2,97 @@
 
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap");
 
-/* ── Theme switcher (theme-switcher component) ── */
-.cursor-theme-switcher {
-  display: inline-flex;
+/* ── Segmented controls (theme switcher, language switcher) ── */
+.cursor-segmented-control {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--theme-sidebar-border);
   border-radius: 8px;
 }
 
-.cursor-theme-switcher__btn {
+.cursor-segmented-control__btn {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
   background: var(--theme-bg-sidebar);
   border: none;
   border-right: 1px solid var(--theme-sidebar-border);
   color: var(--theme-text-secondary);
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1;
   min-height: 32px;
-  min-width: 36px;
-  padding: 0 10px;
+  padding: 0 6px;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.cursor-theme-switcher__btn:last-child {
+.cursor-segmented-control__btn:last-child {
   border-right: none;
 }
 
-.cursor-theme-switcher__btn--active {
+.cursor-segmented-control__btn--active {
   background: var(--theme-text-primary);
   color: var(--theme-bg-sidebar);
 }
 
-.cursor-theme-switcher__btn:hover:not(.cursor-theme-switcher__btn--active) {
+.cursor-segmented-control__btn:hover:not(.cursor-segmented-control__btn--active) {
   background: var(--theme-sidebar-item-hover);
 }
 
-.cursor-theme-switcher--labeled .cursor-theme-switcher__btn {
-  min-width: 72px;
-  padding: 0 12px;
+.cursor-segmented-control--labeled .cursor-segmented-control__btn {
+  padding: 0 10px;
 }
 
-.cursor-theme-switcher__label {
-  font-size: 12px;
+.cursor-segmented-control__label {
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cursor-segmented-control--lang .cursor-segmented-control__label {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* Sidebar footer dock (Claude Code–style prefs) */
+.offerKp-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-sidebar);
+}
+
+.offerKp-sidebar-footer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.offerKp-sidebar-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.offerKp-sidebar-prefs__row {
+  width: 100%;
+  min-width: 0;
 }
 
 /* ── IBM Modern polish tokens ── */
@@ -1747,6 +1788,47 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 8px 10px;
   border-bottom: none;
   border-radius: 6px;
+}
+
+.offerKp-sidebar-thread-row {
+  position: relative;
+  min-width: 0;
+}
+
+.offerKp-sidebar-thread-row .offerKp-home-thread-history__item {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.offerKp-sidebar-thread-row__actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 2px 0 16px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--theme-sidebar-item-hover) 32%,
+    var(--theme-sidebar-item-hover) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.offerKp-sidebar-thread-row:hover .offerKp-sidebar-thread-row__actions,
+.offerKp-sidebar-thread-row:focus-within .offerKp-sidebar-thread-row__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.offerKp-sidebar-thread-row__actions button {
+  flex-shrink: 0;
 }
 
 .offerKp-sidebar-thread-history .offerKp-home-thread-history__title {

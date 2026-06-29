@@ -7,7 +7,7 @@ export default function LanguageSwitcher({ className = "" }) {
 
   return (
     <div
-      className={`ibm-z-lang-switcher ${className}`}
+      className={`cursor-segmented-control cursor-segmented-control--lang ${className}`.trim()}
       role="group"
       aria-label="Language"
     >
@@ -15,11 +15,12 @@ export default function LanguageSwitcher({ className = "" }) {
         <button
           key={lng}
           type="button"
-          className={`ibm-z-lang-btn${currentLang === lng ? " ibm-z-lang-btn--active" : ""}`}
+          className={`cursor-segmented-control__btn${currentLang === lng ? " cursor-segmented-control__btn--active" : ""}`}
           onClick={() => setLanguage(lng)}
           aria-pressed={currentLang === lng}
+          title={t(`lang.${lng}`)}
         >
-          {t(`lang.${lng}`)}
+          <span className="cursor-segmented-control__label">{t(`lang.${lng}`)}</span>
         </button>
       ))}
     </div>

@@ -12,7 +12,7 @@ export default function ThemePreference() {
       <p className="text-xs text-white/60">
         {t("customization.items.theme.description")}
       </p>
-      <ThemeSwitcher variant="labeled" className="mt-2 w-fit" />
+      <ThemeSwitcher variant="labeled" className="mt-2 max-w-full" />
     </div>
   );
 }

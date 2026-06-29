@@ -192,12 +192,12 @@ export default function AccountModal({ user, hideModal }) {
                   defaultValue={user.bio}
                 />
               </div>
-              <div className="flex gap-x-16">
-                <div className="flex flex-col gap-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="flex flex-col gap-y-6 min-w-0">
                   <ThemePreference />
                   <LanguagePreference />
                 </div>
-                <div className="flex flex-col gap-y-6">
+                <div className="flex flex-col gap-y-6 min-w-0">
                   <AutoSubmitPreference />
                   <AutoSpeakPreference />
                 </div>
