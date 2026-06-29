@@ -4,7 +4,7 @@ const { getOfferKpHarnessGuidelines } = require("../../../config/offerKp.harness
 
 /**
  * Подставляет расширяемые LLM-инструкции OfferKP (единицы, статус, аналоги, приоритеты DIN/ГОСТ).
- * Новые правила добавляются в server/config/offerKp.harnessGuidelines.js.
+ * Модельные overrides — через harness.ctx.modelPreset (BaseModelHarnessPreset).
  */
 class OfferKpCatalogGuidelinesBlock extends BaseBlock {
   constructor() {
@@ -13,13 +13,18 @@ class OfferKpCatalogGuidelinesBlock extends BaseBlock {
 
   async install(harness) {
     const quoteDocument = Boolean(harness.state.get("quoteDocumentRequest"));
-    const guidelines = getOfferKpHarnessGuidelines({ quoteDocument });
+    const preset = harness.ctx.modelPreset;
+    const guidelines = preset
+      ? preset.guidelines({ quoteDocument })
+      : getOfferKpHarnessGuidelines({ quoteDocument });
     const existing = harness.state.get("contextGuidelines") || [];
     harness.state.set("contextGuidelines", [...existing, ...guidelines]);
 
     harnessLog("info", "offerKp.catalogGuidelines", {
       count: guidelines.length,
       quoteDocument,
+      modelId: harness.ctx.modelId || null,
+      preset: preset?.label || null,
     });
   }
 }

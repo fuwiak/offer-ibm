@@ -1,32 +1,46 @@
 const { AgentHarness } = require("../AgentHarness");
+const { createRegisteredBlock } = require("../registry");
 const {
-  createRegisteredBlock,
-  resolveOfferKpBlockIds,
-} = require("../registry");
+  resolveModelHarnessPreset,
+  resolveModelIdFromContext,
+} = require("./modelPresetRegistry");
 
 /**
- * Default OfferKP harness preset.
- * Новые блоки: registerHarnessBlock() в registry.js + id в DEFAULT_OFFER_KP_BLOCK_IDS
- * или OFFER_KP_HARNESS_EXTRA_BLOCKS=your-block-id
+ * OfferKP harness с индивидуальным preset под LLM-модель workspace.
  *
- * @param {{ aibitat: object, invocation?: object, log?: Function, blockIds?: string[] }} options
+ * Новая модель:
+ * 1) server/config/offerKp.models.js — display override
+ * 2) presets/models/MyModelHarnessPreset.js extends BaseModelHarnessPreset
+ * 3) modelPresetRegistry.js — registerModelHarnessPreset("vendor/model", MyModelHarnessPreset)
+ *
+ * @param {{ aibitat: object, invocation?: object, log?: Function, model?: string|null, blockIds?: string[]|null, modelPreset?: import("./BaseModelHarnessPreset").BaseModelHarnessPreset|null }} options
  */
 async function buildOfferKpHarness({
   aibitat,
   invocation = null,
   log = null,
+  model = null,
   blockIds = null,
+  modelPreset = null,
 } = {}) {
+  const workspace = invocation?.workspace ?? null;
+  const modelId = resolveModelIdFromContext({ model, workspace, invocation });
+  const preset = modelPreset || resolveModelHarnessPreset(modelId);
+
   const harness = new AgentHarness({
     aibitat,
     ctx: {
       invocation,
-      workspace: invocation?.workspace ?? null,
+      workspace,
       log,
+      modelId: preset.modelId,
+      modelPreset: preset,
     },
   });
 
-  const ids = blockIds || resolveOfferKpBlockIds();
+  preset.prepare(harness);
+
+  const ids = blockIds || preset.blockIds();
   for (const id of ids) {
     harness.use(createRegisteredBlock(id));
   }

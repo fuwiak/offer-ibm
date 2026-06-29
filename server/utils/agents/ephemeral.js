@@ -506,10 +506,11 @@ class EphemeralAgentHandler extends AgentHandler {
         user_id: this.#userId ?? null,
         thread_id: this.#threadId ?? null,
       },
+      model: this.#workspace?.chatModel ?? null,
       log: (msg) => this.log(msg),
     });
     this.log(
-      `Agent harness ready: ${this.harness.listBlocks().join(", ")}`
+      `Agent harness ready (${this.harness.ctx.modelId}): ${this.harness.listBlocks().join(", ")}`
     );
   }
 
@@ -522,6 +523,8 @@ class EphemeralAgentHandler extends AgentHandler {
       workspace: this.#workspace,
       userId: this.#userId ?? null,
       threadId: this.#threadId ?? null,
+      maxDocs: this.harness?.state?.get("catalogMaxDocs") ?? 2,
+      agentMode: true,
     });
     return this.aibitat.start({
       from: USER_AGENT.name,

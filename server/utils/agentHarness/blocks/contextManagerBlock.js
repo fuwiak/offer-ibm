@@ -14,12 +14,16 @@ class ContextManagerBlock extends BaseBlock {
   async install(harness) {
     const aibitat = harness.aibitat;
     const previous = aibitat.fetchParsedFileContext;
+    const maxChars =
+      harness.state.get("maxContextChars") ||
+      harness.ctx.modelPreset?.maxContextChars?.() ||
+      this.maxContextChars;
 
     aibitat.fetchParsedFileContext = async () => {
       const baseContext =
         typeof previous === "function" ? await previous() : "";
       const merged = await harness.runPipeline("context", { baseContext });
-      return this.#trimContext(String(merged ?? baseContext));
+      return this.#trimContext(String(merged ?? baseContext), maxChars);
     };
   }
 
@@ -37,10 +41,10 @@ class ContextManagerBlock extends BaseBlock {
     return { context: `${baseContext}${block}` };
   }
 
-  #trimContext(text) {
-    if (text.length <= this.maxContextChars) return text;
-    const head = text.slice(0, Math.floor(this.maxContextChars * 0.7));
-    const tail = text.slice(-Math.floor(this.maxContextChars * 0.25));
+  #trimContext(text, maxContextChars = this.maxContextChars) {
+    if (text.length <= maxContextChars) return text;
+    const head = text.slice(0, Math.floor(maxContextChars * 0.7));
+    const tail = text.slice(-Math.floor(maxContextChars * 0.25));
     return `${head}\n\n[... context truncated by harness ...]\n\n${tail}`;
   }
 }

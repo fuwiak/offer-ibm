@@ -764,10 +764,11 @@ class AgentHandler {
     this.harness = await buildOfferKpHarness({
       aibitat: this.aibitat,
       invocation: this.invocation,
+      model: this.invocation?.workspace?.chatModel ?? null,
       log: (msg) => this.log(msg),
     });
     this.log(
-      `Agent harness ready: ${this.harness.listBlocks().join(", ")}`
+      `Agent harness ready (${this.harness.ctx.modelId}): ${this.harness.listBlocks().join(", ")}`
     );
   }
 
@@ -796,6 +797,8 @@ class AgentHandler {
       workspace: this.invocation.workspace,
       userId: this.invocation.user_id ?? null,
       threadId: this.invocation.thread_id ?? null,
+      maxDocs: 2,
+      agentMode: true,
     });
     return this.aibitat.start({
       from: USER_AGENT.name,
