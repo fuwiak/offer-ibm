@@ -227,7 +227,6 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
   emit({ type: "stage", stage: "finalizing" });
   return docs;
 }
-}
 
 async function asPdf({
   fullFilePath = "",
