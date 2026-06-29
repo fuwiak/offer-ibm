@@ -7,6 +7,7 @@
 const { getLLMProvider } = require("../helpers");
 const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
+const { expandSearchTerms } = require("./textNormalize");
 const { query } = require("./db/client");
 const {
   TABLES,
@@ -167,10 +168,13 @@ function extractFuzzyTerms(searchText, parsed) {
 
   for (const w of words) terms.add(w);
 
-  return [...terms]
-    .filter((t) => t.length >= 2)
-    .sort((a, b) => b.length - a.length)
-    .slice(0, 12);
+  return expandSearchTerms(
+    [...terms]
+      .filter((t) => t.length >= 2)
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 12),
+    20
+  );
 }
 
 function tokenOverlapScore(queryNorm, nameNorm) {

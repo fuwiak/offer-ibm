@@ -32,6 +32,7 @@ const {
 const { parseInquiryText } = require("./parseInquiry");
 const { matchInquiryLine } = require("./matchInquiryLines");
 const { STATUS } = require("./analogRules");
+const { resolveProductPrice } = require("./priceResolve");
 
 const MAX_EXCERPT_CHARS = 2200;
 
@@ -89,7 +90,7 @@ function htmlToPlainText(html) {
 
 function formatPrice(price, currency) {
   const n = Number(price);
-  if (!Number.isFinite(n)) return "";
+  if (!Number.isFinite(n) || n <= 0) return "";
   return `${n.toFixed(2)} ${(currency || "RUB").trim()}`;
 }
 
@@ -159,9 +160,12 @@ function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
     product.category_url,
     product.product_url
   );
-  const priceStr = formatPrice(product.price, product.currency);
+  const effectivePrice = resolveProductPrice(product, skuRows);
+  const priceStr = formatPrice(effectivePrice, product.currency);
   const compareStr =
-    product.compare_price && Number(product.compare_price) > 0
+    effectivePrice > 0 &&
+    product.compare_price &&
+    Number(product.compare_price) > effectivePrice
       ? formatPrice(product.compare_price, product.currency)
       : "";
   const summary = htmlToPlainText(product.summary || "");

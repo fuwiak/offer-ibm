@@ -10,6 +10,7 @@ const {
   SKU_COLUMNS: S,
 } = require("./db/schema");
 const { PRODUCT_TYPE_ROOTS } = require("./hardwareQuery");
+const { expandSearchTerms } = require("./textNormalize");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -251,14 +252,15 @@ function mergeSearchHits(batches, maxProducts) {
 }
 
 async function searchProductsExtended(terms, parsed, limit) {
+  const expandedTerms = expandSearchTerms(terms, 20);
   const perStrategy = sqlLimit(Math.max(limit, 10));
   const [byStructured, byProduct, bySku, byCategory, byIndex] =
     await Promise.all([
       searchByStructuredQuery(parsed, perStrategy),
-      searchByProductFields(terms, perStrategy),
-      searchBySku(terms, perStrategy),
-      searchByCategory(terms, perStrategy),
-      searchBySearchIndex(terms, perStrategy),
+      searchByProductFields(expandedTerms, perStrategy),
+      searchBySku(expandedTerms, perStrategy),
+      searchByCategory(expandedTerms, perStrategy),
+      searchBySearchIndex(expandedTerms, perStrategy),
     ]);
 
   return mergeSearchHits(

@@ -8,6 +8,15 @@ const CATALOG_BLOCK_PREFIX = "[Каталог ·";
 const USER_CATALOG_HEADER = "=== ДАННЫЕ КАТАЛОГА PUROLAT.COM (MySQL) ===";
 const USER_CATALOG_FOOTER = "=== КОНЕЦ ДАННЫХ КАТАЛОГА ===";
 
+function stripCatalogSection(text = "") {
+  return String(text || "")
+    .replace(
+      /===\s*ДАННЫЕ КАТАЛОГА[\s\S]*?===\s*КОНЕЦ ДАННЫХ КАТАЛОГА\s*===\s*/gi,
+      ""
+    )
+    .trim();
+}
+
 function isCatalogBlock(text) {
   return String(text || "").includes(CATALOG_BLOCK_PREFIX);
 }
@@ -251,6 +260,7 @@ module.exports = {
   CATALOG_BLOCK_PREFIX,
   USER_CATALOG_HEADER,
   USER_CATALOG_FOOTER,
+  stripCatalogSection,
   isCatalogBlock,
   hasCatalogBlocks,
   historyEntryText,

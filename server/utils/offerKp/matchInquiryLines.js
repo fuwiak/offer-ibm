@@ -8,6 +8,7 @@ const { parseInquiryText } = require("./parseInquiry");
 const { runProductSearchAgent } = require("./productSearchAgent");
 const { classifyProductMatch, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
+const { resolveProductPrice } = require("./priceResolve");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -71,7 +72,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       productId: String(product.id),
       name: product.name,
       sku: stock.sku,
-      price: stock.price || Number(product.price) || 0,
+      price: stock.price || resolveProductPrice(product) || 0,
       stockCount: stock.stockCount,
       matchType: classification.matchType,
       status: classification.status,

@@ -2,6 +2,12 @@
  * NLP / regex разбор запросов к каталогу крепежа и металлопроката.
  */
 
+const {
+  foldHomoglyphs,
+  normalizeSearchText,
+  expandSearchTerms,
+} = require("./textNormalize");
+
 const STOPWORDS = new Set([
   "какой",
   "какая",
@@ -65,12 +71,9 @@ const PRODUCT_TYPE_ROOTS = {
 };
 
 function normalizeForMatch(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/×/g, "x")
-    .replace(/\s+/g, " ")
-    .replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
-    .trim();
+  return foldHomoglyphs(
+    normalizeSearchText(text).replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
+  );
 }
 
 function parseHardwareQuery(message) {
@@ -170,7 +173,7 @@ function extractSearchTerms(message) {
     unique.push(w);
   }
   unique.sort((a, b) => b.length - a.length);
-  return unique.slice(0, 8);
+  return expandSearchTerms(unique.slice(0, 8), 16);
 }
 
 function nameMatchesThread(nameNorm, thread) {
