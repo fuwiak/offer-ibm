@@ -28,6 +28,14 @@ class OfferKpQuoteIntentBlock extends BaseBlock {
 
     if (!approved) return null;
 
+    if (params.skillName === "quote-calculator") {
+      return {
+        handled: true,
+        approved: true,
+        message: "Quote calculator - auto-approved.",
+      };
+    }
+
     harness.log(`auto-approved tool ${params.skillName} for КП intent`);
     return {
       handled: true,

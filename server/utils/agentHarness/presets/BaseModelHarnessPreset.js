@@ -38,8 +38,11 @@ class BaseModelHarnessPreset {
    * @param {{ quoteDocument?: boolean }} options
    * @returns {string[]}
    */
-  extraGuidelines(_options = {}) {
-    return [];
+  extraGuidelines({ quoteDocument = false } = {}) {
+    if (!quoteDocument) return [];
+    return [
+      "Перед create-docx-file / create-pdf-file посчитай каждую строку через quote-calculator; в колонке «Сумма» только числа с двумя знаками, без формул Excel.",
+    ];
   }
 
   /**

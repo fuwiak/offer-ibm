@@ -20,7 +20,8 @@ class Gemma12bHarnessPreset extends BaseModelHarnessPreset {
     ];
     if (quoteDocument) {
       lines.push(
-        "При запросе КП обязательно вызови create-docx-file и create-pdf-file; не ограничивайся текстовым ответом с одной позицией."
+        "При запросе КП обязательно вызови create-docx-file и create-pdf-file; не ограничивайся текстовым ответом с одной позицией.",
+        "Перед DOCX/PDF посчитай суммы через quote-calculator; в колонке «Сумма» только числа, не формулы."
       );
     }
     return lines;

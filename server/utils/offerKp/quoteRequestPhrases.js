@@ -61,6 +61,7 @@ function quoteDocumentStatusMessage() {
 function quoteDocumentAgentGuidelines() {
   return [
     "Пользователь запросил коммерческое предложение (КП).",
+    "Перед DOCX/PDF посчитай суммы строк через quote-calculator (quantity × unitPrice).",
     "Обязательно вызови create-docx-file и create-pdf-file с markdown таблицей КП.",
     "Запрещено отвечать одной позицией, кратким описанием товара или списком из 1–2 SKU — нужна полная таблица КП по всем релевантным позициям из каталога.",
     "Цены только из блоков [Каталог · purolat.com] в контексте.",

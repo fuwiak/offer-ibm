@@ -21,7 +21,8 @@ class DeepseekR1HarnessPreset extends BaseModelHarnessPreset {
     ];
     if (options.quoteDocument) {
       lines.push(
-        "В таблице КП не пропускай строки — каждая позиция из заявки должна иметь цену или статус «Требует проверки»."
+        "В таблице КП не пропускай строки — каждая позиция из заявки должна иметь цену или статус «Требует проверки».",
+        "Суммы строк считай через quote-calculator; не оставляй =qty*price в таблице."
       );
     }
     return lines;

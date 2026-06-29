@@ -38,6 +38,11 @@ const OFFER_KP_HARNESS_GUIDELINES = [
     when: "quote",
     text: "При создании DOCX/PDF через create-docx-file / create-pdf-file передавай полный markdown таблицы КП со всеми строками, количествами, единицами, ценами и статусами — не пустой шаблон.",
   },
+  {
+    id: "quote-sum-calculator",
+    when: "quote",
+    text: "Колонка «Сумма» = quantity × unitPrice. Перед DOCX/PDF вызови quote-calculator и вставь готовые числа (850.80), не формулы =40*21.27.",
+  },
 ];
 
 /**
