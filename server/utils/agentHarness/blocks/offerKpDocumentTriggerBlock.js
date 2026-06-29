@@ -5,7 +5,10 @@ const {
   quoteDocumentAgentGuidelines,
 } = require("../../offerKp/quoteRequestPhrases");
 const { extractRecentUserMessages } = require("../../offerKp/quoteIntentJudge");
-const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  layerGuidelines,
+  ABSTAIN_MESSAGE,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * При фразах «сделай КП» — направляет @agent на Word + PDF и показывает статус в чате.
@@ -59,7 +62,6 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     if (!docSkills.has(params.skillName)) return null;
 
     if (harness.state.get("catalogEvidenceThin")) {
-      const { ABSTAIN_MESSAGE } = require("../../../config/offerKp.harnessAntiHallucination");
       harnessLog("warn", "quoteDocument.abstainThinEvidence", {
         skillName: params.skillName,
         evidenceGrade: harness.state.get("evidenceGrade"),
