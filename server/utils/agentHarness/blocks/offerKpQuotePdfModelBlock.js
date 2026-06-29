@@ -5,6 +5,7 @@ const {
   quotePdfModelAutoSwitchEnabled,
 } = require("../../offerKp/quotePdfModelRouter");
 const { WorkspaceParsedFiles } = require("../../../models/workspaceParsedFiles");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * При запросе КП с прикреплённым PDF переключает модель на preset,
@@ -54,6 +55,14 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
     if (!modelSwitch) return;
 
     applyHarnessModelSwitch(harness, modelSwitch.model, modelSwitch);
+
+    const existing = harness.state.get("contextGuidelines") || [];
+    const constrainRules = layerGuidelines("constrain");
+    harness.state.set("contextGuidelines", [
+      ...existing,
+      "PDF-заявка: извлекай позиции только из прикреплённого документа; цены и наличие — только из [Каталог · purolat.com], без догадок.",
+      ...constrainRules.filter((g) => !existing.includes(g)),
+    ]);
 
     harness.log("quote PDF model auto-switch for agent", {
       from: modelSwitch.from,

@@ -3,6 +3,7 @@ const { harnessLog } = require("../harnessLog");
 const {
   getOfferKpHarnessGuidelines,
 } = require("../../../config/offerKp.harnessGuidelines");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * Подставляет расширяемые LLM-инструкции OfferKP (единицы, статус, аналоги, приоритеты DIN/ГОСТ).
@@ -19,8 +20,15 @@ class OfferKpCatalogGuidelinesBlock extends BaseBlock {
     const guidelines = preset
       ? preset.guidelines({ quoteDocument })
       : getOfferKpHarnessGuidelines({ quoteDocument });
+    const antiHallucination = quoteDocument
+      ? layerGuidelines("all")
+      : layerGuidelines("retrieve").concat(layerGuidelines("constrain"));
     const existing = harness.state.get("contextGuidelines") || [];
-    harness.state.set("contextGuidelines", [...existing, ...guidelines]);
+    harness.state.set("contextGuidelines", [
+      ...existing,
+      ...guidelines,
+      ...antiHallucination.filter((g) => !existing.includes(g) && !guidelines.includes(g)),
+    ]);
 
     harnessLog("info", "offerKp.catalogGuidelines", {
       count: guidelines.length,

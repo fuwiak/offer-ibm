@@ -5,6 +5,7 @@ const {
   quoteDocumentAgentGuidelines,
 } = require("../../offerKp/quoteRequestPhrases");
 const { extractRecentUserMessages } = require("../../offerKp/quoteIntentJudge");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * При фразах «сделай КП» — направляет @agent на Word + PDF и показывает статус в чате.
@@ -30,7 +31,10 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     if (!isQuoteDocumentRequest(prompt)) return;
 
     harness.state.set("quoteDocumentRequest", true);
-    harness.state.set("contextGuidelines", quoteDocumentAgentGuidelines());
+    harness.state.set("contextGuidelines", [
+      ...quoteDocumentAgentGuidelines(),
+      ...layerGuidelines("constrain"),
+    ]);
 
     harnessLog("info", "quoteDocument.trigger", {
       prompt: prompt.slice(0, 160),
@@ -46,6 +50,28 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     harness.log("quote document request detected — Word + PDF", {
       prompt: prompt.slice(0, 80),
     });
+  }
+
+  async beforeToolApproval(params, harness) {
+    if (!harness.state.get("quoteDocumentRequest")) return null;
+
+    const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
+    if (!docSkills.has(params.skillName)) return null;
+
+    if (harness.state.get("catalogEvidenceThin")) {
+      const { ABSTAIN_MESSAGE } = require("../../../config/offerKp.harnessAntiHallucination");
+      harnessLog("warn", "quoteDocument.abstainThinEvidence", {
+        skillName: params.skillName,
+        evidenceGrade: harness.state.get("evidenceGrade"),
+      });
+      return {
+        handled: true,
+        approved: false,
+        message: `Каталог недостаточен для КП. ${ABSTAIN_MESSAGE}`,
+      };
+    }
+
+    return null;
   }
 }
 

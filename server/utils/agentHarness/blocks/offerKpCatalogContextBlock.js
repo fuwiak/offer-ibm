@@ -5,6 +5,11 @@ const {
   extractCatalogBlocksFromText,
   stripCatalogSection,
 } = require("../../offerKp/catalogPrompt");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  gradeCatalogEvidence,
+  shouldAbstainFromEvidence,
+} = require("../../offerKp/harnessEvidence");
 
 function isUserChatMessage(message) {
   const from = String(message?.from || message?.role || "")
@@ -32,24 +37,50 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     };
   }
 
-  async #enrichPrompt(prompt, harness) {
+  #recordEvidenceGrade(harness, blocks, question) {
+    const gradeResult = gradeCatalogEvidence(blocks, { question });
+    harness.state.set("evidenceGrade", gradeResult.grade);
+    harness.state.set("evidenceReason", gradeResult.reason);
+    harness.state.set("catalogBlockCount", gradeResult.blockCount);
+
+    if (shouldAbstainFromEvidence(gradeResult)) {
+      const existing = harness.state.get("contextGuidelines") || [];
+      const abstainRules = layerGuidelines("abstain");
+      harness.state.set("contextGuidelines", [
+        ...existing,
+        ...abstainRules.filter((g) => !existing.includes(g)),
+      ]);
+      harness.state.set("catalogEvidenceThin", true);
+    } else {
+      harness.state.delete("catalogEvidenceThin");
+    }
+
+    return gradeResult;
+  }
+
+  async #enrichPrompt(prompt, harness, { widen = false } = {}) {
     const question = stripCatalogSection(prompt);
     if (!question) return prompt;
 
+    const baseMax = harness.state.get("catalogMaxDocs") || 5;
+    const hops = harness.state.get("cragHops") || 0;
+    const maxDocs = widen ? Math.min(baseMax + hops * 3, 12) : baseMax;
+
     const enriched = await enrichUserPromptWithShopCatalog(
       question,
-      this.#catalogOptions(harness)
+      { ...this.#catalogOptions(harness), maxDocs }
     );
-    if (
-      hasCatalogBlocks(extractCatalogBlocksFromText(enriched)) &&
-      enriched !== prompt
-    ) {
+    const blocks = extractCatalogBlocksFromText(enriched);
+    if (hasCatalogBlocks(blocks) && enriched !== prompt) {
       harness.state.set("catalogInjected", true);
+      this.#recordEvidenceGrade(harness, blocks, question);
+    } else if (blocks.length) {
+      this.#recordEvidenceGrade(harness, blocks, question);
     }
     return enriched;
   }
 
-  async #enrichLastUserMessage(harness) {
+  async #enrichLastUserMessage(harness, { widen = false } = {}) {
     const chats = harness.aibitat?._chats;
     if (!Array.isArray(chats) || !chats.length) return false;
 
@@ -60,7 +91,7 @@ class OfferKpCatalogContextBlock extends BaseBlock {
       const raw = String(entry.content || "").trim();
       if (!raw) return false;
 
-      const enriched = await this.#enrichPrompt(raw, harness);
+      const enriched = await this.#enrichPrompt(raw, harness, { widen });
       if (enriched !== raw) {
         entry.content = enriched;
         return true;
@@ -74,9 +105,13 @@ class OfferKpCatalogContextBlock extends BaseBlock {
   #ensureCatalogGuideline(harness) {
     const marker =
       "В текущем сообщении пользователя уже есть блоки [Каталог · purolat.com] с ценами и наличием — используй их для КП. Не пиши, что каталог не передан.";
+    const retrieveRules = layerGuidelines("retrieve");
     const existing = harness.state.get("contextGuidelines") || [];
-    if (existing.includes(marker)) return;
-    harness.state.set("contextGuidelines", [...existing, marker]);
+    const merged = [...existing];
+    for (const rule of [marker, ...retrieveRules]) {
+      if (!merged.includes(rule)) merged.push(rule);
+    }
+    harness.state.set("contextGuidelines", merged);
   }
 
   async install(harness) {
@@ -104,10 +139,26 @@ class OfferKpCatalogContextBlock extends BaseBlock {
 
     const originalReply = aibitat.reply.bind(aibitat);
     aibitat.reply = async (route) => {
-      const injected = await this.#enrichLastUserMessage(harness);
+      const thresholds = harness.state.get("antiHallucinationThresholds");
+      const needsRefine = harness.state.get("cragNeedsRefine");
+      const hops = harness.state.get("cragHops") || 0;
+      const widen =
+        Boolean(needsRefine) &&
+        thresholds &&
+        hops < thresholds.maxCragHops;
+
+      if (widen) {
+        harness.state.set("cragHops", hops + 1);
+        harness.log("CRAG refine: widening catalog retrieval", { hop: hops + 1 });
+      }
+
+      const injected = await this.#enrichLastUserMessage(harness, { widen });
       if (injected) {
         this.#ensureCatalogGuideline(harness);
-        harness.log("catalog injected before agent reply");
+        harness.log("catalog injected before agent reply", {
+          cragHop: harness.state.get("cragHops") || 0,
+          evidenceGrade: harness.state.get("evidenceGrade"),
+        });
       }
       return originalReply(route);
     };

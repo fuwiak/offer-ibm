@@ -3,6 +3,7 @@ const {
   extractRecentUserMessages,
   shouldAutoApproveQuoteFileSkill,
 } = require("../../offerKp/quoteIntentJudge");
+const { parseThresholdsFromEnv } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * OfferKP: auto-approve create-docx/pdf/text when user intent is commercial quote (КП).
@@ -13,6 +14,21 @@ class OfferKpQuoteIntentBlock extends BaseBlock {
   }
 
   async beforeToolApproval(params, harness) {
+    const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
+    if (docSkills.has(params.skillName) && harness.state.get("catalogEvidenceThin")) {
+      return null;
+    }
+
+    const grade = harness.state.get("evidenceGrade");
+    const thresholds = harness.state.get("antiHallucinationThresholds") || parseThresholdsFromEnv();
+    if (
+      docSkills.has(params.skillName) &&
+      grade != null &&
+      grade < thresholds.cragBad
+    ) {
+      return null;
+    }
+
     const userMessages = extractRecentUserMessages(harness.aibitat._chats);
     const workspace =
       harness.ctx.workspace ??

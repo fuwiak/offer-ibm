@@ -8,6 +8,11 @@ const {
   formatComplianceRejection,
   isQuoteDocSkill,
 } = require("../../offerKp/quoteComplianceChecker");
+const {
+  collectCatalogBlocksFromHarness,
+  validateQuotePricesAgainstCatalog,
+} = require("../../offerKp/harnessEvidence");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * Проверяет обязательные требования КП перед create-docx/pdf.
@@ -19,7 +24,11 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
   }
 
   async install(harness) {
-    const guidelines = mandatoryRequirementsGuidelines();
+    const guidelines = [
+      ...mandatoryRequirementsGuidelines(),
+      ...layerGuidelines("verify"),
+      ...layerGuidelines("abstain"),
+    ];
     const existing = harness.state.get("contextGuidelines") || [];
     harness.state.set("contextGuidelines", [...existing, ...guidelines]);
     harness.state.set("quoteMandatoryRequirements", guidelines);
@@ -38,23 +47,27 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
       skillName: params.skillName,
     });
 
-    if (result.ok) {
+    const catalogBlocks = collectCatalogBlocksFromHarness(harness);
+    const catalogCheck = validateQuotePricesAgainstCatalog(content, catalogBlocks);
+    const violations = [...result.violations, ...catalogCheck.violations];
+
+    if (result.ok && catalogCheck.ok) {
       harness.state.set("quoteComplianceOk", true);
       harness.state.delete("quoteComplianceViolations");
       return null;
     }
 
     harness.state.set("quoteComplianceOk", false);
-    harness.state.set("quoteComplianceViolations", result.violations);
+    harness.state.set("quoteComplianceViolations", violations);
 
-    const details = formatComplianceRejection(result.violations);
+    const details = formatComplianceRejection(violations);
     harnessLog("warn", "quoteCompliance.rejected", {
       skillName: params.skillName,
-      violationIds: result.violations.map((v) => v.id),
+      violationIds: violations.map((v) => v.id),
     });
     harness.log("quote compliance rejected", {
       skillName: params.skillName,
-      violations: result.violations.map((v) => v.id),
+      violations: violations.map((v) => v.id),
     });
 
     return {

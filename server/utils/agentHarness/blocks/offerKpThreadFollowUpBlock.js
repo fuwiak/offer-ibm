@@ -43,6 +43,13 @@ class OfferKpThreadFollowUpBlock extends BaseBlock {
     harness.state.set("threadFollowUpSuggestions", suggestions);
     harness.state.set("threadFollowUpVariant", variant);
 
+    if (
+      harness.state.get("catalogEvidenceThin") ||
+      harness.state.get("quoteComplianceOk") === false
+    ) {
+      harness.state.set("threadFollowUpVariant", "recovery");
+    }
+
     const aibitat = harness.aibitat;
     if (typeof aibitat.socket?.send === "function") {
       aibitat.socket.send("threadFollowUpSuggestions", {

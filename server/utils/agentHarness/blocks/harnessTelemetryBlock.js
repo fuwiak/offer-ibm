@@ -30,6 +30,10 @@ class HarnessTelemetryBlock extends BaseBlock {
       skillName: params.skillName,
       filename: params.payload?.filename || null,
       quoteDocument: Boolean(harness.state.get("quoteDocumentRequest")),
+      evidenceGrade: harness.state.get("evidenceGrade"),
+      evidenceReason: harness.state.get("evidenceReason"),
+      cragHops: harness.state.get("cragHops") || 0,
+      quoteComplianceOk: harness.state.get("quoteComplianceOk"),
     });
   }
 }

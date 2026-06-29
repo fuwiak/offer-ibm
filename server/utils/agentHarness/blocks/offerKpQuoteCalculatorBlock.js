@@ -2,6 +2,7 @@ const { BaseBlock } = require("../BaseBlock");
 const {
   QuoteCalculator,
 } = require("../../agents/aibitat/plugins/offer-kp/quote-calculator");
+const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 const CALCULATOR_GUIDELINE =
   "Для колонки «Сумма» в таблице КП вызывай инструмент quote-calculator (quantity × unitPrice). В DOCX/PDF пиши только готовые числа (например 850.80), запрещены формулы =40*21.27 или =10*33.04.";
@@ -26,9 +27,12 @@ class OfferKpQuoteCalculatorBlock extends BaseBlock {
     }
 
     const existing = harness.state.get("contextGuidelines") || [];
-    if (!existing.includes(CALCULATOR_GUIDELINE)) {
-      harness.state.set("contextGuidelines", [...existing, CALCULATOR_GUIDELINE]);
+    const verifyRules = layerGuidelines("verify");
+    const merged = [...existing];
+    for (const rule of [CALCULATOR_GUIDELINE, ...verifyRules]) {
+      if (!merged.includes(rule)) merged.push(rule);
     }
+    harness.state.set("contextGuidelines", merged);
 
     harness.log("quote calculator tool registered for agent");
   }

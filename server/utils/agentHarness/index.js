@@ -6,6 +6,7 @@ const { buildOfferKpHarness } = require("./presets/offerKp");
 const { BaseModelHarnessPreset } = require("./presets/BaseModelHarnessPreset");
 const modelPresetRegistry = require("./presets/modelPresetRegistry");
 const harnessGuidelines = require("../../config/offerKp.harnessGuidelines");
+const harnessAntiHallucination = require("../../config/offerKp.harnessAntiHallucination");
 
 module.exports = {
   AgentHarness,
@@ -15,5 +16,6 @@ module.exports = {
   registry,
   modelPresetRegistry,
   harnessGuidelines,
+  harnessAntiHallucination,
   buildOfferKpHarness,
 };

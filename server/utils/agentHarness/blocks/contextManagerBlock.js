@@ -1,4 +1,7 @@
 const { BaseBlock } = require("../BaseBlock");
+const {
+  allAntiHallucinationGuidelines,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 
@@ -12,6 +15,13 @@ class ContextManagerBlock extends BaseBlock {
   }
 
   async install(harness) {
+    const existing = harness.state.get("contextGuidelines") || [];
+    const contract = allAntiHallucinationGuidelines();
+    harness.state.set("contextGuidelines", [
+      ...existing,
+      ...contract.filter((g) => !existing.includes(g)),
+    ]);
+
     const aibitat = harness.aibitat;
     const previous = aibitat.fetchParsedFileContext;
     const maxChars =
