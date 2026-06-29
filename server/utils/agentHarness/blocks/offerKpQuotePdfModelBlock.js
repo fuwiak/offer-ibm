@@ -4,7 +4,6 @@ const {
   resolveQuotePdfModelSwitch,
   quotePdfModelAutoSwitchEnabled,
 } = require("../../offerKp/quotePdfModelRouter");
-const { WorkspaceParsedFiles } = require("../../../models/workspaceParsedFiles");
 const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
@@ -33,6 +32,7 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
 
     let parsedFiles = [];
     try {
+      const { WorkspaceParsedFiles } = require("../../../models/workspaceParsedFiles");
       parsedFiles = await WorkspaceParsedFiles.getContextFiles(
         workspace,
         threadId ? { id: threadId } : null,

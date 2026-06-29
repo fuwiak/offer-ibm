@@ -1,4 +1,4 @@
-const { resolveOfferKpBlockIds } = require("../registry");
+const { resolveOfferKpBlockIds } = require("../blockIds");
 const {
   getOfferKpHarnessGuidelines,
 } = require("../../../config/offerKp.harnessGuidelines");
