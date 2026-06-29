@@ -18,8 +18,17 @@ function ensureLmStudioBasePath() {
 }
 
 /** Maps legacy cloud/Ollama model ids to an allowed local model. */
-function coerceToLocalModel(modelId) {
-  return resolveOfferKpModel(modelId);
+function coerceToLocalModel(modelId, liveIds = null) {
+  let catalogIds = liveIds;
+  if (!Array.isArray(catalogIds) || catalogIds.length === 0) {
+    try {
+      const { getCachedLmStudioModelIds } = require("./lmStudioModels");
+      catalogIds = getCachedLmStudioModelIds();
+    } catch {
+      catalogIds = [];
+    }
+  }
+  return resolveOfferKpModel(modelId, catalogIds.length ? catalogIds : null);
 }
 
 /**
@@ -38,7 +47,6 @@ function resolveLlmProviderAndModel({
     OFFER_KP_DEFAULT_MODEL;
 
   const resolvedModel = coerceToLocalModel(requestedModel);
-  process.env.LMSTUDIO_MODEL_PREF = resolvedModel;
 
   if (requestedModel !== resolvedModel) {
     offerKpLog("warn", "Rejected unknown model — using LM Studio default", {

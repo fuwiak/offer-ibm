@@ -3,7 +3,7 @@ const llmDefaults = require("../../config/offerKp.llm.defaults");
 const {
   OFFER_KP_DEFAULT_MODEL,
   isOfferKpCloudModel,
-  isOfferKpLocalModel,
+  isOfferKpAllowedModel,
 } = require("../../config/offerKp.models");
 const { coerceToLocalModel } = require("./resolveLlmProvider");
 
@@ -41,8 +41,8 @@ async function normalizeOfferKpWorkspaceLlms() {
       ws.agentModel !== agentModel ||
       isOfferKpCloudModel(ws.chatModel) ||
       isOfferKpCloudModel(ws.agentModel) ||
-      !isOfferKpLocalModel(chatModel) ||
-      !isOfferKpLocalModel(agentModel) ||
+      !isOfferKpAllowedModel(chatModel) ||
+      !isOfferKpAllowedModel(agentModel) ||
       ws.chatProvider === "ollama" ||
       ws.agentProvider === "ollama";
 

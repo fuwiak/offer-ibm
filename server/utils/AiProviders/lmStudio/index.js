@@ -102,11 +102,7 @@ class LMStudioLLM {
                 : null;
             const maxLen = Number(model.max_context_length) || 4096;
             LMStudioLLM.modelContextWindows[model.id] = loaded ?? maxLen;
-            if (loaded && loaded < maxLen) {
-              LMStudioLLM.#slog(
-                `Model ${model.id}: loaded ctx=${loaded} (max ${maxLen})`
-              );
-            }
+            // VRAM status on LM Studio server — not the active backend model selection.
           });
         })
         .catch((e) => {

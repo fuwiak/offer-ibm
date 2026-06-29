@@ -213,10 +213,19 @@ function resolveQuotePdfModelSwitch({
 
   if (!modelMatchesWeakList(currentModel)) return null;
 
-  const fallbackModel = pickQuotePdfFallbackModel(
-    currentModel,
-    availableModels
-  );
+  let catalogModels = Array.isArray(availableModels) ? availableModels : null;
+  if (!catalogModels?.length) {
+    try {
+      const {
+        getCachedLmStudioModelIds,
+      } = require("../offerKpApp/lmStudioModels");
+      catalogModels = getCachedLmStudioModelIds();
+    } catch {
+      catalogModels = null;
+    }
+  }
+
+  const fallbackModel = pickQuotePdfFallbackModel(currentModel, catalogModels);
   if (!fallbackModel || fallbackModel === currentModel) return null;
 
   const result = {
