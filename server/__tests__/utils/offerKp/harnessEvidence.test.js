@@ -27,6 +27,14 @@ describe("harnessEvidence", () => {
     expect(grade.pricedBlocks).toBe(1);
   });
 
+  it("does not abstain when PDF inquiry is present without catalog", () => {
+    const grade = gradeCatalogEvidence([], { pdfInquiry: true });
+    expect(grade.grade).toBeGreaterThanOrEqual(0.55);
+    expect(shouldAbstainFromEvidence(grade, undefined, { pdfInquiry: true })).toBe(
+      false
+    );
+  });
+
   it("abstains on empty catalog", () => {
     const grade = gradeCatalogEvidence([]);
     expect(grade.grade).toBe(0);

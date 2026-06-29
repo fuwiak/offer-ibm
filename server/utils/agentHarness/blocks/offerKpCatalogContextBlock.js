@@ -9,6 +9,7 @@ const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucin
 const {
   gradeCatalogEvidence,
   shouldAbstainFromEvidence,
+  ensurePdfInquiryEvidence,
 } = require("../../offerKp/harnessEvidence");
 
 function isUserChatMessage(message) {
@@ -37,13 +38,13 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     };
   }
 
-  #recordEvidenceGrade(harness, blocks, question) {
-    const gradeResult = gradeCatalogEvidence(blocks, { question });
+  #recordEvidenceGrade(harness, blocks, question, pdfInquiry = false) {
+    const gradeResult = gradeCatalogEvidence(blocks, { question, pdfInquiry });
     harness.state.set("evidenceGrade", gradeResult.grade);
     harness.state.set("evidenceReason", gradeResult.reason);
     harness.state.set("catalogBlockCount", gradeResult.blockCount);
 
-    if (shouldAbstainFromEvidence(gradeResult)) {
+    if (shouldAbstainFromEvidence(gradeResult, undefined, { pdfInquiry })) {
       const existing = harness.state.get("contextGuidelines") || [];
       const abstainRules = layerGuidelines("abstain");
       harness.state.set("contextGuidelines", [
@@ -62,6 +63,7 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     const question = stripCatalogSection(prompt);
     if (!question) return prompt;
 
+    const pdfInquiry = await ensurePdfInquiryEvidence(harness);
     const baseMax = harness.state.get("catalogMaxDocs") || 5;
     const hops = harness.state.get("cragHops") || 0;
     const maxDocs = widen ? Math.min(baseMax + hops * 3, 12) : baseMax;
@@ -73,9 +75,9 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     const blocks = extractCatalogBlocksFromText(enriched);
     if (hasCatalogBlocks(blocks) && enriched !== prompt) {
       harness.state.set("catalogInjected", true);
-      this.#recordEvidenceGrade(harness, blocks, question);
-    } else if (blocks.length) {
-      this.#recordEvidenceGrade(harness, blocks, question);
+      this.#recordEvidenceGrade(harness, blocks, question, pdfInquiry);
+    } else if (blocks.length || pdfInquiry) {
+      this.#recordEvidenceGrade(harness, blocks, question, pdfInquiry);
     }
     return enriched;
   }

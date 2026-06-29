@@ -4,6 +4,7 @@ const {
   shouldAutoApproveQuoteFileSkill,
 } = require("../../offerKp/quoteIntentJudge");
 const { parseThresholdsFromEnv } = require("../../../config/offerKp.harnessAntiHallucination");
+const { hasPdfInquiryEvidence } = require("../../offerKp/harnessEvidence");
 
 /**
  * OfferKP: auto-approve create-docx/pdf/text when user intent is commercial quote (КП).
@@ -15,7 +16,8 @@ class OfferKpQuoteIntentBlock extends BaseBlock {
 
   async beforeToolApproval(params, harness) {
     const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
-    if (docSkills.has(params.skillName) && harness.state.get("catalogEvidenceThin")) {
+    const pdfInquiry = hasPdfInquiryEvidence(harness);
+    if (docSkills.has(params.skillName) && harness.state.get("catalogEvidenceThin") && !pdfInquiry) {
       return null;
     }
 
@@ -23,6 +25,7 @@ class OfferKpQuoteIntentBlock extends BaseBlock {
     const thresholds = harness.state.get("antiHallucinationThresholds") || parseThresholdsFromEnv();
     if (
       docSkills.has(params.skillName) &&
+      !pdfInquiry &&
       grade != null &&
       grade < thresholds.cragBad
     ) {

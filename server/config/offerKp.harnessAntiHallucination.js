@@ -10,11 +10,12 @@ const INSUFFICIENT_EVIDENCE_TOKEN = "INSUFFICIENT_EVIDENCE";
 
 /** @type {Record<string, number>} */
 const DEFAULT_THRESHOLDS = Object.freeze({
-  cragOk: 0.7,
-  cragBad: 0.4,
+  cragOk: 0.45,
+  cragBad: 0.12,
   maxCragHops: 2,
   minCatalogBlocks: 1,
   priceTolerance: 0.02,
+  pdfInquiryMinGrade: 0.55,
 });
 
 function parseThresholdsFromEnv() {
@@ -41,6 +42,10 @@ function parseThresholdsFromEnv() {
       "OFFER_KP_PRICE_TOLERANCE",
       DEFAULT_THRESHOLDS.priceTolerance
     ),
+    pdfInquiryMinGrade: num(
+      "OFFER_KP_PDF_INQUIRY_MIN_GRADE",
+      DEFAULT_THRESHOLDS.pdfInquiryMinGrade
+    ),
   };
 }
 
@@ -50,23 +55,23 @@ const RETRIEVE_GUIDELINES = [
   "Если каталог не подставлен — не угадывай цены; сообщи, что данных нет, или попроси уточнить позиции (без выдуманных сумм).",
 ];
 
-/** Constrain: генерация строго по контексту, явный abstain. */
+/** Constrain: генерация строго по контексту; при PDF-заявке — позиции из файла, цены из каталога. */
 const CONSTRAIN_GUIDELINES = [
-  `Constrain: если в контексте нет подтверждения — ответь ровно «${INSUFFICIENT_EVIDENCE_TOKEN}» или: «${ABSTAIN_MESSAGE}». Не дополняй ответ общими знаниями.`,
-  "Каждая цена и статус наличия в КП должны соответствовать конкретному блоку каталога — не ссылайся на несуществующие SKU.",
-  "Запрещены уверенные ответы при пустом или нерелевантном каталоге — лучше отказ, чем догадка.",
+  "Constrain: цены и наличие в КП — из [Каталог · purolat.com]; наименования и количества — из PDF-заявки в контексте.",
+  "Если прикреплён PDF с позициями — формируй КП по нему; не отказывай из-за малого числа блоков каталога, пока идёт подбор.",
+  "Не выдумывай цены: при отсутствии совпадения в каталоге укажи «под заказ» или «требует проверки», а не произвольную сумму.",
+];
+
+/** Abstain: только при полном отсутствии и PDF, и каталога. */
+const ABSTAIN_GUIDELINES = [
+  `Abstain: отказ «${ABSTAIN_MESSAGE}» — только если нет ни PDF-заявки, ни блоков каталога.`,
+  "При PDF с позициями и ценами продолжай КП: каталог может догрузиться на следующем шаге.",
 ];
 
 /** Verify: построчная проверка (weakest claim), не среднее. */
 const VERIFY_GUIDELINES = [
   "Verify: перед DOCX/PDF проверь каждую строку таблицы — кол-во × цена = сумма; цена из каталога; без формул и плейсхолдеров.",
   "Одна неподтверждённая строка — исправь или убери её; не отправляй документ с выдуманными позициями.",
-];
-
-/** Abstain: отказ как корректный исход. */
-const ABSTAIN_GUIDELINES = [
-  `Abstain: отказ «${ABSTAIN_MESSAGE}» — правильный ответ, если каталог пуст или позиция не найдена.`,
-  "Не маскируй отсутствие данных общими фразами вроде «примерная цена» или «уточните у менеджера» вместо цифр из каталога.",
 ];
 
 function layerGuidelines(layer) {

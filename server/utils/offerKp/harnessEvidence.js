@@ -65,19 +65,31 @@ function parseCatalogEvidence(blocks = []) {
  * @param {{ question?: string }} [options]
  * @returns {{ grade: number, reason: string, blockCount: number, pricedBlocks: number }}
  */
-function gradeCatalogEvidence(blocks = [], { question = "" } = {}) {
+function gradeCatalogEvidence(
+  blocks = [],
+  { question = "", pdfInquiry = false } = {}
+) {
   const list = (blocks || []).filter(Boolean);
   const thresholds = parseThresholdsFromEnv();
 
   if (!list.length) {
+    if (pdfInquiry) {
+      return {
+        grade: thresholds.pdfInquiryMinGrade,
+        reason: "pdf_inquiry",
+        blockCount: 0,
+        pricedBlocks: 0,
+      };
+    }
     return { grade: 0, reason: "no_catalog", blockCount: 0, pricedBlocks: 0 };
   }
 
   const pricedBlocks = list.filter((b) => /Цена:\s*[\d.,]+/i.test(b)).length;
   if (pricedBlocks === 0) {
+    const grade = pdfInquiry ? thresholds.pdfInquiryMinGrade : 0.15;
     return {
-      grade: 0.15,
-      reason: "no_prices",
+      grade,
+      reason: pdfInquiry ? "pdf_inquiry" : "no_prices",
       blockCount: list.length,
       pricedBlocks: 0,
     };
@@ -91,10 +103,19 @@ function gradeCatalogEvidence(blocks = [], { question = "" } = {}) {
     grade += 0.15;
   }
 
+  if (pdfInquiry) {
+    grade = Math.max(grade, thresholds.pdfInquiryMinGrade);
+  }
+
   grade = Math.min(1, Math.round(grade * 100) / 100);
   return {
     grade,
-    reason: grade >= thresholds.cragOk ? "strong" : grade >= thresholds.cragBad ? "weak" : "thin",
+    reason:
+      grade >= thresholds.cragOk
+        ? "strong"
+        : grade >= thresholds.cragBad
+          ? "weak"
+          : "thin",
     blockCount: list.length,
     pricedBlocks,
   };
@@ -221,9 +242,56 @@ function headerIndex(headerRow = [], patterns = []) {
   return -1;
 }
 
-function shouldAbstainFromEvidence(gradeResult, thresholds = parseThresholdsFromEnv()) {
+function shouldAbstainFromEvidence(
+  gradeResult,
+  thresholds = parseThresholdsFromEnv(),
+  { pdfInquiry = false } = {}
+) {
+  if (pdfInquiry) return false;
   if (!gradeResult) return true;
   return gradeResult.grade < thresholds.cragBad;
+}
+
+/**
+ * Определяет, есть ли в треде PDF-заявка с позициями/ценами.
+ * @param {object} harness
+ * @returns {Promise<boolean>}
+ */
+async function ensurePdfInquiryEvidence(harness) {
+  if (harness?.state?.has("pdfInquiryEvidence")) {
+    return Boolean(harness.state.get("pdfInquiryEvidence"));
+  }
+
+  const workspace = harness?.ctx?.workspace;
+  const invocation = harness?.ctx?.invocation;
+  if (!workspace?.id) {
+    harness?.state?.set("pdfInquiryEvidence", false);
+    return false;
+  }
+
+  let hasPdf = false;
+  try {
+    const { WorkspaceParsedFiles } = require("../../models/workspaceParsedFiles");
+    const { parsedTextHasQuoteSignals } = require("./quotePdfModelRouter");
+    const threadId = invocation?.thread_id || null;
+    const userId = invocation?.user_id || null;
+    const files = await WorkspaceParsedFiles.getContextFiles(
+      workspace,
+      threadId ? { id: threadId } : null,
+      userId ? { id: userId } : null
+    );
+    const texts = (files || []).map((doc) => doc.pageContent).filter(Boolean);
+    hasPdf = texts.some((text) => parsedTextHasQuoteSignals(text));
+  } catch {
+    hasPdf = false;
+  }
+
+  harness?.state?.set("pdfInquiryEvidence", hasPdf);
+  return hasPdf;
+}
+
+function hasPdfInquiryEvidence(harness) {
+  return Boolean(harness?.state?.get("pdfInquiryEvidence"));
 }
 
 function formatEvidenceAbstention(reason = "unsupported_claims") {
@@ -240,6 +308,8 @@ module.exports = {
   collectCatalogBlocksFromHarness,
   validateQuotePricesAgainstCatalog,
   shouldAbstainFromEvidence,
+  ensurePdfInquiryEvidence,
+  hasPdfInquiryEvidence,
   formatEvidenceAbstention,
   tokenOverlapScore,
 };

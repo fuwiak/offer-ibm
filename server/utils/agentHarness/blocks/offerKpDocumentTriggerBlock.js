@@ -9,6 +9,7 @@ const {
   layerGuidelines,
   ABSTAIN_MESSAGE,
 } = require("../../../config/offerKp.harnessAntiHallucination");
+const { hasPdfInquiryEvidence, ensurePdfInquiryEvidence } = require("../../offerKp/harnessEvidence");
 
 /**
  * При фразах «сделай КП» — направляет @agent на Word + PDF и показывает статус в чате.
@@ -53,6 +54,8 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     harness.log("quote document request detected — Word + PDF", {
       prompt: prompt.slice(0, 80),
     });
+
+    await ensurePdfInquiryEvidence(harness);
   }
 
   async beforeToolApproval(params, harness) {
@@ -61,7 +64,9 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
     if (!docSkills.has(params.skillName)) return null;
 
-    if (harness.state.get("catalogEvidenceThin")) {
+    await ensurePdfInquiryEvidence(harness);
+
+    if (harness.state.get("catalogEvidenceThin") && !hasPdfInquiryEvidence(harness)) {
       harnessLog("warn", "quoteDocument.abstainThinEvidence", {
         skillName: params.skillName,
         evidenceGrade: harness.state.get("evidenceGrade"),
