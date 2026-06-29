@@ -46,7 +46,8 @@ function embeddedEndpoints(app) {
         });
         await Telemetry.sendTelemetry("embed_sent_chat", {
           multiUserMode: multiUserMode(response),
-          LLMSelection: require("../../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
+          LLMSelection:
+            require("../../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
           Embedder: process.env.EMBEDDING_ENGINE || "inherit",
           VectorDbSelection: process.env.VECTOR_DB || "lancedb",
         });

@@ -84,7 +84,8 @@ function apiWorkspaceEndpoints(app) {
 
       await Telemetry.sendTelemetry("workspace_created", {
         multiUserMode: multiUserMode(response),
-        LLMSelection: require("../../../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
+        LLMSelection:
+          require("../../../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
         Embedder: process.env.EMBEDDING_ENGINE || "inherit",
         VectorDbSelection: process.env.VECTOR_DB || "lancedb",
         TTSSelection: process.env.TTS_PROVIDER || "native",

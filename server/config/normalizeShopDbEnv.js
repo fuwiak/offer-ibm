@@ -67,7 +67,10 @@ function normalizeShopDbEnv({ log = true } = {}) {
   if (dbUrl) {
     const urlPort = parseDatabaseUrlPort(dbUrl);
     if (urlPort && KNOWN_WRONG_PORTS.has(urlPort)) {
-      process.env.DATABASE_URL = fixPortInDatabaseUrl(dbUrl, DEFAULT_MYSQL_PORT);
+      process.env.DATABASE_URL = fixPortInDatabaseUrl(
+        dbUrl,
+        DEFAULT_MYSQL_PORT
+      );
       fixes.push(`DATABASE_URL port ${urlPort}→${DEFAULT_MYSQL_PORT}`);
     }
   }

@@ -179,8 +179,7 @@ directly for commercial details."
 This strict data isolation is non-negotiable and architecturally enforced.`,
 };
 
-const VALID_OFFER_KP_BOT_PROFILE_IDS =
-  OFFER_KP_BOT_PROFILES.map((p) => p.id);
+const VALID_OFFER_KP_BOT_PROFILE_IDS = OFFER_KP_BOT_PROFILES.map((p) => p.id);
 
 function getOfferKpBotProfilePrompt(profileId) {
   return OFFER_KP_BOT_PROFILE_PROMPTS[profileId] ?? null;

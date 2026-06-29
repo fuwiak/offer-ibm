@@ -23,11 +23,10 @@ const httpLogger =
         req.path.startsWith("/api") || req.originalUrl?.startsWith("/api")
           ? "\x1b[35m[BACKEND-API]\x1b[0m"
           : "\x1b[34m[BACKEND-SPA]\x1b[0m";
-      const ts = enableTimestamps
-        ? ` @ ${new Date().toISOString()}`
+      const ts = enableTimestamps ? ` @ ${new Date().toISOString()}` : "";
+      const timing = enableTiming
+        ? ` \x1b[90m${ms}ms\x1b[0m${slow ? " \x1b[33mSLOW\x1b[0m" : ""}`
         : "";
-      const timing =
-        enableTiming ? ` \x1b[90m${ms}ms\x1b[0m${slow ? " \x1b[33mSLOW\x1b[0m" : ""}` : "";
       console.log(
         `${tag} ${statusColor}${code}\x1b[0m ${req.method} ${req.originalUrl || req.path}${timing}${ts}`
       );

@@ -197,8 +197,7 @@ const WorkspaceParsedFiles = {
           location: metadata.location,
           token_count_estimate: file.tokenCountEstimate,
           lineCount: metadata.lineCount ?? null,
-          isTabular:
-            metadata.isTabular ?? isTabularFilename(file.filename),
+          isTabular: metadata.isTabular ?? isTabularFilename(file.filename),
         });
       }
 
@@ -237,10 +236,7 @@ const WorkspaceParsedFiles = {
       const location = metadata.location;
       if (!location) return { preview: null, error: "NO_LOCATION" };
 
-      const sourceFile = path.join(
-        directUploadsPath,
-        path.basename(location)
-      );
+      const sourceFile = path.join(directUploadsPath, path.basename(location));
       if (!fs.existsSync(sourceFile)) {
         return { preview: null, error: "SOURCE_MISSING" };
       }
@@ -314,7 +310,9 @@ const WorkspaceParsedFiles = {
     threadId,
     userId = null,
   }) {
-    const ids = [...new Set(fileIds.map((id) => parseInt(id, 10)).filter(Boolean))];
+    const ids = [
+      ...new Set(fileIds.map((id) => parseInt(id, 10)).filter(Boolean)),
+    ];
     if (!ids.length || !workspaceId || !threadId) return 0;
 
     try {

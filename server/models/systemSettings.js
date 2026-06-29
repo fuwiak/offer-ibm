@@ -169,7 +169,9 @@ const SystemSettings = {
     default_agent_skills: (updates) => {
       try {
         if (Array.isArray(updates)) {
-          return JSON.stringify([...new Set(updates.map(String).filter(Boolean))]);
+          return JSON.stringify([
+            ...new Set(updates.map(String).filter(Boolean)),
+          ]);
         }
 
         const raw = String(updates ?? "").trim();
@@ -433,7 +435,10 @@ const SystemSettings = {
       JWTSecret: !!process.env.JWT_SECRET,
       StorageDir: process.env.STORAGE_DIR,
       MultiUserMode: await this.isMultiUserMode(),
-      HasUsers: await prisma.users.count().then((n) => n > 0).catch(() => false),
+      HasUsers: await prisma.users
+        .count()
+        .then((n) => n > 0)
+        .catch(() => false),
       DisableTelemetry: process.env.DISABLE_TELEMETRY || "false",
 
       // --------------------------------------------------------
@@ -756,8 +761,7 @@ const SystemSettings = {
       AnthropicApiKey: !!(
         process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
       ),
-      AnthropicModelPref:
-        process.env.ANTHROPIC_MODEL_PREF || "claude-opus-4-6",
+      AnthropicModelPref: process.env.ANTHROPIC_MODEL_PREF || "claude-opus-4-6",
       AnthropicCacheControl: process.env.ANTHROPIC_CACHE_CONTROL || "none",
 
       // Gemini Keys

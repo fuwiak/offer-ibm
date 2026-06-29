@@ -7,7 +7,9 @@ const {
   resolveOpenRouterApiKey,
 } = require("../utils/offerKpApp/openRouterEnv");
 
-const ENV_KEYS = Object.keys(defaults).filter((k) => !k.startsWith("OFFER_KP_"));
+const ENV_KEYS = Object.keys(defaults).filter(
+  (k) => !k.startsWith("OFFER_KP_")
+);
 
 function envIsSet(key) {
   const v = process.env[key];
@@ -44,8 +46,7 @@ function syncOfferKpEnvFile(envPath = path.resolve(__dirname, "../.env")) {
 
   let content = fs.readFileSync(envPath, "utf8");
   for (const key of ENV_KEYS) {
-    if (envIsSet(key) && key !== "LLM_PROVIDER")
-      continue;
+    if (envIsSet(key) && key !== "LLM_PROVIDER") continue;
     const value = process.env[key] ?? defaults[key];
     if (value == null || value === "") continue;
     const line = `${key}='${value}'`;

@@ -155,7 +155,9 @@ const SlashCommandPresets = {
       });
       if (!existing) return false;
 
-      await prisma.slash_command_presets.delete({ where: { id: Number(presetId) } });
+      await prisma.slash_command_presets.delete({
+        where: { id: Number(presetId) },
+      });
       return true;
     } catch (error) {
       console.error("Failed to delete system skill", error.message);

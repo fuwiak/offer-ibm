@@ -216,8 +216,7 @@ const Workspace = {
     const llmDefaults = require("../config/offerKp.llm.defaults");
     const { resolveOfferKpModel } = require("../config/offerKp.models");
     const defaultModel = resolveOfferKpModel(llmDefaults.LMSTUDIO_MODEL_PREF);
-    additionalFields.chatProvider =
-      additionalFields.chatProvider || "lmstudio";
+    additionalFields.chatProvider = additionalFields.chatProvider || "lmstudio";
     additionalFields.agentProvider =
       additionalFields.agentProvider || "lmstudio";
     additionalFields.chatModel = resolveOfferKpModel(
@@ -271,17 +270,27 @@ const Workspace = {
     }
 
     const { resolveOfferKpModel } = require("../config/offerKp.models");
-    if (validatedUpdates.chatProvider && validatedUpdates.chatProvider !== "ollama") {
+    if (
+      validatedUpdates.chatProvider &&
+      validatedUpdates.chatProvider !== "ollama"
+    ) {
       validatedUpdates.chatProvider = "ollama";
     }
-    if (validatedUpdates.agentProvider && validatedUpdates.agentProvider !== "ollama") {
+    if (
+      validatedUpdates.agentProvider &&
+      validatedUpdates.agentProvider !== "ollama"
+    ) {
       validatedUpdates.agentProvider = "ollama";
     }
     if (validatedUpdates.chatModel) {
-      validatedUpdates.chatModel = resolveOfferKpModel(validatedUpdates.chatModel);
+      validatedUpdates.chatModel = resolveOfferKpModel(
+        validatedUpdates.chatModel
+      );
     }
     if (validatedUpdates.agentModel) {
-      validatedUpdates.agentModel = resolveOfferKpModel(validatedUpdates.agentModel);
+      validatedUpdates.agentModel = resolveOfferKpModel(
+        validatedUpdates.agentModel
+      );
     }
     if (validatedUpdates.chatModel && !validatedUpdates.chatProvider) {
       validatedUpdates.chatProvider = "ollama";

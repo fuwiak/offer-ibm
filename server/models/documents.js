@@ -184,7 +184,8 @@ const Document = {
     });
 
     await Telemetry.sendTelemetry("documents_embedded_in_workspace", {
-      LLMSelection: require("../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
+      LLMSelection:
+        require("../utils/offerKpApp/defaultLlmProvider").getDefaultLlmProvider(),
       Embedder: process.env.EMBEDDING_ENGINE || "inherit",
       VectorDbSelection: process.env.VECTOR_DB || "lancedb",
       TTSSelection: process.env.TTS_PROVIDER || "native",

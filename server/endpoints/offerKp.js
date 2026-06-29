@@ -2,23 +2,34 @@ const { reqBody } = require("../utils/http");
 const { PartnerRequest } = require("../models/partnerRequest");
 const { OfferKpQuote } = require("../models/offerKpQuote");
 const { Workspace } = require("../models/workspace");
-const { calculateQuote, OFFER_KP_PRODUCTS } = require("../utils/offerKpApp/pricing");
+const {
+  calculateQuote,
+  OFFER_KP_PRODUCTS,
+} = require("../utils/offerKpApp/pricing");
 const { offerKpRoleGuard } = require("../utils/middleware/offerKpRoleGuard");
 const { validatedRequest } = require("../utils/middleware/validatedRequest");
 const { streamOfferKpPublicChat } = require("../utils/chats/offerKpPublic");
-const { buildDashboardStats } = require("../utils/offerKpApp/buildDashboardStats");
-const { OFFER_KP_ALLOWED_MODELS, OFFER_KP_DEFAULT_MODEL, OFFER_KP_MODEL_GROUPS } = require("../config/offerKp.models");
+const {
+  buildDashboardStats,
+} = require("../utils/offerKpApp/buildDashboardStats");
+const {
+  OFFER_KP_ALLOWED_MODELS,
+  OFFER_KP_DEFAULT_MODEL,
+  OFFER_KP_MODEL_GROUPS,
+} = require("../config/offerKp.models");
 
 const { v4: uuidv4 } = require("uuid");
-const {
-  writeResponseChunk,
-} = require("../utils/helpers/chat/responses");
+const { writeResponseChunk } = require("../utils/helpers/chat/responses");
 const { generateQuotePdf } = require("../utils/offerKpApp/generateQuotePdf");
 const { generateQuoteDocx } = require("../utils/offerKpApp/generateQuoteDocx");
 const { generateQuoteXlsx } = require("../utils/offerKpApp/generateQuoteXlsx");
-const { generateDocxFromMarkdown } = require("../utils/offerKpApp/docxFromMarkdown");
+const {
+  generateDocxFromMarkdown,
+} = require("../utils/offerKpApp/docxFromMarkdown");
 const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
-const { runProductSearchAgent } = require("../utils/offerKp/productSearchAgent");
+const {
+  runProductSearchAgent,
+} = require("../utils/offerKp/productSearchAgent");
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 const shopDbExplorer = require("../utils/offerKp/db/explorer");
 const { askShopDb } = require("../utils/offerKp/db/askAgent");
@@ -28,8 +39,7 @@ function offerKpEndpoints(app) {
 
   app.get("/offerKp/config", async (_request, response) => {
     try {
-      const slug =
-        process.env.OFFER_KP_PUBLIC_WORKSPACE || "offerKp-public";
+      const slug = process.env.OFFER_KP_PUBLIC_WORKSPACE || "offerKp-public";
       const workspace = await Workspace.get({ slug });
       response.status(200).json({
         appName: process.env.OFFER_KP_APP_NAME || "OfferKP",
@@ -38,8 +48,7 @@ function offerKpEndpoints(app) {
         products: OFFER_KP_PRODUCTS,
         languages: ["fr", "en", "it"],
         llmProvider: process.env.LLM_PROVIDER || "lmstudio",
-        defaultModel:
-          process.env.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL,
+        defaultModel: process.env.LMSTUDIO_MODEL_PREF || OFFER_KP_DEFAULT_MODEL,
         allowedModels: OFFER_KP_ALLOWED_MODELS,
         modelGroups: OFFER_KP_MODEL_GROUPS,
       });
@@ -174,9 +183,13 @@ function offerKpEndpoints(app) {
         const quotes = await OfferKpQuote.listForUser(user.id, user.role);
         const formatted = quotes
           .map((q) =>
-            OfferKpQuote.formatForClient(q, response.locals.sanitizeOfferKpQuote, {
-              role: user.role,
-            })
+            OfferKpQuote.formatForClient(
+              q,
+              response.locals.sanitizeOfferKpQuote,
+              {
+                role: user.role,
+              }
+            )
           )
           .filter(Boolean);
         response.status(200).json({ quotes: formatted });
@@ -257,10 +270,20 @@ function offerKpEndpoints(app) {
         // Optionally load quote from DB by reference
         let quoteData = body;
         if (body.reference && !body.lines) {
-          const dbQuote = await OfferKpQuote.getByReferenceForRole(body.reference, user.role);
-          if (!dbQuote) return response.status(404).json({ error: "Quote not found" });
-          const formatted = OfferKpQuote.formatForClient(dbQuote, (q) => q, { role: user.role });
-          quoteData = { ...formatted, customer: body.customer || {}, contact: body.contact };
+          const dbQuote = await OfferKpQuote.getByReferenceForRole(
+            body.reference,
+            user.role
+          );
+          if (!dbQuote)
+            return response.status(404).json({ error: "Quote not found" });
+          const formatted = OfferKpQuote.formatForClient(dbQuote, (q) => q, {
+            role: user.role,
+          });
+          quoteData = {
+            ...formatted,
+            customer: body.customer || {},
+            contact: body.contact,
+          };
         }
 
         const result = await generateQuotePdf(quoteData);
@@ -307,7 +330,10 @@ function offerKpEndpoints(app) {
           return response.status(404).json({ error: "File not found" });
         }
         response.setHeader("Content-Type", "application/pdf");
-        response.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+        response.setHeader(
+          "Content-Disposition",
+          `inline; filename="${filename}"`
+        );
         fs.createReadStream(filePath).pipe(response);
       } catch (e) {
         console.error("[offerKp] PDF download error:", e);
@@ -450,7 +476,9 @@ function offerKpEndpoints(app) {
     async (request, response) => {
       try {
         const { message, chatHistory, parsedText } = reqBody(request);
-        const inquirySource = [parsedText, message].filter(Boolean).join("\n\n");
+        const inquirySource = [parsedText, message]
+          .filter(Boolean)
+          .join("\n\n");
         if (!inquirySource.trim()) {
           return response.status(400).json({ error: "message is required" });
         }
@@ -473,7 +501,8 @@ function offerKpEndpoints(app) {
     async (request, response) => {
       try {
         const { query: q, limit = 10 } = reqBody(request);
-        if (!q) return response.status(400).json({ error: "query is required" });
+        if (!q)
+          return response.status(400).json({ error: "query is required" });
         const result = await runProductSearchAgent({ message: q, limit });
         response.status(200).json({
           products: result.products,

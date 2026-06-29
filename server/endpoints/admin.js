@@ -47,7 +47,9 @@ async function loadWorkspaceForAccess(workspaceId) {
 async function requireWorkspaceManageAccess(user, workspaceId, response) {
   const workspace = await loadWorkspaceForAccess(workspaceId);
   if (!workspace) {
-    response.status(404).json({ success: false, error: "Workspace not found." });
+    response
+      .status(404)
+      .json({ success: false, error: "Workspace not found." });
     return null;
   }
   if (!canUserManageWorkspaceMembers(user, workspace)) {
@@ -258,9 +260,7 @@ function adminEndpoints(app) {
         const user = await userFromSession(request, response);
         const all = await Workspace.whereWithUsers();
         const workspaces =
-          user?.role === ROLES.admin
-            ? all
-            : filterWorkspacesForUser(user, all);
+          user?.role === ROLES.admin ? all : filterWorkspacesForUser(user, all);
         response.status(200).json({ workspaces });
       } catch (e) {
         console.error(e);
@@ -444,12 +444,10 @@ function adminEndpoints(app) {
           return;
         }
         if (!canManagerDeleteWorkspace(user, workspace)) {
-          response
-            .status(403)
-            .json({
-              success: false,
-              error: "Managers can only delete workspaces they created.",
-            });
+          response.status(403).json({
+            success: false,
+            error: "Managers can only delete workspaces they created.",
+          });
           return;
         }
 
@@ -722,16 +720,22 @@ function adminEndpoints(app) {
       try {
         const { command, prompt, description } = reqBody(request);
         if (!command || !prompt || !description)
-          return response.status(400).json({ message: "command, prompt, and description are required." });
+          return response.status(400).json({
+            message: "command, prompt, and description are required.",
+          });
 
-        const formattedCommand = SlashCommandPresets.formatCommand(String(command));
+        const formattedCommand = SlashCommandPresets.formatCommand(
+          String(command)
+        );
         const skill = await SlashCommandPresets.createSystemSkill({
           command: formattedCommand,
           prompt: String(prompt),
           description: String(description),
         });
         if (!skill)
-          return response.status(500).json({ message: "Failed to create skill." });
+          return response
+            .status(500)
+            .json({ message: "Failed to create skill." });
         response.status(201).json({ skill });
       } catch (e) {
         console.error(e);
@@ -748,14 +752,21 @@ function adminEndpoints(app) {
         const { skillId } = request.params;
         const { command, prompt, description } = reqBody(request);
         if (!command || !prompt || !description)
-          return response.status(400).json({ message: "command, prompt, and description are required." });
+          return response.status(400).json({
+            message: "command, prompt, and description are required.",
+          });
 
-        const formattedCommand = SlashCommandPresets.formatCommand(String(command));
-        const skill = await SlashCommandPresets.updateSystemSkill(Number(skillId), {
-          command: formattedCommand,
-          prompt: String(prompt),
-          description: String(description),
-        });
+        const formattedCommand = SlashCommandPresets.formatCommand(
+          String(command)
+        );
+        const skill = await SlashCommandPresets.updateSystemSkill(
+          Number(skillId),
+          {
+            command: formattedCommand,
+            prompt: String(prompt),
+            description: String(description),
+          }
+        );
         if (!skill)
           return response.status(404).json({ message: "Skill not found." });
         response.status(200).json({ skill });
@@ -772,7 +783,9 @@ function adminEndpoints(app) {
     async (request, response) => {
       try {
         const { skillId } = request.params;
-        const deleted = await SlashCommandPresets.deleteSystemSkill(Number(skillId));
+        const deleted = await SlashCommandPresets.deleteSystemSkill(
+          Number(skillId)
+        );
         if (!deleted)
           return response.status(404).json({ message: "Skill not found." });
         response.sendStatus(204);
