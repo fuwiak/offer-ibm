@@ -9,103 +9,104 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* IBM Carbon Gray-100 (dark) */
-:root {
-  --theme-loader: #f4f4f4;
-  --theme-bg-primary: #161616;
-  --theme-bg-secondary: #161616;
-  --theme-bg-sidebar: #161616;
-  --theme-bg-container: #161616;
-  --theme-bg-chat: #262626;
-  --theme-bg-chat-input: #262626;
-  --theme-text-primary: #f4f4f4;
-  --theme-text-secondary: #c6c6c6;
-  --theme-placeholder: #6f6f6f;
+/* Cursor dark theme — high contrast black surfaces, white text */
+:root,
+[data-theme="dark"] {
+  --theme-loader: #ffffff;
+  --theme-bg-primary: #000000;
+  --theme-bg-secondary: #000000;
+  --theme-bg-sidebar: #000000;
+  --theme-bg-container: #000000;
+  --theme-bg-chat: #000000;
+  --theme-bg-chat-input: #0a0a0a;
+  --theme-text-primary: #ffffff;
+  --theme-text-secondary: #a8a8a8;
+  --theme-placeholder: #666666;
   --theme-sidebar-item-default: transparent;
-  --theme-sidebar-item-selected: #262626;
-  --theme-sidebar-item-hover: #393939;
+  --theme-sidebar-item-selected: #1a1a1a;
+  --theme-sidebar-item-hover: #1a1a1a;
   --theme-sidebar-subitem-default: transparent;
-  --theme-sidebar-subitem-selected: #393939;
-  --theme-sidebar-thread-selected: #262626;
-  --theme-popup-menu-bg: #262626;
+  --theme-sidebar-subitem-selected: #1a1a1a;
+  --theme-sidebar-thread-selected: #1a1a1a;
+  --theme-popup-menu-bg: #0a0a0a;
 
-  --theme-sidebar-subitem-hover: #393939;
-  --theme-sidebar-border: #393939;
-  --theme-sidebar-item-workspace-active: #f4f4f4;
-  --theme-sidebar-item-workspace-inactive: #c6c6c6;
+  --theme-sidebar-subitem-hover: #1a1a1a;
+  --theme-sidebar-border: #2a2a2a;
+  --theme-sidebar-item-workspace-active: #ffffff;
+  --theme-sidebar-item-workspace-inactive: #a8a8a8;
 
-  --theme-sidebar-footer-icon: #393939;
-  --theme-sidebar-footer-icon-fill: #f4f4f4;
-  --theme-sidebar-footer-icon-hover: #525252;
+  --theme-sidebar-footer-icon: #1a1a1a;
+  --theme-sidebar-footer-icon-fill: #ffffff;
+  --theme-sidebar-footer-icon-hover: #2a2a2a;
 
-  --theme-chat-input-border: #525252;
-  --theme-action-menu-bg: #262626;
-  --theme-action-menu-item-hover: #393939;
-  --theme-settings-input-bg: #262626;
-  --theme-settings-input-placeholder: #6f6f6f;
-  --theme-settings-input-active: #525252;
-  --theme-settings-input-text: #f4f4f4;
-  --theme-modal-border: #393939;
+  --theme-chat-input-border: #333333;
+  --theme-action-menu-bg: #0a0a0a;
+  --theme-action-menu-item-hover: #1a1a1a;
+  --theme-settings-input-bg: #0a0a0a;
+  --theme-settings-input-placeholder: #666666;
+  --theme-settings-input-active: #1a1a1a;
+  --theme-settings-input-text: #ffffff;
+  --theme-modal-border: #2a2a2a;
 
-  --theme-button-primary: #78a9ff;
-  --theme-button-primary-hover: #a6c8ff;
+  --theme-button-primary: #1a1a1a;
+  --theme-button-primary-hover: #2d2d2d;
 
-  --theme-button-cta: #78a9ff;
+  --theme-button-cta: #ffffff;
 
-  --theme-file-row-even: #161616;
-  --theme-file-row-odd: #262626;
-  --theme-file-row-selected-even: rgba(120, 169, 255, 0.2);
-  --theme-file-row-selected-odd: rgba(120, 169, 255, 0.12);
-  --theme-file-picker-hover: rgba(120, 169, 255, 0.15);
+  --theme-file-row-even: #000000;
+  --theme-file-row-odd: #0a0a0a;
+  --theme-file-row-selected-even: rgba(255, 255, 255, 0.08);
+  --theme-file-row-selected-odd: rgba(255, 255, 255, 0.05);
+  --theme-file-picker-hover: rgba(255, 255, 255, 0.06);
 
-  --theme-home-text: #f4f4f4;
-  --theme-home-text-secondary: #c6c6c6;
-  --theme-home-bg-card: #262626;
-  --theme-home-bg-button: #393939;
-  --theme-home-border: #393939;
-  --theme-home-button-primary: #78a9ff;
-  --theme-home-button-primary-hover: #a6c8ff;
-  --theme-home-button-secondary: #393939;
-  --theme-home-button-secondary-hover: #525252;
-  --theme-home-button-secondary-text: #f4f4f4;
-  --theme-home-button-secondary-hover-text: #78a9ff;
-  --theme-home-update-card-bg: #262626;
-  --theme-home-update-card-hover: #393939;
-  --theme-home-update-source: #78a9ff;
+  --theme-home-text: #ffffff;
+  --theme-home-text-secondary: #a8a8a8;
+  --theme-home-bg-card: #0a0a0a;
+  --theme-home-bg-button: #1a1a1a;
+  --theme-home-border: #2a2a2a;
+  --theme-home-button-primary: #1a1a1a;
+  --theme-home-button-primary-hover: #2d2d2d;
+  --theme-home-button-secondary: #1a1a1a;
+  --theme-home-button-secondary-hover: #2d2d2d;
+  --theme-home-button-secondary-text: #ffffff;
+  --theme-home-button-secondary-hover-text: #ffffff;
+  --theme-home-update-card-bg: #0a0a0a;
+  --theme-home-update-card-hover: #1a1a1a;
+  --theme-home-update-source: #ffffff;
 
-  --theme-checklist-item-bg: #262626;
-  --theme-checklist-item-bg-hover: #393939;
-  --theme-checklist-item-text: #c6c6c6;
-  --theme-checklist-item-completed-bg: #1e3a2f;
+  --theme-checklist-item-bg: #0a0a0a;
+  --theme-checklist-item-bg-hover: #1a1a1a;
+  --theme-checklist-item-text: #ffffff;
+  --theme-checklist-item-completed-bg: #0d2818;
   --theme-checklist-item-completed-text: #42be65;
   --theme-checklist-checkbox-fill: #42be65;
-  --theme-checklist-checkbox-text: #161616;
-  --theme-checklist-item-hover: #78a9ff;
-  --theme-checklist-checkbox-border: #6f6f6f;
-  --theme-checklist-button-border: #78a9ff;
-  --theme-checklist-button-text: #78a9ff;
-  --theme-checklist-button-hover-bg: rgba(120, 169, 255, 0.15);
-  --theme-checklist-button-hover-border: #a6c8ff;
+  --theme-checklist-checkbox-text: #000000;
+  --theme-checklist-item-hover: #ffffff;
+  --theme-checklist-checkbox-border: #555555;
+  --theme-checklist-button-border: #ffffff;
+  --theme-checklist-button-text: #ffffff;
+  --theme-checklist-button-hover-bg: rgba(255, 255, 255, 0.08);
+  --theme-checklist-button-hover-border: #ffffff;
 
-  --theme-home-button-secondary-border: #525252;
-  --theme-home-button-secondary-border-hover: #6f6f6f;
+  --theme-home-button-secondary-border: #404040;
+  --theme-home-button-secondary-border-hover: #ffffff;
 
-  --theme-attachment-bg: #262626;
-  --theme-attachment-error-bg: rgba(255, 131, 137, 0.25);
-  --theme-attachment-success-bg: #262626;
-  --theme-attachment-text: #f4f4f4;
-  --theme-attachment-text-secondary: #c6c6c6;
-  --theme-attachment-icon: #f4f4f4;
-  --theme-attachment-icon-spinner: #78a9ff;
-  --theme-attachment-icon-spinner-bg: #393939;
+  --theme-attachment-bg: #0a0a0a;
+  --theme-attachment-error-bg: rgba(255, 131, 137, 0.2);
+  --theme-attachment-success-bg: #0a0a0a;
+  --theme-attachment-text: #ffffff;
+  --theme-attachment-text-secondary: #a8a8a8;
+  --theme-attachment-icon: #ffffff;
+  --theme-attachment-icon-spinner: #ffffff;
+  --theme-attachment-icon-spinner-bg: #1a1a1a;
 
-  --theme-button-text: #c6c6c6;
-  --theme-button-code-hover-text: #78a9ff;
-  --theme-button-code-hover-bg: #262626;
+  --theme-button-text: #a8a8a8;
+  --theme-button-code-hover-text: #ffffff;
+  --theme-button-code-hover-bg: #1a1a1a;
   --theme-button-disable-hover-text: #f1c21b;
-  --theme-button-disable-hover-bg: #393939;
+  --theme-button-disable-hover-bg: #1a1a1a;
   --theme-button-delete-hover-text: #ff8389;
-  --theme-button-delete-hover-bg: #393939;
+  --theme-button-delete-hover-bg: #1a1a1a;
 }
 
 /* IBM Carbon White (light) */

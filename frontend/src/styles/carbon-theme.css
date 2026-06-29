@@ -144,10 +144,58 @@ html.carbon-ui body {
 }
 
 html.carbon-ui[data-theme="dark"] body {
-  background:
-    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(120, 169, 255, 0.06) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(120, 169, 255, 0.04) 0%, transparent 50%),
-    var(--theme-bg-container);
+  background: var(--theme-bg-container);
+}
+
+/* Dark theme — high-contrast buttons and surfaces */
+[data-theme="dark"] .bg-primary-button,
+[data-theme="dark"] .offerKp-btn-primary-block,
+html:not([data-theme="light"]) .bg-primary-button {
+  color: #ffffff;
+  border: 1px solid #404040;
+}
+
+[data-theme="dark"] .offerKp-btn-new-chat,
+html:not([data-theme="light"]) .offerKp-btn-new-chat {
+  background: #1a1a1a;
+  color: #ffffff;
+  border: 1px solid #404040;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .offerKp-btn-new-chat:hover,
+html:not([data-theme="light"]) .offerKp-btn-new-chat:hover {
+  background: #2d2d2d;
+  border-color: #666666;
+  filter: none;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .cursor-segmented-control__btn--active {
+  background: #ffffff;
+  color: #000000;
+}
+
+[data-theme="dark"] [data-offerKp-profile] .offerKp-sidebar-shell {
+  background: #000000;
+}
+
+[data-theme="dark"] .text-primary-button {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .offerKp-nav-item--active::before {
+  background: #ffffff;
+}
+
+[data-theme="dark"] .border-primary-button {
+  border-color: #ffffff;
+}
+
+[data-theme="dark"] .focus\:border-primary-button:focus,
+[data-theme="dark"] .focus\:outline-primary-button:focus {
+  border-color: #ffffff;
+  outline-color: #ffffff;
 }
 
 /* Flat geometry: Carbon default is 0px corners */
@@ -445,10 +493,6 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 [data-theme="light"] .offerKp-btn-new-chat {
   color: #ffffff;
-}
-
-[data-theme="dark"] .offerKp-btn-new-chat {
-  color: #161616;
 }
 
 .offerKp-btn-new-chat:hover {
@@ -1242,7 +1286,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 [data-theme="dark"] .offerKp-sidebar-shell,
 [data-theme="dark"] .offerKp-document-panel {
-  background: #262626;
+  background: #000000;
 }
 
 .offerKp-document-panel__resizer {
@@ -1367,10 +1411,6 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   cursor: pointer;
   background: var(--theme-button-primary);
   color: #ffffff;
-}
-
-[data-theme="dark"] .offerKp-btn-primary-block {
-  color: #161616;
 }
 
 .offerKp-btn-secondary-block {

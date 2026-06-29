@@ -750,7 +750,8 @@
 }
 
 [data-theme="dark"] .uw-macos-btn--primary {
-  color: #161616;
+  color: #ffffff;
+  border: 1px solid #404040;
 }
 
 .uw-macos-btn--primary:hover {
