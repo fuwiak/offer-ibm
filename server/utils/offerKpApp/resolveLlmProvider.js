@@ -31,12 +31,35 @@ function coerceToLocalModel(modelId, liveIds = null) {
   return resolveOfferKpModel(modelId, catalogIds.length ? catalogIds : null);
 }
 
+function resolveRunnableModel(requestedModel, catalog = null) {
+  const {
+    pickRunnableLmStudioModel,
+    getCachedLmStudioModelIds,
+    getCachedLoadedLmStudioModelIds,
+    getCachedLmStudioModelState,
+  } = require("./lmStudioModels");
+
+  const catalogSnapshot = catalog || {
+    ids: getCachedLmStudioModelIds(),
+    loadedIds: getCachedLoadedLmStudioModelIds(),
+    stateById: requestedModel
+      ? {
+          [requestedModel]: getCachedLmStudioModelState(requestedModel),
+        }
+      : {},
+  };
+
+  return pickRunnableLmStudioModel(requestedModel, catalogSnapshot);
+}
+
 /**
  * Resolve LLM for offer-kp. Chat/agents use LM Studio only.
+ * Prefers models with state=loaded on LM Studio server (avoids HTTP 400).
  */
 function resolveLlmProviderAndModel({
   provider: _provider = null,
   model = null,
+  catalog = null,
 } = {}) {
   ensureLmStudioBasePath();
 
@@ -46,9 +69,18 @@ function resolveLlmProviderAndModel({
     llmDefaults.LMSTUDIO_MODEL_PREF ||
     OFFER_KP_DEFAULT_MODEL;
 
-  const resolvedModel = coerceToLocalModel(requestedModel);
+  const picked = resolveRunnableModel(requestedModel, catalog);
+  const resolvedModel = picked.model;
 
-  if (requestedModel !== resolvedModel) {
+  if (picked.fallback && picked.requested) {
+    offerKpLog("warn", "LM Studio model not loaded — using fallback", {
+      requested: picked.requested,
+      requestedState: catalog?.stateById?.[picked.requested] || null,
+      using: resolvedModel,
+      loaded: catalog?.loadedIds || [],
+      reason: picked.reason,
+    });
+  } else if (requestedModel !== resolvedModel) {
     offerKpLog("warn", "Rejected unknown model — using LM Studio default", {
       requested: requestedModel,
       using: resolvedModel,
@@ -58,14 +90,29 @@ function resolveLlmProviderAndModel({
   const resolved = {
     provider: "lmstudio",
     model: resolvedModel,
+    modelFallback: picked.fallback
+      ? {
+          from: picked.requested,
+          to: resolvedModel,
+          reason: picked.reason,
+        }
+      : null,
   };
-  offerKpLog("info", "Resolved LLM provider", resolved);
+  offerKpLog("info", "Resolved LLM provider", {
+    provider: resolved.provider,
+    model: resolved.model,
+    fallback: resolved.modelFallback,
+  });
   return resolved;
 }
 
-/** @deprecated alias */
+/** Resolves provider/model after refreshing LM Studio catalog + VRAM state. */
 async function resolveLlmProviderWithFallback(params = {}) {
-  return resolveLlmProviderAndModel(params);
+  const { fetchLmStudioModelCatalog } = require("./lmStudioModels");
+  const catalog = await fetchLmStudioModelCatalog({
+    forceRefresh: params.forceRefresh,
+  });
+  return resolveLlmProviderAndModel({ ...params, catalog });
 }
 
 module.exports = {
@@ -73,4 +120,5 @@ module.exports = {
   resolveLlmProviderWithFallback,
   ensureLmStudioBasePath,
   coerceToLocalModel,
+  resolveRunnableModel,
 };

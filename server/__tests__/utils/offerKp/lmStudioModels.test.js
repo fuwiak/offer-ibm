@@ -5,6 +5,7 @@ const {
 const {
   isLmStudioChatModelId,
   fetchLmStudioModelCatalog,
+  pickRunnableLmStudioModel,
 } = require("../../../utils/offerKpApp/lmStudioModels");
 
 describe("lmStudioModels", () => {
@@ -35,10 +36,11 @@ describe("lmStudioModels", () => {
 
 describe("fetchLmStudioModelCatalog integration", () => {
   it(
-    "fetches live model ids from LM Studio host",
+    "fetches live model ids and VRAM load state from LM Studio host",
     async () => {
       const catalog = await fetchLmStudioModelCatalog({ forceRefresh: true });
       expect(Array.isArray(catalog.ids)).toBe(true);
+      expect(Array.isArray(catalog.loadedIds)).toBe(true);
       if (catalog.ids.length > 0) {
         expect(catalog.ids.some((id) => id.includes("/"))).toBe(true);
       }

@@ -9,6 +9,15 @@ const {
 applyOfferKpLlmDefaults();
 if (process.env.NODE_ENV === "production") syncOfferKpEnvFile();
 
+const {
+  fetchLmStudioModelCatalog,
+} = require("./utils/offerKpApp/lmStudioModels");
+fetchLmStudioModelCatalog().catch((err) => {
+  console.warn(
+    `[OFFER_KP-LLM] LM Studio catalog warmup failed: ${err?.message || err}`
+  );
+});
+
 require("./utils/logger")();
 console.log(
   `\x1b[36m[OFFER_KP-LLM]\x1b[0m provider=${process.env.LLM_PROVIDER} · ${offerKpLlmDefaults.OFFER_KP_DEFAULT_LLM_LABEL}` +

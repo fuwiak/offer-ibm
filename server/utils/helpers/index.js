@@ -601,11 +601,16 @@ function humanFileSize(bytes, si = false, dp = 1) {
 async function getLLMProviderWithFallback({
   provider = null,
   model = null,
+  forceRefresh = false,
 } = {}) {
   const {
-    resolveLlmProviderAndModel,
+    resolveLlmProviderWithFallback,
   } = require("../offerKpApp/resolveLlmProvider");
-  const resolved = resolveLlmProviderAndModel({ provider, model });
+  const resolved = await resolveLlmProviderWithFallback({
+    provider,
+    model,
+    forceRefresh,
+  });
   return getLLMProvider(resolved);
 }
 

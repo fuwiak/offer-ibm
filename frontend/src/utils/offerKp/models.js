@@ -16,6 +16,10 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
     name: "Gemma 4 12B QAT",
     hint: "Локально · LM Studio · QAT",
   },
+  "google/gemma-4-26b-a4b": {
+    name: "Gemma 4 26B A4B",
+    hint: "Локально · LM Studio · Q4_K_M",
+  },
 };
 
 export const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
@@ -70,9 +74,24 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
   if (!id) return null;
   if (!isLmStudioChatModelId(id)) return null;
 
+  const loadState = String(entry?.loadState || "").toLowerCase();
   const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
   const known = findOfferKpModel(id, knownModels);
-  if (known) return { ...known };
+  const loadHint =
+    loadState === "loaded"
+      ? "VRAM · loaded"
+      : loadState
+        ? `VRAM · ${loadState}`
+        : null;
+
+  if (known) {
+    return {
+      ...known,
+      loadState: loadState || known.loadState || null,
+      runnable: loadState === "loaded",
+      hint: loadHint ? `${known.hint || ""} · ${loadHint}`.trim() : known.hint,
+    };
+  }
 
   const shortName = id.split("/").pop() || id;
   return {
@@ -81,7 +100,11 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
     provider: "lmstudio",
     group: "local",
     usage: "chat",
-    hint: override?.hint || "LM Studio · załadowany model",
+    loadState: loadState || null,
+    runnable: loadState === "loaded",
+    hint:
+      [override?.hint, loadHint].filter(Boolean).join(" · ") ||
+      "LM Studio · załaduj model w VRAM",
   };
 }
 

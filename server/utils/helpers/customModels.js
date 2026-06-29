@@ -354,7 +354,12 @@ async function getOfferKpLMStudioModels(basePath = null, apiKey = null) {
   const chatRows = (catalog.models || []).filter((m) =>
     isLmStudioChatModelId(m?.id)
   );
-  const merged = mergeLmStudioRemoteModels(chatRows);
+  const merged = mergeLmStudioRemoteModels(
+    chatRows.map((m) => ({
+      id: m.id,
+      loadState: m.loadState || catalog.stateById?.[m.id] || "unknown",
+    }))
+  );
 
   if (merged.length > 0) {
     offerKpLog("info", "LM Studio models for OfferKP (live catalog)", {

@@ -217,9 +217,11 @@ function resolveQuotePdfModelSwitch({
   if (!catalogModels?.length) {
     try {
       const {
+        getCachedLoadedLmStudioModelIds,
         getCachedLmStudioModelIds,
       } = require("../offerKpApp/lmStudioModels");
-      catalogModels = getCachedLmStudioModelIds();
+      const loaded = getCachedLoadedLmStudioModelIds();
+      catalogModels = loaded.length ? loaded : getCachedLmStudioModelIds();
     } catch {
       catalogModels = null;
     }

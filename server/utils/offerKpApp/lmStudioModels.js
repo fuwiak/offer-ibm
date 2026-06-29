@@ -1,11 +1,15 @@
 const llmDefaults = require("../../config/offerKp.llm.defaults");
+const {
+  OFFER_KP_DEFAULT_MODEL,
+  resolveOfferKpModel,
+} = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
 
 const LMSTUDIO_MODELS_CACHE_MS = Number(
   process.env.LMSTUDIO_MODELS_CACHE_MS || 60_000
 );
 
-/** @type {{ fetchedAt: number, ids: string[], models: object[] } | null} */
+/** @type {{ fetchedAt: number, ids: string[], models: object[], loadedIds: string[], stateById: Record<string, string> } | null} */
 let catalogCache = null;
 
 function lmStudioBaseUrl() {
@@ -27,8 +31,93 @@ function isLmStudioChatModelId(modelId) {
   return true;
 }
 
+function isLmStudioLoadedState(state) {
+  return String(state || "").toLowerCase() === "loaded";
+}
+
+async function fetchLmStudioRuntimeStates(basePath, apiKey = null) {
+  const { parseLMStudioBasePath } = require("../AiProviders/lmStudio");
+  const endpoint = new URL(parseLMStudioBasePath(basePath));
+  endpoint.pathname = "/api/v0/models";
+
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  try {
+    const res = await fetch(endpoint.toString(), { headers });
+    if (!res.ok) {
+      offerKpLog("warn", "LM Studio /api/v0/models fetch failed", {
+        status: res.status,
+        statusText: res.statusText,
+      });
+      return { loadedIds: [], stateById: {} };
+    }
+
+    const body = await res.json();
+    const rows = Array.isArray(body?.data) ? body.data : [];
+    const stateById = {};
+    const loadedIds = [];
+
+    for (const row of rows) {
+      const id = String(row?.id || "").trim();
+      if (!id || !isLmStudioChatModelId(id)) continue;
+      const state = String(row?.state || "unknown").toLowerCase();
+      stateById[id] = state;
+      if (isLmStudioLoadedState(state)) loadedIds.push(id);
+    }
+
+    return { loadedIds, stateById };
+  } catch (error) {
+    offerKpLog("warn", "LM Studio runtime state fetch error", {
+      error: error?.message || String(error),
+    });
+    return { loadedIds: [], stateById: {} };
+  }
+}
+
 /**
- * GET {base}/models — OpenAI-compatible LM Studio catalog.
+ * Pick a model that LM Studio can run now (state=loaded in VRAM).
+ * @param {string} preferredId
+ * @param {{ ids?: string[], loadedIds?: string[], stateById?: Record<string, string> }} [catalog]
+ * @returns {{ model: string, fallback: boolean, requested?: string, reason?: string }}
+ */
+function pickRunnableLmStudioModel(preferredId, catalog = {}) {
+  const preferred = String(preferredId || "").trim();
+  const ids = catalog.ids || [];
+  const loadedIds = catalog.loadedIds || [];
+
+  if (preferred && loadedIds.includes(preferred)) {
+    return { model: preferred, fallback: false };
+  }
+
+  const chain = [OFFER_KP_DEFAULT_MODEL, preferred, ...loadedIds, ...ids];
+  const seen = new Set();
+  for (const candidate of chain) {
+    const id = String(candidate || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    if (loadedIds.includes(id)) {
+      const fallback = id !== preferred;
+      return {
+        model: id,
+        fallback,
+        requested: preferred || undefined,
+        reason: fallback ? "model_not_loaded" : undefined,
+      };
+    }
+  }
+
+  const coerced = resolveOfferKpModel(preferred, ids.length ? ids : null);
+  return {
+    model: coerced,
+    fallback: coerced !== preferred,
+    requested: preferred || undefined,
+    reason: loadedIds.length ? "no_loaded_models" : "runtime_unknown",
+  };
+}
+
+/**
+ * GET {base}/models — OpenAI-compatible LM Studio catalog + VRAM load state.
  * @param {{ basePath?: string, apiKey?: string, forceRefresh?: boolean }} [opts]
  */
 async function fetchLmStudioModelCatalog(opts = {}) {
@@ -69,21 +158,39 @@ async function fetchLmStudioModelCatalog(opts = {}) {
     });
 
   if (!raw) {
-    return catalogCache || { fetchedAt: now, ids: [], models: [] };
+    return (
+      catalogCache || {
+        fetchedAt: now,
+        ids: [],
+        models: [],
+        loadedIds: [],
+        stateById: {},
+      }
+    );
   }
 
   const chatModels = raw.filter((m) => isLmStudioChatModelId(m?.id));
   const ids = chatModels.map((m) => m.id);
+  const { loadedIds, stateById } = await fetchLmStudioRuntimeStates(
+    basePath,
+    apiKey
+  );
 
   catalogCache = {
     fetchedAt: now,
     ids,
-    models: chatModels,
+    models: chatModels.map((m) => ({
+      ...m,
+      loadState: stateById[m.id] || "unknown",
+    })),
+    loadedIds,
+    stateById,
   };
 
   offerKpLog("info", "LM Studio model catalog refreshed", {
     basePath,
     count: ids.length,
+    loaded: loadedIds,
     ids,
   });
 
@@ -94,6 +201,15 @@ function getCachedLmStudioModelIds() {
   return catalogCache?.ids ? [...catalogCache.ids] : [];
 }
 
+function getCachedLoadedLmStudioModelIds() {
+  return catalogCache?.loadedIds ? [...catalogCache.loadedIds] : [];
+}
+
+function getCachedLmStudioModelState(modelId) {
+  const id = String(modelId || "").trim();
+  return catalogCache?.stateById?.[id] || null;
+}
+
 function invalidateLmStudioModelCatalogCache() {
   catalogCache = null;
 }
@@ -101,8 +217,12 @@ function invalidateLmStudioModelCatalogCache() {
 module.exports = {
   lmStudioBaseUrl,
   isLmStudioChatModelId,
+  isLmStudioLoadedState,
+  pickRunnableLmStudioModel,
   fetchLmStudioModelCatalog,
   getCachedLmStudioModelIds,
+  getCachedLoadedLmStudioModelIds,
+  getCachedLmStudioModelState,
   invalidateLmStudioModelCatalogCache,
   LMSTUDIO_MODELS_CACHE_MS,
 };
