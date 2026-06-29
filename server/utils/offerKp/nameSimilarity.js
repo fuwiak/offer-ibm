@@ -192,10 +192,7 @@ function nameSimilarityScore(queryText, productName) {
   const lev = normalizedLevenshtein(qCompact, pCompact);
   const jw = jaroWinkler(qCompact, pCompact);
 
-  return Math.max(
-    cosine,
-    cosine * 0.55 + lev * 0.25 + jw * 0.2
-  );
+  return Math.max(cosine, cosine * 0.55 + lev * 0.25 + jw * 0.2);
 }
 
 function productDisplayName(product) {
@@ -231,7 +228,11 @@ function pickCheaperAmongSimilar(products, options = {}) {
   for (const product of list) {
     let placed = false;
     for (const cluster of clusters) {
-      if (cluster.some((other) => productsAreSimilar(product, other, pairThreshold))) {
+      if (
+        cluster.some((other) =>
+          productsAreSimilar(product, other, pairThreshold)
+        )
+      ) {
         cluster.push(product);
         placed = true;
         break;
@@ -245,12 +246,13 @@ function pickCheaperAmongSimilar(products, options = {}) {
     return [...list].sort((a, b) => getPrice(a) - getPrice(b))[0];
   }
 
-  const cheapestPerCluster = multi.map((cluster) =>
-    [...cluster].sort((a, b) => {
-      const priceDiff = getPrice(a) - getPrice(b);
-      if (priceDiff !== 0) return priceDiff;
-      return productDisplayName(a).localeCompare(productDisplayName(b));
-    })[0]
+  const cheapestPerCluster = multi.map(
+    (cluster) =>
+      [...cluster].sort((a, b) => {
+        const priceDiff = getPrice(a) - getPrice(b);
+        if (priceDiff !== 0) return priceDiff;
+        return productDisplayName(a).localeCompare(productDisplayName(b));
+      })[0]
   );
 
   return cheapestPerCluster.sort((a, b) => getPrice(a) - getPrice(b))[0];
@@ -320,7 +322,11 @@ function applyCheaperPreferenceAmongSimilar(scored, options = {}) {
   return out.map((s) => s.p);
 }
 
-function rankProductsByNameSimilarity(queryText, products, minScore = DEFAULT_MIN_COSINE) {
+function rankProductsByNameSimilarity(
+  queryText,
+  products,
+  minScore = DEFAULT_MIN_COSINE
+) {
   return (products || [])
     .map((p, index) => ({
       p,
@@ -343,13 +349,19 @@ function mapSearchRows(rows, matchSource) {
   }));
 }
 
-async function fetchNameSimilarityCandidatePool(searchText, terms = [], limit = 120) {
+async function fetchNameSimilarityCandidatePool(
+  searchText,
+  terms = [],
+  limit = 120
+) {
   const params = [];
   const likes = [];
   const tokenList = [
     ...new Set([
       ...tokenize(searchText),
-      ...(terms || []).map((t) => String(t).toLowerCase()).filter((t) => t.length >= 3),
+      ...(terms || [])
+        .map((t) => String(t).toLowerCase())
+        .filter((t) => t.length >= 3),
     ]),
   ].slice(0, 10);
 
@@ -396,7 +408,10 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
     ...row.p,
     _nameSimilarity: Number(row.score.toFixed(4)),
     _matchSources: [
-      ...new Set([...(row.p._matchSources || row.p.shopMatchSources || []), "name_cosine"]),
+      ...new Set([
+        ...(row.p._matchSources || row.p.shopMatchSources || []),
+        "name_cosine",
+      ]),
     ],
     shopMatchSources: [
       ...new Set([...(row.p.shopMatchSources || []), "name_cosine"]),
