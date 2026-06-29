@@ -133,6 +133,21 @@ function isCatalogRelayRequest(text) {
   return false;
 }
 
+function isCatalogListingRequest(text) {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  if (/из\s+каталога\s+purolat|каталога\s+purolat\.com/i.test(t)) return true;
+  if (/список\s+позиций\s+из\s+каталога/i.test(t)) return true;
+  if (
+    (/черновик\s+кп|кп\s+по\s+списку|сформируй.*кп/i.test(t) ||
+      /draft.*quote|quote.*catalog/i.test(t)) &&
+    /каталог|catalog|purolat/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function isOfferFollowUp(text) {
   const t = String(text || "").trim();
   if (!t || hasHardwareSignals(t)) return false;
@@ -160,6 +175,16 @@ function collectPriorHardwareContext(history, maxMessages = 5) {
   return parts.join("\n");
 }
 
+function collectPriorCatalogSearchContext(history, maxBlocks = 6) {
+  const { extractCatalogBlocksFromChatHistory } = require("./catalogPrompt");
+  const blocks = extractCatalogBlocksFromChatHistory(history, maxBlocks);
+  if (!blocks.length) return "";
+  return blocks
+    .map((block) => block.replace(/^\[Каталог[^\]]*\]\s*/i, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 /**
  * Текст для поиска: текущее сообщение + контекст из истории (цена, артикул, КП).
  */
@@ -178,20 +203,25 @@ function buildProductSearchText(message, options = {}) {
   }
   const history = options.chatHistory || options.history || [];
   const skuCodes = extractSkuCodes(text);
+  const catalogContext = collectPriorCatalogSearchContext(history);
 
   const needsHistory =
     isPriceOnlyQuery(String(message || "").trim()) ||
     (skuCodes.length &&
       isSkuOnlyQuery(String(message || "").trim(), skuCodes)) ||
     isCatalogRelayRequest(String(message || "").trim()) ||
+    isCatalogListingRequest(String(message || "").trim()) ||
     isOfferFollowUp(String(message || "").trim()) ||
     (parsedTexts.length && isOfferFollowUp(text));
 
   if (needsHistory) {
     const prior = collectPriorHardwareContext(history);
-    if (prior && prior !== text) {
-      text = `${prior}\n${text}`;
+    const mergedPrior = [catalogContext, prior].filter(Boolean).join("\n");
+    if (mergedPrior && mergedPrior !== text) {
+      text = `${mergedPrior}\n${text}`;
     }
+  } else if (catalogContext && !text.includes(catalogContext.slice(0, 48))) {
+    text = `${catalogContext}\n${text}`;
   }
 
   return text;
@@ -376,6 +406,7 @@ async function runProductSearchAgent({
     !isPriceOnlyQuery(message) &&
     !isOfferFollowUp(message) &&
     !isCatalogRelayRequest(message) &&
+    !isCatalogListingRequest(message) &&
     !(parsedTexts.length && hasHardwareSignals(searchText))
   ) {
     shopDbLog.skip("product search agent skipped — not a catalog query");
@@ -499,6 +530,7 @@ module.exports = {
   collectPriorHardwareContext,
   extractSkuCodes,
   isCatalogRelayRequest,
+  isCatalogListingRequest,
   isOfferFollowUp,
   isPriceOnlyQuery,
   isSkuOnlyQuery,

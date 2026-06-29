@@ -550,7 +550,7 @@ class EphemeralAgentHandler extends AgentHandler {
       workspace: this.#workspace,
       userId: this.#userId ?? null,
       threadId: this.#threadId ?? null,
-      maxDocs: this.harness?.state?.get("catalogMaxDocs") ?? 2,
+      maxDocs: this.harness?.state?.get("catalogMaxDocs") ?? 5,
       agentMode: true,
     });
     return this.aibitat.start({

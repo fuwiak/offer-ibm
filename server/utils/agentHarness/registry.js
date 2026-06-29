@@ -16,6 +16,9 @@ const {
 const {
   OfferKpQuotePdfModelBlock,
 } = require("./blocks/offerKpQuotePdfModelBlock");
+const {
+  OfferKpCatalogContextBlock,
+} = require("./blocks/offerKpCatalogContextBlock");
 
 /** @type {Map<string, () => import("./BaseBlock").BaseBlock>} */
 const blockRegistry = new Map();
@@ -48,6 +51,7 @@ const DEFAULT_OFFER_KP_BLOCK_IDS = [
   "harness-telemetry",
   "orchestration",
   "offerKp-document-trigger",
+  "offerKp-catalog-context",
   "offerKp-catalog-guidelines",
   "offerKp-quote-pdf-model",
   "offerKp-quote-intent",
@@ -102,6 +106,10 @@ function registerDefaultBlocks() {
   registerHarnessBlock(
     "offerKp-quote-pdf-model",
     () => new OfferKpQuotePdfModelBlock()
+  );
+  registerHarnessBlock(
+    "offerKp-catalog-context",
+    () => new OfferKpCatalogContextBlock()
   );
 }
 

@@ -797,7 +797,7 @@ class AgentHandler {
       workspace: this.invocation.workspace,
       userId: this.invocation.user_id ?? null,
       threadId: this.invocation.thread_id ?? null,
-      maxDocs: 2,
+      maxDocs: 5,
       agentMode: true,
     });
     return this.aibitat.start({

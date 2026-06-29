@@ -5,6 +5,8 @@ const {
   hasCatalogBlocks,
   isCatalogBlock,
   applyExternalContextsForLlm,
+  extractCatalogBlocksFromText,
+  extractCatalogBlocksFromChatHistory,
 } = require("../../../utils/offerKp/catalogPrompt");
 
 describe("catalogPrompt", () => {
@@ -43,5 +45,21 @@ describe("catalogPrompt", () => {
     expect(result.userPrompt).toContain("=== ДАННЫЕ КАТАЛОГА");
     expect(result.contextTexts).toEqual([]);
     expect(result.sources).toHaveLength(1);
+  });
+
+  it("extracts catalog blocks from prior chat history", () => {
+    const priorPrompt = mergeCatalogIntoUserPrompt("какая цена?", [sampleBlock]);
+    const blocks = extractCatalogBlocksFromChatHistory([
+      { role: "user", content: priorPrompt },
+      { role: "assistant", content: "Цена указана выше." },
+    ]);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain("3713.92 RUB");
+  });
+
+  it("extracts standalone catalog blocks from text", () => {
+    const blocks = extractCatalogBlocksFromText(sampleBlock);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain("[Каталог · purolat.com]");
   });
 });

@@ -16,6 +16,9 @@ const {
 const {
   OfferKpQuotePdfModelBlock,
 } = require("./offerKpQuotePdfModelBlock");
+const {
+  OfferKpCatalogContextBlock,
+} = require("./offerKpCatalogContextBlock");
 
 module.exports = {
   MemoryBlock,
@@ -27,5 +30,6 @@ module.exports = {
   OfferKpCatalogGuidelinesBlock,
   OfferKpThreadFollowUpBlock,
   OfferKpQuotePdfModelBlock,
+  OfferKpCatalogContextBlock,
   ToolRegistryBlock,
 };

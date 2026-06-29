@@ -16,6 +16,83 @@ function hasCatalogBlocks(contextTexts = []) {
   return (contextTexts || []).some(isCatalogBlock);
 }
 
+function historyEntryText(entry) {
+  if (!entry) return "";
+  if (typeof entry === "string") return entry;
+  return String(
+    entry.content || entry.userPrompt || entry.text || entry.message || ""
+  ).trim();
+}
+
+/**
+ * Извлекает блоки [Каталог · …] из текста (в т.ч. из секции ДАННЫЕ КАТАЛОГА).
+ */
+function extractCatalogBlocksFromText(text = "") {
+  const raw = String(text || "");
+  if (!raw.trim()) return [];
+
+  const blocks = [];
+  const seen = new Set();
+
+  function pushBlock(block) {
+    const trimmed = String(block || "").trim();
+    if (!trimmed || !isCatalogBlock(trimmed)) return;
+    const key = trimmed.slice(0, 240);
+    if (seen.has(key)) return;
+    seen.add(key);
+    blocks.push(trimmed);
+  }
+
+  const sectionRe =
+    /===\s*ДАННЫЕ КАТАЛОГА[\s\S]*?===\s*\n([\s\S]*?)\n===\s*КОНЕЦ ДАННЫХ КАТАЛОГА\s*===/gi;
+  for (const match of raw.matchAll(sectionRe)) {
+    const section = String(match[1] || "").trim();
+    if (!section) continue;
+    for (const part of section.split(/\n{2,}/)) {
+      pushBlock(part);
+    }
+  }
+
+  for (const match of raw.matchAll(/\[Каталог\s*·[\s\S]*?(?=\n{2,}\[Каталог\s*·|\n===|$)/gi)) {
+    pushBlock(match[0]);
+  }
+
+  return blocks;
+}
+
+function extractCatalogBlocksFromChatHistory(chatHistory = [], limit = 12) {
+  const list = Array.isArray(chatHistory) ? chatHistory : [];
+  const blocks = [];
+  const seen = new Set();
+
+  for (let i = list.length - 1; i >= 0 && blocks.length < limit; i--) {
+    for (const block of extractCatalogBlocksFromText(historyEntryText(list[i]))) {
+      const key = block.slice(0, 240);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      blocks.push(block);
+      if (blocks.length >= limit) break;
+    }
+  }
+
+  return blocks.reverse();
+}
+
+async function loadParsedFileTextsForThread({
+  workspace = null,
+  threadId = null,
+  userId = null,
+} = {}) {
+  if (!workspace?.id) return [];
+  const { WorkspaceParsedFiles } = require("../../models/workspaceParsedFiles");
+  const files = await WorkspaceParsedFiles.getContextFiles(
+    workspace,
+    threadId ? { id: threadId } : null,
+    userId ? { id: userId } : null
+  );
+  return (files || []).map((doc) => doc.pageContent).filter(Boolean);
+}
+
 /**
  * Дублирует блоки [Каталог · …] в начало user prompt — модели надёжнее читают цены отсюда,
  * чем из system Context:[CONTEXT N].
@@ -114,7 +191,16 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
     return trimmed;
   }
 
-  const maxDocs = options.maxDocs || (options.agentMode ? 2 : 5);
+  const maxDocs = options.maxDocs || (options.agentMode ? 5 : 5);
+
+  let parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
+  if (!parsedFileTexts.length && options.workspace?.id) {
+    parsedFileTexts = await loadParsedFileTextsForThread({
+      workspace: options.workspace,
+      threadId: options.threadId ?? null,
+      userId: options.userId ?? null,
+    });
+  }
 
   let chatHistory = options.chatHistory || null;
   if (!chatHistory?.length && options.workspace?.id) {
@@ -125,15 +211,24 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
     });
   }
 
+  const historyCatalogBlocks = extractCatalogBlocksFromChatHistory(chatHistory);
+
   try {
     const r = await getShopDbContext(trimmed, {
       maxDocs,
       chatHistory,
       workspace: options.workspace || null,
+      parsedFileTexts,
     });
     let blocks = (r?.contextTexts || []).filter(isCatalogBlock);
-    if (options.agentMode && blocks.length > 2) {
-      blocks = blocks.slice(0, 2);
+    if (!blocks.length && historyCatalogBlocks.length) {
+      blocks = historyCatalogBlocks;
+      shopDbLog.ok("catalog reused from chat history", {
+        blocks: blocks.length,
+      });
+    }
+    if (options.agentMode && blocks.length > maxDocs) {
+      blocks = blocks.slice(-maxDocs);
     }
     if (!blocks.length) {
       if (r?.flags?.shopDbError || r?.flags?.shopDbTimeout) {
@@ -158,6 +253,10 @@ module.exports = {
   USER_CATALOG_FOOTER,
   isCatalogBlock,
   hasCatalogBlocks,
+  historyEntryText,
+  extractCatalogBlocksFromText,
+  extractCatalogBlocksFromChatHistory,
+  loadParsedFileTextsForThread,
   mergeCatalogIntoUserPrompt,
   applyExternalContextsForLlm,
   enrichUserPromptWithShopCatalog,

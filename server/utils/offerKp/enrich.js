@@ -19,6 +19,7 @@ const {
   isPriceOnlyQuery,
   isOfferFollowUp,
   isCatalogRelayRequest,
+  isCatalogListingRequest,
 } = require("./productSearchAgent");
 const { getShopBaseUrl, buildProductUrl } = require("./productUrl");
 const {
@@ -70,6 +71,7 @@ function shouldRunShopEnrich(message, options = {}) {
   if (extractSkuCodes(combined).length) return true;
   if (isPriceOnlyQuery(String(message || "").trim())) return true;
   if (isCatalogRelayRequest(String(message || "").trim())) return true;
+  if (isCatalogListingRequest(String(message || "").trim())) return true;
   if (isOfferFollowUp(String(message || "").trim())) return true;
   if (parsedTexts.length && isOfferFollowUp(combined)) return true;
   if (/извлек|pdf|коммерческ|\bкп\b|оферт/i.test(combined)) return true;
