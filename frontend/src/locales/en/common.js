@@ -802,6 +802,11 @@ const TRANSLATIONS = {
       theme: {
         title: "Theme",
         description: "Select your preferred color theme for the application.",
+        options: {
+          light: "Light",
+          dark: "Dark",
+          system: "System",
+        },
       },
       "show-scrollbar": {
         title: "Show Scrollbar",

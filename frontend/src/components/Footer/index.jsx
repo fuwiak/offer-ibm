@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import React, { useEffect, useState } from "react";
 import SettingsButton from "../SettingsButton";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { isMobile } from "react-device-detect";
 import { Tooltip } from "react-tooltip";
 
@@ -46,7 +47,8 @@ export default function Footer() {
   if (!Array.isArray(footerData) || footerData.length === 0) {
     return (
       <div className="flex justify-center mb-2">
-        <div className="flex space-x-4">
+        <div className="flex items-center space-x-4">
+          <ThemeSwitcher />
           {!isMobile && <SettingsButton />}
         </div>
         <Tooltip
@@ -61,7 +63,8 @@ export default function Footer() {
 
   return (
     <div className="flex justify-center mb-2">
-      <div className="flex space-x-4">
+      <div className="flex items-center space-x-4">
+        <ThemeSwitcher />
         {footerData.map((item, index) => (
           <a
             key={index}

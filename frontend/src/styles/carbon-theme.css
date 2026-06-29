@@ -1,6 +1,58 @@
-/* IBM Carbon — offer-kp app shell (see /DESIGN.md) */
+/* Cursor design tokens — offer-kp app shell (see /DESIGN.md) */
 
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap");
+
+/* ── Theme switcher (theme-switcher component) ── */
+.cursor-theme-switcher {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--theme-sidebar-border);
+  border-radius: 8px;
+}
+
+.cursor-theme-switcher__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--theme-bg-sidebar);
+  border: none;
+  border-right: 1px solid var(--theme-sidebar-border);
+  color: var(--theme-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  min-height: 32px;
+  min-width: 36px;
+  padding: 0 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cursor-theme-switcher__btn:last-child {
+  border-right: none;
+}
+
+.cursor-theme-switcher__btn--active {
+  background: var(--theme-text-primary);
+  color: var(--theme-bg-sidebar);
+}
+
+.cursor-theme-switcher__btn:hover:not(.cursor-theme-switcher__btn--active) {
+  background: var(--theme-sidebar-item-hover);
+}
+
+.cursor-theme-switcher--labeled .cursor-theme-switcher__btn {
+  min-width: 72px;
+  padding: 0 12px;
+}
+
+.cursor-theme-switcher__label {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
 /* ── IBM Modern polish tokens ── */
 html.carbon-ui {

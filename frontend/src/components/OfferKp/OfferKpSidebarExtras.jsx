@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
 import OfferKpPartnerNav from "@/components/OfferKp/OfferKpPartnerNav";
 import LanguageSwitcher from "@/components/OfferKp/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import paths from "@/utils/paths";
 import OfferKpProfileNav from "@/components/OfferKp/OfferKpProfileNav";
 import { Gear } from "@phosphor-icons/react";
@@ -36,7 +37,8 @@ export default function OfferKpSidebarExtras() {
         )}
       </div>
 
-      <div className="px-1 pt-2 shrink-0">
+      <div className="px-1 pt-2 shrink-0 flex flex-col gap-2">
+        <ThemeSwitcher />
         <LanguageSwitcher />
       </div>
     </div>

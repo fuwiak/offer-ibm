@@ -1285,6 +1285,11 @@ const TRANSLATIONS = {
       theme: {
         title: "Тема",
         description: "Выберите предпочитаемую цветовую схему для приложения.",
+        options: {
+          light: "Светлая",
+          dark: "Тёмная",
+          system: "Системная",
+        },
       },
       "show-scrollbar": {
         title: "Показать полосу прокрутки",
