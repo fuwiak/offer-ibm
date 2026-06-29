@@ -1,5 +1,4 @@
 const { BaseBlock } = require("../BaseBlock");
-const { applyHarnessModelSwitch } = require("../applyModelSwitch");
 const {
   resolveQuotePdfModelSwitch,
   quotePdfModelAutoSwitchEnabled,
@@ -54,6 +53,7 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
     });
     if (!modelSwitch) return;
 
+    const { applyHarnessModelSwitch } = require("../applyModelSwitch");
     applyHarnessModelSwitch(harness, modelSwitch.model, modelSwitch);
 
     const existing = harness.state.get("contextGuidelines") || [];

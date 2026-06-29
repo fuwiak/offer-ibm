@@ -1,31 +1,3 @@
-const { MemoryBlock } = require("./blocks/memoryBlock");
-const { ContextManagerBlock } = require("./blocks/contextManagerBlock");
-const { OrchestrationBlock } = require("./blocks/orchestrationBlock");
-const { HarnessTelemetryBlock } = require("./blocks/harnessTelemetryBlock");
-const {
-  OfferKpDocumentTriggerBlock,
-} = require("./blocks/offerKpDocumentTriggerBlock");
-const { OfferKpQuoteIntentBlock } = require("./blocks/offerKpQuoteIntentBlock");
-const {
-  OfferKpCatalogGuidelinesBlock,
-} = require("./blocks/offerKpCatalogGuidelinesBlock");
-const { ToolRegistryBlock } = require("./blocks/toolRegistryBlock");
-const {
-  OfferKpThreadFollowUpBlock,
-} = require("./blocks/offerKpThreadFollowUpBlock");
-const {
-  OfferKpQuotePdfModelBlock,
-} = require("./blocks/offerKpQuotePdfModelBlock");
-const {
-  OfferKpCatalogContextBlock,
-} = require("./blocks/offerKpCatalogContextBlock");
-const {
-  OfferKpQuoteCalculatorBlock,
-} = require("./blocks/offerKpQuoteCalculatorBlock");
-const {
-  OfferKpQuoteComplianceBlock,
-} = require("./blocks/offerKpQuoteComplianceBlock");
-
 const {
   DEFAULT_OFFER_KP_BLOCK_IDS,
   resolveOfferKpBlockIds,
@@ -56,43 +28,72 @@ function listRegisteredBlocks() {
 }
 
 function registerDefaultBlocks() {
-  registerHarnessBlock("memory", () => new MemoryBlock());
-  registerHarnessBlock("context-manager", () => new ContextManagerBlock());
-  registerHarnessBlock("harness-telemetry", () => new HarnessTelemetryBlock());
-  registerHarnessBlock("orchestration", () => new OrchestrationBlock());
-  registerHarnessBlock(
-    "offerKp-document-trigger",
-    () => new OfferKpDocumentTriggerBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-catalog-guidelines",
-    () => new OfferKpCatalogGuidelinesBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-quote-intent",
-    () => new OfferKpQuoteIntentBlock()
-  );
-  registerHarnessBlock("tool-registry", () => new ToolRegistryBlock());
-  registerHarnessBlock(
-    "offerKp-thread-follow-up",
-    () => new OfferKpThreadFollowUpBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-quote-pdf-model",
-    () => new OfferKpQuotePdfModelBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-catalog-context",
-    () => new OfferKpCatalogContextBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-quote-calculator",
-    () => new OfferKpQuoteCalculatorBlock()
-  );
-  registerHarnessBlock(
-    "offerKp-quote-compliance",
-    () => new OfferKpQuoteComplianceBlock()
-  );
+  registerHarnessBlock("memory", () => {
+    const { MemoryBlock } = require("./blocks/memoryBlock");
+    return new MemoryBlock();
+  });
+  registerHarnessBlock("context-manager", () => {
+    const { ContextManagerBlock } = require("./blocks/contextManagerBlock");
+    return new ContextManagerBlock();
+  });
+  registerHarnessBlock("harness-telemetry", () => {
+    const { HarnessTelemetryBlock } = require("./blocks/harnessTelemetryBlock");
+    return new HarnessTelemetryBlock();
+  });
+  registerHarnessBlock("orchestration", () => {
+    const { OrchestrationBlock } = require("./blocks/orchestrationBlock");
+    return new OrchestrationBlock();
+  });
+  registerHarnessBlock("offerKp-document-trigger", () => {
+    const {
+      OfferKpDocumentTriggerBlock,
+    } = require("./blocks/offerKpDocumentTriggerBlock");
+    return new OfferKpDocumentTriggerBlock();
+  });
+  registerHarnessBlock("offerKp-catalog-guidelines", () => {
+    const {
+      OfferKpCatalogGuidelinesBlock,
+    } = require("./blocks/offerKpCatalogGuidelinesBlock");
+    return new OfferKpCatalogGuidelinesBlock();
+  });
+  registerHarnessBlock("offerKp-quote-intent", () => {
+    const { OfferKpQuoteIntentBlock } = require("./blocks/offerKpQuoteIntentBlock");
+    return new OfferKpQuoteIntentBlock();
+  });
+  registerHarnessBlock("tool-registry", () => {
+    const { ToolRegistryBlock } = require("./blocks/toolRegistryBlock");
+    return new ToolRegistryBlock();
+  });
+  registerHarnessBlock("offerKp-thread-follow-up", () => {
+    const {
+      OfferKpThreadFollowUpBlock,
+    } = require("./blocks/offerKpThreadFollowUpBlock");
+    return new OfferKpThreadFollowUpBlock();
+  });
+  registerHarnessBlock("offerKp-quote-pdf-model", () => {
+    const {
+      OfferKpQuotePdfModelBlock,
+    } = require("./blocks/offerKpQuotePdfModelBlock");
+    return new OfferKpQuotePdfModelBlock();
+  });
+  registerHarnessBlock("offerKp-catalog-context", () => {
+    const {
+      OfferKpCatalogContextBlock,
+    } = require("./blocks/offerKpCatalogContextBlock");
+    return new OfferKpCatalogContextBlock();
+  });
+  registerHarnessBlock("offerKp-quote-calculator", () => {
+    const {
+      OfferKpQuoteCalculatorBlock,
+    } = require("./blocks/offerKpQuoteCalculatorBlock");
+    return new OfferKpQuoteCalculatorBlock();
+  });
+  registerHarnessBlock("offerKp-quote-compliance", () => {
+    const {
+      OfferKpQuoteComplianceBlock,
+    } = require("./blocks/offerKpQuoteComplianceBlock");
+    return new OfferKpQuoteComplianceBlock();
+  });
 }
 
 registerDefaultBlocks();
