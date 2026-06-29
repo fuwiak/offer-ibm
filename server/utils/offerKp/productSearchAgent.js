@@ -134,7 +134,9 @@ function isCatalogRelayRequest(text) {
 }
 
 function isCatalogListingRequest(text) {
-  const t = String(text || "").trim().toLowerCase();
+  const t = String(text || "")
+    .trim()
+    .toLowerCase();
   if (!t) return false;
   if (/из\s+каталога\s+purolat|каталога\s+purolat\.com/i.test(t)) return true;
   if (/список\s+позиций\s+из\s+каталога/i.test(t)) return true;

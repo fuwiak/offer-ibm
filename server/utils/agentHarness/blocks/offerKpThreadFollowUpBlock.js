@@ -1,51 +1,34 @@
 const { BaseBlock } = require("../BaseBlock");
 const {
   generateThreadFollowUpSuggestions,
+  extractAgentTurnForFollowUps,
   threadFollowUpSuggestionsEnabled,
 } = require("../../chats/threadFollowUpSuggestions");
 
 /**
- * After each agent turn, refresh LLM follow-up questions for the thread UI
- * (ChatGPT / Perplexity style). Emits via aibitat.socket when available.
+ * After each agent turn (and on session end), refresh recovery-oriented follow-ups for the thread UI.
  */
 class OfferKpThreadFollowUpBlock extends BaseBlock {
   constructor() {
     super("offerKp-thread-follow-up");
   }
 
-  async afterTurn({ message } = {}, harness) {
-    if (!threadFollowUpSuggestionsEnabled()) return;
+  async #emitFollowUps(harness, turn) {
+    if (!turn?.prompt || !turn?.assistantText) return;
+
     const invocation = harness.ctx.invocation;
-    if (!invocation?.thread_id) return;
-
-    const aibitat = harness.aibitat;
-    const chats = Array.isArray(aibitat?._chats) ? aibitat._chats : [];
-    if (chats.length < 2) return;
-
-    const last = chats[chats.length - 1];
-    const prev = chats[chats.length - 2];
-    if (prev?.from !== "USER" || last?.from === "USER") return;
-
-    const prompt = String(prev.content || "").replace(/^@agent:\s*/i, "").trim();
-    const assistantText = String(last.content || message?.content || "").trim();
-    if (!prompt || !assistantText) return;
-
     const workspace = harness.ctx.workspace;
-    if (!workspace) return;
+    if (!invocation?.thread_id || !workspace) return;
 
-    const chatHistory = chats.slice(0, -2).map((entry) => ({
-      role: entry.from === "USER" ? "user" : "assistant",
-      content: String(entry.content || ""),
-    }));
-
-    let suggestions = [];
+    let result = { suggestions: [], variant: "continue" };
     try {
-      suggestions = await generateThreadFollowUpSuggestions({
+      result = await generateThreadFollowUpSuggestions({
         workspace,
         user: invocation.user_id ? { id: invocation.user_id } : null,
-        prompt,
-        assistantText,
-        chatHistory,
+        prompt: turn.prompt,
+        assistantText: turn.assistantText,
+        chatHistory: turn.chatHistory || [],
+        catalogInjected: Boolean(harness.state.get("catalogInjected")),
       });
     } catch (error) {
       harness.log("thread follow-up generation failed", {
@@ -54,13 +37,40 @@ class OfferKpThreadFollowUpBlock extends BaseBlock {
       return;
     }
 
+    const { suggestions, variant } = result;
     if (!suggestions.length) return;
 
     harness.state.set("threadFollowUpSuggestions", suggestions);
+    harness.state.set("threadFollowUpVariant", variant);
 
+    const aibitat = harness.aibitat;
     if (typeof aibitat.socket?.send === "function") {
-      aibitat.socket.send("threadFollowUpSuggestions", { suggestions });
+      aibitat.socket.send("threadFollowUpSuggestions", {
+        suggestions,
+        variant,
+      });
     }
+  }
+
+  async install(harness) {
+    if (!threadFollowUpSuggestionsEnabled()) return;
+
+    const aibitat = harness.aibitat;
+    if (!aibitat) return;
+
+    const runForChats = async () => {
+      const turn = extractAgentTurnForFollowUps(aibitat._chats);
+      await this.#emitFollowUps(harness, turn);
+    };
+
+    aibitat.onMessage?.(async (message) => {
+      if (String(message?.from || "").toUpperCase() === "USER") return;
+      await runForChats();
+    });
+
+    aibitat.onTerminate?.(async () => {
+      await runForChats();
+    });
   }
 }
 
