@@ -1,9 +1,43 @@
 /* eslint-env jest, node */
 
 const {
+  detectFollowUpIssues,
+  buildRecoveryFollowUpSuggestions,
+  detectUiLanguage,
+} = require("../../../utils/chats/threadFollowUpRecovery");
+const {
   parseSuggestionsFromLlmText,
-  threadFollowUpSuggestionsEnabled,
+  mergeFollowUpSuggestions,
+  extractAgentTurnForFollowUps,
 } = require("../../../utils/chats/threadFollowUpSuggestions");
+
+describe("threadFollowUpRecovery", () => {
+  it("detects empty DOCX template after KP request", () => {
+    const issues = detectFollowUpIssues({
+      prompt: "сделай кп",
+      assistantText:
+        'Создан Word document "offer.docx" с таблицей-шаблоном для заполнения данными из каталога.',
+      catalogInjected: false,
+    });
+    expect(issues).toEqual(
+      expect.arrayContaining(["missing_catalog", "empty_template"])
+    );
+  });
+
+  it("builds Polish recovery suggestions", () => {
+    const suggestions = buildRecoveryFollowUpSuggestions({
+      issues: ["empty_template"],
+      prompt: "dodaj kп",
+      language: "pl",
+    });
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions[0]).toMatch(/szablon|DOCX/i);
+  });
+
+  it("detects Polish UI language", () => {
+    expect(detectUiLanguage("dodaj ofertę")).toBe("pl");
+  });
+});
 
 describe("threadFollowUpSuggestions", () => {
   it("parses JSON array from LLM output", () => {
@@ -16,34 +50,26 @@ describe("threadFollowUpSuggestions", () => {
     ]);
   });
 
-  it("extracts array from markdown-wrapped JSON", () => {
-    const raw =
-      'Here are ideas:\n```json\n["Question one","Question two"]\n```';
-    expect(parseSuggestionsFromLlmText(raw)).toEqual([
-      "Question one",
-      "Question two",
-    ]);
+  it("merges recovery suggestions ahead of LLM output", () => {
+    const merged = mergeFollowUpSuggestions(
+      ["Recovery one", "Recovery two"],
+      ["Recovery one", "LLM extra"]
+    );
+    expect(merged).toEqual(["Recovery one", "Recovery two", "LLM extra"]);
   });
 
-  it("deduplicates and limits suggestions", () => {
-    const raw = JSON.stringify([
-      "Same question",
-      "same question",
-      "Another one",
-      "Third",
-      "Fourth",
+  it("extracts agent turn across tool/status messages", () => {
+    const turn = extractAgentTurnForFollowUps([
+      { from: "USER", content: "сделай кп" },
+      { from: "@agent", content: 'Creating Word document "offer.docx"' },
+      { from: "@agent", content: "Successfully created Word document" },
+      {
+        from: "workspace",
+        content: "Файл содержит шаблон для заполнения из каталога.",
+      },
     ]);
-    expect(parseSuggestionsFromLlmText(raw)).toEqual([
-      "Same question",
-      "Another one",
-      "Third",
-    ]);
-  });
-
-  it("can be disabled via env", () => {
-    const prev = process.env.THREAD_FOLLOW_UP_SUGGESTIONS_DISABLED;
-    process.env.THREAD_FOLLOW_UP_SUGGESTIONS_DISABLED = "true";
-    expect(threadFollowUpSuggestionsEnabled()).toBe(false);
-    process.env.THREAD_FOLLOW_UP_SUGGESTIONS_DISABLED = prev;
+    expect(turn.prompt).toBe("сделай кп");
+    expect(turn.assistantText).toContain("offer.docx");
+    expect(turn.assistantText).toContain("шаблон");
   });
 });

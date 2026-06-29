@@ -22,6 +22,7 @@ export function getThreadMeta(workspaceSlug, threadSlug) {
     followUpSuggestions: Array.isArray(stored?.followUpSuggestions)
       ? stored.followUpSuggestions
       : [],
+    followUpVariant: stored?.followUpVariant || "continue",
   };
 }
 
@@ -75,18 +76,20 @@ export function getThreadFollowUpSuggestions(workspaceSlug, threadSlug) {
 export function setThreadFollowUpSuggestions(
   workspaceSlug,
   threadSlug,
-  suggestions
+  suggestions,
+  variant = "continue"
 ) {
   if (!workspaceSlug || !threadSlug) return;
   setThreadMeta(workspaceSlug, threadSlug, {
     followUpSuggestions: (suggestions || [])
       .map((s) => String(s).trim())
       .filter(Boolean),
+    followUpVariant: variant || "continue",
   });
 }
 
 export function clearThreadFollowUpSuggestions(workspaceSlug, threadSlug) {
-  setThreadFollowUpSuggestions(workspaceSlug, threadSlug, []);
+  setThreadFollowUpSuggestions(workspaceSlug, threadSlug, [], "continue");
 }
 
 export function formatRelativeTimeAgo(isoOrTs, locale = "en") {

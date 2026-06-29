@@ -64,7 +64,8 @@ class OfferKpThreadFollowUpBlock extends BaseBlock {
     };
 
     aibitat.onMessage?.(async (message) => {
-      if (String(message?.from || "").toUpperCase() === "USER") return;
+      const from = String(message?.from || "").toUpperCase();
+      if (from === "USER" || from === "@AGENT") return;
       await runForChats();
     });
 

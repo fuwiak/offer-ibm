@@ -218,6 +218,7 @@ const TRANSLATIONS = {
     },
     threadFollowUps: {
       label: "Suggested follow-ups",
+      recoveryLabel: "What went wrong? How to fix it",
     },
     newChatFollowUps: {
       label: "Start with a quote",

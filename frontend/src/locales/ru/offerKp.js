@@ -219,6 +219,7 @@ const TRANSLATIONS = {
     },
     threadFollowUps: {
       label: "Продолжить разговор",
+      recoveryLabel: "Что пошло не так? Как исправить",
     },
     newChatFollowUps: {
       label: "Начать с КП",

@@ -73,7 +73,12 @@ export default function handleChat(
 
   if (type === "threadFollowUpSuggestions") {
     if (workspaceSlug && threadSlug && Array.isArray(suggestions)) {
-      dispatchThreadFollowUps({ workspaceSlug, threadSlug, suggestions });
+      dispatchThreadFollowUps({
+        workspaceSlug,
+        threadSlug,
+        suggestions,
+        variant: chatResult.variant || "continue",
+      });
     }
     return;
   }

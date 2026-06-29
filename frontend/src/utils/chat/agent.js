@@ -36,9 +36,15 @@ export default function handleSocketResponse(
 
   if (data.type === "threadFollowUpSuggestions") {
     const suggestions = data.content?.suggestions || data.suggestions || [];
+    const variant = data.content?.variant || data.variant || "continue";
     const { workspaceSlug, threadSlug } = streamContext;
     if (workspaceSlug && threadSlug && Array.isArray(suggestions)) {
-      dispatchThreadFollowUps({ workspaceSlug, threadSlug, suggestions });
+      dispatchThreadFollowUps({
+        workspaceSlug,
+        threadSlug,
+        suggestions,
+        variant,
+      });
     }
     return;
   }

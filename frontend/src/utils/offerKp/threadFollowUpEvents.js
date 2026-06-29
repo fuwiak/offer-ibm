@@ -4,11 +4,12 @@ export function dispatchThreadFollowUps({
   workspaceSlug,
   threadSlug,
   suggestions = [],
+  variant = "continue",
 }) {
   if (!workspaceSlug || !threadSlug || !Array.isArray(suggestions)) return;
   window.dispatchEvent(
     new CustomEvent(THREAD_FOLLOW_UP_EVENT, {
-      detail: { workspaceSlug, threadSlug, suggestions },
+      detail: { workspaceSlug, threadSlug, suggestions, variant },
     })
   );
 }

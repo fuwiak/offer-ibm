@@ -442,6 +442,7 @@ async function streamChatWithWorkspace(
           assistantText: completeText,
           chatHistory: rawHistory,
           language,
+          catalogInjected: Boolean(llmCatalog.catalogInjected),
         });
       } catch (e) {
         console.warn("[threadFollowUp] stream:", e?.message || e);
