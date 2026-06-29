@@ -322,7 +322,9 @@ function rankAgentProducts(
     if (p._exactSku || p.shopMatchSources?.includes("exact_sku")) score += 1000;
     if (p.matched_sku && skuSet.has(String(p.matched_sku))) score += 500;
     if (p.shopMatchSources?.includes("name_cosine") || p._nameSimilarity) {
-      score += Math.round((p._nameSimilarity || nameSimilarityScore(searchText, p.name)) * 80);
+      score += Math.round(
+        (p._nameSimilarity || nameSimilarityScore(searchText, p.name)) * 80
+      );
     }
     return { p, score, index };
   });
