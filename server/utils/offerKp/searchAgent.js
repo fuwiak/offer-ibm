@@ -8,6 +8,7 @@ const { getLLMProvider } = require("../helpers");
 const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
 const { expandSearchTerms } = require("./textNormalize");
+const { searchByNameSimilarity } = require("./nameSimilarity");
 const { query } = require("./db/client");
 const {
   TABLES,
@@ -486,6 +487,21 @@ async function runShopDbSearchAgent({
   if (fuzzyHits.length) {
     strategies.push("fuzzy_regex");
     products = mergeAgentHits(products, fuzzyHits);
+    products = rankAgentProducts(products, searchText, parsed);
+    if (hasStrongMatch(products, searchText, parsed)) {
+      return { products: products.slice(0, limit), strategies };
+    }
+  }
+
+  const fuzzyTerms = extractFuzzyTerms(searchText, parsed);
+  const cosineHits = await searchByNameSimilarity(
+    searchText,
+    fuzzyTerms,
+    limit * 2
+  );
+  if (cosineHits.length) {
+    strategies.push("name_cosine");
+    products = mergeAgentHits(products, cosineHits);
     products = rankAgentProducts(products, searchText, parsed);
     if (hasStrongMatch(products, searchText, parsed)) {
       return { products: products.slice(0, limit), strategies };

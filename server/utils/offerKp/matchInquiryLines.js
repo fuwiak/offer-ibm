@@ -9,6 +9,7 @@ const { runProductSearchAgent } = require("./productSearchAgent");
 const { classifyProductMatch, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { resolveProductPrice } = require("./priceResolve");
+const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -81,11 +82,22 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     });
   }
 
-  const best =
-    alternatives.find((a) => a.status === STATUS.IN_STOCK) ||
-    alternatives.find((a) => a.status === STATUS.ANALOG) ||
-    alternatives.find((a) => a.matchType !== "none") ||
-    null;
+  const inStock = alternatives.filter((a) => a.status === STATUS.IN_STOCK);
+  const analogs = alternatives.filter((a) => a.status === STATUS.ANALOG);
+  const matched = alternatives.filter((a) => a.matchType !== "none");
+  const pool = inStock.length
+    ? inStock
+    : analogs.length
+      ? analogs
+      : matched.length
+        ? matched
+        : [];
+
+  const best = pool.length
+    ? pickCheaperAmongSimilar(pool, {
+        getPrice: (a) => Number(a.price) || 0,
+      })
+    : null;
 
   const qty = inquiryLine.quantity || 1;
   const unitPrice = best?.price || 0;

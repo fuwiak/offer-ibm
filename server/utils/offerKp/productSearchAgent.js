@@ -5,8 +5,9 @@
  *  1) exact_sku   — точное совпадение артикула
  *  2) structured  — DIN/ГОСТ + тип + габариты + резьба
  *  3) keywords    — поля товара, SKU LIKE, категория, search_index
- *  4) fuzzy_regex — regex/LIKE fallback (searchAgent)
- *  5) llm_rank    — LLM выбирает id из пула кандидатов (searchAgent)
+ *  4) fuzzy_regex  — regex/LIKE fallback (searchAgent)
+ *  5) name_cosine  — TF-IDF + cosine по названию (searchAgent)
+ *  6) llm_rank     — LLM выбирает id из пула кандидатов (searchAgent)
  */
 
 const { query } = require("./db/client");
@@ -27,6 +28,10 @@ const {
   applyAnalogScoringPenalty,
   applyMatchPriorityBonus,
 } = require("./analogRules");
+const {
+  applyCheaperPreferenceAmongSimilar,
+  nameSimilarityScore,
+} = require("./nameSimilarity");
 const { searchProductsExtended } = require("./shopDbSearch");
 const {
   shopDbSearchAgentEnabled,
@@ -316,11 +321,13 @@ function rankAgentProducts(
     score = applyMatchPriorityBonus(searchText, parsed, p, score);
     if (p._exactSku || p.shopMatchSources?.includes("exact_sku")) score += 1000;
     if (p.matched_sku && skuSet.has(String(p.matched_sku))) score += 500;
+    if (p.shopMatchSources?.includes("name_cosine") || p._nameSimilarity) {
+      score += Math.round((p._nameSimilarity || nameSimilarityScore(searchText, p.name)) * 80);
+    }
     return { p, score, index };
   });
 
-  scored.sort((a, b) => b.score - a.score || a.index - b.index);
-  return scored.map((s) => s.p);
+  return applyCheaperPreferenceAmongSimilar(scored);
 }
 
 function buildProductSearchAgentCacheKey({

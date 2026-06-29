@@ -17,6 +17,7 @@ describe("offerKp harness guidelines", () => {
     const lines = guidelinesForContext({ quoteDocument: false });
     expect(lines.some((l) => l.includes("Не копируй дословно"))).toBe(true);
     expect(lines.some((l) => l.includes("кг"))).toBe(true);
+    expect(lines.some((l) => l.includes("косинус"))).toBe(true);
   });
 
   it("adds quote-specific rules when quote document", () => {
