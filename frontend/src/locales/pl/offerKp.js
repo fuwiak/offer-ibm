@@ -163,6 +163,9 @@ const TRANSLATIONS = {
     userDeleteConfirm: "Trwale usunąć {{name}}?",
     userDeleted: "Użytkownik usunięty.",
   },
+  chat: {
+    generating: "Generowanie odpowiedzi…",
+  },
   home: {
     greeting: "Witaj z powrotem, {{name}}",
     inputPlaceholder: "Opisz kwestię prawną lub znajdź potrzebny dokument...",

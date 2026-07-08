@@ -7,11 +7,13 @@ import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndi
 import OfferKpQuickActions from "@/components/OfferKp/OfferKpQuickActions";
 import OfferKpNewChatFollowUps from "@/components/OfferKp/OfferKpNewChatFollowUps";
 import OfferKpThreadFollowUps from "@/components/OfferKp/OfferKpThreadFollowUps";
+import OfferKpStopGenerationBar from "@/components/OfferKp/OfferKpStopGenerationBar";
 import DnDFileUploaderWrapper from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
 import { MetricsProvider } from "@/components/WorkspaceChat/ChatContainer/ChatHistory/HistoricalMessage/Actions/RenderMetrics";
 import { handleOfferKpQuickActionKey } from "@/utils/offerKp/homeActions";
 import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
+import { isOfferKpGenerationActive } from "@/utils/offerKp/chatGeneration";
 
 /**
  * Unified OfferKP conversation shell: history + always-visible composer (flex layout).
@@ -34,6 +36,10 @@ export default function OfferKpConversationView({
   offerKp,
 }) {
   const isEmpty = chatHistory.length === 0;
+  const isGenerating = isOfferKpGenerationActive(
+    loadingResponse,
+    chatHistory
+  );
 
   return (
     <div className="relative flex w-full h-full flex-1 min-h-0 min-w-0 offerKp-chat-shell flex-col overflow-hidden">
@@ -82,14 +88,15 @@ export default function OfferKpConversationView({
           <OfferKpThreadFollowUps
             workspaceSlug={workspace?.slug}
             threadSlug={activeThreadSlug}
-            loading={loadingResponse}
+            loading={isGenerating}
             sendCommand={sendCommand}
           />
+          <OfferKpStopGenerationBar visible={isGenerating} />
           <div className="offerKp-thread-prompt shrink-0 px-4 md:px-6 pb-4 pt-2">
             <PromptInput
               workspace={workspace}
               submit={handleSubmit}
-              isStreaming={loadingResponse}
+              isStreaming={isGenerating}
               sendCommand={sendCommand}
               attachments={files}
               centered={false}

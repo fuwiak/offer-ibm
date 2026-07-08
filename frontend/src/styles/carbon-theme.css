@@ -977,6 +977,60 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   color: inherit;
 }
 
+.offerKp-prompt-send-btn--stop {
+  background: #da1e28;
+  color: #ffffff;
+  box-shadow: var(--ibm-elevation-1);
+}
+
+.offerKp-prompt-send-btn--stop:hover {
+  background: #ba1b23;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #da1e28 40%, transparent);
+  transform: scale(1.04);
+}
+
+.offerKp-prompt-send-btn--with-label {
+  width: auto;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  gap: 8px;
+}
+
+.offerKp-stop-generation-icon {
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.offerKp-stop-generation-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: #ffffff;
+}
+
+.offerKp-stop-generation-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 750px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, #da1e28 35%, var(--theme-sidebar-border));
+  background: color-mix(in srgb, #da1e28 8%, var(--theme-bg-primary));
+}
+
+.offerKp-stop-generation-bar__label {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+}
+
+[data-theme="light"] .offerKp-stop-generation-bar__inner {
+  background: color-mix(in srgb, #da1e28 6%, #ffffff);
+}
+
 .offerKp-tools-menu {
   background: var(--theme-bg-primary);
   border: 1px solid var(--theme-sidebar-border);

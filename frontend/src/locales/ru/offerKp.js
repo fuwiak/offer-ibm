@@ -168,6 +168,9 @@ const TRANSLATIONS = {
     userDeleteConfirm: "Удалить {{name}} безвозвратно?",
     userDeleted: "Пользователь удалён.",
   },
+  chat: {
+    generating: "Генерация ответа…",
+  },
   home: {
     greeting: "С возвращением, {{name}}",
     inputPlaceholder: "Опишите заявку на крепёж или найдите позицию в базе...",

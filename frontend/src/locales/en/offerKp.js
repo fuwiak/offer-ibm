@@ -167,6 +167,9 @@ const TRANSLATIONS = {
     userDeleteConfirm: "Delete {{name}} permanently?",
     userDeleted: "User deleted.",
   },
+  chat: {
+    generating: "Generating response…",
+  },
   home: {
     greeting: "Welcome back, {{name}}",
     inputPlaceholder: "Ask a question or search for a quote...",
