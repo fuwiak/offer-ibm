@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
