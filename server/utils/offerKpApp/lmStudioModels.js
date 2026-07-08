@@ -311,6 +311,33 @@ async function unloadLmStudioModel(instanceId, opts = {}) {
 }
 
 /**
+ * Unload every model currently in LM Studio VRAM.
+ * @param {{ basePath?: string, apiKey?: string }} [opts]
+ */
+async function unloadAllLoadedLmStudioModels(opts = {}) {
+  const basePath = opts.basePath || lmStudioBaseUrl();
+  const apiKey =
+    opts.apiKey === true
+      ? process.env.LMSTUDIO_AUTH_TOKEN
+      : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
+
+  const { loadedIds } = await fetchLmStudioRuntimeStates(basePath, apiKey);
+  if (!loadedIds.length) return [];
+
+  for (const loadedId of loadedIds) {
+    await unloadLmStudioModel(loadedId, { basePath, apiKey });
+    offerKpLog("info", "Unloaded LM Studio model before switch", {
+      unloaded: loadedId,
+    });
+  }
+
+  await new Promise((resolve) =>
+    setTimeout(resolve, Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000))
+  );
+  return loadedIds;
+}
+
+/**
  * Free VRAM by unloading every loaded chat model except the target.
  * @param {string} targetModelId
  * @param {{ basePath?: string, apiKey?: string }} [opts]
@@ -335,8 +362,75 @@ async function unloadOtherLoadedLmStudioModels(targetModelId, opts = {}) {
     });
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await new Promise((resolve) =>
+    setTimeout(resolve, Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000))
+  );
   return toUnload;
+}
+
+async function loadLmStudioModelViaRest(modelId, opts = {}) {
+  const id = String(modelId || "").trim();
+  const basePath = opts.basePath || lmStudioBaseUrl();
+  const apiKey =
+    opts.apiKey === true
+      ? process.env.LMSTUDIO_AUTH_TOKEN
+      : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
+  const contextLength =
+    opts.contextLength ||
+    Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
+    32768;
+
+  const unloadedIds = await unloadAllLoadedLmStudioModels({ basePath, apiKey });
+
+  const loadUrl = lmStudioV1Url(basePath, "/api/v1/models/load");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 300_000);
+
+  let response;
+  try {
+    response = await fetch(loadUrl.toString(), {
+      method: "POST",
+      headers: lmStudioAuthHeaders(apiKey),
+      body: JSON.stringify({
+        model: id,
+        context_length: contextLength,
+        flash_attention: true,
+        offload_kv_cache_to_gpu: true,
+        echo_load_config: true,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("LM Studio model load timed out after 5 minutes");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail =
+      body?.error?.message ||
+      body?.message ||
+      body?.error ||
+      response.statusText ||
+      "LM Studio model load failed";
+    throw new Error(String(detail));
+  }
+
+  return {
+    success: true,
+    model: id,
+    status: body?.status || "loaded",
+    alreadyLoaded: false,
+    unloadedIds,
+    loadTimeSeconds: Number(body?.load_time_seconds) || null,
+    contextLength: body?.load_config?.context_length || contextLength,
+    instanceId: body?.instance_id || id,
+    via: "rest",
+  };
 }
 
 /**
@@ -378,6 +472,7 @@ async function loadLmStudioModel(modelId, opts = {}) {
         alreadyLoaded: true,
         loadTimeSeconds: 0,
         contextLength: loadedCtx,
+        via: "cached",
       };
     }
     if (isLmStudioLoadedState(stateById[id]) && loadedCtx < contextLength) {
@@ -389,52 +484,29 @@ async function loadLmStudioModel(modelId, opts = {}) {
     }
   }
 
-  const unloadedIds = await unloadOtherLoadedLmStudioModels(id, {
-    basePath,
-    apiKey,
-  });
+  const { loadLmStudioModelViaCli } = require("./lmStudioCli");
+  let result = null;
 
-  const loadUrl = lmStudioV1Url(basePath, "/api/v1/models/load");
-
-  const headers = lmStudioAuthHeaders(apiKey);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 300_000);
-
-  let response;
-  try {
-    response = await fetch(loadUrl.toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
+  if (opts.preferCli !== false) {
+    try {
+      result = await loadLmStudioModelViaCli(id, {
+        contextLength,
+        sshTarget: opts.sshTarget,
+      });
+    } catch (error) {
+      offerKpLog("warn", "LM Studio CLI load failed, falling back to REST", {
         model: id,
-        context_length: contextLength,
-        echo_load_config: true,
-      }),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new Error("LM Studio model load timed out after 5 minutes");
+        error: error?.message || String(error),
+      });
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail =
-      body?.error?.message ||
-      body?.message ||
-      body?.error ||
-      response.statusText ||
-      "LM Studio model load failed";
-    const hint =
-      unloadedIds.length > 0
-        ? detail
-        : `${detail} (another model may still occupy VRAM — try again)`;
-    throw new Error(String(hint));
+  if (!result) {
+    result = await loadLmStudioModelViaRest(id, {
+      basePath,
+      apiKey,
+      contextLength,
+    });
   }
 
   invalidateLmStudioModelCatalogCache();
@@ -442,20 +514,13 @@ async function loadLmStudioModel(modelId, opts = {}) {
 
   offerKpLog("info", "LM Studio model loaded into VRAM", {
     model: id,
-    unloadedIds,
-    loadTimeSeconds: body?.load_time_seconds,
-    status: body?.status,
+    via: result.via,
+    unloadedIds: result.unloadedIds,
+    loadTimeSeconds: result.loadTimeSeconds,
+    contextLength: result.contextLength,
   });
 
-  return {
-    success: true,
-    model: id,
-    status: body?.status || "loaded",
-    alreadyLoaded: false,
-    unloadedIds,
-    loadTimeSeconds: Number(body?.load_time_seconds) || null,
-    instanceId: body?.instance_id || id,
-  };
+  return result;
 }
 
 module.exports = {
@@ -472,6 +537,7 @@ module.exports = {
   invalidateLmStudioModelCatalogCache,
   loadLmStudioModel,
   unloadLmStudioModel,
+  unloadAllLoadedLmStudioModels,
   unloadOtherLoadedLmStudioModels,
   LMSTUDIO_MODELS_CACHE_MS,
 };

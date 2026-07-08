@@ -4,9 +4,17 @@
  * Синхронизировать с frontend/src/utils/offerKp/models.js (только Qwen).
  */
 const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
+  "qwen/qwen3-vl-8b-thinking": {
+    name: "Qwen3-VL-8B Thinking",
+    hint: "Локально · vision · рассуждения · Q4_K_M · ~8 GB VRAM",
+  },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
-    hint: "Локально · vision · Q4_K_M · ~8 GB VRAM",
+    hint: "Локально · vision · Q4_K_M",
+  },
+  "qwen/qwen3-14b": {
+    name: "Qwen3-14B",
+    hint: "Локально · текст · Q4_K_M · ~9 GB VRAM",
   },
   "qwen/qwen2.5-vl-7b": {
     name: "Qwen2.5-VL-7B",
@@ -14,7 +22,7 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
 };
 
-const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
+const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b-thinking";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
 const OFFER_KP_LOCAL_MODELS = Object.entries(
