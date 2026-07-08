@@ -16,7 +16,7 @@ const {
   OFFER_KP_ALLOWED_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   OFFER_KP_MODEL_GROUPS,
-  isOfferKpQwenModel,
+  isOfferKpAllowedModel,
 } = require("../config/offerKp.models");
 
 const { v4: uuidv4 } = require("uuid");
@@ -72,10 +72,10 @@ function offerKpEndpoints(app) {
         if (!id) {
           return response.status(400).json({ error: "modelId is required" });
         }
-        if (!isOfferKpQwenModel(id)) {
+        if (!isOfferKpAllowedModel(id)) {
           return response
             .status(400)
-            .json({ error: "Only Qwen models can be loaded from OfferKP." });
+            .json({ error: "Model is not allowed for OfferKP." });
         }
         const result = await loadLmStudioModel(id);
         response.status(200).json(result);

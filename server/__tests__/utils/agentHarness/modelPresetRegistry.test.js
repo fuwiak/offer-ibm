@@ -8,7 +8,7 @@ const { DeepseekR1HarnessPreset } = require("../../../utils/agentHarness/presets
 const { GptOss20bHarnessPreset } = require("../../../utils/agentHarness/presets/models/GptOss20bHarnessPreset");
 
 describe("model-specific OfferKP harness presets", () => {
-  it("registers all local Qwen LM Studio models", () => {
+  it("registers all local OfferKP picker models", () => {
     const ids = listRegisteredModelHarnessPresets();
     for (const m of OFFER_KP_LOCAL_MODELS) {
       expect(ids).toContain(m.id);

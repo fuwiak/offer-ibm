@@ -1,4 +1,4 @@
-/** Синхронизировать с server/config/offerKp.models.js (только Qwen во фронте) */
+/** Синхронизировать с server/config/offerKp.models.js */
 export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",
@@ -15,6 +15,10 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   "qwen/qwen2.5-vl-7b": {
     name: "Qwen2.5-VL-7B",
     hint: "Локально · vision · Q4_K_M",
+  },
+  "paddleocr-vl-1.5": {
+    name: "PaddleOCR-VL 1.5",
+    hint: "OCR · документы · layout · 0.9B · ~2 GB VRAM",
   },
 };
 
@@ -62,6 +66,22 @@ export function isOfferKpQwenModel(modelId) {
   return id.split("/")[0] === "qwen";
 }
 
+export function isOfferKpPaddleOcrModel(modelId) {
+  const id = String(modelId || "").trim().toLowerCase();
+  if (!id) return false;
+  return id.includes("paddleocr");
+}
+
+/** Модели, доступные в OfferKP picker (Qwen chat/VLM + PaddleOCR). */
+export function isOfferKpPickerModel(modelId) {
+  const id = String(modelId || "").trim();
+  if (!id) return false;
+  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
+  if (isOfferKpQwenModel(id)) return true;
+  if (isOfferKpPaddleOcrModel(id)) return true;
+  return false;
+}
+
 export function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   const id = String(modelId || "").trim();
   return (
@@ -75,7 +95,7 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
   const id = String(entry?.id || entry || "").trim();
   if (!id) return null;
   if (!isLmStudioChatModelId(id)) return null;
-  if (!isOfferKpQwenModel(id)) return null;
+  if (!isOfferKpPickerModel(id)) return null;
 
   const loadState = String(entry?.loadState || "").toLowerCase();
   const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
@@ -118,14 +138,12 @@ export function mergeLmStudioRemoteModels(
   knownModels = OFFER_KP_LOCAL_MODELS
 ) {
   const byId = new Map();
+  for (const meta of knownModels) {
+    byId.set(meta.id, { ...meta });
+  }
   for (const row of remoteModels) {
     const mapped = mapLmStudioRemoteModel(row, knownModels);
-    if (mapped) byId.set(mapped.id, mapped);
-  }
-  if (byId.size === 0) {
-    for (const meta of OFFER_KP_LOCAL_MODELS) {
-      byId.set(meta.id, { ...meta });
-    }
+    if (mapped) byId.set(mapped.id, { ...byId.get(mapped.id), ...mapped });
   }
   return [...byId.values()];
 }
@@ -133,7 +151,7 @@ export function mergeLmStudioRemoteModels(
 export function isOfferKpAllowedModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   const id = String(modelId || "").trim();
   if (!id) return false;
-  if (!isOfferKpQwenModel(id)) return false;
+  if (!isOfferKpPickerModel(id)) return false;
   if (models.some((m) => m.id === id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
   return isLmStudioCatalogModelId(id);

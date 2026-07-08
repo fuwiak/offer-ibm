@@ -22,17 +22,28 @@ describe("lmStudioModels", () => {
     expect(mapped?.name).toBe("Qwen3-VL-8B");
   });
 
-  it("merge prefers live catalog over static fallback", () => {
+  it("maps PaddleOCR-VL from LM Studio catalog", () => {
+    const mapped = mapLmStudioRemoteModel({ id: "paddleocr-vl-1.5" });
+    expect(mapped?.id).toBe("paddleocr-vl-1.5");
+    expect(mapped?.name).toBe("PaddleOCR-VL 1.5");
+  });
+
+  it("merge keeps static catalog and overlays live VRAM state", () => {
     const merged = mergeLmStudioRemoteModels([
-      { id: "qwen/qwen3-vl-8b" },
-      { id: "qwen/qwen2.5-vl-7b" },
+      { id: "qwen/qwen3-vl-8b", loadState: "loaded" },
+      { id: "paddleocr-vl-1.5", loadState: "not-loaded" },
       { id: "openai/gpt-oss-20b" },
     ]);
     expect(merged.map((m) => m.id)).toEqual(
-      expect.arrayContaining(["qwen/qwen3-vl-8b", "qwen/qwen2.5-vl-7b"])
+      expect.arrayContaining([
+        "qwen/qwen3-vl-8b",
+        "qwen/qwen3-vl-8b-thinking",
+        "paddleocr-vl-1.5",
+      ])
     );
     expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(false);
-    expect(merged.some((m) => m.id.includes("embed"))).toBe(false);
+    const qwen8b = merged.find((m) => m.id === "qwen/qwen3-vl-8b");
+    expect(qwen8b?.loaded).toBe(true);
   });
 });
 
