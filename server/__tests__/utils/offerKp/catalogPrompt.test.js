@@ -5,9 +5,11 @@ const {
   hasCatalogBlocks,
   isCatalogBlock,
   applyExternalContextsForLlm,
+  applyInquiryDraftToUserPrompt,
   extractCatalogBlocksFromText,
   extractCatalogBlocksFromChatHistory,
 } = require("../../../utils/offerKp/catalogPrompt");
+const matchInquiryLines = require("../../../utils/offerKp/matchInquiryLines");
 
 describe("catalogPrompt", () => {
   const sampleBlock = `[Каталог · purolat.com] Сталь шпоночная ГОСТ 8787-68 30x30x1000
@@ -61,5 +63,35 @@ describe("catalogPrompt", () => {
     const blocks = extractCatalogBlocksFromText(sampleBlock);
     expect(blocks).toHaveLength(1);
     expect(blocks[0]).toContain("[Каталог · purolat.com]");
+  });
+
+  it("injects inquiry draft with ShopDB prices when PDF text is present", async () => {
+    jest
+      .spyOn(matchInquiryLines, "matchInquiryToDraft")
+      .mockResolvedValue({
+        lines: [
+          {
+            requestedName: "Болт M10x100",
+            name: "Болт DIN 931 M10x100",
+            quantity: 30,
+            unit: "кг",
+            unitPriceNet: 19.69,
+            status: "in_stock",
+            productId: "123",
+          },
+        ],
+      });
+
+    const catalogPrompt = mergeCatalogIntoUserPrompt("сделай КП", [sampleBlock]);
+    const merged = await applyInquiryDraftToUserPrompt(catalogPrompt, {
+      message: "сделай КП",
+      parsedFileTexts: ["Болт M10x100 ГОСТ 7805-70 | 30 | кг"],
+    });
+
+    expect(merged).toContain("ЧЕРНОВИК КП ПО ЗАЯВКЕ");
+    expect(merged).toContain("19.69 RUB");
+    expect(merged).toContain("Запрещено брать цены из PDF");
+
+    matchInquiryLines.matchInquiryToDraft.mockRestore();
   });
 });

@@ -7,9 +7,11 @@ const {
   formatInquiryDraftSection,
   mergeInquiryDraftIntoUserPrompt,
 } = require("./inquiryDraftPrompt");
-const { OFFER_KP_SCOPE_USER_FOOTER } = require("../../config/offerKp.scopeGuardrails");
+const {
+  OFFER_KP_SCOPE_USER_FOOTER,
+} = require("../../config/offerKp.scopeGuardrails");
 const { parseInquiryText } = require("./parseInquiry");
-const { matchInquiryToDraft } = require("./matchInquiryLines");
+const matchInquiryLines = require("./matchInquiryLines");
 const shopDbLog = require("./shopDbLog");
 
 const CATALOG_BLOCK_PREFIX = "[Каталог ·";
@@ -70,7 +72,9 @@ function extractCatalogBlocksFromText(text = "") {
     }
   }
 
-  for (const match of raw.matchAll(/\[Каталог\s*·[\s\S]*?(?=\n{2,}\[Каталог\s*·|\n===|$)/gi)) {
+  for (const match of raw.matchAll(
+    /\[Каталог\s*·[\s\S]*?(?=\n{2,}\[Каталог\s*·|\n===|$)/gi
+  )) {
     pushBlock(match[0]);
   }
 
@@ -83,7 +87,9 @@ function extractCatalogBlocksFromChatHistory(chatHistory = [], limit = 12) {
   const seen = new Set();
 
   for (let i = list.length - 1; i >= 0 && blocks.length < limit; i--) {
-    for (const block of extractCatalogBlocksFromText(historyEntryText(list[i]))) {
+    for (const block of extractCatalogBlocksFromText(
+      historyEntryText(list[i])
+    )) {
       const key = block.slice(0, 240);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -121,6 +127,54 @@ function mergeCatalogIntoUserPrompt(userPrompt, contextTexts = []) {
   const catalogSection = blocks.join("\n\n");
   const question = String(userPrompt || "").trim();
   return `${USER_CATALOG_HEADER}\n${catalogSection}\n${USER_CATALOG_FOOTER}\n\n${OFFER_KP_SCOPE_USER_FOOTER}\n\n${question}`;
+}
+
+/**
+ * Сверка заявки PDF с ShopDB → таблица черновика КП с ценами из БД.
+ * @param {string} inquirySource
+ * @param {{ workspace?: object, chatHistory?: object[], parsedFileTexts?: string[] }} [options]
+ * @returns {Promise<string>}
+ */
+async function resolveInquiryDraftSection(inquirySource, options = {}) {
+  const lines = parseInquiryText(inquirySource);
+  if (!lines.length) return "";
+
+  try {
+    const draft = await matchInquiryLines.matchInquiryToDraft(inquirySource, {
+      workspace: options.workspace || null,
+      chatHistory: options.chatHistory || null,
+      parsedFileTexts: options.parsedFileTexts || null,
+    });
+    const draftSection = formatInquiryDraftSection(draft);
+    if (draftSection) {
+      shopDbLog.ok("inquiry draft resolved", {
+        lines: draft?.lines?.length || 0,
+        inquiryLineCount: lines.length,
+      });
+    }
+    return draftSection;
+  } catch (e) {
+    shopDbLog.warn("inquiry draft failed", { error: e?.message || String(e) });
+    return "";
+  }
+}
+
+/**
+ * После каталога подставляет черновик КП (цены только из ShopDB), если есть PDF-заявка.
+ * @param {string} userPrompt
+ * @param {{ message?: string, parsedFileTexts?: string[], workspace?: object, chatHistory?: object[] }} [options]
+ * @returns {Promise<string>}
+ */
+async function applyInquiryDraftToUserPrompt(userPrompt, options = {}) {
+  const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
+  if (!parsedFileTexts.length) return String(userPrompt || "").trim();
+
+  const message = String(options.message || "").trim();
+  const inquirySource = [message, ...parsedFileTexts]
+    .filter(Boolean)
+    .join("\n\n");
+  const draftSection = await resolveInquiryDraftSection(inquirySource, options);
+  return mergeInquiryDraftIntoUserPrompt(userPrompt, draftSection);
 }
 
 /**
@@ -219,7 +273,9 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
     });
   }
 
-  const inquirySource = [trimmed, ...parsedFileTexts].filter(Boolean).join("\n\n");
+  const inquirySource = [trimmed, ...parsedFileTexts]
+    .filter(Boolean)
+    .join("\n\n");
   const inquiryLineCount = parseInquiryText(inquirySource).length;
   const effectiveMaxDocs =
     inquiryLineCount > 1
@@ -273,25 +329,11 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
       return trimmed;
     }
 
-    let draftSection = "";
-    if (inquiryLineCount > 1) {
-      try {
-        const draft = await matchInquiryToDraft(inquirySource, {
-          workspace: options.workspace || null,
-          chatHistory,
-          parsedFileTexts,
-        });
-        draftSection = formatInquiryDraftSection(draft);
-        if (draftSection) {
-          shopDbLog.ok("inquiry draft injected", {
-            lines: draft?.lines?.length || 0,
-            inquiryLineCount,
-          });
-        }
-      } catch (e) {
-        shopDbLog.warn("inquiry draft failed", { error: e?.message || String(e) });
-      }
-    }
+    const draftSection = await resolveInquiryDraftSection(inquirySource, {
+      workspace: options.workspace || null,
+      chatHistory,
+      parsedFileTexts,
+    });
 
     const withCatalog = mergeCatalogIntoUserPrompt(trimmed, blocks);
     return mergeInquiryDraftIntoUserPrompt(withCatalog, draftSection);
@@ -313,6 +355,8 @@ module.exports = {
   extractCatalogBlocksFromChatHistory,
   loadParsedFileTextsForThread,
   mergeCatalogIntoUserPrompt,
+  resolveInquiryDraftSection,
+  applyInquiryDraftToUserPrompt,
   applyExternalContextsForLlm,
   enrichUserPromptWithShopCatalog,
   loadChatHistoryForShopEnrich,

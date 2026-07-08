@@ -251,10 +251,22 @@ async function streamChatWithWorkspace(
   };
 
   externalContexts = await shopEnrichPromise;
-  const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
+  const {
+    applyExternalContextsForLlm,
+    applyInquiryDraftToUserPrompt,
+  } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(
     updatedMessage,
     externalContexts
+  );
+  const userPromptWithDraft = await applyInquiryDraftToUserPrompt(
+    llmCatalog.userPrompt,
+    {
+      message: updatedMessage,
+      workspace,
+      chatHistory: rawHistory,
+      parsedFileTexts,
+    }
   );
   if (llmCatalog.contextTexts.length) {
     contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
@@ -263,7 +275,7 @@ async function streamChatWithWorkspace(
     sources = [...llmCatalog.sources, ...sources];
   }
   sources = dedupeSources(sources);
-  const userPromptForLlm = llmCatalog.userPrompt;
+  const userPromptForLlm = userPromptWithDraft;
   ragTrace.external = externalContexts.map((ctx) => ({
     kind: ctx.kind || "external",
     contexts: Array.isArray(ctx.contextTexts) ? ctx.contextTexts.length : 0,
