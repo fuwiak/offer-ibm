@@ -14,6 +14,16 @@ describe("lmStudioModels", () => {
     expect(isLmStudioChatModelId("text-embedding-nomic-embed-text-v1.5")).toBe(
       false
     );
+    expect(
+      isLmStudioChatModelId(
+        "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5-mmproj.gguf"
+      )
+    ).toBe(false);
+    expect(
+      isLmStudioChatModelId(
+        "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf:2"
+      )
+    ).toBe(false);
   });
 
   it("maps remote API rows to picker entries", () => {
@@ -32,6 +42,19 @@ describe("lmStudioModels", () => {
     expect(mapped?.name).toBe("PaddleOCR-VL 1.5");
   });
 
+  it("ignores PaddleOCR mmproj and duplicate LM Studio instances", () => {
+    expect(
+      mapLmStudioRemoteModel({
+        id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5-mmproj.gguf",
+      })
+    ).toBeNull();
+    expect(
+      mapLmStudioRemoteModel({
+        id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf:2",
+      })
+    ).toBeNull();
+  });
+
   it("normalizes legacy PaddleOCR model id", () => {
     const { normalizeOfferKpModelId, resolveOfferKpModel } = require("../../../config/offerKp.models");
     expect(normalizeOfferKpModelId("paddleocr-vl-1.5")).toBe(
@@ -48,6 +71,10 @@ describe("lmStudioModels", () => {
       {
         id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
         loadState: "not-loaded",
+      },
+      {
+        id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5-mmproj.gguf",
+        loadState: "loaded",
       },
       { id: "openai/gpt-oss-20b" },
     ]);

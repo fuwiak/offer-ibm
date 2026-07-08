@@ -2,6 +2,7 @@ const llmDefaults = require("../../config/offerKp.llm.defaults");
 const {
   OFFER_KP_DEFAULT_MODEL,
   resolveOfferKpModel,
+  isLmStudioAuxiliaryModelId,
 } = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
 
@@ -28,6 +29,7 @@ function isLmStudioChatModelId(modelId) {
   if (!id) return false;
   if (id.includes("embed")) return false;
   if (id.includes("whisper")) return false;
+  if (isLmStudioAuxiliaryModelId(id)) return false;
   return true;
 }
 

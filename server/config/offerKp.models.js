@@ -30,7 +30,7 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
   "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf": {
     name: "PaddleOCR-VL 1.5",
-    hint: "OCR · документы · layout · 0.9B · ~2 GB VRAM",
+    hint: "OCR · документы · paddleocr-vl-1.5.gguf · ~2 GB VRAM",
   },
 };
 
@@ -63,21 +63,28 @@ function isLmStudioCatalogModelId(modelId) {
   return /^[a-z0-9._-]+\/[a-z0-9._-]+$/i.test(String(modelId || "").trim());
 }
 
+function isLmStudioAuxiliaryModelId(modelId) {
+  const id = String(modelId || "")
+    .trim()
+    .toLowerCase();
+  if (!id) return true;
+  if (/:\d+$/.test(id)) return true;
+  if (id.includes("mmproj")) return true;
+  if (id.includes("-projector")) return true;
+  if (id.includes("/clip/") || id.endsWith(".clip")) return true;
+  return false;
+}
+
 function normalizeOfferKpModelId(modelId) {
-  const id = String(modelId || "").trim();
+  let id = String(modelId || "").trim();
   if (!id) return "";
+  id = id.replace(/:\d+$/, "");
   return OFFER_KP_MODEL_ID_ALIASES[id] || id;
 }
 
 function resolveOfferKpModelDisplayOverride(modelId) {
   const id = normalizeOfferKpModelId(modelId);
-  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) {
-    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
-  }
-  if (isOfferKpPaddleOcrModel(id)) {
-    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[OFFER_KP_PADDLEOCR_VL_15_MODEL];
-  }
-  return null;
+  return OFFER_KP_MODEL_DISPLAY_OVERRIDES[id] || null;
 }
 
 function isOfferKpQwenModel(modelId) {
@@ -96,12 +103,22 @@ function isOfferKpPaddleOcrModel(modelId) {
   return id.includes("paddleocr");
 }
 
+function isOfferKpRunnablePaddleOcrModel(modelId) {
+  const id = normalizeOfferKpModelId(modelId).toLowerCase();
+  if (!isOfferKpPaddleOcrModel(id)) return false;
+  if (isLmStudioAuxiliaryModelId(id)) return false;
+  const base = id.split("/").pop() || id;
+  return base === "paddleocr-vl-1.5.gguf";
+}
+
 function isOfferKpPickerModel(modelId) {
   const id = String(modelId || "").trim();
   if (!id) return false;
-  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
+  if (isLmStudioAuxiliaryModelId(id)) return false;
+  const normalized = normalizeOfferKpModelId(id);
+  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[normalized]) return true;
   if (isOfferKpQwenModel(id)) return true;
-  if (isOfferKpPaddleOcrModel(id)) return true;
+  if (isOfferKpRunnablePaddleOcrModel(id)) return true;
   return false;
 }
 
@@ -115,10 +132,11 @@ function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
 }
 
 function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
-  const id = String(entry?.id || entry || "").trim();
-  if (!id) return null;
-  if (!isOfferKpPickerModel(id)) return null;
+  const rawId = String(entry?.id || entry || "").trim();
+  if (!rawId) return null;
+  if (!isOfferKpPickerModel(rawId)) return null;
 
+  const id = normalizeOfferKpModelId(rawId);
   const loadState = String(entry?.loadState || "").toLowerCase();
   const override = resolveOfferKpModelDisplayOverride(id);
   const known = findOfferKpModel(id, knownModels);
@@ -175,7 +193,7 @@ function isOfferKpAllowedModel(modelId, liveIds = null) {
   if (!isOfferKpPickerModel(id)) return false;
   if (Array.isArray(liveIds) && liveIds.includes(id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
-  if (isOfferKpPaddleOcrModel(id)) return true;
+  if (isOfferKpRunnablePaddleOcrModel(id)) return true;
   return isLmStudioCatalogModelId(id);
 }
 
@@ -233,6 +251,8 @@ module.exports = {
   resolveOfferKpModelDisplayOverride,
   isOfferKpQwenModel,
   isOfferKpPaddleOcrModel,
+  isOfferKpRunnablePaddleOcrModel,
+  isLmStudioAuxiliaryModelId,
   isOfferKpPickerModel,
   isOfferKpAllowedModel,
   isLmStudioCatalogModelId,
