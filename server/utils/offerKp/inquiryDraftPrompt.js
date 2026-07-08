@@ -38,7 +38,9 @@ function formatInquiryDraftSection(draft) {
 
   const rows = lines
     .map((line, idx) => {
-      const requested = String(line.requestedName || line.inquiryRaw || "—").replace(/\|/g, "/");
+      const requested = String(
+        line.requestedName || line.inquiryRaw || "—"
+      ).replace(/\|/g, "/");
       const matched = String(line.name || "—").replace(/\|/g, "/");
       const qty = line.quantity ?? 1;
       const unit = line.unit || "шт";
