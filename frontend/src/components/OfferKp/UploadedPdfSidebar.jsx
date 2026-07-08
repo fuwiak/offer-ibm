@@ -44,6 +44,12 @@ export default function UploadedPdfSidebar() {
   const asideRef = useRef(null);
   const previewUrlRef = useRef(uploadedPdfPreview?.url || null);
   const autoOpenAttemptRef = useRef(null);
+  const userCollapsedRef = useRef(false);
+
+  useEffect(() => {
+    autoOpenAttemptRef.current = null;
+    userCollapsedRef.current = false;
+  }, [activeThreadSlug]);
 
   useEffect(() => {
     panelWidthRef.current = panelWidth;
@@ -52,10 +58,6 @@ export default function UploadedPdfSidebar() {
   useEffect(() => {
     previewUrlRef.current = uploadedPdfPreview?.url || null;
   }, [uploadedPdfPreview?.url]);
-
-  useEffect(() => {
-    autoOpenAttemptRef.current = null;
-  }, [activeThreadSlug]);
 
   useEffect(
     () => () => {
@@ -176,11 +178,16 @@ export default function UploadedPdfSidebar() {
       if (
         !stillValid &&
         !opening &&
+        !userCollapsedRef.current &&
         autoOpenAttemptRef.current !== attemptKey
       ) {
         autoOpenAttemptRef.current = attemptKey;
         await openFile(files[0]);
-      } else if (!uploadedPdfSidebarOpen && files.length) {
+      } else if (
+        !uploadedPdfSidebarOpen &&
+        files.length &&
+        !userCollapsedRef.current
+      ) {
         setUploadedPdfSidebarOpen(true);
       }
     }
@@ -260,7 +267,10 @@ export default function UploadedPdfSidebar() {
           </div>
           <button
             type="button"
-            onClick={() => setUploadedPdfSidebarOpen(false)}
+            onClick={() => {
+              userCollapsedRef.current = true;
+              setUploadedPdfSidebarOpen(false);
+            }}
             className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer shrink-0"
             aria-label={t("layout.collapsePanel", {
               defaultValue: "Collapse panel",
@@ -272,7 +282,10 @@ export default function UploadedPdfSidebar() {
       ) : (
         <button
           type="button"
-          onClick={() => setUploadedPdfSidebarOpen(true)}
+          onClick={() => {
+            userCollapsedRef.current = false;
+            setUploadedPdfSidebarOpen(true);
+          }}
           className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-2 mt-3 cursor-pointer"
           aria-label={t("layout.uploadedPdfPanel", {
             defaultValue: "Uploaded PDF",
