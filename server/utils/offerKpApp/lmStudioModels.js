@@ -50,12 +50,13 @@ async function fetchLmStudioRuntimeStates(basePath, apiKey = null) {
         status: res.status,
         statusText: res.statusText,
       });
-      return { loadedIds: [], stateById: {} };
+      return { loadedIds: [], stateById: {}, loadedContextById: {} };
     }
 
     const body = await res.json();
     const rows = Array.isArray(body?.data) ? body.data : [];
     const stateById = {};
+    const loadedContextById = {};
     const loadedIds = [];
 
     for (const row of rows) {
@@ -63,15 +64,19 @@ async function fetchLmStudioRuntimeStates(basePath, apiKey = null) {
       if (!id || !isLmStudioChatModelId(id)) continue;
       const state = String(row?.state || "unknown").toLowerCase();
       stateById[id] = state;
+      const loadedCtx = Number(row?.loaded_context_length);
+      if (Number.isFinite(loadedCtx) && loadedCtx > 0) {
+        loadedContextById[id] = loadedCtx;
+      }
       if (isLmStudioLoadedState(state)) loadedIds.push(id);
     }
 
-    return { loadedIds, stateById };
+    return { loadedIds, stateById, loadedContextById };
   } catch (error) {
     offerKpLog("warn", "LM Studio runtime state fetch error", {
       error: error?.message || String(error),
     });
-    return { loadedIds: [], stateById: {} };
+    return { loadedIds: [], stateById: {}, loadedContextById: {} };
   }
 }
 
@@ -349,9 +354,21 @@ async function loadLmStudioModel(modelId, opts = {}) {
       ? process.env.LMSTUDIO_AUTH_TOKEN
       : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
 
+  const contextLength =
+    opts.contextLength ||
+    Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
+    32768;
+
   if (!opts.force) {
-    const { stateById } = await fetchLmStudioRuntimeStates(basePath, apiKey);
-    if (isLmStudioLoadedState(stateById[id])) {
+    const { stateById, loadedContextById } = await fetchLmStudioRuntimeStates(
+      basePath,
+      apiKey
+    );
+    const loadedCtx = Number(loadedContextById[id]) || 0;
+    if (
+      isLmStudioLoadedState(stateById[id]) &&
+      loadedCtx >= contextLength
+    ) {
       invalidateLmStudioModelCatalogCache();
       await fetchLmStudioModelCatalog({ basePath, apiKey, forceRefresh: true });
       return {
@@ -360,7 +377,15 @@ async function loadLmStudioModel(modelId, opts = {}) {
         status: "loaded",
         alreadyLoaded: true,
         loadTimeSeconds: 0,
+        contextLength: loadedCtx,
       };
+    }
+    if (isLmStudioLoadedState(stateById[id]) && loadedCtx < contextLength) {
+      offerKpLog("info", "Reloading LM Studio model with larger context", {
+        model: id,
+        loadedContext: loadedCtx,
+        targetContext: contextLength,
+      });
     }
   }
 
@@ -370,11 +395,6 @@ async function loadLmStudioModel(modelId, opts = {}) {
   });
 
   const loadUrl = lmStudioV1Url(basePath, "/api/v1/models/load");
-
-  const contextLength =
-    opts.contextLength ||
-    Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
-    32768;
 
   const headers = lmStudioAuthHeaders(apiKey);
 

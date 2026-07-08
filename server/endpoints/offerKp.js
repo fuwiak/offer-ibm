@@ -16,6 +16,7 @@ const {
   OFFER_KP_ALLOWED_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   OFFER_KP_MODEL_GROUPS,
+  isOfferKpQwenModel,
 } = require("../config/offerKp.models");
 
 const { v4: uuidv4 } = require("uuid");
@@ -36,12 +37,6 @@ const {
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 const shopDbExplorer = require("../utils/offerKp/db/explorer");
 const { askShopDb } = require("../utils/offerKp/db/askAgent");
-
-function isOfferKpQwenModelId(modelId) {
-  const id = String(modelId || "").trim().toLowerCase();
-  if (!id) return false;
-  return id.split("/")[0] === "qwen";
-}
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -77,7 +72,7 @@ function offerKpEndpoints(app) {
         if (!id) {
           return response.status(400).json({ error: "modelId is required" });
         }
-        if (!isOfferKpQwenModelId(id)) {
+        if (!isOfferKpQwenModel(id)) {
           return response
             .status(400)
             .json({ error: "Only Qwen models can be loaded from OfferKP." });

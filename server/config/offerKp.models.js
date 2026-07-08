@@ -1,31 +1,20 @@
 /**
  * OfferKP models — LM Studio catalog is fetched live from GET /v1/models.
  * Static entries below are display overrides only (names, hints).
+ * Синхронизировать с frontend/src/utils/offerKp/models.js (только Qwen).
  */
 const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
-  "openai/gpt-oss-20b": {
-    name: "GPT-OSS 20B",
-    hint: "Локально · LM Studio (lainey) · OpenAI-совместимый API",
+  "qwen/qwen3-vl-8b": {
+    name: "Qwen3-VL-8B",
+    hint: "Локально · vision · Q4_K_M · ~8 GB VRAM",
   },
-  "deepseek/deepseek-r1-0528-qwen3-8b": {
-    name: "DeepSeek R1 Qwen3 8B",
-    hint: "Локально · рассуждения · Q4_K_M",
-  },
-  "google/gemma-4-12b": {
-    name: "Gemma 4 12B Instruct",
-    hint: "Локально · LM Studio · Q4_K_M",
-  },
-  "google/gemma-4-12b-qat": {
-    name: "Gemma 4 12B QAT",
-    hint: "Локально · LM Studio · QAT",
-  },
-  "google/gemma-4-26b-a4b": {
-    name: "Gemma 4 26B A4B",
-    hint: "Локально · LM Studio · Q4_K_M · загрузите в VRAM перед использованием",
+  "qwen/qwen2.5-vl-7b": {
+    name: "Qwen2.5-VL-7B",
+    hint: "Локально · vision · Q4_K_M",
   },
 };
 
-const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
+const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
 const OFFER_KP_LOCAL_MODELS = Object.entries(
@@ -50,6 +39,16 @@ const OFFER_KP_MODEL_GROUPS = [
 
 const OFFER_KP_ALLOWED_MODELS = [...OFFER_KP_LOCAL_MODELS];
 
+function isLmStudioCatalogModelId(modelId) {
+  return /^[a-z0-9._-]+\/[a-z0-9._-]+$/i.test(String(modelId || "").trim());
+}
+
+function isOfferKpQwenModel(modelId) {
+  const id = String(modelId || "").trim().toLowerCase();
+  if (!id) return false;
+  return id.split("/")[0] === "qwen";
+}
+
 function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   const id = String(modelId || "").trim();
   return (
@@ -59,13 +58,10 @@ function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   );
 }
 
-function isLmStudioCatalogModelId(modelId) {
-  return /^[a-z0-9._-]+\/[a-z0-9._-]+$/i.test(String(modelId || "").trim());
-}
-
 function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
   const id = String(entry?.id || entry || "").trim();
   if (!id) return null;
+  if (!isOfferKpQwenModel(id)) return null;
 
   const loadState = String(entry?.loadState || "").toLowerCase();
   const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
@@ -120,6 +116,7 @@ function mergeLmStudioRemoteModels(remoteModels = []) {
 function isOfferKpAllowedModel(modelId, liveIds = null) {
   const id = String(modelId || "").trim();
   if (!id) return false;
+  if (!isOfferKpQwenModel(id)) return false;
   if (Array.isArray(liveIds) && liveIds.includes(id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
   return isLmStudioCatalogModelId(id);
@@ -173,6 +170,7 @@ module.exports = {
   OFFER_KP_ALLOWED_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   findOfferKpModel,
+  isOfferKpQwenModel,
   isOfferKpAllowedModel,
   isLmStudioCatalogModelId,
   mapLmStudioRemoteModel,

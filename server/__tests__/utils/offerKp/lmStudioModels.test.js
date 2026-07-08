@@ -17,19 +17,21 @@ describe("lmStudioModels", () => {
   });
 
   it("maps remote API rows to picker entries", () => {
-    const mapped = mapLmStudioRemoteModel({ id: "google/gemma-4-12b-qat" });
-    expect(mapped?.id).toBe("google/gemma-4-12b-qat");
-    expect(mapped?.name).toBe("Gemma 4 12B QAT");
+    const mapped = mapLmStudioRemoteModel({ id: "qwen/qwen3-vl-8b" });
+    expect(mapped?.id).toBe("qwen/qwen3-vl-8b");
+    expect(mapped?.name).toBe("Qwen3-VL-8B");
   });
 
   it("merge prefers live catalog over static fallback", () => {
     const merged = mergeLmStudioRemoteModels([
-      { id: "google/gemma-4-12b" },
+      { id: "qwen/qwen3-vl-8b" },
+      { id: "qwen/qwen2.5-vl-7b" },
       { id: "openai/gpt-oss-20b" },
     ]);
     expect(merged.map((m) => m.id)).toEqual(
-      expect.arrayContaining(["google/gemma-4-12b", "openai/gpt-oss-20b"])
+      expect.arrayContaining(["qwen/qwen3-vl-8b", "qwen/qwen2.5-vl-7b"])
     );
+    expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(false);
     expect(merged.some((m) => m.id.includes("embed"))).toBe(false);
   });
 });
