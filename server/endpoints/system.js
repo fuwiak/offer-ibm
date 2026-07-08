@@ -1352,7 +1352,7 @@ function systemEndpoints(app) {
 
   app.post(
     "/system/custom-models",
-    [validatedRequest, flexUserRoleValid([ROLES.admin])],
+    [validatedRequest, flexUserRoleValid([ROLES.all])],
     async (request, response) => {
       const started = Date.now();
       try {

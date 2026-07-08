@@ -102,40 +102,20 @@ export default function OfferKpAnthropicModelPicker({
     if (!ws) return;
 
     const localModel = resolveLocalPickerModel(ws.chatModel, availableModels);
-    const pickedMeta = findOfferKpModel(localModel, availableModels);
-    const runnableModel =
-      pickedMeta?.runnable === false
-        ? availableModels.find((m) => m.runnable)?.id ||
-          availableModels[0]?.id ||
-          localModel
-        : localModel;
+    setSelectedModel(localModel);
 
-    setSelectedModel(runnableModel);
-
-    const modelKnown = availableModels.some((m) => m.id === ws.chatModel);
-    const notRunnable =
-      pickedMeta?.runnable === false && runnableModel !== localModel;
-    const needsSync =
-      ws.chatProvider !== "lmstudio" ||
-      (ws.chatModel !== runnableModel && (!modelKnown || notRunnable));
+    const needsSync = ws.chatProvider !== "lmstudio" || ws.chatModel !== localModel;
 
     if (needsSync) {
       const { workspace: synced } = await Workspace.update(workspaceSlug, {
         chatProvider: "lmstudio",
-        chatModel: runnableModel,
+        chatModel: localModel,
         agentProvider: "lmstudio",
-        agentModel: runnableModel,
+        agentModel: localModel,
       }).catch(() => ({ workspace: null }));
       if (synced?.chatModel) {
         setSelectedModel(
           resolveLocalPickerModel(synced.chatModel, availableModels)
-        );
-      }
-      if (notRunnable) {
-        showToast(
-          `Модель ${localModel} не загружена в LM Studio — выбрана ${runnableModel}`,
-          "warning",
-          { clear: true }
         );
       }
     }
@@ -164,15 +144,6 @@ export default function OfferKpAnthropicModelPicker({
       return;
     }
     const meta = findOfferKpModel(modelId, availableModels);
-    if (meta?.runnable === false) {
-      showToast(
-        `Модель ${modelId} не загружена в LM Studio (VRAM). Загрузите её в LM Studio или выберите модель с «VRAM · loaded».`,
-        "warning",
-        { clear: true }
-      );
-      setOpen(false);
-      return;
-    }
     const previousModel = selectedModel;
     setSelectedModel(modelId);
     setSaving(true);
@@ -231,13 +202,13 @@ export default function OfferKpAnthropicModelPicker({
           >
             <button
               type="button"
-              disabled={saving || model.runnable === false}
+              disabled={saving}
               onClick={() => handleSelect(model.id)}
               className={`w-full text-left px-3 py-2 text-xs transition-colors ${
                 model.id === selectedModel
                   ? "bg-primary-button/20 text-white light:text-slate-900 font-medium"
-                  : model.runnable === false
-                    ? "text-zinc-500 light:text-slate-400 cursor-not-allowed opacity-70"
+                  : model.loaded === false
+                    ? "text-zinc-400 light:text-slate-500 hover:bg-zinc-700 light:hover:bg-slate-100"
                     : "text-zinc-300 light:text-slate-700 hover:bg-zinc-700 light:hover:bg-slate-100"
               }`}
             >

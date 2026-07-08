@@ -88,7 +88,8 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
     return {
       ...known,
       loadState: loadState || known.loadState || null,
-      runnable: loadState === "loaded",
+      loaded: loadState === "loaded",
+      runnable: true,
       hint: loadHint ? `${known.hint || ""} · ${loadHint}`.trim() : known.hint,
     };
   }
@@ -101,10 +102,11 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
     group: "local",
     usage: "chat",
     loadState: loadState || null,
-    runnable: loadState === "loaded",
+    loaded: loadState === "loaded",
+    runnable: true,
     hint:
       [override?.hint, loadHint].filter(Boolean).join(" · ") ||
-      "LM Studio · załaduj model w VRAM",
+      "LM Studio · автозагрузка при первом запросе",
   };
 }
 

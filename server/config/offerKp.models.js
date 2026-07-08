@@ -81,8 +81,9 @@ function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
     return {
       ...known,
       loadState: loadState || known.loadState || null,
+      loaded: loadState === "loaded",
       hint: loadHint ? `${known.hint || ""} · ${loadHint}`.trim() : known.hint,
-      runnable: loadState === "loaded",
+      runnable: true,
     };
   }
 
@@ -94,10 +95,11 @@ function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
     group: "local",
     usage: "chat",
     loadState: loadState || null,
-    runnable: loadState === "loaded",
+    loaded: loadState === "loaded",
+    runnable: true,
     hint:
       [override?.hint, loadHint].filter(Boolean).join(" · ") ||
-      "LM Studio · załadowany model",
+      "LM Studio · автозагрузка при первом запросе",
   };
 }
 

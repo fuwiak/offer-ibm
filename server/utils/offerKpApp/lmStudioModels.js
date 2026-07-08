@@ -86,6 +86,11 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
   const ids = catalog.ids || [];
   const loadedIds = catalog.loadedIds || [];
 
+  // LM Studio auto-loads catalog models on first chat request — VRAM state is informational only.
+  if (preferred && ids.includes(preferred)) {
+    return { model: preferred, fallback: false };
+  }
+
   if (preferred && loadedIds.includes(preferred)) {
     return { model: preferred, fallback: false };
   }
@@ -96,13 +101,13 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
     const id = String(candidate || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    if (loadedIds.includes(id)) {
+    if (ids.includes(id) || loadedIds.includes(id)) {
       const fallback = id !== preferred;
       return {
         model: id,
         fallback,
         requested: preferred || undefined,
-        reason: fallback ? "model_not_loaded" : undefined,
+        reason: fallback ? "model_not_in_catalog" : undefined,
       };
     }
   }
@@ -112,7 +117,7 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
     model: coerced,
     fallback: coerced !== preferred,
     requested: preferred || undefined,
-    reason: loadedIds.length ? "no_loaded_models" : "runtime_unknown",
+    reason: ids.length ? "model_not_in_catalog" : "runtime_unknown",
   };
 }
 

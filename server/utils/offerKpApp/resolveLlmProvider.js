@@ -54,7 +54,7 @@ function resolveRunnableModel(requestedModel, catalog = null) {
 
 /**
  * Resolve LLM for offer-kp. Chat/agents use LM Studio only.
- * Prefers models with state=loaded on LM Studio server (avoids HTTP 400).
+ * Uses the user-selected catalog model; LM Studio auto-loads on first request.
  */
 function resolveLlmProviderAndModel({
   provider: _provider = null,
