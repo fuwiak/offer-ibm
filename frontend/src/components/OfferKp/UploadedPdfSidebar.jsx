@@ -249,7 +249,11 @@ export default function UploadedPdfSidebar() {
       {uploadedPdfSidebarOpen ? (
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-theme-sidebar-border shrink-0 w-full gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <FilePdf size={14} weight="fill" className="shrink-0 text-[#da1e28]" />
+            <FilePdf
+              size={14}
+              weight="fill"
+              className="shrink-0 text-[#da1e28]"
+            />
             <span className="offerKp-document-panel__eyebrow truncate">
               {t("layout.uploadedPdfPanel", { defaultValue: "Uploaded PDF" })}
             </span>
@@ -258,7 +262,9 @@ export default function UploadedPdfSidebar() {
             type="button"
             onClick={() => setUploadedPdfSidebarOpen(false)}
             className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer shrink-0"
-            aria-label={t("layout.collapsePanel", { defaultValue: "Collapse panel" })}
+            aria-label={t("layout.collapsePanel", {
+              defaultValue: "Collapse panel",
+            })}
           >
             <CaretLeft size={16} />
           </button>
