@@ -34,7 +34,7 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
 export const OFFER_KP_OCR_MODEL_METADATA = {
   [OFFER_KP_PADDLEOCR_VL_15_MODEL]: {
     name: "PaddleOCR-VL 1.5",
-    hint: "Чтение PDF · автоматически при загрузке · не для чата",
+    hint: "Не используется · OCR через Qwen3-VL при загрузке PDF",
     usage: "ocr",
   },
 };

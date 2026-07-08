@@ -82,6 +82,12 @@ function registerDefaultBlocks() {
     } = require("./blocks/offerKpCatalogContextBlock");
     return new OfferKpCatalogContextBlock();
   });
+  registerHarnessBlock("offerKp-inquiry-quality", () => {
+    const {
+      OfferKpInquiryQualityBlock,
+    } = require("./blocks/offerKpInquiryQualityBlock");
+    return new OfferKpInquiryQualityBlock();
+  });
   registerHarnessBlock("offerKp-quote-calculator", () => {
     const {
       OfferKpQuoteCalculatorBlock,

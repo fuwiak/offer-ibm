@@ -3,9 +3,7 @@ const path = require("path");
 const {
   textQualityReport,
 } = require("../../../collector/processSingleFile/convert/asPDF/pdfTextQuality");
-const {
-  resolveOfferKpChatModel,
-} = require("../../config/offerKp.models");
+const { assessInquiryTextQuality } = require("./inquiryTextQuality");
 const {
   isPdfFilename,
   resolveOriginalFilePath,
@@ -13,18 +11,19 @@ const {
 const { directUploadsPath } = require("../files");
 const { safeJsonParse } = require("../http");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
-const { loadLmStudioModelForTask } = require("../offerKpApp/lmStudioModels");
-const { paddleOcrPdf } = require("./offerKpPaddleOcr");
+const { visionOcrPdf } = require("./offerKpVisionOcr");
 
-function isOfferKpPaddleOcrEnabled() {
-  const flag = String(process.env.OFFER_KP_USE_PADDLE_OCR ?? "1").trim();
+function isOfferKpVisionOcrEnabled() {
+  const flag = String(process.env.OFFER_KP_USE_VISION_OCR ?? "1").trim();
   return flag !== "0" && flag.toLowerCase() !== "false";
 }
 
-function documentsNeedPaddleOcr(documents = []) {
+function documentsNeedVisionOcr(documents = []) {
   const combined = documents.map((d) => d?.pageContent || "").join("\n");
   const pageCount = Math.max(1, documents.length);
-  return textQualityReport(combined, pageCount).needsOcr;
+  const pdfReport = textQualityReport(combined, pageCount);
+  const inquiryReport = assessInquiryTextQuality(combined);
+  return pdfReport.needsOcr || inquiryReport.needsReocr;
 }
 
 function persistDocumentPageContent(doc) {
@@ -42,8 +41,7 @@ function persistDocumentPageContent(doc) {
 }
 
 /**
- * Qwen3-VL-8B Thinking — чат/письмо; PaddleOCR-VL — чтение PDF при плохом текстовом слое.
- * После OCR возвращает chat-модель в VRAM.
+ * Qwen3-VL-8B Thinking — и КП, и vision-OCR при битом тексте collector/Tesseract.
  */
 async function enrichDocumentsWithOfferKpOcr({
   documents = [],
@@ -52,28 +50,27 @@ async function enrichDocumentsWithOfferKpOcr({
   workspace = null,
   onProgress = null,
 } = {}) {
-  if (!isOfferKpPaddleOcrEnabled()) return documents;
+  if (!isOfferKpVisionOcrEnabled()) return documents;
   if (!originalLocation || !isPdfFilename(originalFilename)) return documents;
-  if (!documentsNeedPaddleOcr(documents)) return documents;
+  if (!documentsNeedVisionOcr(documents)) return documents;
 
   const pdfPath = resolveOriginalFilePath(originalLocation);
   if (!pdfPath) return documents;
 
-  const chatModel = resolveOfferKpChatModel(workspace);
-
   onProgress?.({
     type: "stage",
-    stage: "paddle-ocr",
+    stage: "vision-ocr",
     filename: originalFilename,
   });
 
   try {
-    const text = await paddleOcrPdf(pdfPath, {
+    const text = await visionOcrPdf(pdfPath, {
+      workspace,
       onProgress,
       onPage: ({ pageNumber, total }) => {
         onProgress?.({
           type: "ocr_progress",
-          engine: "paddleocr-vl",
+          engine: "qwen3-vl",
           page: pageNumber,
           total,
         });
@@ -82,7 +79,7 @@ async function enrichDocumentsWithOfferKpOcr({
 
     if (!text?.trim()) return documents;
 
-    offerKpLog("info", "OfferKP ingest: PaddleOCR replaced collector text", {
+    offerKpLog("info", "OfferKP ingest: Qwen-VL vision OCR replaced collector text", {
       filename: originalFilename,
       chars: text.length,
     });
@@ -93,7 +90,7 @@ async function enrichDocumentsWithOfferKpOcr({
         {
           ...base,
           pageContent: text,
-          ocrEngine: "paddleocr-vl",
+          ocrEngine: "qwen3-vl",
         },
       ];
       persistDocumentPageContent(updated[0]);
@@ -102,34 +99,22 @@ async function enrichDocumentsWithOfferKpOcr({
 
     const updated = documents.map((doc, index) =>
       index === 0
-        ? { ...doc, pageContent: text, ocrEngine: "paddleocr-vl" }
-        : { ...doc, pageContent: "", ocrEngine: "paddleocr-vl" }
+        ? { ...doc, pageContent: text, ocrEngine: "qwen3-vl" }
+        : { ...doc, pageContent: "", ocrEngine: "qwen3-vl" }
     );
     persistDocumentPageContent(updated[0]);
     return updated;
   } catch (error) {
-    offerKpLog("warn", "OfferKP PaddleOCR ingest failed — keeping collector text", {
+    offerKpLog("warn", "OfferKP vision OCR ingest failed — keeping collector text", {
       filename: originalFilename,
       error: error?.message || String(error),
     });
     return documents;
-  } finally {
-    try {
-      await loadLmStudioModelForTask("chat", { workspace, force: true });
-      offerKpLog("info", "OfferKP ingest: restored chat model in VRAM", {
-        model: chatModel,
-      });
-    } catch (error) {
-      offerKpLog("warn", "OfferKP ingest: failed to restore chat model", {
-        model: chatModel,
-        error: error?.message || String(error),
-      });
-    }
   }
 }
 
 module.exports = {
-  isOfferKpPaddleOcrEnabled,
-  documentsNeedPaddleOcr,
+  isOfferKpVisionOcrEnabled,
+  documentsNeedVisionOcr,
   enrichDocumentsWithOfferKpOcr,
 };

@@ -6,6 +6,7 @@ const DEFAULT_OFFER_KP_BLOCK_IDS = [
   "orchestration",
   "offerKp-document-trigger",
   "offerKp-catalog-context",
+  "offerKp-inquiry-quality",
   "offerKp-quote-pdf-model",
   "offerKp-catalog-guidelines",
   "offerKp-quote-compliance",

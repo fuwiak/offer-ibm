@@ -11,6 +11,9 @@ const HARDWARE_LINE_RE =
 const INQUIRY_SKIP_LINE_RE =
   /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|ед\.?\s*изм|кол-?во|итого|всего)/i;
 const INQUIRY_UNIT_RE = /^(?:кг|kg|шт\.?|pcs|м|м\.|т|упак|ед\.?)$/i;
+const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć/i;
+const PRICE_HEADER_RE = /цен|price|cena|сумм|стоимост/i;
+const UNIT_HEADER_RE = /ед\.?\s*изм|unit/i;
 
 function lineHasHardwareSignals(text) {
   if (INQUIRY_SKIP_LINE_RE.test(String(text || "").trim())) return false;
@@ -48,7 +51,28 @@ function splitTableColumns(line) {
     .filter(Boolean);
 }
 
-function buildInquiryChunkFromColumns(cols) {
+function detectInquiryTableContext(normalized) {
+  for (const line of String(normalized || "").split(/\n+/)) {
+    if (!/\t|\|/.test(line)) continue;
+    const cols = splitTableColumns(line);
+    const qtyIdx = cols.findIndex((c) => QTY_HEADER_RE.test(c));
+    const priceIdx = cols.findIndex((c) => PRICE_HEADER_RE.test(c));
+    const unitIdx = cols.findIndex((c) => UNIT_HEADER_RE.test(c));
+    if (qtyIdx >= 0 || unitIdx >= 0) {
+      return { qtyIdx, priceIdx, unitIdx };
+    }
+  }
+  return null;
+}
+
+function isLikelyPriceToken(token) {
+  const s = String(token || "").trim().replace(/\s/g, "");
+  if (!s) return false;
+  if (/^\d{1,4}(?:[.,]\d{2})$/.test(s)) return true;
+  return false;
+}
+
+function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   if (!Array.isArray(cols) || cols.length < 2) return null;
 
   const productCol =
@@ -57,19 +81,33 @@ function buildInquiryChunkFromColumns(cols) {
     cols.find((c) => /[a-zA-Zа-яА-Я]{4,}/.test(c) && !INQUIRY_UNIT_RE.test(c));
   if (!productCol || isInquiryMetaLine(productCol)) return null;
 
-  const unitCol = cols.find((c) => INQUIRY_UNIT_RE.test(c));
-  const qtyCol =
-    [...cols]
-      .reverse()
-      .find((c) => /^\d+(?:[.,]\d+)?$/.test(c)) ||
-    cols.find((c) =>
-      /^\d+\s*(?:шт\.?|pcs|szt\.?|ед\.?|кг|kg)?$/i.test(c)
+  const unitCol =
+    (tableCtx?.unitIdx >= 0 && cols[tableCtx.unitIdx]) ||
+    cols.find((c) => INQUIRY_UNIT_RE.test(c));
+
+  let qtyCol = null;
+  if (tableCtx?.qtyIdx >= 0 && cols[tableCtx.qtyIdx]) {
+    qtyCol = cols[tableCtx.qtyIdx];
+  } else {
+    const skip = new Set(
+      [tableCtx?.priceIdx, tableCtx?.unitIdx].filter((i) => i >= 0)
     );
+    for (let i = cols.length - 1; i >= 0; i--) {
+      if (skip.has(i)) continue;
+      const c = cols[i];
+      if (/^\d+(?:[.,]\d+)?$/.test(c) && !isLikelyPriceToken(c)) {
+        qtyCol = c;
+        break;
+      }
+    }
+  }
 
   const parts = [productCol.replace(/^\d+[.)]\s*/, "").trim()];
   if (qtyCol) {
     const qty = String(qtyCol).match(/(\d+(?:[.,]\d+)?)/)?.[1];
-    if (qty) parts.push(`${qty} ${unitCol || "шт"}`);
+    if (qty && !isLikelyPriceToken(qty)) {
+      parts.push(`${qty} ${unitCol || "шт"}`);
+    }
   }
   return parts.join(" ").trim();
 }
@@ -107,6 +145,7 @@ function splitInquiryChunks(text) {
   const normalized = normalizeOcrInquiryText(text);
   if (!normalized) return [];
 
+  const tableCtx = detectInquiryTableContext(normalized);
   const chunks = [];
   const seen = new Set();
 
@@ -121,22 +160,23 @@ function splitInquiryChunks(text) {
     const trimmed = line.trim();
     if (trimmed.length < 5 || isInquiryMetaLine(trimmed)) continue;
 
-    // Markdown / PDF table rows (pipe or tab separated)
     if (/\t|\|/.test(trimmed)) {
-      const chunk = buildInquiryChunkFromColumns(splitTableColumns(trimmed));
+      const chunk = buildInquiryChunkFromColumns(
+        splitTableColumns(trimmed),
+        tableCtx
+      );
       if (chunk) {
         pushChunk(chunk);
         continue;
       }
     }
 
-    // Wide-space columns (typical PDF table dumps without pipes)
     if (/\s{3,}/.test(trimmed)) {
       const cols = trimmed
         .split(/\s{2,}/)
         .map((c) => c.trim())
         .filter(Boolean);
-      const chunk = buildInquiryChunkFromColumns(cols);
+      const chunk = buildInquiryChunkFromColumns(cols, tableCtx);
       if (chunk) {
         pushChunk(chunk);
         continue;
@@ -183,8 +223,13 @@ function parseQuantity(text) {
     /(\d+(?:[.,]\d+)?)\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)/i
   );
   if (withUnit) {
-    const qty = parseFloat(String(withUnit[1]).replace(",", "."));
-    return Number.isFinite(qty) ? Math.max(1, Math.round(qty)) : 1;
+    const qtyStr = withUnit[1];
+    if (isLikelyPriceToken(qtyStr)) {
+      /* fall through */
+    } else {
+      const qty = parseFloat(String(qtyStr).replace(",", "."));
+      return Number.isFinite(qty) ? Math.max(1, Math.round(qty)) : 1;
+    }
   }
 
   const cols = splitTableColumns(raw);
@@ -193,15 +238,23 @@ function parseQuantity(text) {
     if (unitIdx >= 0) {
       const qtyCol = cols[unitIdx + 1] || cols[cols.length - 1];
       const m = String(qtyCol || "").match(/^(\d+(?:[.,]\d+)?)$/);
-      if (m) return Math.max(1, Math.round(parseFloat(m[1].replace(",", "."))));
+      if (m && !isLikelyPriceToken(m[1])) {
+        return Math.max(1, Math.round(parseFloat(m[1].replace(",", "."))));
+      }
     }
   }
 
-  const tail = raw.match(/(\d+(?:[.,]\d+)?)\s*$/);
-  if (tail) return Math.max(1, Math.round(parseFloat(tail[1].replace(",", "."))));
+  const numbers = [...raw.matchAll(/\b(\d+(?:[.,]\d+)?)\b/g)].map((m) => m[1]);
+  for (let i = numbers.length - 1; i >= 0; i--) {
+    const token = numbers[i];
+    if (isLikelyPriceToken(token)) continue;
+    const n = parseFloat(token.replace(",", "."));
+    if (Number.isFinite(n) && n > 0) {
+      return Math.max(1, Math.round(n));
+    }
+  }
 
-  const bare = raw.match(/\b(\d{1,6})\b/);
-  return bare ? Math.max(1, parseInt(bare[1], 10)) : 1;
+  return 1;
 }
 
 function usesNonPieceUnit(text) {
