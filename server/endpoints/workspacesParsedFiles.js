@@ -21,6 +21,9 @@ const {
   getRestrictedMessage,
 } = require("../utils/restrictedContent");
 const { writeResponseChunk } = require("../utils/helpers/chat/responses");
+const {
+  enrichDocumentsWithOfferKpOcr,
+} = require("../utils/offerKp/offerKpDocumentIngest");
 
 function workspaceParsedFilesEndpoints(app) {
   if (!app) return;
@@ -289,7 +292,14 @@ function workspaceParsedFilesEndpoints(app) {
           });
         }
 
-        const firstPageText = documents?.[0]?.pageContent || "";
+        const enrichedDocuments = await enrichDocumentsWithOfferKpOcr({
+          documents,
+          originalLocation,
+          originalFilename: originalname,
+          workspace,
+        });
+
+        const firstPageText = enrichedDocuments?.[0]?.pageContent || "";
         if (hasRestrictedContent(firstPageText)) {
           return response
             .status(403)
@@ -306,7 +316,7 @@ function workspaceParsedFilesEndpoints(app) {
             })
           : null;
         const files = await Promise.all(
-          documents.map(async (doc) => {
+          enrichedDocuments.map(async (doc) => {
             const metadata = { ...doc };
             const pageContent = metadata.pageContent || "";
             metadata.lineCount = countContentLines(pageContent);
@@ -407,7 +417,15 @@ function workspaceParsedFilesEndpoints(app) {
           return response.end();
         }
 
-        const firstPageText = documents?.[0]?.pageContent || "";
+        const enrichedDocuments = await enrichDocumentsWithOfferKpOcr({
+          documents,
+          originalLocation,
+          originalFilename: originalname,
+          workspace,
+          onProgress: send,
+        });
+
+        const firstPageText = enrichedDocuments?.[0]?.pageContent || "";
         if (hasRestrictedContent(firstPageText)) {
           send({ type: "error", error: getRestrictedMessage() });
           return response.end();
@@ -423,7 +441,7 @@ function workspaceParsedFilesEndpoints(app) {
           : null;
 
         const files = await Promise.all(
-          documents.map(async (doc) => {
+          enrichedDocuments.map(async (doc) => {
             const metadata = { ...doc };
             const pageContent = metadata.pageContent || "";
             metadata.lineCount = countContentLines(pageContent);

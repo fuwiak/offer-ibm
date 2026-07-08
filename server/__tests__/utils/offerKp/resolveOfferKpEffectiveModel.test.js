@@ -1,5 +1,6 @@
 const {
   resolveOfferKpEffectiveModel,
+  OFFER_KP_DEFAULT_MODEL,
 } = require("../../../config/offerKp.models");
 
 describe("resolveOfferKpEffectiveModel", () => {
@@ -21,6 +22,17 @@ describe("resolveOfferKpEffectiveModel", () => {
   });
 
   it("returns default when workspace has no models", () => {
-    expect(resolveOfferKpEffectiveModel(null)).toBe("openai/gpt-oss-20b");
+    expect(resolveOfferKpEffectiveModel(null)).toBe(OFFER_KP_DEFAULT_MODEL);
+  });
+
+  it("rejects PaddleOCR (OCR-only) and falls back to default", () => {
+    expect(
+      resolveOfferKpEffectiveModel({
+        chatModel:
+          "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
+        agentModel:
+          "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
+      })
+    ).toBe(OFFER_KP_DEFAULT_MODEL);
   });
 });

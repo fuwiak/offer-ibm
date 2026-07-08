@@ -16,6 +16,10 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
     name: "Qwen3-VL-8B Thinking",
     hint: "Локально · vision · рассуждения · Q4_K_M · ~8 GB VRAM",
   },
+  "qwen/qwen3-vl-30b": {
+    name: "Qwen3-VL-30B A3B",
+    hint: "Локально · vision · Q4_K_M · T4: ctx 8192, gpu 0.9",
+  },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
     hint: "Локально · vision · Q4_K_M",
@@ -28,9 +32,14 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
     name: "Qwen2.5-VL-7B",
     hint: "Локально · vision · Q4_K_M",
   },
-  "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf": {
+};
+
+/** OCR-only (не для чата/@agent). */
+const OFFER_KP_OCR_MODEL_METADATA = {
+  [OFFER_KP_PADDLEOCR_VL_15_MODEL]: {
     name: "PaddleOCR-VL 1.5",
-    hint: "OCR · документы · paddleocr-vl-1.5.gguf · ~2 GB VRAM",
+    hint: "Чтение PDF · автоматически при загрузке · не для чата",
+    usage: "ocr",
   },
 };
 
@@ -111,15 +120,23 @@ function isOfferKpRunnablePaddleOcrModel(modelId) {
   return base === "paddleocr-vl-1.5.gguf";
 }
 
+function isOfferKpOcrOnlyModel(modelId) {
+  return isOfferKpRunnablePaddleOcrModel(modelId);
+}
+
+function isOfferKpChatModel(modelId) {
+  const id = String(modelId || "").trim();
+  if (!id || isOfferKpOcrOnlyModel(id)) return false;
+  const normalized = normalizeOfferKpModelId(id);
+  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[normalized]) return true;
+  return isOfferKpQwenModel(id);
+}
+
 function isOfferKpPickerModel(modelId) {
   const id = String(modelId || "").trim();
   if (!id) return false;
   if (isLmStudioAuxiliaryModelId(id)) return false;
-  const normalized = normalizeOfferKpModelId(id);
-  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[normalized]) return true;
-  if (isOfferKpQwenModel(id)) return true;
-  if (isOfferKpRunnablePaddleOcrModel(id)) return true;
-  return false;
+  return isOfferKpChatModel(id);
 }
 
 function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
@@ -193,8 +210,7 @@ function isOfferKpAllowedModel(modelId, liveIds = null) {
   if (!isOfferKpPickerModel(id)) return false;
   if (Array.isArray(liveIds) && liveIds.includes(id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
-  if (isOfferKpRunnablePaddleOcrModel(id)) return true;
-  return isLmStudioCatalogModelId(id);
+  return isLmStudioCatalogModelId(id) && isOfferKpQwenModel(id);
 }
 
 function filterOfferKpModels(models = []) {
@@ -204,6 +220,7 @@ function filterOfferKpModels(models = []) {
 function resolveOfferKpModel(modelId, liveIds = null) {
   const id = normalizeOfferKpModelId(modelId);
   if (!id) return OFFER_KP_DEFAULT_MODEL;
+  if (isOfferKpOcrOnlyModel(id)) return OFFER_KP_DEFAULT_MODEL;
   if (isOfferKpAllowedModel(id, liveIds)) return id;
   if (Array.isArray(liveIds) && liveIds.length > 0) return liveIds[0];
   return OFFER_KP_DEFAULT_MODEL;
@@ -235,8 +252,24 @@ function normalizeWorkspaceModelId(modelId) {
 function resolveOfferKpEffectiveModel(workspace) {
   const chat = normalizeWorkspaceModelId(workspace?.chatModel);
   const agent = normalizeWorkspaceModelId(workspace?.agentModel);
-  if (chat && agent && chat !== agent) return chat;
-  return chat || agent || OFFER_KP_DEFAULT_MODEL;
+  let picked = chat && agent && chat !== agent ? chat : chat || agent;
+  if (!picked || isOfferKpOcrOnlyModel(picked)) {
+    picked = OFFER_KP_DEFAULT_MODEL;
+  }
+  return picked || OFFER_KP_DEFAULT_MODEL;
+}
+
+function resolveOfferKpOcrModel() {
+  const llmDefaults = require("./offerKp.llm.defaults");
+  return normalizeOfferKpModelId(
+    process.env.LMSTUDIO_OCR_MODEL_PREF ||
+      llmDefaults.LMSTUDIO_OCR_MODEL_PREF ||
+      OFFER_KP_PADDLEOCR_VL_15_MODEL
+  );
+}
+
+function resolveOfferKpChatModel(workspace) {
+  return resolveOfferKpEffectiveModel(workspace);
 }
 
 module.exports = {
@@ -252,6 +285,8 @@ module.exports = {
   isOfferKpQwenModel,
   isOfferKpPaddleOcrModel,
   isOfferKpRunnablePaddleOcrModel,
+  isOfferKpOcrOnlyModel,
+  isOfferKpChatModel,
   isLmStudioAuxiliaryModelId,
   isOfferKpPickerModel,
   isOfferKpAllowedModel,
@@ -264,5 +299,7 @@ module.exports = {
   resolveOfferKpModel,
   resolveOfferKpProvider,
   resolveOfferKpEffectiveModel,
+  resolveOfferKpOcrModel,
+  resolveOfferKpChatModel,
   normalizeWorkspaceModelId,
 };

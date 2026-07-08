@@ -4,6 +4,7 @@ const {
   OFFER_KP_DEFAULT_MODEL,
   isOfferKpCloudModel,
   isOfferKpAllowedModel,
+  isOfferKpOcrOnlyModel,
 } = require("../../config/offerKp.models");
 const { coerceToLocalModel } = require("./resolveLlmProvider");
 
@@ -43,6 +44,8 @@ async function normalizeOfferKpWorkspaceLlms() {
       isOfferKpCloudModel(ws.agentModel) ||
       !isOfferKpAllowedModel(chatModel) ||
       !isOfferKpAllowedModel(agentModel) ||
+      isOfferKpOcrOnlyModel(ws.chatModel) ||
+      isOfferKpOcrOnlyModel(ws.agentModel) ||
       ws.chatProvider === "ollama" ||
       ws.agentProvider === "ollama";
 

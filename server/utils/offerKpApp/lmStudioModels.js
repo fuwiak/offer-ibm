@@ -381,6 +381,8 @@ async function loadLmStudioModelViaRest(modelId, opts = {}) {
     opts.contextLength ||
     Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
     32768;
+  const { resolveLmStudioLoadProfile } = require("./lmStudioCli");
+  const profile = resolveLmStudioLoadProfile(id, { contextLength, gpu: opts.gpu });
 
   const unloadedIds = await unloadAllLoadedLmStudioModels({ basePath, apiKey });
 
@@ -395,9 +397,9 @@ async function loadLmStudioModelViaRest(modelId, opts = {}) {
       headers: lmStudioAuthHeaders(apiKey),
       body: JSON.stringify({
         model: id,
-        context_length: contextLength,
+        context_length: profile.contextLength,
         flash_attention: true,
-        offload_kv_cache_to_gpu: true,
+        offload_kv_cache_to_gpu: profile.offloadKvCacheToGpu,
         echo_load_config: true,
       }),
       signal: controller.signal,
@@ -429,7 +431,7 @@ async function loadLmStudioModelViaRest(modelId, opts = {}) {
     alreadyLoaded: false,
     unloadedIds,
     loadTimeSeconds: Number(body?.load_time_seconds) || null,
-    contextLength: body?.load_config?.context_length || contextLength,
+    contextLength: body?.load_config?.context_length || profile.contextLength,
     instanceId: body?.instance_id || id,
     via: "rest",
   };
@@ -450,10 +452,12 @@ async function loadLmStudioModel(modelId, opts = {}) {
       ? process.env.LMSTUDIO_AUTH_TOKEN
       : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
 
-  const contextLength =
-    opts.contextLength ||
-    Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
-    32768;
+  const { loadLmStudioModelViaCli, resolveLmStudioLoadProfile } = require("./lmStudioCli");
+  const profile = resolveLmStudioLoadProfile(id, {
+    contextLength: opts.contextLength,
+    gpu: opts.gpu,
+  });
+  const contextLength = profile.contextLength;
 
   if (!opts.force) {
     const { stateById, loadedContextById } = await fetchLmStudioRuntimeStates(
@@ -486,13 +490,13 @@ async function loadLmStudioModel(modelId, opts = {}) {
     }
   }
 
-  const { loadLmStudioModelViaCli } = require("./lmStudioCli");
   let result = null;
 
   if (opts.preferCli !== false) {
     try {
       result = await loadLmStudioModelViaCli(id, {
-        contextLength,
+        contextLength: profile.contextLength,
+        gpu: profile.gpu,
         sshTarget: opts.sshTarget,
       });
     } catch (error) {
@@ -507,7 +511,8 @@ async function loadLmStudioModel(modelId, opts = {}) {
     result = await loadLmStudioModelViaRest(id, {
       basePath,
       apiKey,
-      contextLength,
+      contextLength: profile.contextLength,
+      gpu: profile.gpu,
     });
   }
 
@@ -525,6 +530,29 @@ async function loadLmStudioModel(modelId, opts = {}) {
   return result;
 }
 
+/**
+ * @param {"chat"|"ocr"} task
+ * @param {{ workspace?: object, modelId?: string }} [opts]
+ */
+async function loadLmStudioModelForTask(task, opts = {}) {
+  const {
+    resolveOfferKpOcrModel,
+    resolveOfferKpChatModel,
+    OFFER_KP_DEFAULT_MODEL,
+  } = require("../../config/offerKp.models");
+
+  const modelId =
+    opts.modelId ||
+    (task === "ocr"
+      ? resolveOfferKpOcrModel()
+      : resolveOfferKpChatModel(opts.workspace) || OFFER_KP_DEFAULT_MODEL);
+
+  return loadLmStudioModel(modelId, {
+    ...opts,
+    force: opts.force !== false,
+  });
+}
+
 module.exports = {
   lmStudioBaseUrl,
   isLmStudioChatModelId,
@@ -538,6 +566,7 @@ module.exports = {
   getCachedLmStudioModelState,
   invalidateLmStudioModelCatalogCache,
   loadLmStudioModel,
+  loadLmStudioModelForTask,
   unloadLmStudioModel,
   unloadAllLoadedLmStudioModels,
   unloadOtherLoadedLmStudioModels,

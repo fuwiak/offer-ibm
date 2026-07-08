@@ -32,14 +32,12 @@ describe("lmStudioModels", () => {
     expect(mapped?.name).toBe("Qwen3-VL-8B");
   });
 
-  it("maps PaddleOCR-VL from LM Studio catalog", () => {
-    const mapped = mapLmStudioRemoteModel({
-      id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
-    });
-    expect(mapped?.id).toBe(
-      "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
-    );
-    expect(mapped?.name).toBe("PaddleOCR-VL 1.5");
+  it("excludes PaddleOCR from chat picker (OCR-only model)", () => {
+    expect(
+      mapLmStudioRemoteModel({
+        id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
+      })
+    ).toBeNull();
   });
 
   it("ignores PaddleOCR mmproj and duplicate LM Studio instances", () => {
@@ -55,13 +53,17 @@ describe("lmStudioModels", () => {
     ).toBeNull();
   });
 
-  it("normalizes legacy PaddleOCR model id", () => {
-    const { normalizeOfferKpModelId, resolveOfferKpModel } = require("../../../config/offerKp.models");
+  it("coerces legacy PaddleOCR id to default chat model", () => {
+    const {
+      normalizeOfferKpModelId,
+      resolveOfferKpModel,
+      OFFER_KP_DEFAULT_MODEL,
+    } = require("../../../config/offerKp.models");
     expect(normalizeOfferKpModelId("paddleocr-vl-1.5")).toBe(
       "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
     );
     expect(resolveOfferKpModel("paddleocr-vl-1.5")).toBe(
-      "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
+      OFFER_KP_DEFAULT_MODEL
     );
   });
 
@@ -79,12 +81,11 @@ describe("lmStudioModels", () => {
       { id: "openai/gpt-oss-20b" },
     ]);
     expect(merged.map((m) => m.id)).toEqual(
-      expect.arrayContaining([
-        "qwen/qwen3-vl-8b",
-        "qwen/qwen3-vl-8b-thinking",
-        "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
-      ])
+      expect.arrayContaining(["qwen/qwen3-vl-8b", "qwen/qwen3-vl-8b-thinking"])
     );
+    expect(
+      merged.some((m) => m.id.includes("paddleocr"))
+    ).toBe(false);
     expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(false);
     const qwen8b = merged.find((m) => m.id === "qwen/qwen3-vl-8b");
     expect(qwen8b?.loaded).toBe(true);
