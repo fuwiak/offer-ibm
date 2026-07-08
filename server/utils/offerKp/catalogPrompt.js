@@ -7,6 +7,7 @@ const {
   formatInquiryDraftSection,
   mergeInquiryDraftIntoUserPrompt,
 } = require("./inquiryDraftPrompt");
+const { OFFER_KP_SCOPE_USER_FOOTER } = require("../../config/offerKp.scopeGuardrails");
 const { parseInquiryText } = require("./parseInquiry");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
 const shopDbLog = require("./shopDbLog");
@@ -119,7 +120,7 @@ function mergeCatalogIntoUserPrompt(userPrompt, contextTexts = []) {
 
   const catalogSection = blocks.join("\n\n");
   const question = String(userPrompt || "").trim();
-  return `${USER_CATALOG_HEADER}\n${catalogSection}\n${USER_CATALOG_FOOTER}\n\n${question}`;
+  return `${USER_CATALOG_HEADER}\n${catalogSection}\n${USER_CATALOG_FOOTER}\n\n${OFFER_KP_SCOPE_USER_FOOTER}\n\n${question}`;
 }
 
 /**

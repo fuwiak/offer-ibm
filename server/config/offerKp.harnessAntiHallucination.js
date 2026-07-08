@@ -1,7 +1,9 @@
 /**
- * Анти-галлюцинационный контракт harness OfferKP (retrieve → constrain → verify → abstain).
+ * Анти-галлюцинационный контракт harness OfferKP (retrieve → constrain → verify → abstain → scope).
  * Источник: retrieve-constrain-verify-abstain + CRAG + weakest-claim gate.
  */
+
+const { scopeHarnessGuidelines } = require("./offerKp.scopeGuardrails");
 
 const ABSTAIN_MESSAGE =
   "Недостаточно подтверждённых данных в каталоге, чтобы уверенно ответить. Уточните позиции или пришлите заявку с DIN/ГОСТ — без выдуманных цен и наличия.";
@@ -74,6 +76,9 @@ const VERIFY_GUIDELINES = [
   "Одна неподтверждённая строка — исправь или убери её; не отправляй документ с выдуманными позициями.",
 ];
 
+/** Scope: не выходить за задачу, без шума и мета-комментариев. */
+const SCOPE_GUIDELINES = scopeHarnessGuidelines();
+
 function layerGuidelines(layer) {
   switch (layer) {
     case "retrieve":
@@ -84,12 +89,15 @@ function layerGuidelines(layer) {
       return [...VERIFY_GUIDELINES];
     case "abstain":
       return [...ABSTAIN_GUIDELINES];
+    case "scope":
+      return [...SCOPE_GUIDELINES];
     default:
       return [
         ...RETRIEVE_GUIDELINES,
         ...CONSTRAIN_GUIDELINES,
         ...VERIFY_GUIDELINES,
         ...ABSTAIN_GUIDELINES,
+        ...SCOPE_GUIDELINES,
       ];
   }
 }
