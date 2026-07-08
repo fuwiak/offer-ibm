@@ -255,6 +255,85 @@ function lmStudioApiOrigin(basePath = lmStudioBaseUrl()) {
   return new URL(parseLMStudioBasePath(basePath)).origin;
 }
 
+function lmStudioV1Url(basePath, pathname) {
+  const url = new URL(lmStudioApiOrigin(basePath));
+  url.pathname = pathname;
+  return url;
+}
+
+function lmStudioAuthHeaders(apiKey = null) {
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
+/**
+ * Unload a model instance from LM Studio VRAM.
+ * @param {string} instanceId
+ * @param {{ basePath?: string, apiKey?: string }} [opts]
+ */
+async function unloadLmStudioModel(instanceId, opts = {}) {
+  const id = String(instanceId || "").trim();
+  if (!id) return false;
+
+  const basePath = opts.basePath || lmStudioBaseUrl();
+  const apiKey =
+    opts.apiKey === true
+      ? process.env.LMSTUDIO_AUTH_TOKEN
+      : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
+
+  const response = await fetch(
+    lmStudioV1Url(basePath, "/api/v1/models/unload").toString(),
+    {
+      method: "POST",
+      headers: lmStudioAuthHeaders(apiKey),
+      body: JSON.stringify({ instance_id: id }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail =
+      body?.error?.message ||
+      body?.message ||
+      body?.error ||
+      response.statusText ||
+      "LM Studio model unload failed";
+    throw new Error(String(detail));
+  }
+
+  return true;
+}
+
+/**
+ * Free VRAM by unloading every loaded chat model except the target.
+ * @param {string} targetModelId
+ * @param {{ basePath?: string, apiKey?: string }} [opts]
+ */
+async function unloadOtherLoadedLmStudioModels(targetModelId, opts = {}) {
+  const target = String(targetModelId || "").trim();
+  const basePath = opts.basePath || lmStudioBaseUrl();
+  const apiKey =
+    opts.apiKey === true
+      ? process.env.LMSTUDIO_AUTH_TOKEN
+      : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
+
+  const { loadedIds } = await fetchLmStudioRuntimeStates(basePath, apiKey);
+  const toUnload = loadedIds.filter((loadedId) => loadedId && loadedId !== target);
+  if (!toUnload.length) return [];
+
+  for (const loadedId of toUnload) {
+    await unloadLmStudioModel(loadedId, { basePath, apiKey });
+    offerKpLog("info", "Unloaded LM Studio model before switch", {
+      unloaded: loadedId,
+      target,
+    });
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  return toUnload;
+}
+
 /**
  * Load a model into LM Studio VRAM via POST /api/v1/models/load.
  * @param {string} modelId
@@ -285,16 +364,19 @@ async function loadLmStudioModel(modelId, opts = {}) {
     }
   }
 
-  const loadUrl = new URL(lmStudioApiOrigin(basePath));
-  loadUrl.pathname = "/api/v1/models/load";
+  const unloadedIds = await unloadOtherLoadedLmStudioModels(id, {
+    basePath,
+    apiKey,
+  });
+
+  const loadUrl = lmStudioV1Url(basePath, "/api/v1/models/load");
 
   const contextLength =
     opts.contextLength ||
     Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
     32768;
 
-  const headers = { "Content-Type": "application/json" };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const headers = lmStudioAuthHeaders(apiKey);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 300_000);
@@ -328,7 +410,11 @@ async function loadLmStudioModel(modelId, opts = {}) {
       body?.error ||
       response.statusText ||
       "LM Studio model load failed";
-    throw new Error(String(detail));
+    const hint =
+      unloadedIds.length > 0
+        ? detail
+        : `${detail} (another model may still occupy VRAM — try again)`;
+    throw new Error(String(hint));
   }
 
   invalidateLmStudioModelCatalogCache();
@@ -336,6 +422,7 @@ async function loadLmStudioModel(modelId, opts = {}) {
 
   offerKpLog("info", "LM Studio model loaded into VRAM", {
     model: id,
+    unloadedIds,
     loadTimeSeconds: body?.load_time_seconds,
     status: body?.status,
   });
@@ -345,6 +432,7 @@ async function loadLmStudioModel(modelId, opts = {}) {
     model: id,
     status: body?.status || "loaded",
     alreadyLoaded: false,
+    unloadedIds,
     loadTimeSeconds: Number(body?.load_time_seconds) || null,
     instanceId: body?.instance_id || id,
   };
@@ -363,5 +451,7 @@ module.exports = {
   getCachedLmStudioModelState,
   invalidateLmStudioModelCatalogCache,
   loadLmStudioModel,
+  unloadLmStudioModel,
+  unloadOtherLoadedLmStudioModels,
   LMSTUDIO_MODELS_CACHE_MS,
 };
