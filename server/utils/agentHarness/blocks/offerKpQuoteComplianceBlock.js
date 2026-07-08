@@ -12,6 +12,7 @@ const {
   collectCatalogBlocksFromHarness,
   validateQuotePricesAgainstCatalog,
 } = require("../../offerKp/harnessEvidence");
+const { validateQuotePricesFromDb } = require("../../offerKp/quoteDbPriceGate");
 const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
@@ -48,10 +49,22 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
     });
 
     const catalogBlocks = collectCatalogBlocksFromHarness(harness);
+    const inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
+    const dbPriceCheck = validateQuotePricesFromDb(content, {
+      draft: inquiryDbDraft,
+      catalogBlocks,
+    });
     const catalogCheck = validateQuotePricesAgainstCatalog(content, catalogBlocks);
-    const violations = [...result.violations, ...catalogCheck.violations];
+    const violations = [
+      ...result.violations,
+      ...dbPriceCheck.violations,
+      ...catalogCheck.violations,
+    ];
 
-    if (result.ok && catalogCheck.ok) {
+    const complianceOk =
+      result.ok && dbPriceCheck.ok && catalogCheck.ok;
+
+    if (complianceOk) {
       harness.state.set("quoteComplianceOk", true);
       harness.state.delete("quoteComplianceViolations");
       return null;

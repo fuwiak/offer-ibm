@@ -47,16 +47,18 @@ function formatInquiryDraftSection(draft) {
       const price =
         Number(line.unitPriceNet) > 0
           ? `${Number(line.unitPriceNet).toFixed(2)} RUB`
-          : "—";
-      const status = line.status || "—";
+          : "— (нет в ShopDB)";
+      const productRef = line.productId ? ` · ID ${line.productId}` : "";
+      const status = `${line.status || "—"}${productRef}`;
       return `| ${idx + 1} | ${requested} | ${matched} | ${qty} ${unit} | ${price} | ${status} |`;
     })
     .join("\n");
 
   return `${INQUIRY_DRAFT_HEADER}
 Строк в заявке: ${lines.length}. В итоговом КП должно быть ровно ${lines.length} позиций — по одной на каждую строку ниже.
-Количество бери из колонки «Кол-во»; цену и наименование — из «Подобрано из каталога» и блоков [Каталог · purolat.com].
-Не добавляй позиции вне таблицы, не пиши вступлений и не пересказывай правила — сразу сформируй итоговую таблицу КП.
+Количество — только из колонки «Кол-во» PDF (кг/шт).
+Цена — ТОЛЬКО из колонки «Цена» этой таблицы (ShopDB / matchInquiryToDraft). Запрещено брать цены из PDF, OCR и «придумывать».
+Если в черновике «— (нет в ShopDB)» — не указывай цену в КП, пиши «под заказ» / «требует проверки».
 
 | № | Запрошено в PDF | Подобрано из каталога | Кол-во | Цена | Статус |
 |---|-----------------|------------------------|--------|------|--------|

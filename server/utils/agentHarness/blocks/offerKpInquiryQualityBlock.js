@@ -1,6 +1,7 @@
 const { BaseBlock } = require("../BaseBlock");
 const { harnessLog } = require("../harnessLog");
 const { parseInquiryText } = require("../../offerKp/parseInquiry");
+const { matchInquiryToDraft } = require("../../offerKp/matchInquiryLines");
 const {
   assessInquiryTextQuality,
   validateInquiryLines,
@@ -43,6 +44,21 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
     const lines = parseInquiryText(combined);
     const lineIssues = validateInquiryLines(lines);
 
+    let inquiryDbDraft = null;
+    if (lines.length > 0 && harness?.ctx?.workspace?.id) {
+      try {
+        inquiryDbDraft = await matchInquiryToDraft(combined, {
+          workspace: harness.ctx.workspace,
+          parsedFileTexts: texts,
+        });
+        harness.state.set("inquiryDbDraft", inquiryDbDraft);
+      } catch (error) {
+        harnessLog("warn", "inquiryDbDraft.failed", {
+          error: error?.message || String(error),
+        });
+      }
+    }
+
     harness.state.set("inquiryTextQuality", textQuality);
     harness.state.set("inquiryLineCount", lines.length);
     harness.state.set("inquiryLineIssues", lineIssues);
@@ -65,9 +81,12 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
     }
     if (lineIssues.length) {
       guidelines.push(
-        "Возможна путаница кол-во/цена в OCR. Кол-во — из колонки «Кол-во» (кг/шт); цены — только из каталога ShopDB, не из PDF."
+        "Возможна путаница кол-во/цена в OCR. Кол-во — из колонки «Кол-во» (кг/шт); цены — только из ShopDB (черновик КП / [Каталог · purolat.com]), не из PDF."
       );
     }
+    guidelines.push(
+      "Запрещено выдумывать цены: в DOCX/PDF только суммы из ShopDB (колонка «Цена» черновика КП). Числа с копейками из PDF — не цены каталога."
+    );
     if (lines.length > 1) {
       guidelines.push(
         `В заявке ${lines.length} позиций — в КП должно быть ровно ${lines.length} строк с корректным кол-вом.`

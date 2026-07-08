@@ -24,10 +24,15 @@ async function fetchProductStock(productId) {
   );
   const totalStock = rows.reduce((sum, r) => sum + (Number(r.count) || 0), 0);
   const bestSku = rows[0] || {};
+  const skuPrice = resolveProductPrice({}, rows);
   return {
     sku: bestSku.sku || "",
     skuName: bestSku.sku_name || "",
-    price: Number(bestSku.price) || Number(bestSku.compare_price) || 0,
+    price:
+      Number(bestSku.price) ||
+      Number(bestSku.compare_price) ||
+      skuPrice ||
+      0,
     stockCount: totalStock,
     skus: rows,
   };
