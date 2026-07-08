@@ -1,4 +1,12 @@
 /** Синхронизировать с server/config/offerKp.models.js */
+export const OFFER_KP_PADDLEOCR_VL_15_MODEL =
+  "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf";
+
+/** @deprecated LM Studio short id before full GGUF pair was on disk */
+const OFFER_KP_MODEL_ID_ALIASES = {
+  "paddleocr-vl-1.5": OFFER_KP_PADDLEOCR_VL_15_MODEL,
+};
+
 export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",
@@ -16,7 +24,7 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
     name: "Qwen2.5-VL-7B",
     hint: "Локально · vision · Q4_K_M",
   },
-  "paddleocr-vl-1.5": {
+  "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf": {
     name: "PaddleOCR-VL 1.5",
     hint: "OCR · документы · layout · 0.9B · ~2 GB VRAM",
   },
@@ -60,6 +68,23 @@ export function isLmStudioChatModelId(modelId) {
   return true;
 }
 
+export function normalizeOfferKpModelId(modelId) {
+  const id = String(modelId || "").trim();
+  if (!id) return "";
+  return OFFER_KP_MODEL_ID_ALIASES[id] || id;
+}
+
+export function resolveOfferKpModelDisplayOverride(modelId) {
+  const id = normalizeOfferKpModelId(modelId);
+  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) {
+    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
+  }
+  if (isOfferKpPaddleOcrModel(id)) {
+    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[OFFER_KP_PADDLEOCR_VL_15_MODEL];
+  }
+  return null;
+}
+
 export function isOfferKpQwenModel(modelId) {
   const id = String(modelId || "")
     .trim()
@@ -87,7 +112,7 @@ export function isOfferKpPickerModel(modelId) {
 }
 
 export function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   return (
     models.find((m) => m.id === id) ||
     OFFER_KP_LOCAL_MODELS.find((m) => m.id === id) ||
@@ -105,7 +130,7 @@ export function mapLmStudioRemoteModel(
   if (!isOfferKpPickerModel(id)) return null;
 
   const loadState = String(entry?.loadState || "").toLowerCase();
-  const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
+  const override = resolveOfferKpModelDisplayOverride(id);
   const known = findOfferKpModel(id, knownModels);
   const loadHint =
     loadState === "loaded"
@@ -159,16 +184,17 @@ export function isOfferKpAllowedModel(
   modelId,
   models = OFFER_KP_ALLOWED_MODELS
 ) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   if (!id) return false;
   if (!isOfferKpPickerModel(id)) return false;
   if (models.some((m) => m.id === id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
+  if (isOfferKpPaddleOcrModel(id)) return true;
   return isLmStudioCatalogModelId(id);
 }
 
 export function resolveOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   if (!id) return OFFER_KP_DEFAULT_MODEL;
   if (isOfferKpAllowedModel(id, models)) return id;
   if (models.length > 0) return models[0].id;
@@ -180,7 +206,8 @@ export function isOfferKpCloudModel(_modelId) {
 }
 
 export function isOfferKpLocalModel(modelId, models = OFFER_KP_LOCAL_MODELS) {
-  return models.some((m) => m.id === String(modelId || "").trim());
+  const id = normalizeOfferKpModelId(modelId);
+  return models.some((m) => m.id === id);
 }
 
 export function resolveOfferKpProvider(_modelId) {

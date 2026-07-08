@@ -23,22 +23,39 @@ describe("lmStudioModels", () => {
   });
 
   it("maps PaddleOCR-VL from LM Studio catalog", () => {
-    const mapped = mapLmStudioRemoteModel({ id: "paddleocr-vl-1.5" });
-    expect(mapped?.id).toBe("paddleocr-vl-1.5");
+    const mapped = mapLmStudioRemoteModel({
+      id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
+    });
+    expect(mapped?.id).toBe(
+      "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
+    );
     expect(mapped?.name).toBe("PaddleOCR-VL 1.5");
+  });
+
+  it("normalizes legacy PaddleOCR model id", () => {
+    const { normalizeOfferKpModelId, resolveOfferKpModel } = require("../../../config/offerKp.models");
+    expect(normalizeOfferKpModelId("paddleocr-vl-1.5")).toBe(
+      "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
+    );
+    expect(resolveOfferKpModel("paddleocr-vl-1.5")).toBe(
+      "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf"
+    );
   });
 
   it("merge keeps static catalog and overlays live VRAM state", () => {
     const merged = mergeLmStudioRemoteModels([
       { id: "qwen/qwen3-vl-8b", loadState: "loaded" },
-      { id: "paddleocr-vl-1.5", loadState: "not-loaded" },
+      {
+        id: "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
+        loadState: "not-loaded",
+      },
       { id: "openai/gpt-oss-20b" },
     ]);
     expect(merged.map((m) => m.id)).toEqual(
       expect.arrayContaining([
         "qwen/qwen3-vl-8b",
         "qwen/qwen3-vl-8b-thinking",
-        "paddleocr-vl-1.5",
+        "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf",
       ])
     );
     expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(false);

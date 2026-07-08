@@ -3,6 +3,14 @@
  * Static entries below are display overrides only (names, hints).
  * Синхронизировать с frontend/src/utils/offerKp/models.js
  */
+const OFFER_KP_PADDLEOCR_VL_15_MODEL =
+  "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf";
+
+/** @deprecated LM Studio short id before full GGUF pair was on disk */
+const OFFER_KP_MODEL_ID_ALIASES = {
+  "paddleocr-vl-1.5": OFFER_KP_PADDLEOCR_VL_15_MODEL,
+};
+
 const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",
@@ -20,7 +28,7 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
     name: "Qwen2.5-VL-7B",
     hint: "Локально · vision · Q4_K_M",
   },
-  "paddleocr-vl-1.5": {
+  "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf": {
     name: "PaddleOCR-VL 1.5",
     hint: "OCR · документы · layout · 0.9B · ~2 GB VRAM",
   },
@@ -55,6 +63,23 @@ function isLmStudioCatalogModelId(modelId) {
   return /^[a-z0-9._-]+\/[a-z0-9._-]+$/i.test(String(modelId || "").trim());
 }
 
+function normalizeOfferKpModelId(modelId) {
+  const id = String(modelId || "").trim();
+  if (!id) return "";
+  return OFFER_KP_MODEL_ID_ALIASES[id] || id;
+}
+
+function resolveOfferKpModelDisplayOverride(modelId) {
+  const id = normalizeOfferKpModelId(modelId);
+  if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) {
+    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
+  }
+  if (isOfferKpPaddleOcrModel(id)) {
+    return OFFER_KP_MODEL_DISPLAY_OVERRIDES[OFFER_KP_PADDLEOCR_VL_15_MODEL];
+  }
+  return null;
+}
+
 function isOfferKpQwenModel(modelId) {
   const id = String(modelId || "")
     .trim()
@@ -81,7 +106,7 @@ function isOfferKpPickerModel(modelId) {
 }
 
 function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   return (
     models.find((m) => m.id === id) ||
     OFFER_KP_LOCAL_MODELS.find((m) => m.id === id) ||
@@ -95,7 +120,7 @@ function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
   if (!isOfferKpPickerModel(id)) return null;
 
   const loadState = String(entry?.loadState || "").toLowerCase();
-  const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
+  const override = resolveOfferKpModelDisplayOverride(id);
   const known = findOfferKpModel(id, knownModels);
   const loadHint =
     loadState === "loaded"
@@ -145,11 +170,12 @@ function mergeLmStudioRemoteModels(remoteModels = []) {
 }
 
 function isOfferKpAllowedModel(modelId, liveIds = null) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   if (!id) return false;
   if (!isOfferKpPickerModel(id)) return false;
   if (Array.isArray(liveIds) && liveIds.includes(id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
+  if (isOfferKpPaddleOcrModel(id)) return true;
   return isLmStudioCatalogModelId(id);
 }
 
@@ -158,7 +184,7 @@ function filterOfferKpModels(models = []) {
 }
 
 function resolveOfferKpModel(modelId, liveIds = null) {
-  const id = String(modelId || "").trim();
+  const id = normalizeOfferKpModelId(modelId);
   if (!id) return OFFER_KP_DEFAULT_MODEL;
   if (isOfferKpAllowedModel(id, liveIds)) return id;
   if (Array.isArray(liveIds) && liveIds.length > 0) return liveIds[0];
@@ -174,11 +200,12 @@ function isOfferKpCloudModel(_modelId) {
 }
 
 function isOfferKpLocalModel(modelId, models = OFFER_KP_LOCAL_MODELS) {
-  return models.some((m) => m.id === String(modelId || "").trim());
+  const id = normalizeOfferKpModelId(modelId);
+  return models.some((m) => m.id === id);
 }
 
 function normalizeWorkspaceModelId(modelId) {
-  return String(modelId || "").trim();
+  return normalizeOfferKpModelId(modelId);
 }
 
 /**
@@ -195,12 +222,15 @@ function resolveOfferKpEffectiveModel(workspace) {
 }
 
 module.exports = {
+  OFFER_KP_PADDLEOCR_VL_15_MODEL,
   OFFER_KP_MODEL_DISPLAY_OVERRIDES,
   OFFER_KP_LOCAL_MODELS,
   OFFER_KP_MODEL_GROUPS,
   OFFER_KP_ALLOWED_MODELS,
   OFFER_KP_DEFAULT_MODEL,
   findOfferKpModel,
+  normalizeOfferKpModelId,
+  resolveOfferKpModelDisplayOverride,
   isOfferKpQwenModel,
   isOfferKpPaddleOcrModel,
   isOfferKpPickerModel,
