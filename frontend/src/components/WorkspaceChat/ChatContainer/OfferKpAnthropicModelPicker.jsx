@@ -21,6 +21,7 @@ import {
   findOfferKpModel,
   mergeLmStudioRemoteModels,
   isLmStudioChatModelId,
+  isOfferKpQwenModel,
 } from "@/utils/offerKp/models";
 
 function resolveLocalPickerModel(modelId, availableModels = OFFER_KP_LOCAL_MODELS) {
@@ -85,7 +86,10 @@ export default function OfferKpAnthropicModelPicker({
     System.customModels("lmstudio", null, null, 8000)
       .then(({ models = [] }) => {
         if (cancelled) return;
-        const chatOnly = models.filter((m) => isLmStudioChatModelId(m?.id || m));
+        const chatOnly = models.filter(
+          (m) =>
+            isLmStudioChatModelId(m?.id || m) && isOfferKpQwenModel(m?.id || m)
+        );
         const merged = mergeLmStudioRemoteModels(chatOnly, OFFER_KP_LOCAL_MODELS);
         if (merged.length) setAvailableModels(merged);
       })

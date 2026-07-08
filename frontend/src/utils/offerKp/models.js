@@ -1,28 +1,16 @@
-/** Синхронизировать с server/config/offerKp.models.js */
+/** Синхронизировать с server/config/offerKp.models.js (только Qwen во фронте) */
 export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
-  "openai/gpt-oss-20b": {
-    name: "GPT-OSS 20B",
-    hint: "Локально · LM Studio (lainey) · OpenAI-совместимый API",
+  "qwen/qwen3-vl-8b-thinking": {
+    name: "Qwen3-VL-8B Thinking",
+    hint: "Локально · vision · рассуждения · ~8 GB VRAM",
   },
-  "deepseek/deepseek-r1-0528-qwen3-8b": {
-    name: "DeepSeek R1 Qwen3 8B",
-    hint: "Локально · рассуждения · Q4_K_M",
-  },
-  "google/gemma-4-12b": {
-    name: "Gemma 4 12B Instruct",
-    hint: "Локально · LM Studio · Q4_K_M",
-  },
-  "google/gemma-4-12b-qat": {
-    name: "Gemma 4 12B QAT",
-    hint: "Локально · LM Studio · QAT",
-  },
-  "google/gemma-4-26b-a4b": {
-    name: "Gemma 4 26B A4B",
-    hint: "Локально · LM Studio · Q4_K_M",
+  "qwen/qwen3-vl-14b": {
+    name: "Qwen3-VL-14B",
+    hint: "Локально · vision · Q4_K_M",
   },
 };
 
-export const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
+export const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b-thinking";
 
 export const OFFER_KP_LOCAL_MODELS = Object.entries(
   OFFER_KP_MODEL_DISPLAY_OVERRIDES
@@ -60,6 +48,12 @@ export function isLmStudioChatModelId(modelId) {
   return true;
 }
 
+export function isOfferKpQwenModel(modelId) {
+  const id = String(modelId || "").trim().toLowerCase();
+  if (!id) return false;
+  return id.split("/")[0] === "qwen";
+}
+
 export function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   const id = String(modelId || "").trim();
   return (
@@ -73,6 +67,7 @@ export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODEL
   const id = String(entry?.id || entry || "").trim();
   if (!id) return null;
   if (!isLmStudioChatModelId(id)) return null;
+  if (!isOfferKpQwenModel(id)) return null;
 
   const loadState = String(entry?.loadState || "").toLowerCase();
   const override = OFFER_KP_MODEL_DISPLAY_OVERRIDES[id];
@@ -130,6 +125,7 @@ export function mergeLmStudioRemoteModels(
 export function isOfferKpAllowedModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   const id = String(modelId || "").trim();
   if (!id) return false;
+  if (!isOfferKpQwenModel(id)) return false;
   if (models.some((m) => m.id === id)) return true;
   if (OFFER_KP_MODEL_DISPLAY_OVERRIDES[id]) return true;
   return isLmStudioCatalogModelId(id);
