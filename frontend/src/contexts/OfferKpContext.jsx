@@ -52,6 +52,9 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   const [savTickets, setSavTickets] = useState([]);
   const [quotePdfUrl, setQuotePdfUrlState] = useState(null);
   const quotePdfBlobRef = useRef(null);
+  const [uploadedPdfPreview, setUploadedPdfPreviewState] = useState(null);
+  const uploadedPdfBlobRef = useRef(null);
+  const [uploadedPdfSidebarOpen, setUploadedPdfSidebarOpen] = useState(false);
 
   const setQuotePdfUrl = useCallback((next) => {
     if (quotePdfBlobRef.current && quotePdfBlobRef.current !== next?.url) {
@@ -61,9 +64,23 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
     setQuotePdfUrlState(next);
   }, []);
 
+  const setUploadedPdfPreview = useCallback((next) => {
+    if (
+      uploadedPdfBlobRef.current &&
+      uploadedPdfBlobRef.current !== next?.url
+    ) {
+      revokeBlobUrl(uploadedPdfBlobRef.current);
+    }
+    uploadedPdfBlobRef.current = next?.url?.startsWith("blob:")
+      ? next.url
+      : null;
+    setUploadedPdfPreviewState(next);
+  }, []);
+
   useEffect(
     () => () => {
       revokeBlobUrl(quotePdfBlobRef.current);
+      revokeBlobUrl(uploadedPdfBlobRef.current);
     },
     []
   );
@@ -127,7 +144,10 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
     } else {
       setQuoteDraft(INITIAL_QUOTE_DRAFT);
     }
-    if (prevThread !== threadSlug) setThreadQuoteFiles([]);
+    if (prevThread !== threadSlug) {
+      setThreadQuoteFiles([]);
+      setUploadedPdfPreview(null);
+    }
     setActiveWorkspaceSlug(workspaceSlug);
     setActiveThreadSlug(threadSlug);
   }, []);
@@ -160,6 +180,10 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       addSavTicket,
       quotePdfUrl,
       setQuotePdfUrl,
+      uploadedPdfPreview,
+      setUploadedPdfPreview,
+      uploadedPdfSidebarOpen,
+      setUploadedPdfSidebarOpen,
       docPreview,
       setDocPreview,
       threadQuoteFiles,
@@ -182,6 +206,10 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       addSavTicket,
       quotePdfUrl,
       setQuotePdfUrl,
+      uploadedPdfPreview,
+      setUploadedPdfPreview,
+      uploadedPdfSidebarOpen,
+      setUploadedPdfSidebarOpen,
       docPreview,
       setDocPreview,
       threadQuoteFiles,
@@ -219,6 +247,10 @@ export function useOfferKp() {
       addSavTicket: () => {},
       quotePdfUrl: null,
       setQuotePdfUrl: () => {},
+      uploadedPdfPreview: null,
+      setUploadedPdfPreview: () => {},
+      uploadedPdfSidebarOpen: false,
+      setUploadedPdfSidebarOpen: () => {},
       docPreview: null,
       setDocPreview: () => {},
       threadQuoteFiles: [],

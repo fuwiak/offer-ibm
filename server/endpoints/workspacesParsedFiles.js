@@ -15,6 +15,7 @@ const {
   countContentLines,
   isTabularFilename,
 } = require("../utils/parsedFilePreview");
+const { archiveUploadedPdfOriginal } = require("../utils/parsedFileOriginal");
 const {
   hasRestrictedContent,
   getRestrictedMessage,
@@ -82,6 +83,45 @@ function workspaceParsedFilesEndpoints(app) {
         }
 
         return response.status(200).json({ preview, error: null });
+      } catch (e) {
+        console.error(e.message, e);
+        return response.sendStatus(500).end();
+      }
+    }
+  );
+
+  app.get(
+    "/workspace/:slug/parsed-files/:fileId/original",
+    [validatedRequest, flexUserRoleValid([ROLES.all]), validWorkspaceSlug],
+    async (request, response) => {
+      try {
+        const { fileId } = request.params;
+        const threadSlug = request.query.threadSlug || null;
+        const user = await userFromSession(request, response);
+        const workspace = response.locals.workspace;
+        const thread = threadSlug
+          ? await WorkspaceThread.get({ slug: String(threadSlug) })
+          : null;
+        const { file, error } = await WorkspaceParsedFiles.getOriginalFile({
+          workspace,
+          fileId,
+          user: multiUserMode(response) ? user : null,
+          thread: thread || null,
+        });
+
+        if (!file) {
+          const status =
+            error === "NOT_FOUND" || error === "NO_ORIGINAL" ? 404 : 500;
+          return response.status(status).json({ error: error || "NOT_FOUND" });
+        }
+
+        const fs = require("fs");
+        response.setHeader("Content-Type", file.contentType);
+        response.setHeader(
+          "Content-Disposition",
+          `inline; filename="${file.filename}"`
+        );
+        fs.createReadStream(file.filePath).pipe(response);
       } catch (e) {
         console.error(e.message, e);
         return response.sendStatus(500).end();
@@ -234,6 +274,8 @@ function workspaceParsedFilesEndpoints(app) {
           });
         }
 
+        const originalLocation = archiveUploadedPdfOriginal(originalname);
+
         const { success, reason, documents } =
           await Collector.parseDocument(originalname);
         if (!success || !documents?.[0]) {
@@ -265,6 +307,10 @@ function workspaceParsedFilesEndpoints(app) {
             const pageContent = metadata.pageContent || "";
             metadata.lineCount = countContentLines(pageContent);
             metadata.isTabular = isTabularFilename(originalname);
+            if (originalLocation) {
+              metadata.originalLocation = originalLocation;
+              metadata.originalFilename = originalname;
+            }
             // Strip out pageContent
             delete metadata.pageContent;
             const filename = `${originalname}-${doc.id}.json`;
@@ -342,6 +388,8 @@ function workspaceParsedFilesEndpoints(app) {
 
         send({ type: "stage", stage: "uploaded", filename: originalname });
 
+        const originalLocation = archiveUploadedPdfOriginal(originalname);
+
         const { success, reason, documents } =
           await Collector.parseDocumentStream(originalname, {}, (event) =>
             send(event)
@@ -376,6 +424,10 @@ function workspaceParsedFilesEndpoints(app) {
             const pageContent = metadata.pageContent || "";
             metadata.lineCount = countContentLines(pageContent);
             metadata.isTabular = isTabularFilename(originalname);
+            if (originalLocation) {
+              metadata.originalLocation = originalLocation;
+              metadata.originalFilename = originalname;
+            }
             delete metadata.pageContent;
             const filename = `${originalname}-${doc.id}.json`;
             const { file, error: dbError } = await WorkspaceParsedFiles.create({

@@ -8,6 +8,7 @@ import OfferKpOnboarding, { useOfferKpOnboarding } from "@/components/OfferKp/Of
 import OfferKpActiveThreadSync from "@/components/OfferKp/OfferKpActiveThreadSync";
 import OfferKpSavHost from "@/components/OfferKp/OfferKpSavHost";
 import OfferKpHeaderActions from "@/components/OfferKp/OfferKpHeaderActions";
+import UploadedPdfSidebar from "@/components/OfferKp/UploadedPdfSidebar";
 
 /**
  * 3-panel shell: optional left sidebar · center chat · right document panel.
@@ -41,6 +42,7 @@ export default function OfferKpLayout({
           {enabled && <OfferKpHeaderActions />}
           {children}
         </div>
+        {enabled && <UploadedPdfSidebar />}
         {enabled && <DocumentPanel />}
       </div>
       {enabled && <OfferKpSavHost />}

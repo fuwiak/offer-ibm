@@ -1429,6 +1429,49 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   width: 2px;
 }
 
+/* ── Uploaded PDF comparison panel (between chat and document panel) ── */
+.offerKp-uploaded-pdf-panel {
+  background: var(--theme-bg-chat-input);
+  border-left: 1px solid var(--theme-sidebar-border);
+  border-right: 1px solid var(--theme-sidebar-border);
+}
+
+[data-theme="light"] .offerKp-uploaded-pdf-panel {
+  background: #f4f4f4;
+}
+
+[data-theme="dark"] .offerKp-uploaded-pdf-panel {
+  background: #000000;
+}
+
+.offerKp-uploaded-pdf-panel__resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+  background: transparent;
+}
+
+.offerKp-uploaded-pdf-panel__resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 3px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.offerKp-uploaded-pdf-panel__resizer:hover::after,
+.offerKp-uploaded-pdf-panel__resizer:active::after {
+  background: var(--offerKp-profile-accent, var(--primary-button, #0f62fe));
+  width: 2px;
+}
+
 .offerKp-context-widget__panel {
   animation: offerKp-panel-slide-up 0.2s ease-out;
 }
@@ -2198,10 +2241,33 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 10px;
+  padding: 0;
   border: 1px solid var(--theme-sidebar-border);
   background: var(--theme-bg-primary);
   min-height: 72px;
+  overflow: hidden;
+}
+
+.offerKp-thread-files__card-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: default;
+}
+
+.offerKp-thread-files__card-btn--pdf {
+  cursor: pointer;
+}
+
+.offerKp-thread-files__card-btn--pdf:hover {
+  background: var(--theme-sidebar-item-hover);
 }
 
 .offerKp-thread-files__card-icon {

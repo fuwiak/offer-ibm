@@ -8,6 +8,10 @@ const {
   countContentLines,
   isTabularFilename,
 } = require("../utils/parsedFilePreview");
+const {
+  isPdfFilename,
+  resolveOriginalFilePath,
+} = require("../utils/parsedFileOriginal");
 const fs = require("fs");
 const path = require("path");
 
@@ -190,6 +194,8 @@ const WorkspaceParsedFiles = {
           file.filename.replace(/-[0-9a-f-]{36}\.json$/i, "") ||
           file.filename;
         totalTokens += file.tokenCountEstimate || 0;
+        const isPdf =
+          isPdfFilename(displayName) || isPdfFilename(file.filename);
         results.push({
           id: file.id,
           filename: file.filename,
@@ -198,6 +204,8 @@ const WorkspaceParsedFiles = {
           token_count_estimate: file.tokenCountEstimate,
           lineCount: metadata.lineCount ?? null,
           isTabular: metadata.isTabular ?? isTabularFilename(file.filename),
+          isPdf,
+          hasOriginalPdf: !!(isPdf && metadata.originalLocation),
         });
       }
 
@@ -213,6 +221,49 @@ const WorkspaceParsedFiles = {
         contextWindow: Infinity,
         currentContextTokenCount: 0,
       };
+    }
+  },
+
+  getOriginalFile: async function ({
+    workspace,
+    fileId,
+    user = null,
+    thread = null,
+  }) {
+    try {
+      const parsedFile = await this.get({
+        id: parseInt(fileId),
+        workspaceId: workspace.id,
+        threadId: thread?.id || null,
+        ...(user ? { userId: user.id } : {}),
+      });
+      if (!parsedFile) return { file: null, error: "NOT_FOUND" };
+
+      const metadata = safeJsonParse(parsedFile.metadata, {});
+      const displayName =
+        metadata.originalFilename ||
+        metadata.title ||
+        parsedFile.filename.replace(/-[0-9a-f-]{36}\.json$/i, "") ||
+        parsedFile.filename;
+      const originalLocation = metadata.originalLocation;
+      if (!originalLocation) return { file: null, error: "NO_ORIGINAL" };
+
+      const filePath = resolveOriginalFilePath(originalLocation);
+      if (!filePath) return { file: null, error: "SOURCE_MISSING" };
+
+      return {
+        file: {
+          filePath,
+          filename: displayName,
+          contentType: /\.pdf$/i.test(displayName)
+            ? "application/pdf"
+            : "application/octet-stream",
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Failed to get parsed file original:", error);
+      return { file: null, error: error.message };
     }
   },
 

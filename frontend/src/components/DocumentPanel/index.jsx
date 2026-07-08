@@ -31,6 +31,7 @@ import ThreadFileDataPreview, {
   displayName,
 } from "@/components/OfferKp/ThreadFileDataPreview";
 import ThreadGeneratedQuotesSection from "@/components/OfferKp/ThreadGeneratedQuotesSection";
+import { openUploadedPdfPreview } from "@/utils/offerKp/openUploadedPdfPreview";
 
 function fileExtension(filename = "") {
   const parts = filename.split(".");
@@ -45,6 +46,11 @@ function fileIcon(ext) {
 
 function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
   const { t } = useTranslation("offerKp");
+  const {
+    setUploadedPdfPreview,
+    setUploadedPdfSidebarOpen,
+    uploadedPdfPreview,
+  } = useOfferKp();
   const [files, setFiles] = useState([]);
   const [capacityPct, setCapacityPct] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -77,6 +83,22 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
     return () =>
       window.removeEventListener("offerKp:thread-files-changed", refresh);
   }, [loadFiles]);
+
+  async function handleOpenUploadedPdf(file) {
+    if (!file?.hasOriginalPdf || !workspaceSlug) return;
+    try {
+      await openUploadedPdfPreview({
+        workspaceSlug,
+        threadSlug,
+        file,
+        setUploadedPdfPreview,
+        setUploadedPdfSidebarOpen,
+        previousUrl: uploadedPdfPreview?.url,
+      });
+    } catch (e) {
+      console.error("[ThreadFilesSection] uploaded PDF preview:", e?.message || e);
+    }
+  }
 
   return (
     <section className="offerKp-thread-panel-section offerKp-thread-panel-section--files">
@@ -122,20 +144,36 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
             const lines = file.lineCount;
             return (
               <li key={file.id} className="offerKp-thread-files__card">
-                <Icon
-                  size={22}
-                  weight="duotone"
-                  className="offerKp-thread-files__card-icon"
-                />
-                <span className="offerKp-thread-files__card-name">
-                  {displayName(file)}
-                </span>
-                {lines != null && (
-                  <span className="offerKp-thread-files__card-meta">
-                    {t("layout.fileLines", { count: lines })}
+                <button
+                  type="button"
+                  className={`offerKp-thread-files__card-btn${
+                    file.hasOriginalPdf ? " offerKp-thread-files__card-btn--pdf" : ""
+                  }`}
+                  onClick={() => handleOpenUploadedPdf(file)}
+                  disabled={!file.hasOriginalPdf}
+                  title={
+                    file.hasOriginalPdf
+                      ? t("layout.openUploadedPdf", {
+                          defaultValue: "Open uploaded PDF",
+                        })
+                      : undefined
+                  }
+                >
+                  <Icon
+                    size={22}
+                    weight="duotone"
+                    className="offerKp-thread-files__card-icon"
+                  />
+                  <span className="offerKp-thread-files__card-name">
+                    {displayName(file)}
                   </span>
-                )}
-                <FileExtensionBadge file={file} />
+                  {lines != null && (
+                    <span className="offerKp-thread-files__card-meta">
+                      {t("layout.fileLines", { count: lines })}
+                    </span>
+                  )}
+                  <FileExtensionBadge file={file} />
+                </button>
               </li>
             );
           })}
