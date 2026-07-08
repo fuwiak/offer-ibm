@@ -39,7 +39,7 @@ describe("resolveLlmProvider", () => {
     expect(process.env.LMSTUDIO_MODEL_PREF).toBe("openai/gpt-oss-20b");
   });
 
-  it("keeps catalog model when it is not yet loaded in VRAM", () => {
+  it("falls back to loaded model when preferred is not in VRAM", () => {
     const resolved = resolveLlmProviderAndModel({
       provider: "lmstudio",
       model: "google/gemma-4-26b-a4b",
@@ -52,8 +52,8 @@ describe("resolveLlmProvider", () => {
         },
       },
     });
-    expect(resolved.model).toBe("google/gemma-4-26b-a4b");
-    expect(resolved.modelFallback).toBeNull();
+    expect(resolved.model).toBe("openai/gpt-oss-20b");
+    expect(resolved.modelFallback?.from).toBe("google/gemma-4-26b-a4b");
   });
 });
 
@@ -78,10 +78,11 @@ describe("pickRunnableLmStudioModel", () => {
     ).toBe("openai/gpt-oss-20b");
   });
 
-  it("keeps catalog model when preferred is not loaded yet", () => {
+  it("falls back to loaded model when preferred is not in VRAM", () => {
     const picked = pickRunnableLmStudioModel("google/gemma-4-26b-a4b", catalog);
-    expect(picked.model).toBe("google/gemma-4-26b-a4b");
-    expect(picked.fallback).toBe(false);
+    expect(picked.model).toBe("openai/gpt-oss-20b");
+    expect(picked.fallback).toBe(true);
+    expect(picked.reason).toBe("model_not_loaded");
   });
 
   it("falls back when preferred is not in catalog", () => {

@@ -8,6 +8,12 @@ const {
   LMStudioLLM,
   parseLMStudioBasePath,
 } = require("../../../AiProviders/lmStudio/index.js");
+const { offerKpLog } = require("../../../offerKpApp/offerKpLog");
+const {
+  fetchLmStudioModelCatalog,
+  isLmStudioModelLoadError,
+  pickLoadedLmStudioFallback,
+} = require("../../../offerKpApp/lmStudioModels");
 
 /**
  * The agent provider for the LMStudio.
@@ -59,34 +65,60 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
     return this._supportsToolCalling;
   }
 
+  async #switchToLoadedFallback(error) {
+    if (!isLmStudioModelLoadError(error)) return false;
+    const catalog = await fetchLmStudioModelCatalog({ forceRefresh: true });
+    const picked = pickLoadedLmStudioFallback(this.model, catalog);
+    if (!picked?.model || picked.model === this.model) return false;
+    offerKpLog("warn", "LM Studio agent model not loaded — retrying with loaded model", {
+      from: this.model,
+      to: picked.model,
+      reason: picked.reason,
+      loaded: catalog.loadedIds || [],
+    });
+    this.model = picked.model;
+    this._supportsToolCalling = null;
+    return true;
+  }
+
+  async #callWithLoadedFallback(fn) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!(await this.#switchToLoadedFallback(error))) throw error;
+      return await fn();
+    }
+  }
+
   // ---- UnTooled callbacks (used when native tool calling is not supported) ----
 
   async #handleFunctionCallChat({ messages = [] }) {
     await LMStudioLLM.cacheContextWindows();
-    return await this.client.chat.completions
-      .create({
-        model: this.model,
-        messages,
-      })
-      .then((result) => {
-        if (!result.hasOwnProperty("choices"))
-          throw new Error("LMStudio chat: No results!");
-        if (result.choices.length === 0)
-          throw new Error("LMStudio chat: No results length!");
-        return result.choices[0].message.content;
-      })
-      .catch((_) => {
-        return null;
-      });
+    return await this.#callWithLoadedFallback(async () =>
+      this.client.chat.completions
+        .create({
+          model: this.model,
+          messages,
+        })
+        .then((result) => {
+          if (!result.hasOwnProperty("choices"))
+            throw new Error("LMStudio chat: No results!");
+          if (result.choices.length === 0)
+            throw new Error("LMStudio chat: No results length!");
+          return result.choices[0].message.content;
+        })
+    ).catch((_) => null);
   }
 
   async #handleFunctionCallStream({ messages = [] }) {
     await LMStudioLLM.cacheContextWindows();
-    return await this.client.chat.completions.create({
-      model: this.model,
-      stream: true,
-      messages,
-    });
+    return await this.#callWithLoadedFallback(async () =>
+      this.client.chat.completions.create({
+        model: this.model,
+        stream: true,
+        messages,
+      })
+    );
   }
 
   /**
@@ -113,13 +145,15 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
 
     try {
       await LMStudioLLM.cacheContextWindows();
-      return await tooledStream(
-        this.client,
-        this.model,
-        messages,
-        functions,
-        eventHandler,
-        { provider: this }
+      return await this.#callWithLoadedFallback(async () =>
+        tooledStream(
+          this.client,
+          this.model,
+          messages,
+          functions,
+          eventHandler,
+          { provider: this }
+        )
       );
     } catch (error) {
       console.error(error.message, error);
@@ -154,13 +188,15 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
 
     try {
       await LMStudioLLM.cacheContextWindows();
-      const result = await tooledComplete(
-        this.client,
-        this.model,
-        messages,
-        functions,
-        this.getCost.bind(this),
-        { provider: this }
+      const result = await this.#callWithLoadedFallback(async () =>
+        tooledComplete(
+          this.client,
+          this.model,
+          messages,
+          functions,
+          this.getCost.bind(this),
+          { provider: this }
+        )
       );
 
       if (result.retryWithError) {

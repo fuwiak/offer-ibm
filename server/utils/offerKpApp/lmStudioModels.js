@@ -86,11 +86,6 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
   const ids = catalog.ids || [];
   const loadedIds = catalog.loadedIds || [];
 
-  // LM Studio auto-loads catalog models on first chat request — VRAM state is informational only.
-  if (preferred && ids.includes(preferred)) {
-    return { model: preferred, fallback: false };
-  }
-
   if (preferred && loadedIds.includes(preferred)) {
     return { model: preferred, fallback: false };
   }
@@ -101,15 +96,23 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
     const id = String(candidate || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    if (ids.includes(id) || loadedIds.includes(id)) {
+    if (loadedIds.includes(id)) {
       const fallback = id !== preferred;
       return {
         model: id,
         fallback,
         requested: preferred || undefined,
-        reason: fallback ? "model_not_in_catalog" : undefined,
+        reason: fallback ? "model_not_loaded" : undefined,
       };
     }
+  }
+
+  if (preferred && ids.includes(preferred)) {
+    return {
+      model: preferred,
+      fallback: false,
+      reason: loadedIds.length ? "no_loaded_models" : "runtime_unknown",
+    };
   }
 
   const coerced = resolveOfferKpModel(preferred, ids.length ? ids : null);
@@ -117,7 +120,35 @@ function pickRunnableLmStudioModel(preferredId, catalog = {}) {
     model: coerced,
     fallback: coerced !== preferred,
     requested: preferred || undefined,
-    reason: ids.length ? "model_not_in_catalog" : "runtime_unknown",
+    reason: loadedIds.length ? "model_not_in_catalog" : "runtime_unknown",
+  };
+}
+
+function isLmStudioModelLoadError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("failed to load model") ||
+    (msg.includes("400") && msg.includes("load model"))
+  );
+}
+
+/**
+ * Pick a VRAM-loaded model when the requested one cannot be loaded.
+ * @param {string} failedModelId
+ * @param {{ ids?: string[], loadedIds?: string[] }} [catalog]
+ */
+function pickLoadedLmStudioFallback(failedModelId, catalog = {}) {
+  const picked = pickRunnableLmStudioModel(failedModelId, catalog);
+  const failed = String(failedModelId || "").trim();
+  if (picked.model && picked.model !== failed) return picked;
+  const loadedIds = catalog.loadedIds || [];
+  const alt = loadedIds.find((id) => id && id !== failed);
+  if (!alt) return null;
+  return {
+    model: alt,
+    fallback: true,
+    requested: failed,
+    reason: "model_not_loaded",
   };
 }
 
@@ -224,6 +255,8 @@ module.exports = {
   isLmStudioChatModelId,
   isLmStudioLoadedState,
   pickRunnableLmStudioModel,
+  isLmStudioModelLoadError,
+  pickLoadedLmStudioFallback,
   fetchLmStudioModelCatalog,
   getCachedLmStudioModelIds,
   getCachedLoadedLmStudioModelIds,

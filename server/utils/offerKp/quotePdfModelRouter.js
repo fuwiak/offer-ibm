@@ -120,11 +120,6 @@ function pickQuotePdfFallbackModel(currentModel, availableModels = null) {
     return id;
   }
 
-  for (const candidate of chain) {
-    const id = normalizeModelId(candidate);
-    if (id && id !== current) return id;
-  }
-
   return null;
 }
 
@@ -213,21 +208,19 @@ function resolveQuotePdfModelSwitch({
 
   if (!modelMatchesWeakList(currentModel)) return null;
 
-  let catalogModels = Array.isArray(availableModels) ? availableModels : null;
-  if (!catalogModels?.length) {
+  let loadedModels = Array.isArray(availableModels) ? availableModels : null;
+  if (!loadedModels?.length) {
     try {
-      const {
-        getCachedLoadedLmStudioModelIds,
-        getCachedLmStudioModelIds,
-      } = require("../offerKpApp/lmStudioModels");
-      const loaded = getCachedLoadedLmStudioModelIds();
-      catalogModels = loaded.length ? loaded : getCachedLmStudioModelIds();
+      const { getCachedLoadedLmStudioModelIds } = require("../offerKpApp/lmStudioModels");
+      loadedModels = getCachedLoadedLmStudioModelIds();
     } catch {
-      catalogModels = null;
+      loadedModels = [];
     }
   }
 
-  const fallbackModel = pickQuotePdfFallbackModel(currentModel, catalogModels);
+  if (!loadedModels.length) return null;
+
+  const fallbackModel = pickQuotePdfFallbackModel(currentModel, loadedModels);
   if (!fallbackModel || fallbackModel === currentModel) return null;
 
   const result = {

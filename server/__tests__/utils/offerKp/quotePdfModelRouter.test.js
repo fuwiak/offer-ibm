@@ -37,12 +37,13 @@ describe("quotePdfModelRouter", () => {
     );
   });
 
-  it("switches model when quote + PDF with line items", () => {
+  it("switches model when quote + PDF with line items and fallback is loaded", () => {
     const result = resolveQuotePdfModelSwitch({
       message: "сформируй КП по прикреплённому PDF",
       workspace,
       parsedFiles: [{ ...pdfFile, pageContent: inquiryText }],
       parsedFileTexts: [inquiryText],
+      availableModels: ["openai/gpt-oss-20b", "google/gemma-4-12b"],
     });
 
     expect(result).toEqual({
@@ -51,6 +52,18 @@ describe("quotePdfModelRouter", () => {
       provider: "lmstudio",
       reason: "quote_pdf_document",
     });
+  });
+
+  it("does not switch to unloaded fallback model", () => {
+    expect(
+      resolveQuotePdfModelSwitch({
+        message: "сформируй КП по прикреплённому PDF",
+        workspace,
+        parsedFiles: [{ ...pdfFile, pageContent: inquiryText }],
+        parsedFileTexts: [inquiryText],
+        availableModels: ["openai/gpt-oss-20b"],
+      })
+    ).toBeNull();
   });
 
   it("does not switch without quote intent", () => {
