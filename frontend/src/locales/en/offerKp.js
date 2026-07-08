@@ -443,6 +443,7 @@ const TRANSLATIONS = {
     uploadedPdfHint: "Compare with source request",
     uploadedPdfSelect: "Source file",
     uploadedPdfUnavailable: "Original PDF is not available for this file.",
+    uploadedPdfTextFallback: "Parsed text (original PDF unavailable)",
     openUploadedPdf: "Open uploaded PDF",
     resizePanel: "Resize panel",
     tabCrossSection: "Product cross-section",

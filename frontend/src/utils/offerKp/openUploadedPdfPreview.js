@@ -1,4 +1,4 @@
-import { API_BASE, AUTH_TOKEN, fullApiUrl } from "@/utils/constants";
+import { AUTH_TOKEN, fullApiUrl } from "@/utils/constants";
 import { baseHeaders } from "@/utils/request";
 
 /** Revoke prior blob URL before assigning a new uploaded PDF preview. */
@@ -38,7 +38,7 @@ export async function downloadUploadedPdfBlob({
 }
 
 /**
- * Open uploaded source PDF in the comparison sidebar (blob URL + iframe).
+ * Load uploaded source PDF into the comparison sidebar (blob URL + PDF.js).
  */
 export async function openUploadedPdfPreview({
   workspaceSlug,
@@ -57,9 +57,60 @@ export async function openUploadedPdfPreview({
   revokeUploadedPdfBlob(previousUrl);
   const url = URL.createObjectURL(blob);
   setUploadedPdfPreview({
+    mode: "pdf",
     url,
     filename: file.title || file.filename || "uploaded.pdf",
     fileId: file.id,
+  });
+  setUploadedPdfSidebarOpen(true);
+}
+
+/**
+ * Open PDF preview with fallback to parsed text when the original file is missing.
+ */
+export async function openUploadedFilePreview({
+  workspaceSlug,
+  threadSlug = null,
+  file,
+  setUploadedPdfPreview,
+  setUploadedPdfSidebarOpen,
+  previousUrl = null,
+  fetchTextPreview = null,
+}) {
+  if (!file?.id || !workspaceSlug) throw new Error("Missing file or workspace");
+
+  if (file.hasOriginalPdf) {
+    try {
+      await openUploadedPdfPreview({
+        workspaceSlug,
+        threadSlug,
+        file,
+        setUploadedPdfPreview,
+        setUploadedPdfSidebarOpen,
+        previousUrl,
+      });
+      return;
+    } catch {
+      // fall through to parsed text
+    }
+  }
+
+  if (!fetchTextPreview) {
+    throw new Error("Original PDF is not available for this file.");
+  }
+
+  const preview = await fetchTextPreview();
+  if (!preview?.textPreview) {
+    throw new Error("Original PDF is not available for this file.");
+  }
+
+  revokeUploadedPdfBlob(previousUrl);
+  setUploadedPdfPreview({
+    mode: "text",
+    filename: file.title || file.filename || "uploaded.pdf",
+    fileId: file.id,
+    textPreview: preview.textPreview,
+    totalLines: preview.totalLines || 0,
   });
   setUploadedPdfSidebarOpen(true);
 }

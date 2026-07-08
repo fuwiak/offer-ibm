@@ -31,7 +31,7 @@ import ThreadFileDataPreview, {
   displayName,
 } from "@/components/OfferKp/ThreadFileDataPreview";
 import ThreadGeneratedQuotesSection from "@/components/OfferKp/ThreadGeneratedQuotesSection";
-import { openUploadedPdfPreview } from "@/utils/offerKp/openUploadedPdfPreview";
+import { openUploadedFilePreview } from "@/utils/offerKp/openUploadedPdfPreview";
 
 function fileExtension(filename = "") {
   const parts = filename.split(".");
@@ -85,15 +85,23 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
   }, [loadFiles]);
 
   async function handleOpenUploadedPdf(file) {
-    if (!file?.hasOriginalPdf || !workspaceSlug) return;
+    if (!file?.isPdf || !workspaceSlug) return;
     try {
-      await openUploadedPdfPreview({
+      await openUploadedFilePreview({
         workspaceSlug,
         threadSlug,
         file,
         setUploadedPdfPreview,
         setUploadedPdfSidebarOpen,
         previousUrl: uploadedPdfPreview?.url,
+        fetchTextPreview: async () => {
+          const result = await Workspace.getParsedFilePreview(
+            workspaceSlug,
+            file.id,
+            { threadSlug, limit: 80, offset: 0 }
+          );
+          return result?.preview || null;
+        },
       });
     } catch (e) {
       console.error("[ThreadFilesSection] uploaded PDF preview:", e?.message || e);
@@ -147,12 +155,12 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
                 <button
                   type="button"
                   className={`offerKp-thread-files__card-btn${
-                    file.hasOriginalPdf ? " offerKp-thread-files__card-btn--pdf" : ""
+                    file.isPdf ? " offerKp-thread-files__card-btn--pdf" : ""
                   }`}
                   onClick={() => handleOpenUploadedPdf(file)}
-                  disabled={!file.hasOriginalPdf}
+                  disabled={!file.isPdf}
                   title={
-                    file.hasOriginalPdf
+                    file.isPdf
                       ? t("layout.openUploadedPdf", {
                           defaultValue: "Open uploaded PDF",
                         })

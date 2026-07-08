@@ -196,6 +196,9 @@ const WorkspaceParsedFiles = {
         totalTokens += file.tokenCountEstimate || 0;
         const isPdf =
           isPdfFilename(displayName) || isPdfFilename(file.filename);
+        const originalOnDisk = metadata.originalLocation
+          ? !!resolveOriginalFilePath(metadata.originalLocation)
+          : false;
         results.push({
           id: file.id,
           filename: file.filename,
@@ -205,7 +208,7 @@ const WorkspaceParsedFiles = {
           lineCount: metadata.lineCount ?? null,
           isTabular: metadata.isTabular ?? isTabularFilename(file.filename),
           isPdf,
-          hasOriginalPdf: !!(isPdf && metadata.originalLocation),
+          hasOriginalPdf: !!(isPdf && originalOnDisk),
         });
       }
 

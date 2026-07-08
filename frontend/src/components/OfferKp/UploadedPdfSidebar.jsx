@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { CaretLeft, FilePdf } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import Workspace from "@/models/workspace";
+import PdfJsViewer from "@/components/OfferKp/PdfJsViewer";
 import {
-  openUploadedPdfPreview,
+  openUploadedFilePreview,
   revokeUploadedPdfBlob,
 } from "@/utils/offerKp/openUploadedPdfPreview";
 
-function isPdfWithOriginal(file) {
-  return !!(file?.isPdf && file?.hasOriginalPdf);
+function isPdfFile(file) {
+  return !!file?.isPdf;
 }
 
 /**
@@ -42,6 +43,7 @@ export default function UploadedPdfSidebar() {
   const resizingRef = useRef(false);
   const asideRef = useRef(null);
   const previewUrlRef = useRef(uploadedPdfPreview?.url || null);
+  const autoOpenAttemptRef = useRef(null);
 
   useEffect(() => {
     panelWidthRef.current = panelWidth;
@@ -50,6 +52,10 @@ export default function UploadedPdfSidebar() {
   useEffect(() => {
     previewUrlRef.current = uploadedPdfPreview?.url || null;
   }, [uploadedPdfPreview?.url]);
+
+  useEffect(() => {
+    autoOpenAttemptRef.current = null;
+  }, [activeThreadSlug]);
 
   useEffect(
     () => () => {
@@ -101,7 +107,7 @@ export default function UploadedPdfSidebar() {
         activeWorkspaceSlug,
         activeThreadSlug
       );
-      const files = (data?.files || []).filter(isPdfWithOriginal);
+      const files = (data?.files || []).filter(isPdfFile);
       setPdfFiles(files);
       return files;
     } catch (e) {
@@ -119,16 +125,29 @@ export default function UploadedPdfSidebar() {
       setOpening(true);
       setLoadError(null);
       try {
-        await openUploadedPdfPreview({
+        await openUploadedFilePreview({
           workspaceSlug: activeWorkspaceSlug,
           threadSlug: activeThreadSlug,
           file,
           setUploadedPdfPreview,
           setUploadedPdfSidebarOpen,
           previousUrl: uploadedPdfPreview?.url,
+          fetchTextPreview: async () => {
+            const result = await Workspace.getParsedFilePreview(
+              activeWorkspaceSlug,
+              file.id,
+              { threadSlug: activeThreadSlug, limit: 80, offset: 0 }
+            );
+            return result?.preview || null;
+          },
         });
       } catch (e) {
-        setLoadError(e?.message || String(e));
+        setLoadError(
+          e?.message ||
+            t("layout.uploadedPdfUnavailable", {
+              defaultValue: "Original PDF is not available for this file.",
+            })
+        );
       } finally {
         setOpening(false);
       }
@@ -139,6 +158,7 @@ export default function UploadedPdfSidebar() {
       opening,
       setUploadedPdfPreview,
       setUploadedPdfSidebarOpen,
+      t,
       uploadedPdfPreview?.url,
     ]
   );
@@ -152,7 +172,13 @@ export default function UploadedPdfSidebar() {
       if (cancelled || !files.length) return;
       const currentId = uploadedPdfPreview?.fileId;
       const stillValid = files.some((f) => f.id === currentId);
-      if (!stillValid && !opening) {
+      const attemptKey = `${activeThreadSlug}:${files[0]?.id}`;
+      if (
+        !stillValid &&
+        !opening &&
+        autoOpenAttemptRef.current !== attemptKey
+      ) {
+        autoOpenAttemptRef.current = attemptKey;
         await openFile(files[0]);
       } else if (!uploadedPdfSidebarOpen && files.length) {
         setUploadedPdfSidebarOpen(true);
@@ -188,9 +214,16 @@ export default function UploadedPdfSidebar() {
   }
 
   if (!enabled || !activeThreadSlug) return null;
-  if (!pdfFiles.length && !uploadedPdfPreview?.url && !loading) return null;
+  if (!pdfFiles.length && !uploadedPdfPreview && !loading) return null;
 
-  const showPreview = uploadedPdfSidebarOpen && !!uploadedPdfPreview?.url;
+  const showPdfPreview =
+    uploadedPdfSidebarOpen &&
+    uploadedPdfPreview?.mode === "pdf" &&
+    !!uploadedPdfPreview?.url;
+  const showTextPreview =
+    uploadedPdfSidebarOpen &&
+    uploadedPdfPreview?.mode === "text" &&
+    !!uploadedPdfPreview?.textPreview;
 
   return (
     <aside
@@ -282,9 +315,13 @@ export default function UploadedPdfSidebar() {
               {uploadedPdfPreview?.filename || pdfFiles[0]?.title || "…"}
             </span>
             <span className="text-[10px] text-theme-text-secondary/80">
-              {t("layout.uploadedPdfHint", {
-                defaultValue: "Compare with uploaded PDF",
-              })}
+              {showTextPreview
+                ? t("layout.uploadedPdfTextFallback", {
+                    defaultValue: "Parsed text (original PDF unavailable)",
+                  })
+                : t("layout.uploadedPdfHint", {
+                    defaultValue: "Compare with uploaded PDF",
+                  })}
             </span>
           </div>
 
@@ -292,13 +329,24 @@ export default function UploadedPdfSidebar() {
             <p className="p-4 text-xs text-theme-text-secondary">…</p>
           ) : loadError ? (
             <p className="p-4 text-xs text-red-500">{loadError}</p>
-          ) : showPreview ? (
-            <iframe
-              src={uploadedPdfPreview.url}
+          ) : showPdfPreview ? (
+            <PdfJsViewer
+              url={uploadedPdfPreview.url}
               title={uploadedPdfPreview.filename || "Uploaded PDF"}
-              className="flex-1 w-full border-0 bg-white"
-              style={{ minHeight: 0 }}
             />
+          ) : showTextPreview ? (
+            <div className="flex flex-col flex-1 min-h-0 overflow-auto p-3">
+              <pre className="offerKp-thread-db-preview__text text-xs whitespace-pre-wrap">
+                {uploadedPdfPreview.textPreview}
+              </pre>
+              {uploadedPdfPreview.totalLines > 80 && (
+                <p className="text-[10px] text-theme-text-secondary mt-2">
+                  {t("layout.dbPreviewTextTruncated", {
+                    total: uploadedPdfPreview.totalLines,
+                  })}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="p-4 text-xs text-theme-text-secondary">
               {t("layout.uploadedPdfUnavailable", {
@@ -312,4 +360,4 @@ export default function UploadedPdfSidebar() {
   );
 }
 
-export { openUploadedPdfPreview };
+export { openUploadedFilePreview };

@@ -445,6 +445,7 @@ const TRANSLATIONS = {
     uploadedPdfHint: "Сверка с исходной заявкой",
     uploadedPdfSelect: "Исходный файл",
     uploadedPdfUnavailable: "Оригинал PDF для этого файла недоступен.",
+    uploadedPdfTextFallback: "Распознанный текст (оригинал PDF недоступен)",
     openUploadedPdf: "Открыть загруженный PDF",
     resizePanel: "Изменить ширину панели",
     tabCrossSection: "Сводка позиций",

@@ -111,7 +111,11 @@ function workspaceParsedFilesEndpoints(app) {
 
         if (!file) {
           const status =
-            error === "NOT_FOUND" || error === "NO_ORIGINAL" ? 404 : 500;
+            error === "NOT_FOUND" ||
+            error === "NO_ORIGINAL" ||
+            error === "SOURCE_MISSING"
+              ? 404
+              : 500;
           return response.status(status).json({ error: error || "NOT_FOUND" });
         }
 

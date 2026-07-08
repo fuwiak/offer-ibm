@@ -421,6 +421,7 @@ const TRANSLATIONS = {
     uploadedPdfHint: "Porównaj z oryginalnym plikiem",
     uploadedPdfSelect: "Plik źródłowy",
     uploadedPdfUnavailable: "Oryginalny PDF nie jest dostępny dla tego pliku.",
+    uploadedPdfTextFallback: "Tekst z OCR (oryginał PDF niedostępny)",
     openUploadedPdf: "Otwórz przesłany PDF",
     resizePanel: "Zmień szerokość panelu",
     tabCrossSection: "Przekrój produktu",
