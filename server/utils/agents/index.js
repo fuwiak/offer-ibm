@@ -836,12 +836,27 @@ class AgentHandler {
     const stripped = this.#stripAgentCommand(this.invocation.prompt);
     const {
       enrichUserPromptWithShopCatalog,
+      loadParsedFileTextsForThread,
     } = require("../offerKp/catalogPrompt");
+    const { parseInquiryText } = require("../offerKp/parseInquiry");
+
+    const parsedFileTexts = await loadParsedFileTextsForThread({
+      workspace: this.invocation.workspace,
+      threadId: this.invocation.thread_id ?? null,
+      userId: this.invocation.user_id ?? null,
+    });
+    const inquiryLineCount = parseInquiryText(
+      [stripped, ...parsedFileTexts].filter(Boolean).join("\n\n")
+    ).length;
+    const maxDocs =
+      inquiryLineCount > 1 ? Math.min(30, Math.max(5, inquiryLineCount)) : 5;
+
     const content = await enrichUserPromptWithShopCatalog(stripped, {
       workspace: this.invocation.workspace,
       userId: this.invocation.user_id ?? null,
       threadId: this.invocation.thread_id ?? null,
-      maxDocs: 5,
+      maxDocs,
+      parsedFileTexts,
       agentMode: true,
     });
     return this.aibitat.start({

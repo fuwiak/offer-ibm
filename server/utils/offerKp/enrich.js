@@ -287,7 +287,14 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     };
   }
 
-  const maxLines = Math.min(15, lines.length);
+  const INQUIRY_MAX_LINES = Math.min(
+    30,
+    Math.max(
+      1,
+      parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 25
+    )
+  );
+  const maxLines = Math.min(INQUIRY_MAX_LINES, lines.length);
   const contextTexts = [];
   const sources = [];
   const productIds = new Set();

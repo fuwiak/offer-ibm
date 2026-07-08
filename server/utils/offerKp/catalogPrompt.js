@@ -2,6 +2,13 @@
  * Форматирование блоков каталога для LLM (user message + system context).
  */
 
+const {
+  limitCatalogBlocksForAgent,
+  formatInquiryDraftSection,
+  mergeInquiryDraftIntoUserPrompt,
+} = require("./inquiryDraftPrompt");
+const { parseInquiryText } = require("./parseInquiry");
+const { matchInquiryToDraft } = require("./matchInquiryLines");
 const shopDbLog = require("./shopDbLog");
 
 const CATALOG_BLOCK_PREFIX = "[Каталог ·";
@@ -211,6 +218,16 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
     });
   }
 
+  const inquirySource = [trimmed, ...parsedFileTexts].filter(Boolean).join("\n\n");
+  const inquiryLineCount = parseInquiryText(inquirySource).length;
+  const effectiveMaxDocs =
+    inquiryLineCount > 1
+      ? Math.min(
+          30,
+          Math.max(maxDocs, inquiryLineCount, options.maxDocs || maxDocs)
+        )
+      : maxDocs;
+
   let chatHistory = options.chatHistory || null;
   if (!chatHistory?.length && options.workspace?.id) {
     chatHistory = await loadChatHistoryForShopEnrich({
@@ -236,8 +253,13 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
         blocks: blocks.length,
       });
     }
-    if (options.agentMode && blocks.length > maxDocs) {
-      blocks = blocks.slice(-maxDocs);
+    if (options.agentMode && blocks.length > effectiveMaxDocs) {
+      blocks = limitCatalogBlocksForAgent(blocks, effectiveMaxDocs);
+      shopDbLog.info("catalog blocks limited for agent", {
+        kept: blocks.length,
+        maxDocs: effectiveMaxDocs,
+        inquiryLines: inquiryLineCount,
+      });
     }
     if (!blocks.length) {
       if (r?.flags?.shopDbError || r?.flags?.shopDbTimeout) {
@@ -249,7 +271,29 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
       }
       return trimmed;
     }
-    return mergeCatalogIntoUserPrompt(trimmed, blocks);
+
+    let draftSection = "";
+    if (inquiryLineCount > 1) {
+      try {
+        const draft = await matchInquiryToDraft(inquirySource, {
+          workspace: options.workspace || null,
+          chatHistory,
+          parsedFileTexts,
+        });
+        draftSection = formatInquiryDraftSection(draft);
+        if (draftSection) {
+          shopDbLog.ok("inquiry draft injected", {
+            lines: draft?.lines?.length || 0,
+            inquiryLineCount,
+          });
+        }
+      } catch (e) {
+        shopDbLog.warn("inquiry draft failed", { error: e?.message || String(e) });
+      }
+    }
+
+    const withCatalog = mergeCatalogIntoUserPrompt(trimmed, blocks);
+    return mergeInquiryDraftIntoUserPrompt(withCatalog, draftSection);
   } catch (e) {
     shopDbLog.enrichError(e, { phase: "enrichUserPromptWithShopCatalog" });
     return trimmed;

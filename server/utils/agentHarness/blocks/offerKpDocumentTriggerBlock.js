@@ -35,12 +35,19 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     if (!isQuoteDocumentRequest(prompt)) return;
 
     harness.state.set("quoteDocumentRequest", true);
-    harness.state.set("catalogMaxDocs", 8);
+    const inquiryLines = harness.state.get("inquiryLineCount") || 0;
+    harness.state.set(
+      "catalogMaxDocs",
+      inquiryLines > 1 ? Math.min(30, Math.max(8, inquiryLines)) : 8
+    );
     harness.state.set("contextGuidelines", [
       ...quoteDocumentAgentGuidelines(),
       ...layerGuidelines("constrain"),
       "Количество по каждой позиции бери из прикреплённого PDF-файла в контексте; цену — из [Каталог · purolat.com]. Не ставь 0 в колонке «Кол-во», если в заявке указано число.",
-    ]);
+      inquiryLines > 1
+        ? `В заявке ${inquiryLines} позиций — в КП, DOCX и PDF должно быть ровно ${inquiryLines} строк (по одной на каждую строку черновика и блок каталога). Вызови quote-calculator для каждой строки.`
+        : null,
+    ].filter(Boolean));
 
     harnessLog("info", "quoteDocument.trigger", {
       prompt: prompt.slice(0, 160),
@@ -58,6 +65,24 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     });
 
     await ensurePdfInquiryEvidence(harness);
+
+    try {
+      const { loadParsedFileTextsForThread } = require("../../offerKp/catalogPrompt");
+      const { parseInquiryText } = require("../../offerKp/parseInquiry");
+      const parsedFileTexts = await loadParsedFileTextsForThread({
+        workspace: harness.ctx.workspace,
+        threadId: harness.ctx.invocation?.thread_id ?? null,
+        userId: harness.ctx.invocation?.user_id ?? null,
+      });
+      const inquiryLineCount = parseInquiryText(
+        [prompt, ...parsedFileTexts].filter(Boolean).join("\n\n")
+      ).length;
+      if (inquiryLineCount > 0) {
+        harness.state.set("inquiryLineCount", inquiryLineCount);
+      }
+    } catch {
+      /* non-fatal */
+    }
   }
 
   async beforeToolApproval(params, harness) {

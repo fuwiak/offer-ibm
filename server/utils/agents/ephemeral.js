@@ -560,12 +560,31 @@ class EphemeralAgentHandler extends AgentHandler {
     const stripped = this.#stripAgentCommand(this.#prompt);
     const {
       enrichUserPromptWithShopCatalog,
+      loadParsedFileTextsForThread,
     } = require("../offerKp/catalogPrompt");
+    const { parseInquiryText } = require("../offerKp/parseInquiry");
+
+    const parsedFileTexts = await loadParsedFileTextsForThread({
+      workspace: this.#workspace,
+      threadId: this.#threadId ?? null,
+      userId: this.#userId ?? null,
+    });
+    const inquiryLineCount = parseInquiryText(
+      [stripped, ...parsedFileTexts].filter(Boolean).join("\n\n")
+    ).length;
+    const stateMax = this.harness?.state?.get("catalogMaxDocs");
+    const maxDocs =
+      stateMax ??
+      (inquiryLineCount > 1
+        ? Math.min(30, Math.max(5, inquiryLineCount))
+        : 5);
+
     const content = await enrichUserPromptWithShopCatalog(stripped, {
       workspace: this.#workspace,
       userId: this.#userId ?? null,
       threadId: this.#threadId ?? null,
-      maxDocs: this.harness?.state?.get("catalogMaxDocs") ?? 5,
+      maxDocs,
+      parsedFileTexts,
       agentMode: true,
     });
     return this.aibitat.start({
