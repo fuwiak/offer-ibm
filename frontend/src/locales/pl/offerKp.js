@@ -431,6 +431,18 @@ const TRANSLATIONS = {
     crossSectionPlaceholder:
       "Interaktywny wizualizer przekroju (One 8.3 → Diamond → Laminated → Hybrid) — Faza 2.",
   },
+  modelLoad: {
+    title: "Zmiana modelu",
+    subtitle: "Ładowanie {{model}} do LM Studio (VRAM)",
+    savingWorkspace: "Zapisywanie ustawień przestrzeni…",
+    loadingVram: "Ładowanie modelu do pamięci GPU w LM Studio…",
+    alreadyLoaded: "Model jest już załadowany w VRAM",
+    success: "Model gotowy",
+    successDetail: "{{model}} jest aktywny w LM Studio i tej przestrzeni.",
+    error: "Nie udało się załadować modelu",
+    close: "Zamknij",
+    loadTime: "Załadowano w {{seconds}}s",
+  },
   bot: {
     title: "AI Prawnik — Publiczny",
     subtitle: "Informacje o produktach i FAQ. Ceny nie są dostępne na tym kanale.",

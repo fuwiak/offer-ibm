@@ -250,6 +250,106 @@ function invalidateLmStudioModelCatalogCache() {
   catalogCache = null;
 }
 
+function lmStudioApiOrigin(basePath = lmStudioBaseUrl()) {
+  const { parseLMStudioBasePath } = require("../AiProviders/lmStudio");
+  return new URL(parseLMStudioBasePath(basePath)).origin;
+}
+
+/**
+ * Load a model into LM Studio VRAM via POST /api/v1/models/load.
+ * @param {string} modelId
+ * @param {{ basePath?: string, apiKey?: string, contextLength?: number, force?: boolean }} [opts]
+ */
+async function loadLmStudioModel(modelId, opts = {}) {
+  const id = String(modelId || "").trim();
+  if (!id) throw new Error("modelId is required");
+
+  const basePath = opts.basePath || lmStudioBaseUrl();
+  const apiKey =
+    opts.apiKey === true
+      ? process.env.LMSTUDIO_AUTH_TOKEN
+      : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
+
+  if (!opts.force) {
+    const { stateById } = await fetchLmStudioRuntimeStates(basePath, apiKey);
+    if (isLmStudioLoadedState(stateById[id])) {
+      invalidateLmStudioModelCatalogCache();
+      await fetchLmStudioModelCatalog({ basePath, apiKey, forceRefresh: true });
+      return {
+        success: true,
+        model: id,
+        status: "loaded",
+        alreadyLoaded: true,
+        loadTimeSeconds: 0,
+      };
+    }
+  }
+
+  const loadUrl = new URL(lmStudioApiOrigin(basePath));
+  loadUrl.pathname = "/api/v1/models/load";
+
+  const contextLength =
+    opts.contextLength ||
+    Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
+    32768;
+
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 300_000);
+
+  let response;
+  try {
+    response = await fetch(loadUrl.toString(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: id,
+        context_length: contextLength,
+        echo_load_config: true,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("LM Studio model load timed out after 5 minutes");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail =
+      body?.error?.message ||
+      body?.message ||
+      body?.error ||
+      response.statusText ||
+      "LM Studio model load failed";
+    throw new Error(String(detail));
+  }
+
+  invalidateLmStudioModelCatalogCache();
+  await fetchLmStudioModelCatalog({ basePath, apiKey, forceRefresh: true });
+
+  offerKpLog("info", "LM Studio model loaded into VRAM", {
+    model: id,
+    loadTimeSeconds: body?.load_time_seconds,
+    status: body?.status,
+  });
+
+  return {
+    success: true,
+    model: id,
+    status: body?.status || "loaded",
+    alreadyLoaded: false,
+    loadTimeSeconds: Number(body?.load_time_seconds) || null,
+    instanceId: body?.instance_id || id,
+  };
+}
+
 module.exports = {
   lmStudioBaseUrl,
   isLmStudioChatModelId,
@@ -262,5 +362,6 @@ module.exports = {
   getCachedLoadedLmStudioModelIds,
   getCachedLmStudioModelState,
   invalidateLmStudioModelCatalogCache,
+  loadLmStudioModel,
   LMSTUDIO_MODELS_CACHE_MS,
 };

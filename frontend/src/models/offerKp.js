@@ -193,6 +193,13 @@ const OfferKp = {
 
     return () => controller.abort();
   },
+
+  async loadLmStudioModel(modelId) {
+    return offerKpFetch(`${API_BASE}/offerKp/lmstudio/load-model`, {
+      method: "POST",
+      body: JSON.stringify({ modelId }),
+    });
+  },
 };
 
 export default OfferKp;

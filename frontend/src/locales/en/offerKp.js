@@ -453,6 +453,18 @@ const TRANSLATIONS = {
     crossSectionPlaceholder:
       "Interactive cross-section viewer (One 8.3 → Diamond → Laminated → Hybrid) — Phase 2.",
   },
+  modelLoad: {
+    title: "Switching model",
+    subtitle: "Loading {{model}} into LM Studio (VRAM)",
+    savingWorkspace: "Saving workspace settings…",
+    loadingVram: "Loading model into GPU memory on LM Studio…",
+    alreadyLoaded: "Model is already loaded in VRAM",
+    success: "Model ready",
+    successDetail: "{{model}} is active in LM Studio and this workspace.",
+    error: "Could not load model",
+    close: "Close",
+    loadTime: "Loaded in {{seconds}}s",
+  },
   bot: {
     title: "Offer KP — Public",
     subtitle: "Product information and FAQ. Pricing is not available on this channel.",

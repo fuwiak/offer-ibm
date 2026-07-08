@@ -28,11 +28,20 @@ const {
 } = require("../utils/offerKpApp/docxFromMarkdown");
 const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
 const {
+  loadLmStudioModel,
+} = require("../utils/offerKpApp/lmStudioModels");
+const {
   runProductSearchAgent,
 } = require("../utils/offerKp/productSearchAgent");
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 const shopDbExplorer = require("../utils/offerKp/db/explorer");
 const { askShopDb } = require("../utils/offerKp/db/askAgent");
+
+function isOfferKpQwenModelId(modelId) {
+  const id = String(modelId || "").trim().toLowerCase();
+  if (!id) return false;
+  return id.split("/")[0] === "qwen";
+}
 
 function offerKpEndpoints(app) {
   if (!app) return;
@@ -57,6 +66,30 @@ function offerKpEndpoints(app) {
       response.sendStatus(500).end();
     }
   });
+
+  app.post(
+    "/offerKp/lmstudio/load-model",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const { modelId } = reqBody(request);
+        const id = String(modelId || "").trim();
+        if (!id) {
+          return response.status(400).json({ error: "modelId is required" });
+        }
+        if (!isOfferKpQwenModelId(id)) {
+          return response
+            .status(400)
+            .json({ error: "Only Qwen models can be loaded from OfferKP." });
+        }
+        const result = await loadLmStudioModel(id);
+        response.status(200).json(result);
+      } catch (e) {
+        console.error("[offerKp] LM Studio load-model:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
 
   app.get(
     "/offerKp/dashboard/stats",

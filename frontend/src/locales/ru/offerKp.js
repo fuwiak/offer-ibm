@@ -473,6 +473,18 @@ const TRANSLATIONS = {
     manualHint:
       "Ручная коррекция: кол-во, цена, статус, комментарии, позиции из базы.",
   },
+  modelLoad: {
+    title: "Смена модели",
+    subtitle: "Загрузка {{model}} в LM Studio (VRAM)",
+    savingWorkspace: "Сохранение настроек пространства…",
+    loadingVram: "Загрузка модели в видеопамять на LM Studio…",
+    alreadyLoaded: "Модель уже загружена в VRAM",
+    success: "Модель готова",
+    successDetail: "{{model}} активна в LM Studio и в этом пространстве.",
+    error: "Не удалось загрузить модель",
+    close: "Закрыть",
+    loadTime: "Загружено за {{seconds}} с",
+  },
   bot: {
     title: "OfferKP — Публичный",
     subtitle: "Информация о номенклатуре крепежа и FAQ. Цены на этом канале недоступны.",

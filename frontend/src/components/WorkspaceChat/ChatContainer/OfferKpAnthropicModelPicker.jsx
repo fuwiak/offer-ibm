@@ -9,7 +9,9 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { CaretDown } from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
+import OfferKp from "@/models/offerKp";
 import showToast from "@/utils/toast";
+import LmStudioModelLoadModal from "@/components/OfferKp/LmStudioModelLoadModal";
 import { SAVE_LLM_SELECTOR_EVENT } from "./PromptInput/LLMSelector/action";
 import { OFFER_KP_NEW_CONVERSATION_EVENT } from "@/utils/offerKp/startNewConversation";
 import { SIDEBAR_TOGGLE_EVENT } from "@/components/Sidebar/SidebarToggle";
@@ -37,6 +39,14 @@ export default function OfferKpAnthropicModelPicker({
   const [selectedModel, setSelectedModel] = useState(OFFER_KP_DEFAULT_MODEL);
   const [availableModels, setAvailableModels] = useState(OFFER_KP_LOCAL_MODELS);
   const [saving, setSaving] = useState(false);
+  const [loadModal, setLoadModal] = useState({
+    open: false,
+    modelId: "",
+    modelName: "",
+    phase: "saving_workspace",
+    error: null,
+    loadTimeSeconds: null,
+  });
   const [sidebarOpen, setSidebarOpen] = useState(
     () => window.localStorage.getItem("offerKp_sidebar_toggle") !== "closed"
   );
@@ -81,23 +91,20 @@ export default function OfferKpAnthropicModelPicker({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [open]);
 
-  useEffect(() => {
-    let cancelled = false;
-    System.customModels("lmstudio", null, null, 8000)
-      .then(({ models = [] }) => {
-        if (cancelled) return;
-        const chatOnly = models.filter(
-          (m) =>
-            isLmStudioChatModelId(m?.id || m) && isOfferKpQwenModel(m?.id || m)
-        );
-        const merged = mergeLmStudioRemoteModels(chatOnly, OFFER_KP_LOCAL_MODELS);
-        if (merged.length) setAvailableModels(merged);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+  const refreshAvailableModels = useCallback(async () => {
+    const { models = [] } = await System.customModels("lmstudio", null, null, 8000);
+    const chatOnly = models.filter(
+      (m) =>
+        isLmStudioChatModelId(m?.id || m) && isOfferKpQwenModel(m?.id || m)
+    );
+    const merged = mergeLmStudioRemoteModels(chatOnly, OFFER_KP_LOCAL_MODELS);
+    if (merged.length) setAvailableModels(merged);
+    return merged;
   }, []);
+
+  useEffect(() => {
+    refreshAvailableModels().catch(() => {});
+  }, [refreshAvailableModels]);
 
   const refresh = useCallback(async () => {
     if (!workspaceSlug) return;
@@ -149,8 +156,20 @@ export default function OfferKpAnthropicModelPicker({
     }
     const meta = findOfferKpModel(modelId, availableModels);
     const previousModel = selectedModel;
+    const needsVramLoad = meta?.loaded !== true;
+
+    setOpen(false);
+    setLoadModal({
+      open: true,
+      modelId,
+      modelName: meta?.name || modelId,
+      phase: "saving_workspace",
+      error: null,
+      loadTimeSeconds: null,
+    });
     setSelectedModel(modelId);
     setSaving(true);
+
     try {
       const { message, workspace: updatedWorkspace } = await Workspace.update(
         workspaceSlug,
@@ -162,22 +181,52 @@ export default function OfferKpAnthropicModelPicker({
         }
       );
       if (message) throw new Error(message);
-      setSelectedModel(
-        resolveLocalPickerModel(
-          updatedWorkspace?.chatModel || modelId,
-          availableModels
-        )
+
+      const resolvedModel = resolveLocalPickerModel(
+        updatedWorkspace?.chatModel || modelId,
+        availableModels
       );
+      setSelectedModel(resolvedModel);
+
+      let loadTimeSeconds = null;
+      if (needsVramLoad) {
+        setLoadModal((prev) => ({ ...prev, phase: "loading_vram" }));
+        const loadResult = await OfferKp.loadLmStudioModel(modelId);
+        loadTimeSeconds = loadResult?.loadTimeSeconds ?? null;
+        await refreshAvailableModels();
+        setLoadModal((prev) => ({
+          ...prev,
+          phase: loadResult?.alreadyLoaded ? "already_loaded" : "success",
+          loadTimeSeconds,
+        }));
+      } else {
+        setLoadModal((prev) => ({ ...prev, phase: "already_loaded" }));
+      }
+
       window.dispatchEvent(new Event(SAVE_LLM_SELECTOR_EVENT));
-      setOpen(false);
+
+      if (!needsVramLoad) {
+        window.setTimeout(() => {
+          setLoadModal((prev) => ({ ...prev, open: false }));
+        }, 1200);
+      }
     } catch (err) {
       setSelectedModel(previousModel);
+      setLoadModal((prev) => ({
+        ...prev,
+        phase: "error",
+        error: err.message || "Failed to switch model",
+      }));
       showToast(err.message || "Failed to save model", "error", {
         clear: true,
       });
     } finally {
       setSaving(false);
     }
+  }
+
+  function closeLoadModal() {
+    setLoadModal((prev) => ({ ...prev, open: false }));
   }
 
   const displayName =
@@ -265,6 +314,14 @@ export default function OfferKpAnthropicModelPicker({
         <CaretDown size={12} className="shrink-0 opacity-70" />
       </button>
       {menu}
+      <LmStudioModelLoadModal
+        isOpen={loadModal.open}
+        modelName={loadModal.modelName}
+        phase={loadModal.phase}
+        error={loadModal.error}
+        loadTimeSeconds={loadModal.loadTimeSeconds}
+        onClose={closeLoadModal}
+      />
     </div>
   );
 }
