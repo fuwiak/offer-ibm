@@ -61,13 +61,17 @@ export function isLmStudioChatModelId(modelId) {
 }
 
 export function isOfferKpQwenModel(modelId) {
-  const id = String(modelId || "").trim().toLowerCase();
+  const id = String(modelId || "")
+    .trim()
+    .toLowerCase();
   if (!id) return false;
   return id.split("/")[0] === "qwen";
 }
 
 export function isOfferKpPaddleOcrModel(modelId) {
-  const id = String(modelId || "").trim().toLowerCase();
+  const id = String(modelId || "")
+    .trim()
+    .toLowerCase();
   if (!id) return false;
   return id.includes("paddleocr");
 }
@@ -91,7 +95,10 @@ export function findOfferKpModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
   );
 }
 
-export function mapLmStudioRemoteModel(entry, knownModels = OFFER_KP_LOCAL_MODELS) {
+export function mapLmStudioRemoteModel(
+  entry,
+  knownModels = OFFER_KP_LOCAL_MODELS
+) {
   const id = String(entry?.id || entry || "").trim();
   if (!id) return null;
   if (!isLmStudioChatModelId(id)) return null;
@@ -148,7 +155,10 @@ export function mergeLmStudioRemoteModels(
   return [...byId.values()];
 }
 
-export function isOfferKpAllowedModel(modelId, models = OFFER_KP_ALLOWED_MODELS) {
+export function isOfferKpAllowedModel(
+  modelId,
+  models = OFFER_KP_ALLOWED_MODELS
+) {
   const id = String(modelId || "").trim();
   if (!id) return false;
   if (!isOfferKpPickerModel(id)) return false;

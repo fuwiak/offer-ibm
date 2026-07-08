@@ -56,13 +56,17 @@ function isLmStudioCatalogModelId(modelId) {
 }
 
 function isOfferKpQwenModel(modelId) {
-  const id = String(modelId || "").trim().toLowerCase();
+  const id = String(modelId || "")
+    .trim()
+    .toLowerCase();
   if (!id) return false;
   return id.split("/")[0] === "qwen";
 }
 
 function isOfferKpPaddleOcrModel(modelId) {
-  const id = String(modelId || "").trim().toLowerCase();
+  const id = String(modelId || "")
+    .trim()
+    .toLowerCase();
   if (!id) return false;
   return id.includes("paddleocr");
 }
