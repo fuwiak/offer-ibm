@@ -1,8 +1,38 @@
+const fs = require("fs");
+const path = require("path");
 const {
   normalizeOcrInquiryText,
   splitInquiryChunks,
   parseInquiryText,
 } = require("../../../utils/offerKp/parseInquiry");
+
+const SLOZHNOST_FIXTURE = path.join(
+  __dirname,
+  "../../fixtures/offerKp/slozhnost-vysokaya-1-table.txt"
+);
+
+const SLOZHNOST_EXPECTED_ROWS = [
+  { thread: "10x100", gost: "7805", qty: 30, unit: "кг" },
+  { thread: "10x20", gost: "7805", qty: 14, unit: "кг" },
+  { thread: "10x35", gost: "7805", qty: 50, unit: "кг" },
+  { thread: "10x45", gost: "7805", qty: 40, unit: "кг" },
+  { thread: "10x50", gost: "7805", qty: 40, unit: "кг" },
+  { thread: "10x70", gost: "7805", qty: 40, unit: "кг" },
+  { thread: "10x80", gost: "7805", qty: 10, unit: "кг" },
+  { thread: "6x25", gost: "7805", qty: 3, unit: "кг" },
+  { thread: "6x30", gost: "7805", qty: 50, unit: "кг" },
+  { thread: "6x35", gost: "7805", qty: 10, unit: "кг" },
+  { thread: "6x40", gost: "7798", qty: 5, unit: "кг" },
+  { thread: "6x45", gost: "7805", qty: 25, unit: "кг" },
+  { thread: "8x16", gost: "7805", qty: 10, unit: "кг" },
+  { thread: "8x20", gost: "7805", qty: 15, unit: "кг", coating: "оцинк" },
+  { thread: "8x25", gost: "7805", qty: 30, unit: "кг" },
+  { thread: "8x30", gost: "7805", qty: 50, unit: "кг" },
+  { thread: "8x45", gost: "7805", qty: 25, unit: "кг" },
+  { thread: "8x50", gost: "7805", qty: 7, unit: "кг" },
+  { thread: "8x60", gost: "7805", qty: 5, unit: "кг" },
+  { thread: "8x70", gost: "7798", qty: 25, unit: "кг" },
+];
 
 describe("parseInquiry PDF/OCR extraction", () => {
   it("normalizes spaced DIN and thread markers", () => {
@@ -35,5 +65,41 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines[0].quantity).toBe(10);
     expect(lines[0].dinNumbers).toContain("975");
     expect(lines[1].quantity).toBe(25);
+  });
+
+  it("parses Slozhnost_vysokaya_1 bolt table (20 rows, kg units, GOST)", () => {
+    const text = fs.readFileSync(SLOZHNOST_FIXTURE, "utf8");
+
+    expect(text).toContain("Приложение №1");
+    expect(text).toContain("Перечень болтов с гайками");
+    expect(text).toMatch(/Болт M10x100.*ГОСТ 7805-70/);
+    expect(text).toMatch(/Болт M8x70.*ГОСТ 7798-70/);
+
+    const chunks = splitInquiryChunks(text);
+    expect(chunks).toHaveLength(20);
+    expect(chunks.every((c) => /^Болт M\d+x\d+/i.test(c))).toBe(true);
+    expect(chunks.some((c) => /Перечень болтов/i.test(c))).toBe(false);
+    expect(chunks.some((c) => /Наименование товара/i.test(c))).toBe(false);
+
+    const lines = parseInquiryText(text);
+    expect(lines).toHaveLength(20);
+
+    lines.forEach((line, idx) => {
+      const expected = SLOZHNOST_EXPECTED_ROWS[idx];
+      expect(line.productTypes).toContain("болт");
+      expect(line.thread).toEqual({
+        size: expected.thread.split("x")[0],
+        length: expected.thread.split("x")[1],
+      });
+      expect(line.dinNumbers).toContain(expected.gost);
+      expect(line.quantity).toBe(expected.qty);
+      expect(line.unit).toBe(expected.unit);
+      expect(line.needsReview).toBe(true);
+      if (expected.coating) {
+        expect(line.coating).toBe(expected.coating);
+      }
+      expect(line.name).toMatch(new RegExp(`M${expected.thread}`, "i"));
+      expect(line.name).toMatch(new RegExp(`ГОСТ ${expected.gost}`, "i"));
+    });
   });
 });
