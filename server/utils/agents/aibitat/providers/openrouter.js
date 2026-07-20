@@ -44,24 +44,53 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
 
   /**
    * Whether this provider supports native OpenAI-compatible tool calling.
-   * - Since OpenRouter models vary in tool calling support, we check the ENV.
-   * - If the ENV is not set, we default to false.
+   * Default ON for OpenRouter (OfferKP / modern AnythingLLM).
+   * Opt-out: PROVIDER_DISABLE_NATIVE_TOOL_CALLING includes "openrouter".
+   * Legacy allowlist: if PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING is set, it must include openrouter.
    * @returns {boolean}
    */
   supportsNativeToolCalling() {
     if (this._supportsToolCalling !== null) return this._supportsToolCalling;
-    const supportsToolCalling =
-      this.supportsNativeToolCallingViaEnv("openrouter");
-    if (supportsToolCalling)
-      this.providerLog(
-        "OpenRouter supports native tool calling is ENABLED via ENV."
-      );
-    else
+
+    const disabled = String(process.env.PROVIDER_DISABLE_NATIVE_TOOL_CALLING || "")
+      .toLowerCase()
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (
+      disabled.includes("openrouter") ||
+      disabled.includes("*") ||
+      disabled.includes("all")
+    ) {
       this.providerLog(
         "OpenRouter supports native tool calling is DISABLED via ENV. Will use UnTooled instead."
       );
-    this._supportsToolCalling = supportsToolCalling;
-    return supportsToolCalling;
+      this._supportsToolCalling = false;
+      return false;
+    }
+
+    if ("PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING" in process.env) {
+      const supportsToolCalling =
+        this.supportsNativeToolCallingViaEnv("openrouter");
+      if (supportsToolCalling) {
+        this.providerLog(
+          "OpenRouter supports native tool calling is ENABLED via ENV."
+        );
+      } else {
+        this.providerLog(
+          "OpenRouter supports native tool calling is DISABLED via ENV. Will use UnTooled instead."
+        );
+      }
+      this._supportsToolCalling = supportsToolCalling;
+      return supportsToolCalling;
+    }
+
+    // Default: native tools ON (OpenRouter OpenAI-compatible tools API).
+    this.providerLog(
+      "OpenRouter supports native tool calling is ENABLED (default)."
+    );
+    this._supportsToolCalling = true;
+    return true;
   }
 
   async #handleFunctionCallChat({ messages = [] }) {

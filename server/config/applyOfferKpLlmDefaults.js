@@ -29,6 +29,14 @@ function applyOfferKpLlmDefaults() {
       defaults.LMSTUDIO_BASE_PATH || "http://87.228.90.43:1234/v1";
   }
 
+  // Always enable OpenRouter native tools unless explicitly set/disabled.
+  if (!envIsSet("PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING")) {
+    process.env.PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING = String(
+      defaults.PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING ||
+        "generic-openai,bedrock,localai,groq,litellm,openrouter"
+    );
+  }
+
   if (!resolveOpenRouterApiKey()) {
     for (const key of ENV_KEYS) {
       if (envIsSet(key)) continue;

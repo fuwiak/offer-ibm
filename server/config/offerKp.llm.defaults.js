@@ -18,6 +18,9 @@ module.exports = {
   LMSTUDIO_MODEL_PREF: OFFER_KP_LM_DEFAULT_MODEL,
   LMSTUDIO_OCR_MODEL_PREF: OFFER_KP_LM_OCR_MODEL,
   LMSTUDIO_MODEL_TOKEN_LIMIT: String(OFFER_KP_LM_CONTEXT_TOKENS),
+  // Native OpenAI-style tools for OpenRouter teacher / agents (create-docx, quote-calculator…).
+  PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING:
+    "generic-openai,bedrock,localai,groq,litellm,openrouter",
   OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (Qwen3-VL-8B Thinking)",
   OFFER_KP_OCR_LLM_LABEL: "LM Studio (PaddleOCR-VL 1.5 · чтение файлов)",
   OFFER_KP_LMSTUDIO_HOST,
