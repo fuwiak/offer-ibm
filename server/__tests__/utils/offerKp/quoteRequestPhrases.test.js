@@ -29,9 +29,16 @@ describe("quoteRequestPhrases", () => {
     expect(isQuoteDocumentRequest("@agent какая погода")).toBe(false);
   });
 
+  it("rejects quote wording that asks to invent a price", () => {
+    expect(
+      isQuoteDocumentRequest("Создай КП на гайки, цену придумай сам")
+    ).toBe(false);
+  });
+
   it("detects an explicit agent quote without treating every agent call as КП", () => {
     expect(isQuoteDocumentRequest("@agent сделай кп")).toBe(true);
-    expect(isQuoteDocumentRequest("@agent: подготовь коммерческое предложение"))
-      .toBe(true);
+    expect(
+      isQuoteDocumentRequest("@agent: подготовь коммерческое предложение")
+    ).toBe(true);
   });
 });

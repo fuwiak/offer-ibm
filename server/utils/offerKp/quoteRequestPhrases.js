@@ -1,4 +1,5 @@
 const { wantsFileCreation } = require("../chats/agents");
+const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
 
 /** Короткие фразы «сделай КП» / oferta — сразу @agent + Word/PDF. */
 const SHORT_QUOTE_COMMAND_RES = [
@@ -36,6 +37,11 @@ function isQuoteDocumentRequest(message = "") {
     .trim();
   if (!text) return false;
 
+  const routed = routeOfferKpMessage(text);
+  if (routed.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
+    return false;
+  }
+
   if (SHORT_QUOTE_COMMAND_RES.some((re) => re.test(text))) return true;
   if (/\b(сделай|сформируй|подготовь|сгенерируй)\s+кп\b/i.test(text)) {
     return true;
@@ -51,6 +57,8 @@ function isQuoteDocumentRequest(message = "") {
   ) {
     return true;
   }
+
+  if (routed.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE) return true;
 
   return false;
 }

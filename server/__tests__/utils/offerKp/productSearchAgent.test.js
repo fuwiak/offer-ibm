@@ -6,6 +6,7 @@ const {
   buildProductSearchText,
   hasHardwareSignals,
   isCatalogRelayRequest,
+  runProductSearchAgent,
 } = require("../../../utils/offerKp/productSearchAgent");
 const { parseHardwareQuery } = require("../../../utils/offerKp/hardwareQuery");
 
@@ -41,8 +42,7 @@ describe("productSearchAgent query parsing", () => {
     const history = [
       {
         role: "user",
-        content:
-          "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880",
+        content: "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880",
       },
     ];
     const text = buildProductSearchText("Арт. 087870000300030", { history });
@@ -63,16 +63,16 @@ describe("productSearchAgent query parsing", () => {
   });
 
   it("detects hardware signals in product names", () => {
-    expect(
-      hasHardwareSignals("Сталь шпоночная ГОСТ 8787-68 30x30x1000")
-    ).toBe(true);
+    expect(hasHardwareSignals("Сталь шпоночная ГОСТ 8787-68 30x30x1000")).toBe(
+      true
+    );
     expect(hasHardwareSignals("hello world")).toBe(false);
   });
 
   it("detects catalog relay requests", () => {
-    expect(
-      isCatalogRelayRequest("тогда передай [Каталог · purolat.com]")
-    ).toBe(true);
+    expect(isCatalogRelayRequest("тогда передай [Каталог · purolat.com]")).toBe(
+      true
+    );
     expect(isCatalogRelayRequest("какая цена?")).toBe(false);
   });
 
@@ -84,10 +84,22 @@ describe("productSearchAgent query parsing", () => {
           "DIN 931 M10×50 8.8 цинк, DIN 934 M10 цинк, DIN 933 M8×30 8.8 цинк",
       },
     ];
-    const text = buildProductSearchText("тогда передай [Каталог · purolat.com]", {
-      history,
-    });
+    const text = buildProductSearchText(
+      "тогда передай [Каталог · purolat.com]",
+      {
+        history,
+      }
+    );
     expect(text).toContain("DIN 931");
     expect(text).toContain("DIN 934");
+  });
+
+  it("does not query ShopDB for a forbidden price-source instruction", async () => {
+    const result = await runProductSearchAgent({
+      message: "Найди цену на сайте конкурента для болта DIN 933",
+    });
+    expect(result.products).toEqual([]);
+    expect(result.strategies).toEqual([]);
+    expect(result.signals.intent.primaryIntent).toBe("unsafe_or_forbidden");
   });
 });

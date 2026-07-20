@@ -2,6 +2,7 @@ const { wantsFileCreation } = require("../chats/agents");
 const { isOfferFollowUp } = require("./productSearchAgent");
 const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
+const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
 
 const QUOTE_FILE_SKILLS = new Set([
   "create-docx-file",
@@ -70,6 +71,11 @@ function detectQuoteCreationIntentSync(userMessages = []) {
 
   const combined = list.join("\n");
   const last = list.at(-1) || "";
+  const routedLast = routeOfferKpMessage(last);
+  if (routedLast.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
+    return false;
+  }
+  if (routedLast.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE) return true;
 
   if (wantsFileCreation(combined)) return true;
   if (isOfferFollowUp(last) && combined.length >= 12) return true;

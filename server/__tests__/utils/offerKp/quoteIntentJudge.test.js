@@ -49,8 +49,27 @@ describe("quoteIntentJudge", () => {
     });
 
     it("returns false for unrelated chat", () => {
+      expect(detectQuoteCreationIntentSync(["Какая погода в Москве?"])).toBe(
+        false
+      );
+    });
+
+    it("recognizes the Start with KP draft/export phrases", () => {
       expect(
-        detectQuoteCreationIntentSync(["Какая погода в Москве?"])
+        detectQuoteCreationIntentSync([
+          "Сформируй черновик КП по списку позиций из каталога purolat.com",
+        ])
+      ).toBe(true);
+      expect(
+        detectQuoteCreationIntentSync([
+          "Подготовь КП в PDF/DOCX с таблицей позиций, ценами и статусами",
+        ])
+      ).toBe(true);
+    });
+
+    it("does not approve a quote containing a forbidden price instruction", () => {
+      expect(
+        detectQuoteCreationIntentSync(["Создай КП на гайки, цену придумай сам"])
       ).toBe(false);
     });
   });

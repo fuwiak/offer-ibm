@@ -47,6 +47,7 @@ const {
   CATEGORY_COLUMNS: C,
   SKU_COLUMNS: S,
 } = require("./db/schema");
+const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -374,6 +375,28 @@ async function runProductSearchAgent({
     limit,
     parsedFileTexts,
   });
+  const parsedTexts = (parsedFileTexts || []).filter(Boolean);
+  const searchText = buildProductSearchText(message, {
+    chatHistory,
+    history: chatHistory,
+    parsedFileTexts: parsedTexts,
+  });
+  const routedIntent = routeOfferKpMessage(String(message || "").trim());
+  if (routedIntent.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
+    shopDbLog.skip("product search agent skipped — forbidden intent", {
+      intent: routedIntent.primaryIntent,
+    });
+    const skipped = {
+      products: [],
+      strategies: [],
+      searchText,
+      parsed: parseHardwareQuery(searchText),
+      signals: { intent: routedIntent },
+      tablesUsed: [],
+    };
+    setCachedAgentResult(agentCacheKey, skipped);
+    return skipped;
+  }
   const cachedAgent = getCachedAgentResult(agentCacheKey);
   if (cachedAgent) {
     shopDbLog.skip("product search agent cache hit", {
@@ -382,13 +405,6 @@ async function runProductSearchAgent({
     });
     return cachedAgent;
   }
-
-  const parsedTexts = (parsedFileTexts || []).filter(Boolean);
-  const searchText = buildProductSearchText(message, {
-    chatHistory,
-    history: chatHistory,
-    parsedFileTexts: parsedTexts,
-  });
   const parsed = parseHardwareQuery(searchText);
   const analogIntent = detectAnalogIntent(
     `${String(message || "")}\n${searchText}`

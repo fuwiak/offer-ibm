@@ -31,8 +31,13 @@ const {
 } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
-const { STATUS, classifyProductMatch, detectAnalogIntent } = require("./analogRules");
+const {
+  STATUS,
+  classifyProductMatch,
+  detectAnalogIntent,
+} = require("./analogRules");
 const { resolveProductPrice } = require("./priceResolve");
+const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
 
 const MAX_EXCERPT_CHARS = 2200;
 
@@ -62,6 +67,11 @@ function shouldRunShopEnrich(message, options = {}) {
     .join("\n");
   if (!combined) return false;
 
+  const routed = routeOfferKpMessage(String(message || "").trim());
+  if (routed.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
+    return false;
+  }
+
   if (parsedTexts.length) {
     const inquiryLines = parseInquiryText(combined);
     if (inquiryLines.length || hasHardwareSignals(combined)) return true;
@@ -77,6 +87,7 @@ function shouldRunShopEnrich(message, options = {}) {
   if (isCatalogListingRequest(String(message || "").trim())) return true;
   if (isOfferFollowUp(String(message || "").trim())) return true;
   if (parsedTexts.length && isOfferFollowUp(combined)) return true;
+  if (routed.policy.allowShopDbSearch) return true;
   if (/извлек|pdf|коммерческ|\bкп\b|оферт/i.test(combined)) return true;
 
   return false;
@@ -408,10 +419,7 @@ async function getShopDbContext(message, options = {}) {
   const analogIntent = detectAnalogIntent(String(message || ""));
   const maxDocs = Math.min(
     12,
-    Math.max(
-      1,
-      parseInt(options.maxDocs, 10) || (analogIntent ? 10 : 5)
-    )
+    Math.max(1, parseInt(options.maxDocs, 10) || (analogIntent ? 10 : 5))
   );
   const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
   const effectiveMessage =
@@ -655,6 +663,7 @@ async function getShopDbContext(message, options = {}) {
 
 module.exports = {
   shopDbEnrichEnabled,
+  shouldRunShopEnrich,
   getShopDbContext,
   buildEnrichSearchText,
   buildProductSearchText,
