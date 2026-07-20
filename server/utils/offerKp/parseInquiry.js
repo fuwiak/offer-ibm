@@ -276,6 +276,11 @@ function parseInquiryLine(lineText) {
   let name = raw
     .replace(/^\d+[.)]\s*/, "")
     .replace(/\s*[-–—]\s*\d+\s*(?:шт|pcs).*$/i, "")
+    // Хвост «30 кг» / «50 шт» из колонки «Кол-во» — не часть наименования.
+    .replace(
+      /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)\s*$/i,
+      ""
+    )
     .trim();
 
   if (!name) name = raw;

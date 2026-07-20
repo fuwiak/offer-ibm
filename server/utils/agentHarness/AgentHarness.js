@@ -64,7 +64,9 @@ class AgentHarness {
       for (const block of this.blocks) {
         const fn = block[hookName];
         if (typeof fn !== "function") continue;
-        const result = await fn({ baseContext }, this);
+        // .call(block, …): хук должен видеть this === block (иначе падают
+        // приватные методы, например this.#evaluate в inquiry-quality).
+        const result = await fn.call(block, { baseContext }, this);
         if (result?.context !== undefined) {
           baseContext = result.context;
         }
@@ -75,7 +77,7 @@ class AgentHarness {
     for (const block of this.blocks) {
       const fn = block[hookName];
       if (typeof fn !== "function") continue;
-      const result = await fn(payload, this);
+      const result = await fn.call(block, payload, this);
       if (kind === "toolApproval" && result?.handled) {
         return result;
       }
