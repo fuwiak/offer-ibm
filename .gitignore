@@ -43,3 +43,4 @@ tmp/
 
 # Upstream / deploy artifacts
 aws_cf_deploy_anythingllm.json
+cli/offerkp-ops

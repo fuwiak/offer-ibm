@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# After every local commit: Selectel Lainey status + health (like Railway dashboard).
+# Skip: OFFERKP_OPS_SKIP=1 git commit ...
+set -euo pipefail
+
+if [[ "${OFFERKP_OPS_SKIP:-}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ROOT" ]]; then
+  exit 0
+fi
+
+OPS=""
+if command -v offerkp >/dev/null 2>&1; then
+  OPS="offerkp"
+elif [[ -x "$ROOT/cli/run" ]]; then
+  OPS="$ROOT/cli/run"
+elif [[ -x "$ROOT/cli/offerkp-ops" ]]; then
+  OPS="$ROOT/cli/offerkp-ops"
+else
+  echo "offerkp-ops: not installed (run: yarn ops:install)" >&2
+  exit 0
+fi
+
+echo ""
+echo "── offerkp-ops (post-commit · Selectel) ──"
+set +e
+"$OPS" status --plain
+code=$?
+set -e
+if [[ $code -ne 0 ]]; then
+  echo "offerkp-ops: status reported problems (exit $code) — commit already saved"
+fi
+echo "─────────────────────────────────────────"
+exit 0

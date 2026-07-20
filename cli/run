@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Launch offerkp-ops from anywhere (works via ~/bin/offerkp symlink).
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+  DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+  LINK="$(readlink "$SOURCE")"
+  if [[ "$LINK" == /* ]]; then
+    SOURCE="$LINK"
+  else
+    SOURCE="$DIR/$LINK"
+  fi
+done
+HERE="$(cd "$(dirname "$SOURCE")" && pwd)"
+cd "$HERE"
+
+if [[ -x ./offerkp-ops ]]; then
+  exec ./offerkp-ops "$@"
+fi
+
+exec go run . "$@"

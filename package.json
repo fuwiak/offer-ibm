@@ -40,7 +40,12 @@
     "translations:verify": "cd frontend/src/locales && node verifyTranslations.mjs",
     "translations:normalize": "cd frontend/src/locales && node normalizeEn.mjs && cd ../../.. && cd frontend && yarn lint && cd .. && yarn translations:verify",
     "translations:prune": "cd frontend/src/locales && node findUnusedTranslations.mjs --delete && cd ../../../ && yarn translations:normalize",
-    "translations:create": "cd extras/translator && node index.mjs --all"
+    "translations:create": "cd extras/translator && node index.mjs --all",
+    "ops:install": "bash cli/install.sh",
+    "ops": "bash cli/run",
+    "ops:status": "bash cli/run status --plain",
+    "ops:build": "bash cli/run build",
+    "deploy:lainey": "bash scripts/deploy-lainey-app.sh"
   },
   "private": false,
   "devDependencies": {
