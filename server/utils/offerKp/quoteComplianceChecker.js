@@ -62,7 +62,11 @@ function isPendingPriceCell(value = "") {
   const cell = String(value || "").trim();
   if (!cell) return true;
   if (/^(?:—|-|–)$/u.test(cell)) return true;
-  if (/под\s*заказ|требует\s*проверки|нет\s*в\s*shopdb/i.test(cell)) {
+  if (
+    /под\s*заказ|требует\s*проверки|нет\s*в\s*(?:shopdb|базе)|уточняется|по\s*запросу/i.test(
+      cell
+    )
+  ) {
     return true;
   }
   return false;
@@ -189,6 +193,9 @@ function checkQuoteCompliance({ content = "" } = {}) {
     }
 
     if (cellLooksLikeFormula(sumCell)) continue;
+
+    // «—» в сумме допустимо: строка не рассчитывается (ед. изм. / цена по запросу).
+    if (isPendingPriceCell(sumCell)) continue;
 
     const actual = parseAmount(sumCell);
     if (!Number.isFinite(actual)) {

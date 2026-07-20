@@ -57,7 +57,7 @@ function formatInquiryDraftSection(draft) {
         !(Number(line.unitPriceNet) > 0) && line.matchType !== "analog"
           ? " · нет такого товара в каталоге"
           : "";
-      const status = `${line.status || "—"}${productRef}${analogMark}${notFoundMark}`;
+      const status = `${line.kpStatus || line.status || "—"}${productRef}${analogMark}${notFoundMark}`;
       return `| ${idx + 1} | ${requested} | ${matched} | ${qty} ${unit} | ${price} | ${status} |`;
     })
     .join("\n");
@@ -85,8 +85,48 @@ function mergeInquiryDraftIntoUserPrompt(userPrompt, draftSection = "") {
 }
 
 /**
+ * Статус строки КП по регламенту: Точное соответствие / Предложен аналог /
+ * Нет в базе / Цена по запросу / Требуется проверка.
+ * @param {object} line — строка черновика matchInquiryToDraft
+ */
+function resolveKpStatus(line = {}) {
+  if (line.kpStatus) return line.kpStatus;
+  const hasPrice = Number(line.unitPriceNet) > 0;
+  const accepted = line.matchType === "exact" || line.matchType === "analog";
+  if (!accepted) return "Нет в базе";
+  if (!hasPrice) return "Цена по запросу";
+  if (line.unitNeedsRecalc) return "Требуется проверка";
+  return line.matchType === "analog"
+    ? "Предложен аналог"
+    : "Точное соответствие";
+}
+
+function resolveKpComment(line = {}, kpStatus = "") {
+  if (line.comment) return line.comment;
+  const requested = line.requestedName || line.inquiryRaw || line.name || "";
+  if (kpStatus === "Предложен аналог") {
+    return `АНАЛОГ: вместо «${requested}» предложен «${line.name || ""}»${line.analogOf ? ` (${line.analogOf})` : ""}`;
+  }
+  if (kpStatus === "Нет в базе") {
+    let c = "Точный товар отсутствует. Подходящий аналог не найден";
+    if (line.similarSuggestion?.name) {
+      c += `; похожий вариант: «${line.similarSuggestion.name}» — ${Number(line.similarSuggestion.price || 0).toFixed(2)} RUB (требует подтверждения)`;
+    }
+    return c;
+  }
+  if (kpStatus === "Цена по запросу") {
+    return "Цена в ShopDB отсутствует — цена по запросу";
+  }
+  if (kpStatus === "Требуется проверка") {
+    return `Требуется уточнение пересчёта единиц измерения (заявка в «${line.unit || "?"}»)`;
+  }
+  return "";
+}
+
+/**
  * Markdown КП строго из черновика ShopDB — агент не должен выдумывать цены/названия.
- * @param {{ lines?: object[], reference?: string }} draft
+ * Таблица и статусы — по регламенту автоформирования КП.
+ * @param {{ lines?: object[], reference?: string, vatRate?: number }} draft
  * @param {{ title?: string }} [opts]
  */
 function buildQuoteMarkdownFromDraft(draft, opts = {}) {
@@ -95,88 +135,94 @@ function buildQuoteMarkdownFromDraft(draft, opts = {}) {
 
   const title = opts.title || "Коммерческое предложение · purolat.com";
   const reference = draft.reference ? ` ${draft.reference}` : "";
+  const cell = (v) => String(v ?? "—").replace(/\|/g, "/") || "—";
+
+  let subtotal = 0;
+  let pricedCount = 0;
+  let exactCount = 0;
+  let analogCount = 0;
+  let notInDbCount = 0;
+  let noPriceCount = 0;
+
   const rows = lines
     .map((line, idx) => {
-      const name = String(
-        line.requestedName || line.inquiryRaw || line.name || "—"
-      ).replace(/\|/g, "/");
-      const matched = String(line.name || "").replace(/\|/g, "/");
-      const showName =
-        matched && matched !== name && Number(line.unitPriceNet) > 0
-          ? `${name} → ${matched}`
-          : name;
+      const kpStatus = resolveKpStatus(line);
+      const comment = resolveKpComment(line, kpStatus);
+      const requested = cell(
+        line.requestedName || line.inquiryRaw || line.name
+      );
       const qty = line.quantity ?? 1;
       const unit = line.unit || "шт";
       const hasPrice = Number(line.unitPriceNet) > 0;
       const unitPrice = hasPrice ? Number(line.unitPriceNet) : 0;
-      const price = hasPrice ? unitPrice.toFixed(2) : "—";
-      // Сумма = net × qty (КП без НДС); не брать lineTotal с VAT.
-      const sum = hasPrice
-        ? Number((unitPrice * Number(qty)).toFixed(2)).toFixed(2)
-        : "—";
-      const isAnalog = line.matchType === "analog" && hasPrice;
-      let status;
-      if (isAnalog) {
-        status = `⚠ АНАЛОГ — вместо «${name}» предложен «${matched}»${line.analogOf ? ` (${line.analogOf})` : ""}`;
-      } else if (hasPrice) {
-        status = line.status || "В наличии";
-      } else {
-        status = "❌ Нет такого товара в каталоге — под заказ";
-        if (line.similarSuggestion?.name) {
-          status += `; похожий: «${String(line.similarSuggestion.name).replace(/\|/g, "/")}» — ${Number(line.similarSuggestion.price || 0).toFixed(2)} RUB (требует подтверждения)`;
-        }
+
+      const isCalculable =
+        kpStatus === "Точное соответствие" || kpStatus === "Предложен аналог";
+      const offered =
+        kpStatus === "Нет в базе" ? "Нет в базе" : cell(line.name);
+      const article =
+        kpStatus === "Нет в базе" ? "—" : cell(line.article || "—");
+      const price = hasPrice
+        ? unitPrice.toFixed(2)
+        : kpStatus === "Цена по запросу"
+          ? "Цена по запросу"
+          : "—";
+      // Сумма = net × qty (КП без НДС в строках); только для рассчитываемых строк.
+      const sum =
+        hasPrice && isCalculable
+          ? Number((unitPrice * Number(qty)).toFixed(2)).toFixed(2)
+          : "—";
+
+      if (kpStatus === "Точное соответствие") exactCount += 1;
+      if (kpStatus === "Предложен аналог") analogCount += 1;
+      if (kpStatus === "Нет в базе") notInDbCount += 1;
+      if (!hasPrice) noPriceCount += 1;
+      if (hasPrice && isCalculable) {
+        subtotal += unitPrice * Number(qty);
+        pricedCount += 1;
       }
-      return `| ${idx + 1} | ${showName} | ${qty} | ${unit} | ${price} | ${sum} | ${status} |`;
+
+      return `| ${idx + 1} | ${requested} | ${offered} | ${article} | ${kpStatus} | ${unit} | ${qty} | ${price} | ${sum} | ${cell(comment || "—")} |`;
     })
     .join("\n");
 
-  const priced = lines.filter((l) => Number(l.unitPriceNet) > 0);
-  const analogs = priced.filter((l) => l.matchType === "analog");
-  const notFound = lines.filter((l) => !(Number(l.unitPriceNet) > 0));
-  const subtotal = priced.reduce(
-    (s, l) => s + Number(l.unitPriceNet) * Number(l.quantity ?? 1),
-    0
-  );
-
-  const notesLines = [];
-  if (analogs.length) {
-    notesLines.push(
-      `**Аналоги (${analogs.length}):** точного товара нет в каталоге, предложен аналог — см. колонку «Статус».`
-    );
-  }
-  if (notFound.length) {
-    notesLines.push(
-      `**Нет в каталоге (${notFound.length}):** таких товаров нет в каталоге purolat.com — цена не указана («под заказ»).`
-    );
-  }
-  const notesBlock = notesLines.length ? `\n${notesLines.join("  \n")}\n` : "";
+  const vatRate = Number(draft?.vatRate ?? 0.2);
+  const vatAmount = subtotal * vatRate;
+  const unpriced = lines.length - pricedCount;
+  const note =
+    unpriced > 0
+      ? "\n> Итоговая сумма рассчитана только по позициям с доступной ценой. Стоимость остальных позиций подлежит уточнению.\n"
+      : "";
 
   return `# ${title}${reference}
 
 **Дата:** ${new Date().toLocaleDateString("ru-RU")}  
-**Позиций:** ${lines.length} (с ценой ShopDB: ${priced.length}, аналогов: ${analogs.length}, нет в каталоге: ${notFound.length})
-${notesBlock}
+**Позиций в заявке:** ${lines.length} (точных: ${exactCount}, аналогов: ${analogCount}, нет в базе: ${notInDbCount}, без цены: ${noPriceCount})
 
 ## Перечень позиций
 
-| № | Наименование | Кол-во | Ед. | Цена, RUB | Сумма, RUB | Статус |
-|---|--------------|-------|-----|-----------|------------|--------|
+| № | Запрошено клиентом | Предлагаемый товар | Артикул | Статус | Ед. изм. | Количество | Цена | Сумма | Комментарий |
+|---|--------------------|--------------------|---------|--------|----------|------------|------|-------|-------------|
 ${rows}
-
+${note}
 ## Итого
 
 | Показатель | Значение |
 |------------|----------|
 | Всего позиций | ${lines.length} |
-| С ценой ShopDB | ${priced.length} |
-| Из них аналогов | ${analogs.length} |
-| Нет в каталоге (под заказ) | ${lines.length - priced.length} |
-| **Сумма (только ShopDB)** | **${subtotal.toFixed(2)} RUB** |
+| Точное соответствие | ${exactCount} |
+| Предложен аналог | ${analogCount} |
+| Нет в базе | ${notInDbCount} |
+| Без цены | ${noPriceCount} |
+| Сумма рассчитанных позиций | ${subtotal.toFixed(2)} RUB |
+| НДС ${Math.round(vatRate * 100)}% | ${vatAmount.toFixed(2)} RUB |
+| **Итог с НДС** | **${(subtotal + vatAmount).toFixed(2)} RUB** |
 
 ## Условия
 
-- Цены только из каталога purolat.com (ShopDB). Без цены — «под заказ», не угадывать.
-- Количество и наименования — из PDF-заявки.
+- Цены только из каталога purolat.com (ShopDB). Без цены — «Цена по запросу» / «—», не угадывать.
+- Количество и наименования — из заявки клиента.
+- Срок действия предложения, доставка и условия оплаты — по согласованию.
 
 _Источник: matchInquiryToDraft / ShopDB_
 `;
@@ -190,4 +236,6 @@ module.exports = {
   formatInquiryDraftSection,
   mergeInquiryDraftIntoUserPrompt,
   buildQuoteMarkdownFromDraft,
+  resolveKpStatus,
+  resolveKpComment,
 };

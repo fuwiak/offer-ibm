@@ -78,65 +78,115 @@ function parseQuoteMeta(message = "") {
   };
 }
 
+/** Приводит строку авто-КП к форме строки черновика matchInquiryToDraft. */
+function toKpLine(l = {}) {
+  return {
+    kpStatus: l.kpStatus,
+    comment: l.comment,
+    requestedName: l.requestedName,
+    name: l.productName,
+    article: l.article,
+    unit: l.unit,
+    unitPriceNet: Number(l.unitPrice) || 0,
+    matchType: l.matchType,
+    analogOf: l.analogOf,
+    unitNeedsRecalc: l.unitNeedsRecalc,
+    similarSuggestion: l.similarSuggestion,
+  };
+}
+
+function computeQuoteLineStats(lines = []) {
+  const { resolveKpStatus } = require("./inquiryDraftPrompt");
+  const stats = {
+    totalCount: lines.length,
+    exactCount: 0,
+    analogCount: 0,
+    notInDbCount: 0,
+    noPriceCount: 0,
+    unpricedCount: 0,
+    calculatedCount: 0,
+    calculatedSubtotal: 0,
+  };
+  for (const l of lines) {
+    const kpStatus = resolveKpStatus(toKpLine(l));
+    const hasPrice = Number(l.unitPrice) > 0;
+    const isCalculable =
+      kpStatus === "Точное соответствие" || kpStatus === "Предложен аналог";
+    if (kpStatus === "Точное соответствие") stats.exactCount += 1;
+    if (kpStatus === "Предложен аналог") stats.analogCount += 1;
+    if (kpStatus === "Нет в базе") stats.notInDbCount += 1;
+    if (!hasPrice) stats.noPriceCount += 1;
+    if (hasPrice && isCalculable) {
+      stats.calculatedCount += 1;
+      stats.calculatedSubtotal += Number(l.unitPrice) * Number(l.quantity || 1);
+    } else {
+      stats.unpricedCount += 1;
+    }
+  }
+  return stats;
+}
+
 function buildMarkdownQuote({
   reference,
   customer,
   lines,
-  subtotal,
   shipping,
-  total,
   currency,
   vatRate,
-  vatAmount,
 }) {
   const { website, companyName, catalogLabel } = QUOTE_BRAND;
   const vatPct = Math.round(vatRate * 100);
+  const { resolveKpStatus, resolveKpComment } = require("./inquiryDraftPrompt");
+  const cell = (v) => String(v ?? "—").replace(/\|/g, "/") || "—";
+
+  const stats = computeQuoteLineStats(lines);
   const rows = lines
     .map((l, i) => {
+      const kpLine = toKpLine(l);
+      const kpStatus = resolveKpStatus(kpLine);
+      const comment = resolveKpComment(kpLine, kpStatus);
       const hasPrice = Number(l.unitPrice) > 0;
+      const isCalculable =
+        kpStatus === "Точное соответствие" || kpStatus === "Предложен аналог";
+      const requested = cell(l.requestedName || l.productName);
+      const offered =
+        kpStatus === "Нет в базе" ? "Нет в базе" : cell(l.productName);
+      const article = kpStatus === "Нет в базе" ? "—" : cell(l.article || "—");
       const price = hasPrice
-        ? `${Number(l.unitPrice).toFixed(2)} ${currency}`
-        : "—";
-      const sum = hasPrice
-        ? `${Number(l.lineTotal || 0).toFixed(2)} ${currency}`
-        : "—";
-      let status;
-      if (l.matchType === "analog" && hasPrice) {
-        status = `⚠ АНАЛОГ — вместо «${l.requestedName || l.productName}»${l.analogOf ? ` (${l.analogOf})` : ""}`;
-      } else if (hasPrice) {
-        status = l.status || "В наличии";
-      } else {
-        status = "❌ Нет такого товара в каталоге — под заказ";
-        if (l.similarSuggestion?.name) {
-          status += `; похожий: «${l.similarSuggestion.name}» — ${Number(l.similarSuggestion.price || 0).toFixed(2)} ${currency} (требует подтверждения)`;
-        }
-      }
-      return `| ${i + 1} | ${l.productName} | ${l.quantity} | ${price} | ${sum} | ${status} |`;
+        ? Number(l.unitPrice).toFixed(2)
+        : kpStatus === "Цена по запросу"
+          ? "Цена по запросу"
+          : "—";
+      const sum =
+        hasPrice && isCalculable
+          ? (Number(l.unitPrice) * Number(l.quantity || 1)).toFixed(2)
+          : "—";
+      return `| ${i + 1} | ${requested} | ${offered} | ${article} | ${kpStatus} | ${l.unit || "шт"} | ${l.quantity} | ${price} | ${sum} | ${cell(comment || "—")} |`;
     })
     .join("\n");
 
-  const analogCount = lines.filter(
-    (l) => l.matchType === "analog" && Number(l.unitPrice) > 0
-  ).length;
-  const notFoundCount = lines.filter((l) => !(Number(l.unitPrice) > 0)).length;
+  const note =
+    stats.unpricedCount > 0
+      ? "\n> Итоговая сумма рассчитана только по позициям с доступной ценой. Стоимость остальных позиций подлежит уточнению.\n"
+      : "";
 
   return `# Коммерческое предложение ${reference}
 
 **Поставщик:** ${companyName} · [${catalogLabel}](${website})  
 **Клиент:** ${customer.name}${customer.country ? ` · ${customer.country}` : ""}  
 **Дата:** ${new Date().toLocaleDateString("ru-RU")}  
-**Позиций:** ${lines.length} (аналогов: ${analogCount}, нет в каталоге: ${notFoundCount})
+**Позиций в заявке:** ${lines.length} (точных: ${stats.exactCount}, аналогов: ${stats.analogCount}, нет в базе: ${stats.notInDbCount}, без цены: ${stats.noPriceCount})
 
 ## Позиции
 
-| № | Наименование | Кол-во | Цена за ед. | Сумма | Статус |
-|---|--------------|--------|-------------|-------|--------|
+| № | Запрошено клиентом | Предлагаемый товар | Артикул | Статус | Ед. изм. | Количество | Цена, ${currency} | Сумма, ${currency} | Комментарий |
+|---|--------------------|--------------------|---------|--------|----------|------------|------|-------|-------------|
 ${rows}
-
-**Подытог:** ${subtotal.toFixed(2)} ${currency}  
+${note}
+**Сумма рассчитанных позиций:** ${stats.calculatedSubtotal.toFixed(2)} ${currency}  
 **Доставка:** ${shipping.toFixed(2)} ${currency}  
-**НДС ${vatPct}%:** ${vatAmount.toFixed(2)} ${currency}  
-**Итого с НДС:** ${(total + vatAmount).toFixed(2)} ${currency}
+**НДС ${vatPct}%:** ${(stats.calculatedSubtotal * vatRate).toFixed(2)} ${currency}  
+**Итог с НДС:** ${(stats.calculatedSubtotal * (1 + vatRate) + shipping).toFixed(2)} ${currency}
 
 ## Условия
 
@@ -148,22 +198,46 @@ _Источник цен: каталог ${catalogLabel} (MySQL)._
 `;
 }
 
-function buildQuoteArtifactsSummary({ reference, pdf, docx }) {
+function buildQuoteArtifactsSummary({
+  reference,
+  pdf,
+  docx,
+  stats = null,
+  pdfError = null,
+  docxError = null,
+}) {
   const fileLines = [];
   if (pdf?.filename) {
     fileLines.push(
-      `- **${pdf.filename}** (PDF) — карточка ниже, предпросмотр справа`
+      `- **${pdf.filename}** (PDF) — создан, карточка ниже, предпросмотр справа`
+    );
+  } else {
+    fileLines.push(
+      `- PDF — НЕ создан${pdfError ? ` (ошибка: ${pdfError})` : ""}`
     );
   }
   if (docx?.filename) {
-    fileLines.push(`- **${docx.filename}** (Word) — карточка ниже`);
+    fileLines.push(`- **${docx.filename}** (Word) — создан, карточка ниже`);
+  } else {
+    fileLines.push(
+      `- DOCX — НЕ создан${docxError ? ` (ошибка: ${docxError})` : ""}`
+    );
   }
 
-  const filesBlock = fileLines.length
-    ? fileLines.join("\n")
-    : "- файлы сформированы, но не удалось сохранить на сервере";
+  const statsBlock = stats
+    ? `\n\n**Итог обработки заявки:**\n` +
+      `- строк в заявке: ${stats.totalCount}\n` +
+      `- точное соответствие: ${stats.exactCount}\n` +
+      `- предложен аналог: ${stats.analogCount}\n` +
+      `- нет в базе: ${stats.notInDbCount}\n` +
+      `- без цены: ${stats.noPriceCount}\n` +
+      `- сумма рассчитанных строк: ${stats.calculatedSubtotal.toFixed(2)} RUB` +
+      (stats.unpricedCount > 0
+        ? `\n\n_Итоговая сумма рассчитана только по позициям с доступной ценой. Стоимость остальных позиций подлежит уточнению._`
+        : "")
+    : "";
 
-  return `\n\n---\n\n**Коммерческое предложение ${reference} готово.**\n\n**Где файлы:**\n${filesBlock}\n\n**Предпросмотр:** таблица позиций открыта в панели справа.\n**Скачивание:** кнопка «Download» на карточке каждого файла в этом сообщении.`;
+  return `\n\n---\n\n**Коммерческое предложение ${reference} готово.**${statsBlock}\n\n**Файлы:**\n${fileLines.join("\n")}\n\n**Предпросмотр:** таблица позиций открыта в панели справа.\n**Скачивание:** кнопка «Download» на карточке каждого файла в этом сообщении.`;
 }
 
 function buildQuoteFileOutputs({ pdf, docx, markdown }) {
@@ -282,6 +356,9 @@ async function emitAutoQuoteArtifacts({
         productNameRu: l.name,
         requestedName: l.requestedName,
         matchType: l.matchType,
+        kpStatus: l.kpStatus,
+        unitNeedsRecalc: l.unitNeedsRecalc,
+        unit: l.unit,
         similarSuggestion: l.similarSuggestion || null,
         article: l.article,
         sku: l.article,
@@ -342,28 +419,59 @@ async function emitAutoQuoteArtifacts({
   });
 
   const safeRef = reference.replace(/[^\w-]+/g, "_");
-  const [pdfResult, docxResult] = await Promise.allSettled([
-    generateQuotePdf(quoteData),
-    generateDocxFromMarkdown({
-      markdown,
-      filename: `KP-${safeRef}.docx`,
-    }),
+  // Обязательное создание файлов: при ошибке — один повтор, статус не выдумываем.
+  async function runWithRetry(label, factory) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        return { file: await factory(), error: null };
+      } catch (e) {
+        console.error(
+          `[offerKp] auto quote ${label} (попытка ${attempt}):`,
+          e?.message || e
+        );
+        if (attempt === 2)
+          return { file: null, error: e?.message || String(e) };
+      }
+    }
+    return { file: null, error: "unknown" };
+  }
+
+  const [pdfOutcome, docxOutcome] = await Promise.all([
+    runWithRetry("PDF", () => generateQuotePdf(quoteData)),
+    runWithRetry("DOCX", () =>
+      generateDocxFromMarkdown({
+        markdown,
+        filename: `KP-${safeRef}.docx`,
+      })
+    ),
   ]);
-  if (pdfResult.status === "rejected") {
-    console.error(
-      "[offerKp] auto quote PDF:",
-      pdfResult.reason?.message || pdfResult.reason
-    );
+  const pdf = pdfOutcome.file;
+  const docx = docxOutcome.file;
+
+  const stats = computeQuoteLineStats(lines);
+
+  if (!pdf && !docx) {
+    // Оба инструмента упали: вернуть готовое содержание КП + ошибку, без ложного успеха.
+    writeResponseChunk(response, {
+      uuid,
+      type: "textResponseChunk",
+      textResponse:
+        `\n\n---\n\n**Не удалось создать файлы КП ${reference}.**\n` +
+        `PDF: ошибка (${pdfOutcome.error}). DOCX: ошибка (${docxOutcome.error}).\n\n` +
+        `Содержание КП подготовлено полностью:\n\n${markdown}`,
+      close: false,
+      error: false,
+    });
+    return {
+      summaryText: null,
+      reference,
+      outputs: [],
+      generatedFiles: [],
+      stats,
+      pdfError: pdfOutcome.error,
+      docxError: docxOutcome.error,
+    };
   }
-  if (docxResult.status === "rejected") {
-    console.error(
-      "[offerKp] auto quote DOCX:",
-      docxResult.reason?.message || docxResult.reason
-    );
-  }
-  const pdf = pdfResult.status === "fulfilled" ? pdfResult.value : null;
-  const docx = docxResult.status === "fulfilled" ? docxResult.value : null;
-  if (!pdf && !docx) return null;
 
   const outputs = buildQuoteFileOutputs({ pdf, docx, markdown });
   const generatedFiles = buildGeneratedFilesList({ pdf, docx, markdown });
@@ -417,7 +525,14 @@ async function emitAutoQuoteArtifacts({
     });
   }
 
-  const summaryText = buildQuoteArtifactsSummary({ reference, pdf, docx });
+  const summaryText = buildQuoteArtifactsSummary({
+    reference,
+    pdf,
+    docx,
+    stats,
+    pdfError: pdfOutcome.error,
+    docxError: docxOutcome.error,
+  });
   writeResponseChunk(response, {
     uuid,
     type: "textResponseChunk",
@@ -426,7 +541,7 @@ async function emitAutoQuoteArtifacts({
     error: false,
   });
 
-  return { summaryText, reference, outputs, generatedFiles };
+  return { summaryText, reference, outputs, generatedFiles, stats };
 }
 
 function hasInquirySignals(message) {
@@ -443,6 +558,7 @@ module.exports = {
   parseCatalogBlock,
   parseQuoteMeta,
   buildMarkdownQuote,
+  computeQuoteLineStats,
   buildQuoteArtifactsSummary,
   buildQuoteFileOutputs,
   buildGeneratedFilesList,

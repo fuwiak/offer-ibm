@@ -155,9 +155,14 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   const qty = inquiryLine.quantity || 1;
   const unitPrice = accepted ? Number(best.price) || 0 : 0;
-  const priceWithVat =
-    unitPrice > 0 ? Number((unitPrice * (1 + VAT_RATE)).toFixed(2)) : 0;
-  const lineTotal = unitPrice > 0 ? Number((priceWithVat * qty).toFixed(2)) : 0;
+  const hasPrice = unitPrice > 0;
+  // Ед. изм. заявки ≠ шт → нельзя молча считать кг штуками: сумму не считаем.
+  const unitNeedsRecalc = !!inquiryLine.needsReview;
+  const priceWithVat = hasPrice
+    ? Number((unitPrice * (1 + VAT_RATE)).toFixed(2))
+    : 0;
+  const lineTotal =
+    hasPrice && !unitNeedsRecalc ? Number((priceWithVat * qty).toFixed(2)) : 0;
   const weightKg = estimateWeightKg(inquiryLine, accepted ? best.name : null);
 
   let status = inquiryLine.needsReview
@@ -165,6 +170,18 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     : accepted
       ? best.status
       : STATUS.OUT_OF_STOCK;
+
+  // Статус для таблицы КП (фиксированный словарь из регламента КП).
+  let kpStatus;
+  if (!accepted) {
+    kpStatus = "Нет в базе";
+  } else if (!hasPrice) {
+    kpStatus = "Цена по запросу";
+  } else if (unitNeedsRecalc) {
+    kpStatus = "Требуется проверка";
+  } else {
+    kpStatus = isAnalog ? "Предложен аналог" : "Точное соответствие";
+  }
 
   // Комментарий — единый явный текст для UI/КП, без домыслов.
   const commentParts = [];
@@ -174,12 +191,20 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         (best.analogOf ? ` (${best.analogOf})` : "")
     );
   } else if (!accepted) {
-    commentParts.push("Нет такого товара в каталоге");
+    commentParts.push("Точный товар отсутствует. Подходящий аналог не найден");
     if (similarSuggestion) {
       commentParts.push(
         `похожий вариант: «${similarSuggestion.name}» — ${similarSuggestion.price.toFixed(2)} RUB (требует подтверждения)`
       );
     }
+  }
+  if (accepted && !hasPrice) {
+    commentParts.push("Цена в ShopDB отсутствует — цена по запросу");
+  }
+  if (accepted && hasPrice && unitNeedsRecalc) {
+    commentParts.push(
+      `Требуется уточнение пересчёта единиц измерения (заявка в «${inquiryLine.unit}»)`
+    );
   }
   if (inquiryLine.specialRequirements) {
     commentParts.push(inquiryLine.specialRequirements);
@@ -198,6 +223,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     lineTotal,
     weightKg,
     status,
+    kpStatus,
+    unitNeedsRecalc,
     matchType: accepted ? best.matchType : best?.matchType || "none",
     analogOf: accepted ? best.analogOf || null : null,
     similarSuggestion,

@@ -8,7 +8,7 @@ const { parseCatalogEvidence } = require("./harnessEvidence");
 const { parseMarkdownTable } = require("./quoteComplianceChecker");
 
 const PENDING_PRICE_RE =
-  /^(?:—|-|–|под\s*заказ|требует\s*проверки|нет\s*в\s*shopdb|n\/?a|tbd)?$/i;
+  /^(?:—|-|–|под\s*заказ|требует\s*проверки|нет\s*в\s*(?:shopdb|базе)|(?:цена\s*)?по\s*запросу|n\/?a|tbd)?$/i;
 
 function roundPrice(n) {
   return Math.round(Number(n) * 100) / 100;
@@ -18,7 +18,11 @@ function isPendingPriceCell(value = "") {
   const cell = String(value || "").trim();
   if (!cell) return true;
   if (PENDING_PRICE_RE.test(cell)) return true;
-  if (/под\s*заказ|требует\s*проверки|нет\s*в\s*shopdb/i.test(cell)) {
+  if (
+    /под\s*заказ|требует\s*проверки|нет\s*в\s*(?:shopdb|базе)|по\s*запросу/i.test(
+      cell
+    )
+  ) {
     return true;
   }
   return false;
