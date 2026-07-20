@@ -28,6 +28,7 @@ console.log(
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const compression = require("compression");
 const path = require("path");
 const { reqBody } = require("./utils/http");
 const { systemEndpoints } = require("./endpoints/system");
@@ -103,6 +104,17 @@ process.on("unhandledRejection", (reason) => {
   console.error("\x1b[31m[FATAL][BACKEND]\x1b[0m unhandledRejection:", reason);
 });
 app.use(cors({ origin: true }));
+app.use(
+  compression({
+    filter: (request, response) => {
+      // Compression buffers event streams and makes token delivery feel slow.
+      if (/text\/event-stream/i.test(request.headers.accept || "")) {
+        return false;
+      }
+      return compression.filter(request, response);
+    },
+  })
+);
 app.use(bodyParser.text({ limit: FILE_LIMIT }));
 app.use(bodyParser.json({ limit: FILE_LIMIT }));
 app.use(
@@ -161,10 +173,27 @@ if (process.env.NODE_ENV !== "development") {
   app.use(
     express.static(path.resolve(__dirname, "public"), {
       extensions: ["js"],
-      setHeaders: (res) => {
+      setHeaders: (res, filePath) => {
         // Disable I-framing of entire site UI
         res.removeHeader("X-Powered-By");
         res.setHeader("X-Frame-Options", "DENY");
+
+        // Cache policy:
+        // - Vite chunk files carry a content hash (eg: clipboard-243c2cc5.js)
+        //   and can be cached forever.
+        // - index.js / index.css / *.html keep fixed names across builds
+        //   (see frontend/vite.config.js) so they must always revalidate
+        //   (ETag/304 still avoids re-download when unchanged).
+        // - Everything else (fonts, images, wasm — emitted without hashes)
+        //   gets a short-lived cache.
+        const base = path.basename(filePath);
+        if (/-[0-9a-f]{8,}\.(js|css|mjs)$/i.test(base)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else if (/\.(html?)$/i.test(base) || base === "index.js" || base === "index.css") {
+          res.setHeader("Cache-Control", "no-cache");
+        } else {
+          res.setHeader("Cache-Control", "public, max-age=86400");
+        }
       },
     })
   );

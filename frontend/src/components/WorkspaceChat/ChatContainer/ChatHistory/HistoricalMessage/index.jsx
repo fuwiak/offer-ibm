@@ -204,8 +204,15 @@ export default memo(
       prevProps.message === nextProps.message &&
       prevProps.isLastMessage === nextProps.isLastMessage &&
       prevProps.chatId === nextProps.chatId &&
-      JSON.stringify(prevProps.metrics) === JSON.stringify(nextProps.metrics) &&
-      JSON.stringify(prevProps.sources) === JSON.stringify(nextProps.sources)
+      // Reference-equality first: JSON.stringify of RAG sources (large text
+      // excerpts) ran for EVERY historical message on EVERY streaming chunk.
+      (prevProps.metrics === nextProps.metrics ||
+        JSON.stringify(prevProps.metrics) ===
+          JSON.stringify(nextProps.metrics)) &&
+      (prevProps.sources === nextProps.sources ||
+        ((prevProps.sources?.length || 0) === (nextProps.sources?.length || 0) &&
+          JSON.stringify(prevProps.sources) ===
+            JSON.stringify(nextProps.sources)))
     );
   }
 );
