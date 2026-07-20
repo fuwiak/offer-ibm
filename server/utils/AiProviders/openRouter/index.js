@@ -73,6 +73,15 @@ class OpenRouterLLM {
     this.cacheModelPath = path.resolve(cacheFolder, "models.json");
     this.cacheAtPath = path.resolve(cacheFolder, ".cached_at");
     this.log("Initialized with model:", this.model);
+
+    // Populate the models.json cache in the background so promptWindowLimit()
+    // has real numbers for the *next* request. #syncModels() is normally only
+    // triggered by isValidChatCompletionModel(), which OfferKP's agent flow
+    // never calls — leaving the cache empty and every window at the 4096
+    // fallback forever. Fire-and-forget: must not block/throw in constructor.
+    this.#syncModels().catch((e) =>
+      this.log("Background model cache sync failed:", e?.message || e)
+    );
   }
 
   /**
@@ -181,12 +190,19 @@ class OpenRouterLLM {
           {}
         )
       : {};
-    return availableModels[modelName]?.maxLength || 4096;
+    const {
+      lookupKnownContextWindow,
+      FALLBACK_CONTEXT_WINDOW,
+    } = require("../../../config/openRouter.contextWindows");
+    return (
+      availableModels[modelName]?.maxLength ||
+      lookupKnownContextWindow(modelName) ||
+      FALLBACK_CONTEXT_WINDOW
+    );
   }
 
   promptWindowLimit() {
-    const availableModels = this.models();
-    return availableModels[this.model]?.maxLength || 4096;
+    return OpenRouterLLM.promptWindowLimit(this.model);
   }
 
   async isValidChatCompletionModel(model = "") {

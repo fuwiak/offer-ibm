@@ -420,14 +420,39 @@ class Provider {
 
   /**
    * Get the context limit for a provider/model combination using static method in AIProvider class.
-   * @param {string} provider
-   * @param {string} modelName
+   *
+   * `provider` is a string ("openrouter", "lmstudio", …) the first time this
+   * is called in a chat, but aibitat.provider/this.super.provider is
+   * overwritten with the *instantiated* provider object after the first LLM
+   * completion (AIbitat#reply keeps the object around for usage metrics).
+   * Passing that object straight into getLLMProviderClass()'s string switch
+   * matches nothing and used to silently fall back to a hardcoded 8000
+   * tokens — collapsing a 1M-token model's usable window to 8K for the rest
+   * of the conversation. getProviderForConfig() tags every instance with
+   * `.providerKey` so we can recover the real provider name here.
+   * @param {string|{providerKey?: string, model?: string}} provider
+   * @param {string} [modelName]
    * @returns {number}
    */
   static contextLimit(provider = "openai", modelName) {
-    const llm = getLLMProviderClass({ provider });
+    const providerKey =
+      typeof provider === "string" ? provider : provider?.providerKey;
+    const resolvedModel = modelName ?? provider?.model;
+
+    if (!providerKey) {
+      // Object without a tagged key (older cache, manual construction, …) —
+      // 8000 is still a guess, but log it so a silent truncation is visible.
+      console.warn(
+        `[Provider.contextLimit] Could not resolve a provider key from`,
+        provider,
+        `— falling back to 8000 tokens.`
+      );
+      return 8_000;
+    }
+
+    const llm = getLLMProviderClass({ provider: providerKey });
     if (!llm || !llm.hasOwnProperty("promptWindowLimit")) return 8_000;
-    return llm.promptWindowLimit(modelName);
+    return llm.promptWindowLimit(resolvedModel);
   }
 
   static defaultSystemPromptForProvider(provider = null) {

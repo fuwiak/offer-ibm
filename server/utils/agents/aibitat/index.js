@@ -1476,6 +1476,13 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
     if (providerInstance && resolved.displayModel) {
       providerInstance.displayModel = resolved.displayModel;
     }
+    if (providerInstance) {
+      // this.provider gets overwritten with this instance after the first
+      // completion (see reply()), so Provider.contextLimit() and friends can
+      // no longer switch on a provider *string* — tag the resolved key here
+      // so they can recover it from the instance.
+      providerInstance.providerKey = config.provider;
+    }
     return providerInstance;
   }
 
