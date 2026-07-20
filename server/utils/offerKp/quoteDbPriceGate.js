@@ -14,6 +14,20 @@ function roundPrice(n) {
   return Math.round(Number(n) * 100) / 100;
 }
 
+/**
+ * Цена из ячейки таблицы: «18.50 RUB» / «18,50 руб.» / «18.50 ₽» → 18.5.
+ * Без снятия валютного суффикса parseAmount даёт NaN и выдуманная цена
+ * проскакивает мимо проверки.
+ * @param {string} value
+ * @returns {number}
+ */
+function parsePriceCell(value) {
+  const cleaned = String(value || "")
+    .replace(/(?:RUB|РУБ\.?|руб\.?|₽|PLN|zł|USD|EUR|\$|€)/gi, "")
+    .trim();
+  return parseAmount(cleaned);
+}
+
 function isPendingPriceCell(value = "") {
   const cell = String(value || "").trim();
   if (!cell) return true;
@@ -116,7 +130,7 @@ function validateQuotePricesFromDb(
     const raw = row[priceIdx];
     if (isPendingPriceCell(raw)) continue;
 
-    const price = parseAmount(raw);
+    const price = parsePriceCell(raw);
     if (!Number.isFinite(price) || price <= 0) continue;
 
     if (!allowed.size || !priceMatchesAllowed(price, allowed, tol)) {
@@ -183,7 +197,7 @@ function sanitizeQuotePricesToShopDb(
     const rawPrice = cells[priceIdx];
     if (isPendingPriceCell(rawPrice)) return line;
 
-    const price = parseAmount(rawPrice);
+    const price = parsePriceCell(rawPrice);
     if (!Number.isFinite(price) || price <= 0) return line;
 
     if (allowed.size && priceMatchesAllowed(price, allowed, tol)) {
@@ -191,7 +205,7 @@ function sanitizeQuotePricesToShopDb(
         const qty = parseAmount(cells[qtyIdx]);
         const expected = multiplyLineTotal(qty, price);
         if (expected != null && String(cells[sumIdx] || "").trim() !== "") {
-          const actual = parseAmount(cells[sumIdx]);
+          const actual = parsePriceCell(cells[sumIdx]);
           if (!Number.isFinite(actual) || Math.abs(actual - expected) > 0.02) {
             cells[sumIdx] = expected.toFixed(2);
             changed = true;

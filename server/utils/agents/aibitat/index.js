@@ -846,6 +846,10 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
 
     // Store the active provider so plugins can access usage metrics
     this.provider = provider;
+    // Ответ модели в чат — через harness: цены только из ShopDB (анти-галлюцинация).
+    if (typeof this.harness?.sanitizeOutgoingChat === "function") {
+      content = this.harness.sanitizeOutgoingChat(content);
+    }
     this.newMessage({ ...route, content });
     return content;
   }

@@ -94,6 +94,66 @@ class AgentHarness {
     };
   }
 
+  /**
+   * Финальный текст агента в чат: цены только из ShopDB.
+   * Есть черновик заявки → выдуманная таблица заменяется на
+   * buildQuoteMarkdownFromDraft (та же политика, что для create-docx/pdf).
+   * Черновика нет → выдуманные цены переписываются в «под заказ».
+   * @param {string} content
+   * @returns {string}
+   */
+  sanitizeOutgoingChat(content) {
+    const text = typeof content === "string" ? content : "";
+    if (!text.includes("|")) return content;
+
+    try {
+      const {
+        validateQuotePricesFromDb,
+        sanitizeQuotePricesToShopDb,
+      } = require("../offerKp/quoteDbPriceGate");
+      const {
+        collectCatalogBlocksFromHarness,
+      } = require("../offerKp/harnessEvidence");
+
+      const draft = this.state.get("inquiryDbDraft") || null;
+      const catalogBlocks = collectCatalogBlocksFromHarness(this);
+
+      if (draft?.lines?.length) {
+        const check = validateQuotePricesFromDb(text, { draft, catalogBlocks });
+        if (check.ok) return text;
+
+        const {
+          buildQuoteMarkdownFromDraft,
+        } = require("../offerKp/inquiryDraftPrompt");
+        const forced = buildQuoteMarkdownFromDraft(draft);
+        if (!forced) return text;
+
+        harnessLog("warn", "outgoingChat.forcedDraftMarkdown", {
+          violations: check.violations.map((v) => v.id),
+          draftLines: draft.lines.length,
+        });
+        return forced;
+      }
+
+      const sanitized = sanitizeQuotePricesToShopDb(text, {
+        draft: null,
+        catalogBlocks,
+      });
+      if (sanitized.changed) {
+        harnessLog("warn", "outgoingChat.sanitizedInventedPrices", {
+          replaced: sanitized.replaced,
+        });
+        return sanitized.content;
+      }
+    } catch (error) {
+      harnessLog("warn", "outgoingChat.sanitizeFailed", {
+        error: error?.message || String(error),
+      });
+    }
+
+    return content;
+  }
+
   async install() {
     harnessLog("info", "harness.install.start", {
       blocks: this.blocks.map((b) => b.name),
