@@ -454,7 +454,11 @@ class AgentHandler {
     });
     this.provider = resolved.provider;
     this.model = resolved.model;
-
+    if (resolved.fallbackReason === "openrouter_unreachable") {
+      this.log(
+        `OpenRouter/egress down → fallback LM Studio (${resolved.model})`
+      );
+    }
     try {
       const {
         resolveQuotePdfModelSwitch,

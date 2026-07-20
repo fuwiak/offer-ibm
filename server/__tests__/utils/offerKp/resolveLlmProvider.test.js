@@ -214,11 +214,40 @@ describe("resolveLlmProvider", () => {
     expect(resolved.provider).toBe("lmstudio");
     expect(resolved.teacher).toBe(false);
     expect(resolved.model).toBe("openai/gpt-oss-20b");
+    expect(resolved.useResolved).toBe(true);
+    expect(resolved.fallbackReason).toBe("openrouter_unreachable");
     probeSpy.mockRestore();
     egressSpy.mockRestore();
     catalogSpy.mockRestore();
   });
 
+  it("getLLMProvider keeps LM Studio after fallback (does not re-enable teacher)", async () => {
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    jest
+      .spyOn(openRouterEnv, "probeOpenRouterReachable")
+      .mockResolvedValue(false);
+    jest
+      .spyOn(openRouterEnv, "ensureOpenRouterEgressBaseUrl")
+      .mockResolvedValue("http://127.0.0.1:8787/api/v1");
+    const lmStudioModels = require("../../../utils/offerKpApp/lmStudioModels");
+    jest.spyOn(lmStudioModels, "fetchLmStudioModelCatalog").mockResolvedValue({
+      ids: ["openai/gpt-oss-20b"],
+      loadedIds: ["openai/gpt-oss-20b"],
+      stateById: { "openai/gpt-oss-20b": "loaded" },
+      reachable: true,
+    });
+
+    const { getLLMProviderWithFallback } = require("../../../utils/helpers");
+    const llm = await getLLMProviderWithFallback({
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(llm.constructor.name).toBe("LMStudioLLM");
+    expect(llm.fallbackReason).toBe("openrouter_unreachable");
+  });
   it("uses LM Studio even when catalog looks unreachable if OpenRouter is down", async () => {
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";

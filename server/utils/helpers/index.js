@@ -128,11 +128,38 @@ function getVectorDbClass(getExactly = null) {
  * @param {{provider: string | null, model: string | null} | null} params - Initialize params for LLMs provider
  * @returns {BaseLLMProvider}
  */
-function getLLMProvider({ provider = null, model = null } = {}) {
+function getLLMProvider({
+  provider = null,
+  model = null,
+  useResolved = false,
+  teacher = undefined,
+  modelFallback = null,
+  displayModel = null,
+  displayProvider = null,
+  fallbackReason = null,
+  openRouterFallback = undefined,
+} = {}) {
   const {
     resolveLlmProviderAndModel,
   } = require("../offerKpApp/resolveLlmProvider");
-  const resolved = resolveLlmProviderAndModel({ provider, model });
+
+  // Trust an already-resolved result from getLLMProviderWithFallback.
+  // Re-running resolveLlmProviderAndModel() would re-enable teacher OpenRouter
+  // even after egress was probed down — that caused Connection error to users.
+  const resolved =
+    useResolved && provider
+      ? {
+          provider,
+          model,
+          modelFallback: modelFallback || null,
+          teacher: teacher === true,
+          openRouterFallback: openRouterFallback === true,
+          fallbackReason: fallbackReason || null,
+          displayProvider: displayProvider || provider,
+          displayModel: displayModel || model,
+        }
+      : resolveLlmProviderAndModel({ provider, model });
+
   const LLMSelection = resolved.provider;
   model = resolved.model ?? model;
   const embedder = getEmbeddingEngineSelection();
@@ -158,6 +185,7 @@ function getLLMProvider({ provider = null, model = null } = {}) {
         // loaded/known → a different LM Studio model was used instead) so
         // it shows up in chat metrics/logs instead of only a server warn.
         if (resolved.modelFallback) llm.modelFallback = resolved.modelFallback;
+        if (resolved.fallbackReason) llm.fallbackReason = resolved.fallbackReason;
         return llm;
       }
     case "localai":

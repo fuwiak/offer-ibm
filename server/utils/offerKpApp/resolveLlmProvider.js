@@ -165,6 +165,7 @@ function resolveLmStudioOnly(params = {}) {
 
   const picked = resolveRunnableModel(requestedModel, params.catalog || null);
   const resolvedModel = picked.model;
+  const fallbackReason = params.fallbackReason || "openrouter_unreachable";
   const resolved = {
     provider: "lmstudio",
     model: resolvedModel,
@@ -177,14 +178,20 @@ function resolveLmStudioOnly(params = {}) {
       : null,
     teacher: false,
     openRouterFallback: false,
+    fallbackReason,
     displayProvider: "lmstudio",
     displayModel: resolvedModel,
+    // Marker so getLLMProvider does not re-run teacher short-circuit.
+    useResolved: true,
   };
-  offerKpLog("info", "Resolved LLM provider", {
+  const msg = `OpenRouter/egress недоступен → fallback на LM Studio (${resolvedModel})`;
+  console.warn(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`);
+  offerKpLog("warn", msg, {
     provider: resolved.provider,
     model: resolved.model,
     fallback: resolved.modelFallback,
-    reason: "openrouter_unreachable",
+    reason: fallbackReason,
+    openRouterBaseUrl: openRouterEnv.resolveOpenRouterBaseUrl(),
   });
   return resolved;
 }
@@ -219,7 +226,11 @@ async function resolveLlmProviderWithFallback(params = {}) {
     const catalog = await lmStudioModels.fetchLmStudioModelCatalog({
       forceRefresh: true,
     });
-    return resolveLmStudioOnly({ ...params, catalog });
+    return resolveLmStudioOnly({
+      ...params,
+      catalog,
+      fallbackReason: "openrouter_unreachable",
+    });
   }
 
   // Always re-probe when OpenRouter is available so a dead lainey does not

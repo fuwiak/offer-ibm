@@ -166,9 +166,18 @@ async function streamChatWithWorkspace(
   const LLMConnector = await getLLMProviderWithFallback({
     provider: effectiveChatProvider,
     model: effectiveChatModel,
-    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
+    forceRefresh: true,
   });
 
+  if (LLMConnector?.fallbackReason === "openrouter_unreachable") {
+    const fallbackModel =
+      LLMConnector?.model || process.env.LMSTUDIO_MODEL_PREF || "LM Studio";
+    writeResponseChunk(response, {
+      uuid,
+      type: "statusResponse",
+      content: `OpenRouter/egress недоступен — ответ через LM Studio (${fallbackModel}).`,
+    });
+  }
   const shopEnrichPromise = collectExternalContexts({
     message: updatedMessage,
     workspace,
