@@ -37,6 +37,12 @@ function isLmStudioLoadedState(state) {
   return String(state || "").toLowerCase() === "loaded";
 }
 
+function runtimeCatalogHasModel(modelId, stateById = {}) {
+  const ids = Object.keys(stateById || {});
+  if (!ids.length) return null;
+  return Object.prototype.hasOwnProperty.call(stateById, modelId);
+}
+
 async function fetchLmStudioRuntimeStates(basePath, apiKey = null) {
   const { parseLMStudioBasePath } = require("../AiProviders/lmStudio");
   const endpoint = new URL(parseLMStudioBasePath(basePath));
@@ -510,6 +516,15 @@ async function loadLmStudioModel(modelId, opts = {}) {
         targetContext: contextLength,
       });
     }
+
+    // /api/v0/models lists both loaded and downloaded models. If it returned a
+    // non-empty catalog and the target is absent, fail before the CLI performs
+    // `lms unload --all`; the currently resident fallback remains available.
+    if (runtimeCatalogHasModel(id, stateById) === false) {
+      const error = new Error(`LM Studio model is not installed: ${id}`);
+      error.code = "LMSTUDIO_MODEL_NOT_INSTALLED";
+      throw error;
+    }
   }
 
   let result = null;
@@ -595,6 +610,7 @@ module.exports = {
   lmStudioBaseUrl,
   isLmStudioChatModelId,
   isLmStudioLoadedState,
+  runtimeCatalogHasModel,
   pickRunnableLmStudioModel,
   isLmStudioModelLoadError,
   pickLoadedLmStudioFallback,

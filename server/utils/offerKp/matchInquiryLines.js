@@ -49,9 +49,14 @@ function resolveMatchConcurrency(lineCount) {
   if (Number.isFinite(envCap) && envCap > 0) {
     return Math.max(1, Math.min(16, envCap));
   }
-  // SQL-heavy matching: raise concurrency for large RFQs.
-  if (lineCount > 20) return 8;
-  return 4;
+  // Each line can fan out into several SQL searches. Keeping only two lines
+  // active avoids filling the small MySQL pool with dozens of queued queries.
+  return lineCount > 1 ? 2 : 1;
+}
+
+function positivePrice(value) {
+  const price = Number(value);
+  return Number.isFinite(price) && price > 0 ? price : 0;
 }
 
 /**
@@ -87,12 +92,23 @@ function pickBestInquiryAlternative(alternatives = []) {
 
   // Среди exact/analog одного размера — берём дешевле (варианты покрытия и т.п.).
   if (exact.length || analogs.length) {
-    const byPrice = [...pool].sort(
-      (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
+    // 0 in ShopDB means "price unknown", not a free product. If at least one
+    // candidate has a real price, zero-priced rows must never win.
+    const pricedPool = pool.filter((candidate) =>
+      positivePrice(candidate.price)
     );
+    const candidates = pricedPool.length ? pricedPool : pool;
+    const byPrice = [...candidates].sort((a, b) => {
+      const aPrice = positivePrice(a.price);
+      const bPrice = positivePrice(b.price);
+      if (!aPrice && !bPrice) return 0;
+      if (!aPrice) return 1;
+      if (!bPrice) return -1;
+      return aPrice - bPrice;
+    });
     return (
       pickCheaperAmongSimilar(byPrice, {
-        getPrice: (a) => Number(a.price) || 0,
+        getPrice: (a) => positivePrice(a.price),
       }) || byPrice[0]
     );
   }
@@ -114,6 +130,47 @@ function emptyProductStock() {
     stockCount: 0,
     skus: [],
   };
+}
+
+function skuPositivePrice(sku = {}) {
+  return positivePrice(sku.price) || positivePrice(sku.compare_price);
+}
+
+function isSkuInStock(sku = {}) {
+  return Number(sku.available) !== 0 && Number(sku.count) > 0;
+}
+
+/**
+ * Prefer the cheapest positive-price SKU that is actually in stock. A zero
+ * price is an unknown price and is considered only when no priced SKU exists.
+ */
+function pickBestPricedSku(skus = []) {
+  const rows = (skus || []).filter(Boolean);
+  if (!rows.length) return null;
+
+  const cheapest = (candidates) =>
+    [...candidates].sort((a, b) => {
+      const priceDelta = skuPositivePrice(a) - skuPositivePrice(b);
+      if (priceDelta) return priceDelta;
+      return (Number(b.count) || 0) - (Number(a.count) || 0);
+    })[0];
+
+  const pricedInStock = rows.filter(
+    (sku) => isSkuInStock(sku) && skuPositivePrice(sku) > 0
+  );
+  if (pricedInStock.length) return cheapest(pricedInStock);
+
+  const pricedAvailable = rows.filter(
+    (sku) => Number(sku.available) !== 0 && skuPositivePrice(sku) > 0
+  );
+  if (pricedAvailable.length) return cheapest(pricedAvailable);
+
+  const priced = rows.filter((sku) => skuPositivePrice(sku) > 0);
+  if (priced.length) return cheapest(priced);
+
+  return [...rows].sort(
+    (a, b) => (Number(b.count) || 0) - (Number(a.count) || 0)
+  )[0];
 }
 
 async function fetchProductStocks(productIds = []) {
@@ -141,8 +198,7 @@ async function fetchProductStocks(productIds = []) {
   for (const row of rows) {
     const key = String(row.product_id);
     if (!grouped.has(key)) grouped.set(key, []);
-    const group = grouped.get(key);
-    if (group.length < 5) group.push(row);
+    grouped.get(key).push(row);
   }
 
   for (const id of ids) {
@@ -152,13 +208,12 @@ async function fetchProductStocks(productIds = []) {
       (sum, row) => sum + (Number(row.count) || 0),
       0
     );
-    const bestSku = skus[0] || {};
-    const skuPrice = resolveProductPrice({}, skus);
+    const bestSku = pickBestPricedSku(skus) || {};
+    const skuPrice = skuPositivePrice(bestSku) || resolveProductPrice({}, skus);
     byProduct.set(key, {
       sku: bestSku.sku || "",
       skuName: bestSku.sku_name || "",
-      price:
-        Number(bestSku.price) || Number(bestSku.compare_price) || skuPrice || 0,
+      price: skuPrice,
       stockCount: totalStock,
       skus,
     });
@@ -237,7 +292,9 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     }
   }
 
-  const candidates = products.slice(0, 5);
+  // Stock lookup is already batched, so validate the full retrieval window.
+  // Truncating it to five could hide the cheapest valid positive-price analog.
+  const candidates = products.slice(0, 8);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   const alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
@@ -544,6 +601,8 @@ module.exports = {
   fetchProductStock,
   fetchProductStocks,
   pickBestInquiryAlternative,
+  pickBestPricedSku,
+  resolveMatchConcurrency,
   calculateTotalWeightKg,
   buildDraftFromMatchedLines,
 };

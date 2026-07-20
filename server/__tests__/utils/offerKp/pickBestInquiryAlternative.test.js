@@ -2,6 +2,8 @@
 
 const {
   pickBestInquiryAlternative,
+  pickBestPricedSku,
+  resolveMatchConcurrency,
 } = require("../../../utils/offerKp/matchInquiryLines");
 const { STATUS } = require("../../../utils/offerKp/analogRules");
 
@@ -52,6 +54,66 @@ describe("pickBestInquiryAlternative", () => {
       },
     ]);
     expect(best.productId).toBe("2");
+  });
+
+  it("picks the cheapest positive analog price instead of zero", () => {
+    const best = pickBestInquiryAlternative([
+      {
+        productId: "1",
+        name: "Аналог без цены",
+        price: 0,
+        matchType: "analog",
+        status: STATUS.IN_STOCK,
+      },
+      {
+        productId: "2",
+        name: "Дешёвый аналог",
+        price: 18.5,
+        matchType: "analog",
+        status: STATUS.IN_STOCK,
+      },
+      {
+        productId: "3",
+        name: "Дорогой аналог",
+        price: 25,
+        matchType: "analog",
+        status: STATUS.IN_STOCK,
+      },
+    ]);
+
+    expect(best.productId).toBe("2");
+    expect(best.price).toBeGreaterThan(0);
+  });
+});
+
+describe("pickBestPricedSku", () => {
+  it("selects the cheapest positive in-stock SKU", () => {
+    const best = pickBestPricedSku([
+      { sku: "FREE", price: 0, count: 100, available: 1 },
+      { sku: "EXPENSIVE", price: 30, count: 10, available: 1 },
+      { sku: "CHEAP", price: 12.5, count: 2, available: 1 },
+      { sku: "NO-STOCK", price: 5, count: 0, available: 1 },
+    ]);
+
+    expect(best.sku).toBe("CHEAP");
+  });
+});
+
+describe("resolveMatchConcurrency", () => {
+  const originalValue = process.env.OFFER_KP_MATCH_CONCURRENCY;
+
+  afterEach(() => {
+    if (originalValue === undefined) {
+      delete process.env.OFFER_KP_MATCH_CONCURRENCY;
+    } else {
+      process.env.OFFER_KP_MATCH_CONCURRENCY = originalValue;
+    }
+  });
+
+  it("limits the default SQL fan-out to two inquiry lines", () => {
+    delete process.env.OFFER_KP_MATCH_CONCURRENCY;
+    expect(resolveMatchConcurrency(1)).toBe(1);
+    expect(resolveMatchConcurrency(20)).toBe(2);
   });
 });
 

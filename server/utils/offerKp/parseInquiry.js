@@ -10,7 +10,8 @@ const HARDWARE_LINE_RE =
   /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bштанг|\bболт\s+m|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк|\bвинт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
 const INQUIRY_SKIP_LINE_RE =
   /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац)/i;
-const INQUIRY_UNIT_RE = /^(?:кг|kg|шт\.?|pcs|м|м\.|т|упак|ед\.?)$/i;
+const INQUIRY_UNIT_RE =
+  /^(?:кг|kg|шт\.?|pcs|szt\.?|м|м\.|м\.?\s*п\.?|meter|meters|т|упак|уп|pack|л|литр|ед\.?)$/i;
 const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć/i;
 const PRICE_HEADER_RE = /цен|price|cena|сумм|стоимост/i;
 const UNIT_HEADER_RE = /ед\.?\s*изм|unit/i;
@@ -86,10 +87,18 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   const unitCol =
     (tableCtx?.unitIdx >= 0 && cols[tableCtx.unitIdx]) ||
     cols.find((c) => INQUIRY_UNIT_RE.test(c));
+  const inferredUnit = parseInquiryUnit(productCol);
+  const quantityUnit = unitCol || (inferredUnit !== "шт" ? inferredUnit : "шт");
 
   let qtyCol = null;
   if (tableCtx?.qtyIdx >= 0 && cols[tableCtx.qtyIdx]) {
     qtyCol = cols[tableCtx.qtyIdx];
+  } else if (unitCol) {
+    const unitIdx = cols.indexOf(unitCol);
+    const afterUnit = unitIdx >= 0 ? cols[unitIdx + 1] : null;
+    if (/^\d+(?:[.,]\d+)?$/.test(String(afterUnit || ""))) {
+      qtyCol = afterUnit;
+    }
   } else {
     const skip = new Set(
       [tableCtx?.priceIdx, tableCtx?.unitIdx].filter((i) => i >= 0)
@@ -107,8 +116,8 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   const parts = [productCol.replace(/^\d+[.)]\s*/, "").trim()];
   if (qtyCol) {
     const qty = String(qtyCol).match(/(\d+(?:[.,]\d+)?)/)?.[1];
-    if (qty && !isLikelyPriceToken(qty)) {
-      parts.push(`${qty} ${unitCol || "шт"}`);
+    if (qty && (!isLikelyPriceToken(qty) || unitCol || tableCtx?.qtyIdx >= 0)) {
+      parts.push(`${qty} ${quantityUnit}`);
     } else if (
       QTY_HEADER_RE.test(qtyCol) ||
       /обозначен|артикул|наименован/i.test(productCol)
@@ -222,23 +231,38 @@ function parseInquiryUnit(text) {
   }
   if (/(?:^|\s)(?:кг|kg)(?:\s|$|[.,;])/i.test(raw)) return "кг";
   if (/(?:^|\s)(?:шт\.?|pcs|ед\.?)(?:\s|$|[.,;])/i.test(raw)) return "шт";
-  if (/метр|meter|упак|pack|л\s|литр/i.test(raw)) return "?";
+  if (
+    /(?:^|\s)(?:м\.?\s*п\.?|м|meter|meters|метр(?:а|ов)?)(?:\s|$|[.,;])/i.test(
+      raw
+    )
+  )
+    return "м";
+  if (/(?:^|\s)(?:упак(?:овка)?|уп\.?|pack)(?:\s|$|[.,;])/i.test(raw))
+    return "уп";
+  if (/(?:^|\s)(?:л|литр(?:а|ов)?)(?:\s|$|[.,;])/i.test(raw)) return "л";
+  if (/(?:^|\s)(?:т|тонн(?:а|ы)?)(?:\s|$|[.,;])/i.test(raw)) return "т";
   return "шт";
+}
+
+function normalizeInquiryQuantity(value, unit) {
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) return 1;
+  if (unit === "шт") return Math.max(1, Math.round(quantity));
+  return Number(quantity.toFixed(3));
 }
 
 function parseQuantity(text) {
   const raw = String(text || "");
-  const withUnit = raw.match(
-    /(\d+(?:[.,]\d+)?)\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)/i
-  );
+  const unit = parseInquiryUnit(raw);
+  const withUnit = [
+    ...raw.matchAll(
+      /(\d+(?:[.,]\d+)?)(?:\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|литр(?:а|ов)?|тонн(?:а|ы)?)|\s+(?:м\.?\s*п\.?|м|л|т)(?=\s|$|[.,;]))/gi
+    ),
+  ].at(-1);
   if (withUnit) {
     const qtyStr = withUnit[1];
-    if (isLikelyPriceToken(qtyStr)) {
-      /* fall through */
-    } else {
-      const qty = parseFloat(String(qtyStr).replace(",", "."));
-      return Number.isFinite(qty) ? Math.max(1, Math.round(qty)) : 1;
-    }
+    const qty = parseFloat(String(qtyStr).replace(",", "."));
+    return normalizeInquiryQuantity(qty, unit);
   }
 
   const cols = splitTableColumns(raw);
@@ -247,8 +271,11 @@ function parseQuantity(text) {
     if (unitIdx >= 0) {
       const qtyCol = cols[unitIdx + 1] || cols[cols.length - 1];
       const m = String(qtyCol || "").match(/^(\d+(?:[.,]\d+)?)$/);
-      if (m && !isLikelyPriceToken(m[1])) {
-        return Math.max(1, Math.round(parseFloat(m[1].replace(",", "."))));
+      if (m && (unit !== "шт" || !isLikelyPriceToken(m[1]))) {
+        return normalizeInquiryQuantity(
+          parseFloat(m[1].replace(",", ".")),
+          unit
+        );
       }
     }
   }
@@ -259,7 +286,7 @@ function parseQuantity(text) {
     if (isLikelyPriceToken(token)) continue;
     const n = parseFloat(token.replace(",", "."));
     if (Number.isFinite(n) && n > 0) {
-      return Math.max(1, Math.round(n));
+      return normalizeInquiryQuantity(n, unit);
     }
   }
 
@@ -281,12 +308,19 @@ function parseInquiryLine(lineText) {
 
   let name = raw
     .replace(/^\d+[.)]\s*/, "")
-    .replace(/\s*[-–—]\s*\d+\s*(?:шт|pcs).*$/i, "")
+    // Quantity may occur before the specification (`--10шт DIN 912 M8x14`).
+    // Remove only the quantity token; never discard the specification tail.
+    .replace(
+      /\s*[-–—]{1,2}\s*\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)/gi,
+      " "
+    )
     // Хвост «30 кг» / «50 шт» из колонки «Кол-во» — не часть наименования.
     .replace(
-      /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)\s*$/i,
+      /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|м|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)\s*$/i,
       ""
     )
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+[-–—]+\s*$/, "")
     .trim();
 
   if (!name) name = raw;
@@ -333,6 +367,7 @@ module.exports = {
   parseInquiryLine,
   parseQuantity,
   parseInquiryUnit,
+  normalizeInquiryQuantity,
   usesNonPieceUnit,
   normalizeOcrInquiryText,
   splitInquiryChunks,
