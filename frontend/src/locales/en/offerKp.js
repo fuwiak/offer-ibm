@@ -482,6 +482,8 @@ const TRANSLATIONS = {
     commentPlaceholder: "Comment",
     manualHint:
       "Edit any field: name, SKU, qty, unit, price, total, weight, status, comment.",
+    reviewConfirm:
+      "{{count}} line(s) need review. I confirm manual checks before export.",
   },
   modelLoad: {
     title: "Switching model",

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { FilePdf, FileDoc, FileXls, CircleNotch } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
@@ -34,6 +35,7 @@ function lineNeedsReview(line = {}) {
  * HTML-превью коммерческого предложения purolat.com.
  */
 export default function QuotePreview() {
+  const { t } = useTranslation("offerKp");
   const { quoteDraft } = useOfferKp();
   const [busy, setBusy] = useState(null);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
@@ -175,8 +177,11 @@ export default function QuotePreview() {
             className="mt-0.5"
           />
           <span>
-            {reviewCount} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę
-            przed eksportem.
+            {t("draftTable.reviewConfirm", {
+              count: reviewCount,
+              defaultValue:
+                "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
+            })}
           </span>
         </label>
       )}

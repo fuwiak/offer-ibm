@@ -460,6 +460,8 @@ const TRANSLATIONS = {
     commentPlaceholder: "Komentarz",
     manualHint:
       "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena, suma, waga, status, komentarz.",
+    reviewConfirm:
+      "{{count}} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę przed eksportem.",
   },
   modelLoad: {
     title: "Zmiana modelu",

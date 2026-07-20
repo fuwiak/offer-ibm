@@ -753,8 +753,11 @@ export default function QuoteDraftTable() {
             className="mt-0.5"
           />
           <span>
-            {reviewCount} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę
-            przed eksportem.
+            {t("draftTable.reviewConfirm", {
+              count: reviewCount,
+              defaultValue:
+                "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
+            })}
           </span>
         </label>
       )}
