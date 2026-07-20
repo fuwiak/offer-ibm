@@ -202,7 +202,7 @@ export default function SavModal({ onClose }) {
               <button
                 type="submit"
                 disabled={!form.issueType || !form.description}
-                className="flex-1 text-xs py-2.5 bg-[#0f62fe] text-white flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#0353e9] transition-colors"
+                className="flex-1 text-xs py-2.5 bg-[#cc785c] text-white flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#a9583e] transition-colors"
               >
                 <UploadSimple size={13} />
                 {t("sav.submit", "Submit ticket")}

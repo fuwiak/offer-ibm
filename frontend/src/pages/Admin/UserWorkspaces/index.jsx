@@ -667,7 +667,7 @@ export default function UserWorkspacesPage() {
                   <dd>
                     <span
                       className="inline-block px-2 py-0.5 text-xs font-semibold text-white"
-                      style={{ background: selectedProfile.color || "#0f62fe" }}
+                      style={{ background: selectedProfile.color || "#cc785c" }}
                     >
                       {selectedProfile.code}
                     </span>{" "}
@@ -800,7 +800,7 @@ export default function UserWorkspacesPage() {
                         className="uw-macos-profile-pill"
                         style={{
                           background:
-                            selectedRow.profile.color || "#0f62fe",
+                            selectedRow.profile.color || "#cc785c",
                         }}
                       >
                         {selectedRow.profile.code}
@@ -1080,7 +1080,7 @@ export default function UserWorkspacesPage() {
                   <span
                     className="uw-macos-dock__icon"
                     style={{
-                      background: row.profile.color || "#0f62fe",
+                      background: row.profile.color || "#cc785c",
                     }}
                   >
                     {workspaceInitials(row.ws.name)}

@@ -1,6 +1,6 @@
-/* Cursor design tokens — offer-kp app shell (see /DESIGN.md) */
+/* Claude design tokens — offer-kp app shell (see /DESIGN.md) */
 
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 
 /* ── Segmented controls (theme switcher, language switcher) ── */
 .cursor-segmented-control {
@@ -202,51 +202,51 @@
   max-width: 320px;
 }
 
-/* ── IBM Modern polish tokens ── */
+/* ── Claude polish tokens ── */
 html.carbon-ui {
-  --ibm-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --ibm-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --ibm-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.12);
-  --ibm-glow-primary: 0 0 0 1px rgba(15, 98, 254, 0.18), 0 4px 20px rgba(15, 98, 254, 0.14);
-  --ibm-glow-primary-strong: 0 0 0 2px rgba(15, 98, 254, 0.28), 0 8px 28px rgba(15, 98, 254, 0.2);
+  --ibm-elevation-1: 0 1px 3px rgba(20, 20, 19, 0.08);
+  --ibm-elevation-2: 0 4px 16px rgba(20, 20, 19, 0.08);
+  --ibm-elevation-3: 0 8px 32px rgba(20, 20, 19, 0.1);
+  --ibm-glow-primary: 0 0 0 1px rgba(204, 120, 92, 0.2), 0 4px 16px rgba(204, 120, 92, 0.12);
+  --ibm-glow-primary-strong: 0 0 0 2px rgba(204, 120, 92, 0.28), 0 8px 24px rgba(204, 120, 92, 0.16);
   --ibm-surface-shine: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    rgba(255, 255, 255, 0) 48%,
-    rgba(255, 255, 255, 0.04) 100%
+    rgba(250, 249, 245, 0.06) 0%,
+    rgba(250, 249, 245, 0) 48%,
+    rgba(250, 249, 245, 0.04) 100%
   );
   --ibm-transition-fast: 0.15s cubic-bezier(0.2, 0, 0.38, 0.9);
   --ibm-transition-smooth: 0.22s cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
 html.carbon-ui[data-theme="dark"] {
-  --ibm-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --ibm-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.32);
   --ibm-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.4);
   --ibm-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.52);
-  --ibm-glow-primary: 0 0 0 1px rgba(120, 169, 255, 0.22), 0 4px 20px rgba(120, 169, 255, 0.16);
-  --ibm-glow-primary-strong: 0 0 0 2px rgba(120, 169, 255, 0.32), 0 8px 28px rgba(120, 169, 255, 0.22);
+  --ibm-glow-primary: 0 0 0 1px rgba(204, 120, 92, 0.28), 0 4px 16px rgba(204, 120, 92, 0.16);
+  --ibm-glow-primary-strong: 0 0 0 2px rgba(204, 120, 92, 0.36), 0 8px 24px rgba(204, 120, 92, 0.2);
   --ibm-surface-shine: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0) 48%,
-    rgba(255, 255, 255, 0.02) 100%
+    rgba(250, 249, 245, 0.04) 0%,
+    rgba(250, 249, 245, 0) 48%,
+    rgba(250, 249, 245, 0.02) 100%
   );
 }
 
 html.carbon-ui,
 html.carbon-ui body,
 html.carbon-ui #root {
-  font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: 0.16px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle IBM canvas mesh — depth without breaking flat geometry */
+/* Soft cream warmth — no cool IBM blue glow */
 html.carbon-ui body {
   background:
-    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(15, 98, 254, 0.04) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(15, 98, 254, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(204, 120, 92, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(232, 165, 90, 0.04) 0%, transparent 50%),
     var(--theme-bg-container);
 }
 
@@ -254,26 +254,26 @@ html.carbon-ui[data-theme="dark"] body {
   background: var(--theme-bg-container);
 }
 
-/* Dark theme — high-contrast buttons and surfaces */
+/* Dark theme — coral CTAs on navy surfaces */
 [data-theme="dark"] .bg-primary-button,
 [data-theme="dark"] .offerKp-btn-primary-block,
 html:not([data-theme="light"]) .bg-primary-button {
   color: #ffffff;
-  border: 1px solid #404040;
+  border: 1px solid transparent;
 }
 
 [data-theme="dark"] .offerKp-btn-new-chat,
 html:not([data-theme="light"]) .offerKp-btn-new-chat {
-  background: #1a1a1a;
+  background: #cc785c;
   color: #ffffff;
-  border: 1px solid #404040;
+  border: 1px solid transparent;
   box-shadow: none;
 }
 
 [data-theme="dark"] .offerKp-btn-new-chat:hover,
 html:not([data-theme="light"]) .offerKp-btn-new-chat:hover {
-  background: #2d2d2d;
-  border-color: #666666;
+  background: #a9583e;
+  border-color: transparent;
   filter: none;
   box-shadow: none;
 }
@@ -301,28 +301,44 @@ html:not([data-theme="light"]) .offerKp-btn-new-chat:hover {
 }
 
 [data-theme="dark"] .border-primary-button {
-  border-color: #ffffff;
+  border-color: #cc785c;
 }
 
 [data-theme="dark"] .focus\:border-primary-button:focus,
 [data-theme="dark"] .focus\:outline-primary-button:focus {
-  border-color: #ffffff;
-  outline-color: #ffffff;
+  border-color: #cc785c;
+  outline-color: #cc785c;
 }
 
-/* Flat geometry: Carbon default is 0px corners */
-html.carbon-ui .rounded-lg,
+/* Claude radius hierarchy — md 8 / lg 12 / xl 16 */
+html.carbon-ui .rounded-md {
+  border-radius: 8px !important;
+}
+
+html.carbon-ui .rounded-lg {
+  border-radius: 12px !important;
+}
+
 html.carbon-ui .rounded-xl,
-html.carbon-ui .rounded-md,
 html.carbon-ui .rounded-\[16px\],
 html.carbon-ui .md\:rounded-\[16px\],
 html.carbon-ui .rounded-\[20px\],
 html.carbon-ui .pwa\:rounded-3xl {
-  border-radius: 0 !important;
+  border-radius: 16px !important;
 }
 
 html.carbon-ui .rounded-full:not(.carbon-allow-round) {
-  border-radius: 0 !important;
+  border-radius: 9999px !important;
+}
+
+html.carbon-ui .font-display,
+html.carbon-ui h1,
+html.carbon-ui h2,
+html.carbon-ui .offerKp-suite-page-title,
+html.carbon-ui .offerKp-hero-title {
+  font-family: "Cormorant Garamond", "EB Garamond", Garamond, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 /* IBM Carbon tertiary (outline) action buttons */
@@ -335,7 +351,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   font-weight: 400;
   line-height: 1.29;
   letter-spacing: 0.16px;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--theme-checklist-button-border);
   background: var(--theme-bg-primary);
   color: var(--theme-checklist-button-text);
@@ -361,7 +377,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 /* ── offer-kp sidebar shell ── */
 .offerKp-sidebar-shell {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border-width: 1px !important;
   border-style: solid;
   border-color: var(--theme-sidebar-border);
@@ -587,7 +603,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   line-height: 1.29;
   letter-spacing: 0.16px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   cursor: pointer;
   background: linear-gradient(
     180deg,
@@ -627,7 +643,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   min-height: 40px;
   padding: 8px 12px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--theme-text-secondary);
   font-size: 14px;
@@ -818,7 +834,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 .offerKp-prompt-space-switcher .offerKp-space-indicator--compact {
   min-height: 32px;
-  border-radius: 0;
+  border-radius: 8px;
   border-color: var(--theme-checklist-button-border);
 }
 
@@ -847,7 +863,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
   color: var(--theme-text-secondary);
@@ -883,7 +899,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
   transition: background 0.11s ease;
@@ -908,7 +924,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   min-height: 32px;
   padding: 6px 12px;
   border: 1px solid var(--theme-checklist-button-border);
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--theme-checklist-button-text);
   font-size: 14px;
@@ -938,7 +954,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   height: 36px;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   transition: background 0.11s ease, opacity 0.11s ease;
 }
 
@@ -1034,11 +1050,11 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 .offerKp-tools-menu {
   background: var(--theme-bg-primary);
   border: 1px solid var(--theme-sidebar-border);
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .offerKp-tools-menu .offerKp-tools-tab {
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .offerKp-quick-grid {
@@ -1072,7 +1088,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 20px 18px 18px;
   background: var(--theme-bg-primary);
   border: 1px solid var(--theme-sidebar-border);
-  border-radius: 0;
+  border-radius: 8px;
   color: var(--theme-text-primary);
   font-size: 14px;
   line-height: 1.29;
@@ -1175,7 +1191,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 }
 
 .offerKp-chat-shell {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid var(--theme-sidebar-border);
   background: var(--theme-bg-primary);
   box-shadow: var(--ibm-elevation-1);
@@ -1215,7 +1231,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 0;
   border: none;
   background: transparent;
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .offerKp-space-indicator--bar .offerKp-space-indicator__head {
@@ -1442,7 +1458,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 .offerKp-document-panel {
   background: var(--theme-bg-chat-input);
   border-left: 1px solid var(--theme-sidebar-border);
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 [data-theme="light"] .offerKp-sidebar-shell,
@@ -1479,7 +1495,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 .offerKp-document-panel__resizer:hover::after,
 .offerKp-document-panel__resizer:active::after {
-  background: var(--offerKp-profile-accent, var(--primary-button, #0f62fe));
+  background: var(--offerKp-profile-accent, var(--theme-button-primary, #cc785c));
   width: 2px;
 }
 
@@ -1522,7 +1538,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 .offerKp-uploaded-pdf-panel__resizer:hover::after,
 .offerKp-uploaded-pdf-panel__resizer:active::after {
-  background: var(--offerKp-profile-accent, var(--primary-button, #0f62fe));
+  background: var(--offerKp-profile-accent, var(--theme-button-primary, #cc785c));
   width: 2px;
 }
 
@@ -1558,7 +1574,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   letter-spacing: 0.16px;
   padding: 10px 8px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--theme-text-secondary);
   border-bottom: 1px solid var(--theme-sidebar-border);
@@ -1616,7 +1632,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   font-weight: 400;
   letter-spacing: 0.16px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   cursor: pointer;
   background: var(--theme-button-primary);
   color: #ffffff;
@@ -1635,7 +1651,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   font-weight: 400;
   letter-spacing: 0.16px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   cursor: pointer;
   background: var(--theme-text-primary);
   color: var(--theme-bg-primary);
@@ -1667,7 +1683,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
   padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid var(--theme-sidebar-border);
-  background: rgba(15, 98, 254, 0.06);
+  background: rgba(204, 120, 92, 0.06);
 }
 
 [data-theme="dark"] .offerKp-example-prompts__intro {
@@ -1775,7 +1791,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 
 .offerKp-example-prompts__item:hover {
   border-color: var(--theme-button-primary);
-  background: rgba(15, 98, 254, 0.06);
+  background: rgba(204, 120, 92, 0.06);
   color: var(--theme-button-primary);
   box-shadow: var(--ibm-glow-primary);
   transform: translateX(2px);
@@ -1872,7 +1888,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 .offerKp-doc-card__thumb-header {
   height: 10px;
   background: #4c8ab7;
-  border-radius: 0;
+  border-radius: 8px;
   margin-bottom: 4px;
 }
 
@@ -1885,7 +1901,7 @@ html.carbon-ui .rounded-full:not(.carbon-allow-round) {
 .offerKp-doc-card__thumb-cell {
   height: 7px;
   background: #b8d4e8;
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 [data-theme="dark"] .offerKp-doc-card__thumb-cell {

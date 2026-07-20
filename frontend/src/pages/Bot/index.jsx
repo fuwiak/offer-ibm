@@ -102,7 +102,7 @@ function PublicBotChat() {
             <button
               type="button"
               onClick={startQuoteDemo}
-              className="text-xs px-3 py-1.5 bg-[#0f62fe] text-white"
+              className="text-xs px-3 py-1.5 bg-[#cc785c] text-white"
             >
               {t("quote.stepProduct")}
             </button>
@@ -139,7 +139,7 @@ function PublicBotChat() {
         <button
           type="submit"
           disabled={streaming}
-          className="px-4 py-2 bg-[#0f62fe] text-white text-sm disabled:opacity-50"
+          className="px-4 py-2 bg-[#cc785c] text-white text-sm disabled:opacity-50"
         >
           Send
         </button>

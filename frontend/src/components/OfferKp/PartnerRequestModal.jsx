@@ -82,7 +82,7 @@ export default function PartnerRequestModal({ isOpen, onClose }) {
             <button
               type="submit"
               disabled={status === "loading"}
-              className="text-sm px-4 py-2 bg-[#0f62fe] text-white"
+              className="text-sm px-4 py-2 bg-[#cc785c] text-white"
             >
               {t("bot.submit")}
             </button>

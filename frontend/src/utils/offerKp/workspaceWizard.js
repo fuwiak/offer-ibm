@@ -20,11 +20,11 @@ export const WORKSPACE_MODEL_PRESETS = OFFER_KP_BOT_PROFILES.map((p) => ({
     {
       admin: "#161616",
       public: "#525252",
-      partner: "#0f62fe",
+      partner: "#cc785c",
       internal_sales: "#1192e8",
       external_sales: "#8a3ffc",
       supplier: "#198038",
-    }[p.id] || "#0f62fe",
+    }[p.id] || "#cc785c",
 }));
 
 export const WORKSPACE_TEMPLATES = OFFER_KP_BOT_PROFILES.map((p) => ({

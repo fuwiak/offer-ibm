@@ -1,36 +1,36 @@
-/* IBM Carbon design tokens — see /DESIGN.md */
+/* Claude design tokens — see /DESIGN.md */
 
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500;600&display=swap");
 
-/* Isolate Carbon page from app dark theme */
+/* Isolate page from app dark theme */
 body:has(.ibm-z-page),
 body:has(.ibm-z-page) #root {
-  background: #ffffff;
-  color: #161616;
+  background: #faf9f5;
+  color: #141413;
   min-height: 100%;
   height: auto;
 }
 
 .ibm-z-page {
-  --ibm-canvas: #ffffff;
-  --ibm-surface-1: #f4f4f4;
-  --ibm-surface-2: #e0e0e0;
-  --ibm-hairline: #e0e0e0;
-  --ibm-hairline-strong: #161616;
-  --ibm-ink: #161616;
-  --ibm-ink-muted: #525252;
-  --ibm-ink-subtle: #8c8c8c;
-  --ibm-primary: #0f62fe;
-  --ibm-blue-60: #0043ce;
-  --ibm-blue-80: #002d9c;
-  --ibm-blue-hover: #0353e9;
+  --ibm-canvas: #faf9f5;
+  --ibm-surface-1: #efe9de;
+  --ibm-surface-2: #e8e0d2;
+  --ibm-hairline: #e6dfd8;
+  --ibm-hairline-strong: #141413;
+  --ibm-ink: #141413;
+  --ibm-ink-muted: #3d3d3a;
+  --ibm-ink-subtle: #8e8b82;
+  --ibm-primary: #cc785c;
+  --ibm-blue-60: #a9583e;
+  --ibm-blue-80: #8a4632;
+  --ibm-blue-hover: #a9583e;
   --ibm-on-primary: #ffffff;
-  --ibm-inverse-canvas: #161616;
-  --ibm-inverse-surface-1: #262626;
-  --ibm-inverse-ink: #ffffff;
-  --ibm-inverse-ink-muted: #c6c6c6;
-  --ibm-semantic-success: #24a148;
-  --ibm-semantic-error: #da1e28;
+  --ibm-inverse-canvas: #181715;
+  --ibm-inverse-surface-1: #252320;
+  --ibm-inverse-ink: #faf9f5;
+  --ibm-inverse-ink-muted: #a09d96;
+  --ibm-semantic-success: #5db872;
+  --ibm-semantic-error: #c64545;
 
   --ibm-spacing-xxs: 4px;
   --ibm-spacing-xs: 8px;
@@ -41,13 +41,13 @@ body:has(.ibm-z-page) #root {
   --ibm-spacing-xxl: 48px;
   --ibm-spacing-section: 96px;
 
-  --ibm-max-width: 1584px;
+  --ibm-max-width: 1200px;
 
-  font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: 0.16px;
+  line-height: 1.55;
+  letter-spacing: 0;
   color: var(--ibm-ink);
   background: var(--ibm-canvas);
   min-height: 100vh;
@@ -221,7 +221,7 @@ body:has(.ibm-z-page) #root {
   line-height: 1.29;
   letter-spacing: 0.16px;
   padding: 12px 16px;
-  border-radius: 0;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   text-decoration: none;
@@ -292,7 +292,7 @@ body:has(.ibm-z-page) #root {
   right: 0;
   width: 55%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(15, 98, 254, 0.06) 0%, transparent 70%);
+  background: linear-gradient(135deg, rgba(204, 120, 92, 0.06) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -652,7 +652,7 @@ body:has(.ibm-z-page) #root {
   line-height: 1.5;
   letter-spacing: 0.16px;
   padding: 11px 16px;
-  border-radius: 0;
+  border-radius: 8px;
   outline: none;
 }
 

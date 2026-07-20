@@ -58,7 +58,7 @@ export default function PdfPreviewPane({ quotePdfUrl, onClose }) {
             type="button"
             onClick={handleExportPdf}
             disabled={exporting}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <DownloadSimple size={13} weight="bold" />
             {exporting

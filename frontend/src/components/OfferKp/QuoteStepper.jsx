@@ -220,7 +220,7 @@ export default function QuoteStepper() {
           <button
             type="button"
             onClick={advance}
-            className="flex-1 py-2 bg-[#0f62fe] text-white text-xs hover:bg-[#0353e9] transition-colors"
+            className="flex-1 py-2 bg-[#cc785c] text-white text-xs hover:bg-[#a9583e] transition-colors"
           >
             {step === 4 ? t("quote.validate", "Generate quote") : "Continue →"}
           </button>
@@ -231,7 +231,7 @@ export default function QuoteStepper() {
               type="button"
               onClick={handleDownloadPdf}
               disabled={generatingPdf}
-              className="flex items-center justify-center gap-2 w-full py-2 bg-[#0f62fe] text-white text-xs hover:bg-[#0353e9] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 w-full py-2 bg-[#cc785c] text-white text-xs hover:bg-[#a9583e] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {generatingPdf ? (
                 <CircleNotch size={14} weight="bold" className="animate-spin" />
@@ -244,7 +244,7 @@ export default function QuoteStepper() {
               type="button"
               onClick={handleDownloadDocx}
               disabled={generatingDocx}
-              className="flex items-center justify-center gap-2 w-full py-2 border border-[#0f62fe] text-[#0f62fe] light:text-[#0f62fe] text-xs hover:bg-[#0f62fe]/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 w-full py-2 border border-[#cc785c] text-[#cc785c] light:text-[#cc785c] text-xs hover:bg-[#cc785c]/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {generatingDocx ? (
                 <CircleNotch size={14} weight="bold" className="animate-spin" />

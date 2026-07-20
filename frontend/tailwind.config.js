@@ -178,20 +178,38 @@ export default {
       },
       borderRadius: {
         none: "0",
-        DEFAULT: "0",
-        sm: "2px",
-        md: "4px",
-        lg: "0",
-        xl: "0",
-        "2xl": "0",
+        DEFAULT: "8px",
+        sm: "6px",
+        md: "8px",
+        lg: "12px",
+        xl: "16px",
+        "2xl": "16px",
         full: "9999px"
       },
       fontFamily: {
         sans: [
-          "IBM Plex Sans",
-          "Helvetica Neue",
-          "Arial",
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
           "sans-serif"
+        ],
+        display: [
+          "Cormorant Garamond",
+          "EB Garamond",
+          "Garamond",
+          "Times New Roman",
+          "serif"
+        ],
+        mono: [
+          "JetBrains Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "monospace"
         ]
       },
       animation: {

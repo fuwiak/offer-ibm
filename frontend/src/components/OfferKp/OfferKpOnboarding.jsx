@@ -6,7 +6,7 @@ import useUser from "@/hooks/useUser";
 const ONBOARDING = {
   admin: {
     title: "Welcome, Admin",
-    color: "#0f62fe",
+    color: "#cc785c",
     steps: [
       {
         heading: "Platform overview",
@@ -126,7 +126,7 @@ const ONBOARDING = {
   },
   default: {
     title: "Welcome to offer-kp",
-    color: "#0f62fe",
+    color: "#cc785c",
     steps: [
       {
         heading: "Your AI assistant",
