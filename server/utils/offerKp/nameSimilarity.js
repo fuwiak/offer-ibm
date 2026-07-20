@@ -38,6 +38,13 @@ const SIMILAR_PAIR_THRESHOLD = Number(
   process.env.SHOP_DB_SIMILAR_PAIR_THRESHOLD || 0.82
 );
 const SCORE_TIE_GAP = Number(process.env.SHOP_DB_SIMILAR_SCORE_GAP || 12);
+// A candidate with weak/zero lexical overlap can still surface on embedding
+// similarity alone (paraphrase, synonym, OCR-mangled wording) — but the bar
+// is higher than the blended threshold below, since there's no lexical
+// corroboration backing it up.
+const EMBEDDING_STANDALONE_MIN = Number(
+  process.env.SHOP_DB_EMBEDDING_STANDALONE_MIN || 0.62
+);
 
 const NAME_STOPWORDS = new Set([
   "для",
@@ -398,10 +405,11 @@ async function fetchNameSimilarityCandidatePool(
 }
 
 /**
- * Dokłada opcjonalny sygnał embeddingowy (semantyczny) do już przefiltrowanych
- * przez TF-IDF kandydatów. Blend jest addytywny względem istniejącego score —
- * gdy embedding jest wyłączony/niedostępny, funkcja zwraca `products` bez zmian
- * (dokładnie te same obiekty i kolejność co dziś).
+ * Dokłada opcjonalny sygnał embeddingowy (semantyczny) do kandydatów z pełnej
+ * puli SQL LIKE (nie tylko tych, które już przeszły próg TF-IDF — patrz
+ * wywołanie w searchByNameSimilarity). Blend jest addytywny względem
+ * istniejącego score — gdy embedding jest wyłączony/niedostępny, funkcja
+ * zwraca `products` bez zmian (dokładnie te same obiekty i kolejność co dziś).
  * @param {string} queryText
  * @param {object[]} products - obiekty z już policzonym `_nameSimilarity`
  * @returns {Promise<object[]>}
@@ -451,7 +459,11 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
   );
   if (!pool.length) return [];
 
-  const ranked = rankProductsByNameSimilarity(searchText, pool);
+  // Score the WHOLE pool first (minScore=0) instead of pre-filtering by
+  // TF-IDF — a paraphrase/synonym can score low here yet still be the right
+  // product. Filtering happens once, below, AFTER the embedding blend, so a
+  // weak lexical score doesn't kill a candidate the embedding recognizes.
+  const ranked = rankProductsByNameSimilarity(searchText, pool, 0);
   const withMeta = ranked.map((row) => ({
     ...row.p,
     _nameSimilarity: Number(row.score.toFixed(4)),
@@ -468,8 +480,16 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
 
   const boosted = await applyEmbeddingBoost(searchText, withMeta);
 
+  // Survive on EITHER signal: solid lexical score (as before), or a strong
+  // standalone embedding match even with weak/no lexical overlap.
+  const survivors = boosted.filter(
+    (p) =>
+      (p._nameSimilarity || 0) >= DEFAULT_MIN_COSINE ||
+      (p._embeddingSimilarity || 0) >= EMBEDDING_STANDALONE_MIN
+  );
+
   const deduped = applyCheaperPreferenceAmongSimilar(
-    boosted.map((p, index) => ({
+    survivors.map((p, index) => ({
       p,
       score: (p._nameSimilarity || 0) * 100,
       index,

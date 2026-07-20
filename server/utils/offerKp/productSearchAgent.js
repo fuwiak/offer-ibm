@@ -36,6 +36,10 @@ const {
 } = require("./nameSimilarity");
 const { searchProductsExtended } = require("./shopDbSearch");
 const {
+  isRerankerEnabled,
+  computeRerankScores,
+} = require("./crossEncoderRerank");
+const {
   shopDbSearchAgentEnabled,
   runShopDbSearchAgent,
   parseExtendedHardwareQuery,
@@ -547,6 +551,18 @@ async function runProductSearchAgent({
         (p.matched_sku && skuCodes.includes(String(p.matched_sku)))
     );
     if (exactMatches.length) products = exactMatches;
+  }
+
+  // Экспериментальный cross-encoder rerank поверх уже найденного топа — см.
+  // crossEncoderRerank.js. Выключен по умолчанию (SHOP_DB_RERANKER_ENABLED=0).
+  if (isRerankerEnabled() && products.length > 1) {
+    const rerankScores = await computeRerankScores(message, products);
+    if (rerankScores.size) {
+      products = [...products].sort(
+        (a, b) =>
+          (rerankScores.get(b.id) ?? -1) - (rerankScores.get(a.id) ?? -1)
+      );
+    }
   }
 
   products = products.slice(0, sqlLimit(limit));

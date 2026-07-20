@@ -70,6 +70,25 @@ const PRODUCT_TYPE_ROOTS = {
   круг: ["круг", "round", "bar", "rod"],
 };
 
+/**
+ * Клиенты часто путают «винт»/«болт» в тексте заявки (разговорная речь),
+ * а каталог называет товар строго по номенклатуре стандарта. Без этой
+ * добавки structured-поиск (AND по productTypes) отбрасывал верный товар
+ * только потому, что клиент написал «винт» про DIN 933 — это болт, не винт
+ * (см. AUDYT.md §8, реальный пример на golden set). Тип добавляется, а не
+ * заменяет то, что написал клиент — обе версии остаются в OR-условии.
+ */
+const STANDARD_IMPLIES_TYPE = {
+  "933": "болт",
+  "931": "болт",
+  "7805": "болт",
+  "7798": "болт",
+  "912": "винт",
+  "11738": "винт",
+  "934": "гайка",
+  "5915": "гайка",
+};
+
 function normalizeForMatch(text) {
   return foldHomoglyphs(
     normalizeSearchText(text).replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
@@ -123,6 +142,12 @@ function parseHardwareQuery(message) {
   const productTypes = [];
   for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
     if (roots.some((r) => lower.includes(r))) productTypes.push(type);
+  }
+  for (const num of dinNumbers) {
+    const impliedType = STANDARD_IMPLIES_TYPE[num];
+    if (impliedType && !productTypes.includes(impliedType)) {
+      productTypes.push(impliedType);
+    }
   }
 
   return {

@@ -83,15 +83,15 @@ async function searchByStructuredQuery(parsed, limit) {
 
   if (parsed.thread) {
     const { size, length } = parsed.thread;
-    conditions.push(
-      `(p.${P.name} LIKE ? OR p.${P.name} LIKE ? OR p.${P.name} LIKE ? OR p.${P.name} LIKE ?)`
-    );
-    params.push(
-      `%M ${size}x${length}%`,
-      `%M ${size} x ${length}%`,
-      `%M${size}x${length}%`,
-      `%M ${size}×${length}%`
-    );
+    // Catalog names use fixed-width, space-padded thread formatting with an
+    // inconsistent number of spaces depending on digit count — "M  8x 14",
+    // "M 16x 70", "M 10x100" (no space before a 3-digit length). None of
+    // the 4 fixed-spacing LIKE patterns this used to check ever matched any
+    // of them (verified: 0 hits each against the live catalog). REGEXP with
+    // flexible whitespace matches all of the above uniformly. `size`/`length`
+    // are digit-only captures from hardwareQuery.js, safe to interpolate.
+    conditions.push(`p.${P.name} REGEXP ?`);
+    params.push(`M[[:space:]]*${size}x[[:space:]]*${length}([^0-9]|$)`);
   }
 
   if (parsed.dimensions) {

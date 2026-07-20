@@ -44,11 +44,13 @@ const EMBEDDING_WEIGHT = Math.min(
   Math.max(0, Number(process.env.SHOP_DB_EMBEDDING_WEIGHT || 0.3))
 );
 
-// Reranking dotyczy tylko już przefiltrowanych przez TF-IDF kandydatów —
-// zostaje "lekki": nie embedujemy całej surowej puli SQL LIKE.
+// Covers the default SQL-LIKE candidate pool size in full (nameSimilarity.js
+// fetches up to max(limit*8, 80)) so a paraphrase ranked low by TF-IDF still
+// gets a chance at an embedding-based rescue instead of being cut before
+// reaching the embedder.
 const MAX_CANDIDATES = Math.max(
   1,
-  parseInt(process.env.SHOP_DB_EMBEDDING_MAX_CANDIDATES, 10) || 40
+  parseInt(process.env.SHOP_DB_EMBEDDING_MAX_CANDIDATES, 10) || 80
 );
 
 const CACHE_TTL_MS = Math.max(

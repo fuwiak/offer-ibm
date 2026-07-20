@@ -13,6 +13,11 @@ const {
   retrieveFewShotExamples,
   formatFewShotBlock,
 } = require("./goldenFewShot");
+const {
+  selectRelevantKnowledge,
+  formatKnowledgeBlock,
+} = require("./knowledgeBase");
+const { detectAnalogIntent } = require("./analogRules");
 const { query } = require("./db/client");
 const {
   TABLES,
@@ -278,7 +283,7 @@ function mapSearchRows(rows, matchSource) {
 
 async function searchByFuzzyRegex(searchText, parsed, limit) {
   const terms = extractFuzzyTerms(searchText, parsed);
-  if (!terms.length) return [];
+  if (!terms.length && !parsed?.thread) return [];
 
   const params = [];
   const likes = [];
@@ -296,6 +301,15 @@ async function searchByFuzzyRegex(searchText, parsed, limit) {
       return `${col} LIKE ?`;
     });
     likes.push(`(${parts.join(" OR ")})`);
+  }
+
+  // Catalog thread formatting is space-padded with inconsistent widths
+  // ("M  8x 14", "M 16x 70", "M 10x100") — the literal `m8x14`/`m 8x14`
+  // terms above never match it. REGEXP with flexible whitespace does.
+  if (parsed?.thread) {
+    const { size, length } = parsed.thread;
+    params.push(`M[[:space:]]*${size}x[[:space:]]*${length}([^0-9]|$)`);
+    likes.push(`p.${P.name} REGEXP ?`);
   }
 
   const sql = `
@@ -363,7 +377,12 @@ function parseLlmProductIds(text) {
   return [...new Set(ids)];
 }
 
-async function pickProductsWithLlm(searchText, candidates, workspace) {
+async function pickProductsWithLlm(
+  searchText,
+  candidates,
+  workspace,
+  parsed = null
+) {
   if (!shopDbSearchAgentLlmEnabled() || candidates.length === 0) return [];
 
   const LLMConnector = await getLLMProviderWithFallback({
@@ -379,7 +398,15 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
   const fewShotExamples = await retrieveFewShotExamples(searchText);
   const fewShotBlock = formatFewShotBlock(fewShotExamples);
 
+  const knowledgeEntries = selectRelevantKnowledge({
+    hasStandardNumber: !!(parsed?.standardNumbers || parsed?.dinNumbers || [])
+      .length,
+    analogIntent: detectAnalogIntent(searchText),
+  });
+  const knowledgeBlock = formatKnowledgeBlock(knowledgeEntries);
+
   const userContent = [
+    knowledgeBlock,
     fewShotBlock,
     `Запрос: ${searchText}`,
     `Каталог:\n${catalogLines}`,
@@ -525,7 +552,12 @@ async function runShopDbSearchAgent({
 
   if (shopDbSearchAgentLlmEnabled()) {
     const pool = await fetchLlmCandidatePool(searchText, parsed, 40);
-    const llmPicked = await pickProductsWithLlm(searchText, pool, workspace);
+    const llmPicked = await pickProductsWithLlm(
+      searchText,
+      pool,
+      workspace,
+      parsed
+    );
     if (llmPicked.length) {
       strategies.push("llm_rank");
       products = mergeAgentHits(products, llmPicked);
