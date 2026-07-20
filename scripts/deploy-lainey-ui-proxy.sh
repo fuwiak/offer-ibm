@@ -2,9 +2,12 @@
 # Bootstrap OfferKP UI access on Lainey (Selectel GPU) via public IP.
 # Russia cannot reach Railway; Lainey IP proxies to the app (or self-hosts later).
 #
-# Run ON Lainey (Selectel web console / SSH):
-#   curl -fsSL https://raw.githubusercontent.com/fuwiak/offer-ibm/main/scripts/deploy-lainey-ui-proxy.sh | sudo bash
-# Or copy this file and: sudo bash deploy-lainey-ui-proxy.sh
+# Repo is PRIVATE — raw.githubusercontent.com returns 404 without auth.
+# On Lainey (Selectel Console / SSH), copy this file then:
+#   sudo bash deploy-lainey-ui-proxy.sh
+# From laptop (after SSH key is on Lainey):
+#   scp scripts/deploy-lainey-ui-proxy.sh root@87.228.90.43:/tmp/
+#   ssh root@87.228.90.43 'bash /tmp/deploy-lainey-ui-proxy.sh'
 #
 # Result URL: http://87.228.90.43/
 set -euo pipefail
