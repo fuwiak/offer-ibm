@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { FilePdf, FileDoc, FileXls, CircleNotch } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
@@ -21,14 +21,31 @@ function addDays(d, days) {
   return date;
 }
 
+function lineNeedsReview(line = {}) {
+  const status = `${line.status || ""} ${line.kpStatus || ""}`;
+  return Boolean(
+    line.unitNeedsRecalc ||
+      /требует|требуется|needs review/i.test(status) ||
+      ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
+  );
+}
+
 /**
  * HTML-превью коммерческого предложения purolat.com.
  */
 export default function QuotePreview() {
   const { quoteDraft } = useOfferKp();
   const [busy, setBusy] = useState(null);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   const preview = quoteDraft?.preview;
+  const reviewCount = useMemo(
+    () => (preview?.lines || []).filter(lineNeedsReview).length,
+    [preview?.lines]
+  );
+  useEffect(() => {
+    setReviewConfirmed(false);
+  }, [preview?.lines]);
   if (!preview) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-theme-text-secondary">
@@ -63,11 +80,14 @@ export default function QuotePreview() {
     shipping: preview.shipping,
     subtotal: preview.subtotal,
     total: preview.total,
+    vatRate,
+    currency,
+    reviewConfirmed,
     createdAt,
   };
 
   async function download(kind) {
-    if (busy) return;
+    if (busy || (reviewCount > 0 && !reviewConfirmed)) return;
     setBusy(kind);
     try {
       const result =
@@ -101,15 +121,13 @@ export default function QuotePreview() {
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary">
         <span className="text-xs text-theme-text-secondary truncate min-w-0">
-          {customer.name
-            ? `Оферта — ${customer.name}`
-            : `Оферта ${reference}`}
+          {customer.name ? `Оферта — ${customer.name}` : `Оферта ${reference}`}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => download("pdf")}
-            disabled={!!busy}
+            disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
             className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#0c7d69] hover:bg-[#0a6757] text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy === "pdf" ? (
@@ -122,7 +140,7 @@ export default function QuotePreview() {
           <button
             type="button"
             onClick={() => download("xlsx")}
-            disabled={!!busy}
+            disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
             className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary-button hover:bg-[#a9583e] text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy === "xlsx" ? (
@@ -135,7 +153,7 @@ export default function QuotePreview() {
           <button
             type="button"
             onClick={() => download("docx")}
-            disabled={!!busy}
+            disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
             className="flex items-center gap-1 px-2 py-1 rounded-md border border-theme-sidebar-border text-theme-text-primary text-[11px] font-medium hover:bg-theme-sidebar-item-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy === "docx" ? (
@@ -148,16 +166,39 @@ export default function QuotePreview() {
         </div>
       </div>
 
+      {reviewCount > 0 && (
+        <label className="flex items-start gap-2 px-3 py-2 border-b border-amber-500/40 bg-amber-500/10 text-[11px] text-theme-text-primary">
+          <input
+            type="checkbox"
+            checked={reviewConfirmed}
+            onChange={(event) => setReviewConfirmed(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            {reviewCount} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę
+            przed eksportem.
+          </span>
+        </label>
+      )}
+
       <div className="flex-1 overflow-y-auto bg-[#525659] p-3" translate="no">
         <div className="offerKp-quote-doc notranslate" translate="no">
           <div className="offerKp-quote-doc__head">
             <div>
-              <div className="offerKp-quote-doc__brand">{QUOTE_BRAND.companyName}</div>
-              <div className="offerKp-quote-doc__brand-sub">{QUOTE_BRAND.tagline}</div>
-              <div className="offerKp-quote-doc__brand-sub">{QUOTE_BRAND.website}</div>
+              <div className="offerKp-quote-doc__brand">
+                {QUOTE_BRAND.companyName}
+              </div>
+              <div className="offerKp-quote-doc__brand-sub">
+                {QUOTE_BRAND.tagline}
+              </div>
+              <div className="offerKp-quote-doc__brand-sub">
+                {QUOTE_BRAND.website}
+              </div>
             </div>
             <div className="offerKp-quote-doc__meta">
-              <div className="offerKp-quote-doc__title">КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</div>
+              <div className="offerKp-quote-doc__title">
+                КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ
+              </div>
               <div>№ {reference}</div>
               <div>Дата: {fmtDate(createdAt)}</div>
               <div>Действительно до: {fmtDate(addDays(createdAt, 30))}</div>
@@ -169,7 +210,9 @@ export default function QuotePreview() {
           <div className="offerKp-quote-doc__parties">
             <div>
               <div className="offerKp-quote-doc__label">ПОСТАВЩИК</div>
-              <div className="offerKp-quote-doc__strong">{QUOTE_BRAND.companyName}</div>
+              <div className="offerKp-quote-doc__strong">
+                {QUOTE_BRAND.companyName}
+              </div>
               <div>{QUOTE_BRAND.address}</div>
               <div>{QUOTE_BRAND.website}</div>
               {QUOTE_BRAND.email && <div>{QUOTE_BRAND.email}</div>}
@@ -241,10 +284,16 @@ export default function QuotePreview() {
             УСЛОВИЯ
           </div>
           <ul className="offerKp-quote-doc__terms">
-            <li>Оплата и отгрузка — по согласованию с менеджером purolat.com.</li>
+            <li>
+              Оплата и отгрузка — по согласованию с менеджером purolat.com.
+            </li>
             <li>Оферта действительна 30 дней с даты документа.</li>
-            <li>Цены в {currency}; позиции из каталога {QUOTE_BRAND.catalogLabel}.</li>
-            <li>{QUOTE_BRAND.warrantyNote || "Сертифицированная продукция."}</li>
+            <li>
+              Цены в {currency}; позиции из каталога {QUOTE_BRAND.catalogLabel}.
+            </li>
+            <li>
+              {QUOTE_BRAND.warrantyNote || "Сертифицированная продукция."}
+            </li>
           </ul>
 
           <div className="offerKp-quote-doc__sign">

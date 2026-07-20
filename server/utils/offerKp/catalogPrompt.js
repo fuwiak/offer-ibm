@@ -140,11 +140,13 @@ async function resolveInquiryDraftSection(inquirySource, options = {}) {
   if (!lines.length) return "";
 
   try {
-    const draft = await matchInquiryLines.matchInquiryToDraft(inquirySource, {
-      workspace: options.workspace || null,
-      chatHistory: options.chatHistory || null,
-      parsedFileTexts: options.parsedFileTexts || null,
-    });
+    const draft =
+      options.inquiryDraft ||
+      (await matchInquiryLines.matchInquiryToDraft(inquirySource, {
+        workspace: options.workspace || null,
+        chatHistory: options.chatHistory || null,
+        parsedFileTexts: options.parsedFileTexts || null,
+      }));
     const draftSection = formatInquiryDraftSection(draft);
     if (draftSection) {
       shopDbLog.ok("inquiry draft resolved", {
@@ -186,11 +188,13 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
   const sources = [];
   let catalogBlocks = [];
   let shopDbFlags = null;
+  let inquiryDraft = null;
 
   for (const ext of externalContexts || []) {
     const texts = ext?.contextTexts || [];
     if (ext?.kind === "shopdb") {
       shopDbFlags = ext?.flags || null;
+      inquiryDraft = ext?.inquiryDraft || inquiryDraft;
       catalogBlocks = texts.filter(isCatalogBlock);
       for (const t of texts) {
         if (!isCatalogBlock(t)) systemContextTexts.push(t);
@@ -229,6 +233,7 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
     shopDbFlags,
     catalogInjected,
     catalogBlocks,
+    inquiryDraft,
   };
 }
 

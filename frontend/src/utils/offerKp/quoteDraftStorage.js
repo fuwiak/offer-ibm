@@ -1,7 +1,9 @@
 import { safeJsonParse } from "@/utils/request";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
 
-const PREFIX = "offerKp:quote-draft:";
+// v2 uses the canonical net contract for lineTotal/subtotal. Do not hydrate
+// pre-v2 drafts whose totals may already include VAT.
+const PREFIX = "offerKp:quote-draft:v2:";
 
 function storageKey(workspaceSlug, threadSlug) {
   return `${PREFIX}${workspaceSlug}:${threadSlug || "default"}`;

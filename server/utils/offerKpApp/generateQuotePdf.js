@@ -41,11 +41,14 @@ async function generateQuotePdf(quoteData) {
     lines = [],
     shipping = 0,
     subtotal = 0,
-    total = 0,
     createdAt = new Date(),
   } = quoteData;
 
-  const { currency } = localeForCountry(customer.country);
+  const { currency, vatRate: localeVatRate } = localeForCountry(
+    customer.country
+  );
+  const vatRate =
+    typeof quoteData.vatRate === "number" ? quoteData.vatRate : localeVatRate;
   // PDF standard fonts (WinAnsi) — ASCII-only amounts + ISO currency code
   const fmtMoney = (num) => `${Number(num || 0).toFixed(2)} ${currency}`;
 
@@ -327,6 +330,10 @@ async function generateQuotePdf(quoteData) {
     fnY -= 10;
   }
 
+  const taxableNet = (Number(subtotal) || 0) + (Number(shipping) || 0);
+  const vat = taxableNet * vatRate;
+  const grandTotal = taxableNet + vat;
+
   // Subtotal row
   txt("Subtotal excl. VAT", totalsX, y, { size: 8.5, color: GRAY });
   rightAlign(fmtMoney(subtotal), R - 4, y, { font: bold, size: 8.5 });
@@ -338,6 +345,13 @@ async function generateQuotePdf(quoteData) {
     : "Delivery";
   txt(shippingLabel, totalsX, y, { size: 8.5, color: GRAY });
   rightAlign(fmtMoney(shipping), R - 4, y, { size: 8.5 });
+  y -= 13;
+
+  txt(`VAT (${Math.round(vatRate * 100)}%)`, totalsX, y, {
+    size: 8.5,
+    color: GRAY,
+  });
+  rightAlign(fmtMoney(vat), R - 4, y, { size: 8.5 });
   y -= 6;
 
   line(totalsX, y, R, y, { thickness: 0.5, color: NAVY });
@@ -345,21 +359,21 @@ async function generateQuotePdf(quoteData) {
 
   // TOTAL row
   rect(totalsX, y - 18, totalsW, 18, { color: NAVY });
-  txt("TOTAL excl. VAT", totalsX + 8, y - 12, {
+  txt("TOTAL incl. VAT", totalsX + 8, y - 12, {
     font: bold,
     size: 9,
     color: WHITE,
   });
-  rightAlign(fmtMoney(total), R - 6, y - 12, {
+  rightAlign(fmtMoney(grandTotal), R - 6, y - 12, {
     font: bold,
     size: 11,
     color: WHITE,
   });
   y -= 28;
 
-  // No VAT note
+  // VAT note
   txt(
-    "No VAT applied (intra-EU B2B with valid VAT number). Payment terms: 50% deposit, 50% before shipment.",
+    `VAT ${Math.round(vatRate * 100)}% included in the grand total. Payment terms: 50% deposit, 50% before shipment.`,
     L,
     y,
     { size: 7.5, color: GRAY, maxWidth: totalsX - L - 10 }

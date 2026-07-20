@@ -12,13 +12,20 @@ export function buildQuoteMarkdown({
   vatRate = 0.2,
 }) {
   const vatPct = Math.round(vatRate * 100);
-  const vatAmount = Number((total * vatRate).toFixed(2));
+  const taxableNet = Number(total) + Number(shipping);
+  const vatAmount = Number((taxableNet * vatRate).toFixed(2));
   const rows = lines
     .map((l, i) => {
       const name = l.name || l.productName || "";
       const qty = l.quantity || 1;
-      const price = Number(l.priceWithVat ?? l.unitPrice ?? 0);
-      const sum = Number(l.lineTotal ?? qty * price);
+      const netUnit = Number(
+        l.unitPriceNet ??
+          l.unitPrice ??
+          (qty > 0 ? (Number(l.lineTotal) || 0) / qty : 0)
+      );
+      const price = Number(l.priceWithVat ?? netUnit * (1 + vatRate));
+      const netSum = Number(l.lineTotal ?? qty * netUnit);
+      const sum = Number((netSum * (1 + vatRate)).toFixed(2));
       return `| ${i + 1} | ${name} | ${l.article || l.sku || ""} | ${qty} | ${l.unit || "шт"} | ${price.toFixed(2)} ${currency} | ${sum.toFixed(2)} ${currency} | ${l.status || "Требует проверки"} | ${l.comment || ""} |`;
     })
     .join("\n");
@@ -41,6 +48,6 @@ ${rows || "| — | — | — | — | — | — | — | — | — |"}
 **Подытог:** ${Number(subtotal).toFixed(2)} ${currency}  
 **Доставка:** ${Number(shipping).toFixed(2)} ${currency}  
 **НДС ${vatPct}%:** ${vatAmount.toFixed(2)} ${currency}  
-**Итого с НДС:** ${(Number(total) + vatAmount).toFixed(2)} ${currency}
+**Итого с НДС:** ${(taxableNet + vatAmount).toFixed(2)} ${currency}
 `;
 }

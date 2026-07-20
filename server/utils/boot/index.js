@@ -15,6 +15,7 @@ const {
 const { ensureOfferKpTables } = require("./ensureOfferKpTables");
 const { ensureOfferKpBranding } = require("./ensureOfferKpBranding");
 const { ensureShopDbEnrichBootTest } = require("./ensureShopDbEnrichBootTest");
+const { configureSqlite } = require("./configureSqlite");
 
 // Testing SSL? You can make a self signed certificate and point the ENVs to that location
 // make a directory in server called 'sslcert' - cd into it
@@ -40,6 +41,7 @@ function bootSSL(app, port = 3001) {
     const host = process.env.HOST || "0.0.0.0";
     server
       .listen(port, host, async () => {
+        await configureSqlite();
         await ensureOfferKpTables();
         await ensureOfferKpWorkspaceProfileColumn();
         await ensureOfferKpBranding();
@@ -90,6 +92,7 @@ function bootHTTP(app, port = 3001) {
   const host = process.env.HOST || "0.0.0.0";
   app
     .listen(port, host, async () => {
+      await configureSqlite();
       await ensureOfferKpTables();
       await ensureOfferKpWorkspaceProfileColumn();
       await ensureOfferKpBranding();

@@ -1,5 +1,4 @@
-/* eslint-disable react-hooks/refs */
-import { memo, useRef, useEffect } from "react";
+import { memo, useRef, useEffect, useState } from "react";
 import { Warning } from "@phosphor-icons/react";
 import renderMarkdown from "@/utils/chat/markdown";
 import DOMPurify from "@/utils/chat/purify";
@@ -58,9 +57,26 @@ const PromptReply = ({
   );
 };
 
+function useThrottledValue(value, delayMs = 100) {
+  const [throttled, setThrottled] = useState(value);
+  const lastUpdateRef = useRef(0);
+
+  useEffect(() => {
+    const elapsed = Date.now() - lastUpdateRef.current;
+    const wait = Math.max(0, delayMs - elapsed);
+    const timer = window.setTimeout(() => {
+      lastUpdateRef.current = Date.now();
+      setThrottled(value);
+    }, wait);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return throttled;
+}
+
 function RenderAssistantChatContent({ message, messageId }) {
   const thoughtChainRef = useRef(null);
-  const messageText = message || "";
+  const messageText = useThrottledValue(message || "");
 
   const isThinking =
     messageText.match(THOUGHT_REGEX_OPEN) &&
@@ -92,10 +108,7 @@ function RenderAssistantChatContent({ message, messageId }) {
   return (
     <div className="flex flex-col gap-y-1">
       {thoughtChain && (
-        <ThoughtChainComponent
-          content={thoughtChain}
-          messageId={messageId}
-        />
+        <ThoughtChainComponent content={thoughtChain} messageId={messageId} />
       )}
       <div
         className="break-words"

@@ -78,8 +78,12 @@ describe("analogRules", () => {
   });
 
   test("threadMatchesExact", () => {
-    expect(threadMatchesExact("bolt m8x40 zinc", { size: "8", length: "40" })).toBe(true);
-    expect(threadMatchesExact("bolt m8x45 zinc", { size: "8", length: "40" })).toBe(false);
+    expect(
+      threadMatchesExact("bolt m8x40 zinc", { size: "8", length: "40" })
+    ).toBe(true);
+    expect(
+      threadMatchesExact("bolt m8x45 zinc", { size: "8", length: "40" })
+    ).toBe(false);
   });
 
   test("GOST 7798 query prefers DIN 931 over DIN 933 in scoring", () => {
@@ -108,5 +112,24 @@ describe("analogRules", () => {
     });
     expect(result.matchType).toBe("analog");
     expect(result.status).toBe(STATUS.ANALOG);
+  });
+
+  test("requested zinc coating cannot be classified as exact when missing", () => {
+    const result = classifyProductMatch("Болт DIN 931 M8x40 оцинк 8.8", {
+      name: "Болт DIN 931 M8x40 8.8 без покрытия",
+      stockCount: 20,
+    });
+    expect(result.matchType).toBe("spec_mismatch");
+    expect(result.mismatchReason).toBe("coating");
+    expect(result.status).toBe(STATUS.NEEDS_REVIEW);
+  });
+
+  test("requested strength class cannot be classified as an analog when different", () => {
+    const result = classifyProductMatch("Болт DIN 931 M10x50 8.8", {
+      name: "Болт ГОСТ 7798-70 M10x50 класс 5.8",
+      stockCount: 20,
+    });
+    expect(result.matchType).toBe("spec_mismatch");
+    expect(result.mismatchReason).toBe("strength_class");
   });
 });

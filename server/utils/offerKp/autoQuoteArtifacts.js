@@ -363,6 +363,7 @@ async function emitAutoQuoteArtifacts({
   workspace = null,
   chatHistory = null,
   parsedFileTexts = [],
+  inquiryDraft = null,
 }) {
   // При наличии файла именно он определяет перечень строк. Сообщение пользователя
   // служит командой и не должно дублировать/расширять приложенную заявку.
@@ -379,15 +380,17 @@ async function emitAutoQuoteArtifacts({
     return false;
   }
 
-  let draft = null;
-  try {
-    draft = await matchInquiryToDraft(inquirySource, {
-      workspace,
-      chatHistory,
-      parsedFileTexts,
-    });
-  } catch (e) {
-    console.error("[offerKp] matchInquiryToDraft:", e.message);
+  let draft = inquiryDraft;
+  if (!draft) {
+    try {
+      draft = await matchInquiryToDraft(inquirySource, {
+        workspace,
+        chatHistory,
+        parsedFileTexts,
+      });
+    } catch (e) {
+      console.error("[offerKp] matchInquiryToDraft:", e.message);
+    }
   }
 
   // N позиций на входе = N строк в обоих документах. При любой ошибке или
@@ -465,6 +468,8 @@ async function emitAutoQuoteArtifacts({
     shipping,
     subtotal,
     total,
+    vatRate,
+    currency,
     createdAt: new Date(),
   };
 

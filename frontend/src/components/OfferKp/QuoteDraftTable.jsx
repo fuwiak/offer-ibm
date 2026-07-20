@@ -15,6 +15,7 @@ import { downloadBlob } from "@/utils/downloadBlob";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
 import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
+import { localeForCountry } from "@/utils/offerKp/quoteBrand";
 import showToast from "@/utils/toast";
 
 const EMPTY_LINE = {
@@ -38,13 +39,41 @@ function statusClass(status) {
   return "offerKp-status--review";
 }
 
-function recalcLine(line) {
+function recalcLine(line, vatRate) {
   const qty = Number(line.quantity) || 0;
-  const price = Number(line.priceWithVat) || 0;
+  const priceWithVat = Number(line.priceWithVat) || 0;
+  const unitPriceNet = priceWithVat / (1 + vatRate);
   return {
     ...line,
-    lineTotal: Number((qty * price).toFixed(2)),
+    unitPriceNet: Number(unitPriceNet.toFixed(2)),
+    lineTotal: Number((qty * unitPriceNet).toFixed(2)),
   };
+}
+
+function lineNeedsReview(line = {}) {
+  const status = `${line.status || ""} ${line.kpStatus || ""}`;
+  return Boolean(
+    line.unitNeedsRecalc ||
+      /требует|требуется|needs review/i.test(status) ||
+      ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
+  );
+}
+
+function lineNetTotal(line = {}, vatRate) {
+  if (line.lineTotal != null && Number.isFinite(Number(line.lineTotal))) {
+    return Number(line.lineTotal);
+  }
+  const quantity = Number(line.quantity) || 0;
+  const grossUnitPrice = Number(line.priceWithVat) || 0;
+  return Number(((quantity * grossUnitPrice) / (1 + vatRate)).toFixed(2));
+}
+
+function lineTotalWeight(line = {}) {
+  if (line.lineWeightKg != null && Number.isFinite(Number(line.lineWeightKg))) {
+    return Number(line.lineWeightKg);
+  }
+  if (line.unit === "кг") return Number(line.quantity) || 0;
+  return (Number(line.weightKg) || 0) * (Number(line.quantity) || 1);
 }
 
 export default function QuoteDraftTable() {
@@ -62,19 +91,29 @@ export default function QuoteDraftTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const { vatRate, currency } = localeForCountry(quoteDraft?.customer?.country);
+  const reviewCount = useMemo(
+    () => lines.filter(lineNeedsReview).length,
+    [lines]
+  );
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce(
-      (s, l) => s + (Number(l.lineTotal) || Number(l.quantity) * Number(l.priceWithVat) || 0),
+      (sum, line) => sum + lineNetTotal(line, vatRate),
       0
     );
     const totalWeightKg = lines.reduce(
-      (s, l) => s + (Number(l.weightKg) || 0) * (Number(l.quantity) || 1),
+      (sum, line) => sum + lineTotalWeight(line),
       0
     );
-    return { subtotal, totalWeightKg };
+    return { subtotal, totalWeightKg, grossTotal: subtotal * (1 + vatRate) };
+  }, [lines, vatRate]);
+
+  useEffect(() => {
+    setReviewConfirmed(false);
   }, [lines]);
 
   useEffect(() => {
@@ -86,6 +125,8 @@ export default function QuoteDraftTable() {
       subtotal: totals.subtotal,
       total: totals.subtotal,
       shipping: quoteDraft?.shipping || 0,
+      vatRate,
+      currency,
     });
     setDocPreview((prev) => ({
       filename:
@@ -102,6 +143,8 @@ export default function QuoteDraftTable() {
     quoteDraft?.customer,
     quoteDraft?.shipping,
     quoteDraft?.sourceFilename,
+    vatRate,
+    currency,
     setDocPreview,
   ]);
 
@@ -110,11 +153,14 @@ export default function QuoteDraftTable() {
       setQuoteDraft((prev) => {
         const current = prev.hardwareLines || prev.preview?.lines || [];
         const next = current.map((l, i) =>
-          i === index ? recalcLine({ ...l, ...patch }) : l
+          i === index ? recalcLine({ ...l, ...patch }, vatRate) : l
         );
-        const subtotal = next.reduce((s, l) => s + (l.lineTotal || 0), 0);
+        const subtotal = next.reduce(
+          (sum, line) => sum + lineNetTotal(line, vatRate),
+          0
+        );
         const totalWeightKg = next.reduce(
-          (s, l) => s + (l.weightKg || 0) * (l.quantity || 1),
+          (sum, line) => sum + lineTotalWeight(line),
           0
         );
         return {
@@ -130,7 +176,7 @@ export default function QuoteDraftTable() {
         };
       });
     },
-    [setQuoteDraft]
+    [setQuoteDraft, vatRate]
   );
 
   const logCorrection = useCallback(
@@ -167,7 +213,11 @@ export default function QuoteDraftTable() {
     setQuoteDraft((prev) => {
       const current = prev.hardwareLines || prev.preview?.lines || [];
       const next = current.filter((_, i) => i !== index);
-      return { ...prev, hardwareLines: next, preview: { ...prev.preview, lines: next } };
+      return {
+        ...prev,
+        hardwareLines: next,
+        preview: { ...prev.preview, lines: next },
+      };
     });
   };
 
@@ -175,7 +225,11 @@ export default function QuoteDraftTable() {
     setQuoteDraft((prev) => {
       const current = prev.hardwareLines || prev.preview?.lines || [];
       const next = [...current, { ...EMPTY_LINE }];
-      return { ...prev, hardwareLines: next, preview: { ...prev.preview, lines: next } };
+      return {
+        ...prev,
+        hardwareLines: next,
+        preview: { ...prev.preview, lines: next },
+      };
     });
   };
 
@@ -199,18 +253,26 @@ export default function QuoteDraftTable() {
   }
 
   function addFromSearch(product) {
-    const line = recalcLine({
-      ...EMPTY_LINE,
-      name: product.name,
-      article: product.matched_sku || product.sku || "",
-      productId: String(product.id),
-      priceWithVat: Number(product.price) || 0,
-      status: "Требует проверки",
-    });
+    const unitPriceNet = Number(product.price) || 0;
+    const line = recalcLine(
+      {
+        ...EMPTY_LINE,
+        name: product.name,
+        article: product.matched_sku || product.sku || "",
+        productId: String(product.id),
+        priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
+        status: "Требует проверки",
+      },
+      vatRate
+    );
     setQuoteDraft((prev) => {
       const current = prev.hardwareLines || prev.preview?.lines || [];
       const next = [...current, line];
-      return { ...prev, hardwareLines: next, preview: { ...prev.preview, lines: next } };
+      return {
+        ...prev,
+        hardwareLines: next,
+        preview: { ...prev.preview, lines: next },
+      };
     });
     setSearchOpen(false);
     setSearchQuery("");
@@ -219,23 +281,18 @@ export default function QuoteDraftTable() {
 
   function selectAlternative(lineIndex, alt) {
     const line = lines[lineIndex];
-    handleFieldChange(
-      lineIndex,
-      "name",
-      alt.name,
-      line
-    );
+    handleFieldChange(lineIndex, "name", alt.name, line);
     updateLine(lineIndex, {
       name: alt.name,
       article: alt.sku,
-      priceWithVat: alt.price,
+      priceWithVat: Number((Number(alt.price || 0) * (1 + vatRate)).toFixed(2)),
       status: alt.status,
       analogOf: alt.analogOf,
     });
   }
 
   async function exportFile(kind) {
-    if (busy) return;
+    if (busy || (reviewCount > 0 && !reviewConfirmed)) return;
     setBusy(kind);
     try {
       const payload = {
@@ -245,6 +302,9 @@ export default function QuoteDraftTable() {
         subtotal: totals.subtotal,
         total: totals.subtotal,
         shipping: quoteDraft?.shipping || 0,
+        vatRate,
+        currency,
+        reviewConfirmed,
         createdAt: new Date(),
       };
       let result;
@@ -263,6 +323,8 @@ export default function QuoteDraftTable() {
           subtotal: totals.subtotal,
           total: totals.subtotal,
           shipping: payload.shipping,
+          vatRate,
+          currency,
         });
         result = await OfferKp.generateDocxFromMarkdown({
           markdown,
@@ -397,7 +459,9 @@ export default function QuoteDraftTable() {
               <th>{t("draftTable.article", { defaultValue: "Артикул" })}</th>
               <th>{t("quote.quantity")}</th>
               <th>{t("draftTable.unit", { defaultValue: "Ед." })}</th>
-              <th>{t("draftTable.priceVat", { defaultValue: "Цена с НДС" })}</th>
+              <th>
+                {t("draftTable.priceVat", { defaultValue: "Цена с НДС" })}
+              </th>
               <th>{t("draftTable.sum", { defaultValue: "Сумма" })}</th>
               <th>{t("draftTable.weight", { defaultValue: "Вес" })}</th>
               <th>{t("draftTable.status", { defaultValue: "Статус" })}</th>
@@ -433,7 +497,9 @@ export default function QuoteDraftTable() {
                       }}
                     >
                       <option value="" disabled>
-                        {t("draftTable.alternatives", { defaultValue: "Аналоги" })}
+                        {t("draftTable.alternatives", {
+                          defaultValue: "Аналоги",
+                        })}
                       </option>
                       {line.alternatives.map((a, ai) => (
                         <option key={ai} value={ai}>
@@ -459,7 +525,12 @@ export default function QuoteDraftTable() {
                     min={1}
                     value={line.quantity || 1}
                     onChange={(e) =>
-                      handleFieldChange(i, "quantity", Number(e.target.value), line)
+                      handleFieldChange(
+                        i,
+                        "quantity",
+                        Number(e.target.value),
+                        line
+                      )
                     }
                     className="w-14 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
                   />
@@ -483,10 +554,10 @@ export default function QuoteDraftTable() {
                   />
                 </td>
                 <td className="text-right whitespace-nowrap">
-                  {(line.lineTotal ?? 0).toFixed(2)}
+                  {(lineNetTotal(line, vatRate) * (1 + vatRate)).toFixed(2)}
                 </td>
                 <td className="text-right">
-                  {Number(line.weightKg || 0).toFixed(3)}
+                  {lineTotalWeight(line).toFixed(3)}
                 </td>
                 <td>
                   <select
@@ -535,7 +606,7 @@ export default function QuoteDraftTable() {
                 {t("quote.total")}
               </td>
               <td className="text-right font-medium">
-                {totals.subtotal.toFixed(2)}
+                {totals.grossTotal.toFixed(2)}
               </td>
               <td className="text-right font-medium">
                 {totals.totalWeightKg.toFixed(3)} кг
@@ -546,11 +617,26 @@ export default function QuoteDraftTable() {
         </table>
       </div>
 
+      {reviewCount > 0 && (
+        <label className="flex items-start gap-2 px-3 py-2 border-t border-amber-500/40 bg-amber-500/10 text-[11px] text-theme-text-primary">
+          <input
+            type="checkbox"
+            checked={reviewConfirmed}
+            onChange={(event) => setReviewConfirmed(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            {reviewCount} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę
+            przed eksportem.
+          </span>
+        </label>
+      )}
+
       <div className="flex items-center gap-2 px-3 py-2 shrink-0 border-t border-theme-sidebar-border">
         <button
           type="button"
           onClick={() => exportFile("docx")}
-          disabled={!!busy}
+          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-[#0c7d69] text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "docx" ? (
@@ -563,7 +649,7 @@ export default function QuoteDraftTable() {
         <button
           type="button"
           onClick={() => exportFile("pdf")}
-          disabled={!!busy}
+          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-[#cc785c] text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "pdf" ? (
@@ -576,7 +662,7 @@ export default function QuoteDraftTable() {
         <button
           type="button"
           onClick={() => exportFile("xlsx")}
-          disabled={!!busy}
+          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-primary-button text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "xlsx" ? (

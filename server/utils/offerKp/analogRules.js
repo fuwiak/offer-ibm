@@ -3,7 +3,11 @@
  * Размеры не меняем — только стандарт/покрытие/класс прочности.
  */
 
-const { normalizeForMatch } = require("./hardwareQuery");
+const {
+  normalizeForMatch,
+  parseHardwareQuery,
+  PRODUCT_TYPE_ROOTS,
+} = require("./hardwareQuery");
 
 /** @type {Array<{din: string, analogs: string[], productType: string, matchRule: string}>} */
 const ANALOG_RULES = [
@@ -145,6 +149,38 @@ function productNameHasUnverifiableDimension(nameNorm, rule) {
   return Boolean(extractThread(nameNorm));
 }
 
+function productTypeMatches(nameNorm, requestedTypes = [], rule = null) {
+  const types = requestedTypes.length
+    ? requestedTypes
+    : rule?.productType
+      ? [rule.productType]
+      : [];
+  if (!types.length) return true;
+  return types.some((type) =>
+    (PRODUCT_TYPE_ROOTS[type] || [type]).some((root) =>
+      nameNorm.includes(normalizeForMatch(root))
+    )
+  );
+}
+
+function requestedSpecsMatch(nameNorm, parsed, rule = null) {
+  if (!productTypeMatches(nameNorm, parsed.productTypes || [], rule)) {
+    return { ok: false, reason: "product_type" };
+  }
+  if (parsed.coating && !/оцинк|цинк|ocink|cink|\bzn\b|zinc/i.test(nameNorm)) {
+    return { ok: false, reason: "coating" };
+  }
+  if (
+    parsed.strengthClass &&
+    !new RegExp(`\\b${parsed.strengthClass.replace(".", "\\.")}\\b`).test(
+      nameNorm
+    )
+  ) {
+    return { ok: false, reason: "strength_class" };
+  }
+  return { ok: true, reason: null };
+}
+
 function findRuleForStandard(stdNum) {
   const n = String(stdNum);
   const asDin = ANALOG_RULES.find((r) => r.din === n);
@@ -164,6 +200,7 @@ function getEquivalentStandards(stdNum) {
 
 function classifyProductMatch(requestText, product) {
   const nameNorm = normalizeForMatch(product.name || "");
+  const parsed = parseHardwareQuery(requestText);
   const requestedStandards = extractStandardNumbers(requestText);
   const thread = extractThread(requestText);
   const pin = extractPinDimensions(requestText);
@@ -216,6 +253,15 @@ function classifyProductMatch(requestText, product) {
           mismatchReason: "size_unconfirmed",
         };
       }
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule);
+      if (!specs.ok) {
+        return {
+          matchType: "spec_mismatch",
+          status: STATUS.NEEDS_REVIEW,
+          analogOf: null,
+          mismatchReason: specs.reason,
+        };
+      }
       matchedExact = true;
       break;
     }
@@ -243,6 +289,16 @@ function classifyProductMatch(requestText, product) {
           status: STATUS.NEEDS_REVIEW,
           analogOf: null,
           mismatchReason: "size_unconfirmed",
+        };
+      }
+
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule);
+      if (!specs.ok) {
+        return {
+          matchType: "spec_mismatch",
+          status: STATUS.NEEDS_REVIEW,
+          analogOf: null,
+          mismatchReason: specs.reason,
         };
       }
 
@@ -357,4 +413,5 @@ module.exports = {
   getEquivalentStandards,
   threadMatchesExact,
   pinMatchesExact,
+  requestedSpecsMatch,
 };

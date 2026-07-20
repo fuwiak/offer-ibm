@@ -36,6 +36,28 @@ const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
 const shopDbExplorer = require("../utils/offerKp/db/explorer");
 const { askShopDb } = require("../utils/offerKp/db/askAgent");
 
+function quoteLineNeedsReview(line = {}) {
+  const status = `${line.status || ""} ${line.kpStatus || ""}`;
+  return Boolean(
+    line.unitNeedsRecalc ||
+      /требует|требуется|needs review/i.test(status) ||
+      ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
+  );
+}
+
+function rejectUnconfirmedReview(response, quoteData = {}) {
+  const reviewCount = (quoteData.lines || []).filter(
+    quoteLineNeedsReview
+  ).length;
+  if (!reviewCount || quoteData.reviewConfirmed === true) return false;
+  response.status(409).json({
+    error: `${reviewCount} quote line(s) require explicit review confirmation before export.`,
+    code: "OFFER_KP_REVIEW_REQUIRED",
+    reviewCount,
+  });
+  return true;
+}
+
 function offerKpEndpoints(app) {
   if (!app) return;
 
@@ -312,6 +334,7 @@ function offerKpEndpoints(app) {
           };
         }
 
+        if (rejectUnconfirmedReview(response, quoteData)) return;
         const result = await generateQuotePdf(quoteData);
         response.status(200).json({
           filename: result.filename,
@@ -403,6 +426,7 @@ function offerKpEndpoints(app) {
           };
         }
 
+        if (rejectUnconfirmedReview(response, quoteData)) return;
         const result = await generateQuoteDocx(quoteData);
         response.status(200).json({
           filename: result.filename,
@@ -610,6 +634,7 @@ function offerKpEndpoints(app) {
           });
           quoteData = { ...formatted, lines: formatted.preview?.lines || [] };
         }
+        if (rejectUnconfirmedReview(response, quoteData)) return;
         const result = await generateQuoteXlsx(quoteData);
         response.status(200).json({
           filename: result.filename,
