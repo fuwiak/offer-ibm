@@ -214,6 +214,7 @@ export default function DocumentPanel() {
     setDocPreview,
     threadQuoteFiles,
     matchProgress,
+    activeChatEmpty,
   } = useOfferKp();
 
   const { role } = useOfferKpRole();
@@ -355,17 +356,26 @@ export default function DocumentPanel() {
     showQuotePreview ||
     showDocPreview;
   const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
-  /** Keep examples visible alongside the files dock; only hide when a quote workspace is open. */
+  /** Examples only on home / empty thread — never cover an active conversation. */
   const showExamplePromptsPanel =
-    (isHome || isOfferKpWorkspaceChat) &&
+    (isHome || (isOfferKpWorkspaceChat && activeChatEmpty)) &&
     !showAdminThreadContext &&
     !hasActiveQuoteWorkspace;
   const shouldRenderPanel =
     isHome || showAdminThreadContext || hasQuotePanel || showExamplePromptsPanel;
 
+  // Open examples once when they appear; do NOT re-force open after the user collapses.
+  const prevShowExamplesRef = useRef(false);
   useEffect(() => {
-    if (isHome || showExamplePromptsPanel) setDocumentPanelOpen(true);
-  }, [isHome, showExamplePromptsPanel, setDocumentPanelOpen]);
+    if (showExamplePromptsPanel && !prevShowExamplesRef.current) {
+      setDocumentPanelOpen(true);
+    }
+    prevShowExamplesRef.current = showExamplePromptsPanel;
+  }, [showExamplePromptsPanel, setDocumentPanelOpen]);
+
+  useEffect(() => {
+    if (isHome) setDocumentPanelOpen(true);
+  }, [isHome, setDocumentPanelOpen]);
 
   useEffect(() => {
     if (hasFilePreview) setDocumentPanelOpen(true);

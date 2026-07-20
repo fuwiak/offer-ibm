@@ -68,10 +68,6 @@ export default function ChatContainer({
     workspaceSlug: workspace?.slug,
   });
 
-  useEffect(() => {
-    if (offerKpMode) offerKp.setDocumentPanelOpen(true);
-  }, [offerKpMode, offerKp]);
-
   const [loadingResponse, setLoadingResponse] = useState(false);
   const [chatHistory, setChatHistory] = useState(knownHistory ?? []);
   const [socketId, setSocketId] = useState(null);
@@ -85,6 +81,11 @@ export default function ChatContainer({
     setChatHistory(knownHistory ?? []);
     pendingMessageChecked.current = false;
   }, [activeThreadSlug, knownHistory]);
+
+  useEffect(() => {
+    if (!offerKpMode) return;
+    offerKp.setActiveChatEmpty?.(chatHistory.length === 0);
+  }, [offerKpMode, chatHistory.length, offerKp.setActiveChatEmpty]);
 
   useEffect(() => {
     if (!offerKpMode || !offerKp.syncThreadQuoteFiles) return;

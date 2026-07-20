@@ -92,6 +92,8 @@ export function OfferKpProvider({
   const [docPreview, setDocPreview] = useState(null);
   const [threadQuoteFiles, setThreadQuoteFiles] = useState([]);
   const [matchProgress, setMatchProgress] = useState(null);
+  /** True when the active thread has no chat messages (or unknown / home). */
+  const [activeChatEmpty, setActiveChatEmpty] = useState(true);
   const quoteDraftRef = useRef(quoteDraft);
   const activeWorkspaceRef = useRef(activeWorkspaceSlug);
   const activeThreadRef = useRef(activeThreadSlug);
@@ -188,6 +190,8 @@ export function OfferKpProvider({
         setDocPreview(null);
         setDocumentPanelView("docs");
         setMatchProgress(null);
+        // Optimistic empty until ChatContainer reports loaded history.
+        setActiveChatEmpty(true);
       }
       setActiveWorkspaceSlug(workspaceSlug);
       setActiveThreadSlug(threadSlug);
@@ -232,6 +236,8 @@ export function OfferKpProvider({
       threadQuoteFiles,
       syncThreadQuoteFiles,
       matchProgress,
+      activeChatEmpty,
+      setActiveChatEmpty,
     }),
     [
       enabled,
@@ -259,6 +265,7 @@ export function OfferKpProvider({
       threadQuoteFiles,
       syncThreadQuoteFiles,
       matchProgress,
+      activeChatEmpty,
     ]
   );
 
@@ -301,6 +308,8 @@ export function useOfferKp() {
       threadQuoteFiles: [],
       syncThreadQuoteFiles: () => {},
       matchProgress: null,
+      activeChatEmpty: true,
+      setActiveChatEmpty: () => {},
     }
   );
 }
