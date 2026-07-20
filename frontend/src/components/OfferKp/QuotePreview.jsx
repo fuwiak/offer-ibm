@@ -191,7 +191,7 @@ export default function QuotePreview() {
             <thead>
               <tr>
                 <th>#</th>
-                <th>Наименование</th>
+                <th>Позиция</th>
                 <th>D × L (мм)</th>
                 <th className="num">Кол-во</th>
                 <th className="num">Цена/шт</th>
