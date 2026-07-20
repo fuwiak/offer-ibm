@@ -20,7 +20,12 @@ describe("username validation restrictions", () => {
   });
 
   it("should throw an error if the username does not start with a lowercase letter", () => {
-    expect(() => User.validations.username("Aa1")).toThrow(failureMessages[2]);
+    // Input is lowercased first; "Aa1" → "aa1" is valid. Digit-start still fails.
+    expect(() => User.validations.username("1aa")).toThrow(failureMessages[2]);
+  });
+
+  it("should normalize mixed-case usernames to lowercase", () => {
+    expect(User.validations.username("Aa1")).toBe("aa1");
   });
 
   it("should throw an error if the username contains invalid characters", () => {

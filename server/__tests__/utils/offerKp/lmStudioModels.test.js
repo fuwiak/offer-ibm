@@ -92,7 +92,10 @@ describe("lmStudioModels", () => {
   });
 });
 
-describe("fetchLmStudioModelCatalog integration", () => {
+const describeLmStudioIntegration =
+  process.env.RUN_LMSTUDIO_INTEGRATION === "1" ? describe : describe.skip;
+
+describeLmStudioIntegration("fetchLmStudioModelCatalog integration", () => {
   it(
     "fetches live model ids and VRAM load state from LM Studio host",
     async () => {

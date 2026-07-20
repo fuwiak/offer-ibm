@@ -26,6 +26,8 @@ const { WORKSPACE_AGENT } = require("../../../utils/agents/defaults");
 describe("WORKSPACE_AGENT.getDefinition", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Isolate from local ShopDB/.env so catalog prompt is not prepended.
+    process.env.SHOP_DB_ENRICH = "0";
     // Mock SystemSettings to return empty arrays for agent skills
     const { SystemSettings } = require("../../../models/systemSettings");
     SystemSettings.getValueOrFallback = jest.fn().mockResolvedValue("[]");

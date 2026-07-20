@@ -16,7 +16,7 @@ describe("normalizeShopDbEnv", () => {
     process.env.DB_PASSWORD = "secret";
     delete process.env.DATABASE_URL;
 
-    const { normalizeShopDbEnv } = require("../../../config/normalizeShopDbEnv");
+    const { normalizeShopDbEnv } = require("../../config/normalizeShopDbEnv");
     const fixes = normalizeShopDbEnv({ log: false });
 
     expect(process.env.DB_PORT).toBe("3306");
@@ -29,7 +29,7 @@ describe("normalizeShopDbEnv", () => {
     process.env.DATABASE_URL =
       "mysql://llm:secret@46.173.17.34:1500/purolat_com";
 
-    const { normalizeShopDbEnv } = require("../../../config/normalizeShopDbEnv");
+    const { normalizeShopDbEnv } = require("../../config/normalizeShopDbEnv");
     const fixes = normalizeShopDbEnv({ log: false });
 
     expect(process.env.DATABASE_URL).toContain(":3306/purolat_com");
@@ -41,7 +41,7 @@ describe("normalizeShopDbEnv", () => {
     process.env.DATABASE_URL =
       "mysql://llm:secret@46.173.17.34:1500/purolat_com";
 
-    const { normalizeShopDbEnv } = require("../../../config/normalizeShopDbEnv");
+    const { normalizeShopDbEnv } = require("../../config/normalizeShopDbEnv");
     normalizeShopDbEnv({ log: false });
 
     expect(process.env.DATABASE_URL).toContain(":3306/purolat_com");
@@ -68,7 +68,7 @@ describe("offerKp shop DB client", () => {
       isShopDbConfigured,
       getShopDbTarget,
       buildDatabaseUrl,
-    } = require("../../../utils/offerKp/db/client");
+    } = require("../../utils/offerKp/db/client");
 
     expect(isShopDbConfigured()).toBe(true);
     const target = getShopDbTarget();
@@ -76,13 +76,15 @@ describe("offerKp shop DB client", () => {
     expect(target.port).toBe("3306");
     expect(target.database).toBe("purolat_com");
     expect(target.user).toBe("llm");
-    expect(buildDatabaseUrl()).not.toContain("secret");
+    expect(target).not.toHaveProperty("password");
+    expect(JSON.stringify(target)).not.toContain("secret");
+    expect(buildDatabaseUrl()).toContain("46.173.17.34:3306/purolat_com");
   });
 
   it("reports not configured when DB_HOST and DATABASE_URL are unset", () => {
     delete process.env.DATABASE_URL;
     delete process.env.DB_HOST;
-    const { isShopDbConfigured, getShopDbTarget } = require("../../../utils/offerKp/db/client");
+    const { isShopDbConfigured, getShopDbTarget } = require("../../utils/offerKp/db/client");
     expect(isShopDbConfigured()).toBe(false);
     expect(getShopDbTarget().configured).toBe(false);
   });

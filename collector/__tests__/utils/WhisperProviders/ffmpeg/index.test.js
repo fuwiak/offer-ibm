@@ -7,8 +7,20 @@ const path = require("path");
 jest.mock("fix-path", () => ({ default: jest.fn() }));
 
 const { FFMPEGWrapper } = require("../../../../utils/WhisperProviders/ffmpeg");
+const { execSync } = require("child_process");
 
-const describeRunner = process.env.GITHUB_ACTIONS ? describe.skip : describe;
+function isFfmpegRunnable() {
+  try {
+    execSync("ffmpeg -version", { encoding: "utf8", stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Skip in CI and when local ffmpeg is missing/broken (e.g. dyld library errors).
+const describeRunner =
+  process.env.GITHUB_ACTIONS || !isFfmpegRunnable() ? describe.skip : describe;
 
 describeRunner("FFMPEGWrapper", () => {
   /** @type { import("../../../../utils/WhisperProviders/ffmpeg/index").FFMPEGWrapper } */
