@@ -3,6 +3,10 @@ const Provider = require("./ai-provider.js");
 const InheritMultiple = require("./helpers/classes.js");
 const UnTooled = require("./helpers/untooled.js");
 const { tooledStream, tooledComplete } = require("./helpers/tooled.js");
+const {
+  isLmStudioJinjaToolTemplateError,
+  lmStudioModelAllowsNativeTools,
+} = require("./helpers/lmStudioToolSupport.js");
 const { RetryError } = require("../error.js");
 const {
   LMStudioLLM,
@@ -55,14 +59,42 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
   /**
    * Whether the loaded model supports native OpenAI-compatible tool calling.
    * Checks the LMStudio /api/v1/models endpoint for the model's capabilities.
+   * Vision models (Qwen3-VL etc.) are forced onto UnTooled — their Jinja
+   * chat templates crash when tools[] is present.
    * @returns {Promise<boolean>}
    */
   async supportsNativeToolCalling() {
     if (this._supportsToolCalling !== null) return this._supportsToolCalling;
+    if (!lmStudioModelAllowsNativeTools(this.model)) {
+      this._supportsToolCalling = false;
+      this.providerLog(
+        `LM Studio model ${this.model} uses UnTooled (native tools unsafe for this template).`
+      );
+      return false;
+    }
     const lmstudio = new LMStudioLLM(null, this.model);
     const capabilities = await lmstudio.getModelCapabilities();
     this._supportsToolCalling = capabilities.tools === true;
     return this._supportsToolCalling;
+  }
+
+  async #streamUntooled(messages, functions, eventHandler) {
+    return await UnTooled.prototype.stream.call(
+      this,
+      messages,
+      functions,
+      this.#handleFunctionCallStream.bind(this),
+      eventHandler
+    );
+  }
+
+  async #completeUntooled(messages, functions) {
+    return await UnTooled.prototype.complete.call(
+      this,
+      messages,
+      functions,
+      this.#handleFunctionCallChat.bind(this)
+    );
   }
 
   async #switchToLoadedFallback(error) {
@@ -128,19 +160,14 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
   /**
    * Stream a chat completion with tool calling support.
    * Uses native tool calling when supported, otherwise falls back to UnTooled.
+   * Jinja template crashes (common on Qwen3-VL) also fall back to UnTooled.
    */
   async stream(messages, functions = [], eventHandler = null) {
     const useNative =
       functions.length > 0 && (await this.supportsNativeToolCalling());
 
     if (!useNative) {
-      return await UnTooled.prototype.stream.call(
-        this,
-        messages,
-        functions,
-        this.#handleFunctionCallStream.bind(this),
-        eventHandler
-      );
+      return await this.#streamUntooled(messages, functions, eventHandler);
     }
 
     this.providerLog(
@@ -160,6 +187,15 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
         )
       );
     } catch (error) {
+      if (isLmStudioJinjaToolTemplateError(error)) {
+        offerKpLog(
+          "warn",
+          "LM Studio native tools Jinja crash — falling back to UnTooled",
+          { model: this.model, error: error?.message || String(error) }
+        );
+        this._supportsToolCalling = false;
+        return await this.#streamUntooled(messages, functions, eventHandler);
+      }
       console.error(error.message, error);
       if (error instanceof OpenAI.AuthenticationError) throw error;
       if (
@@ -182,12 +218,7 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
       functions.length > 0 && (await this.supportsNativeToolCalling());
 
     if (!useNative) {
-      return await UnTooled.prototype.complete.call(
-        this,
-        messages,
-        functions,
-        this.#handleFunctionCallChat.bind(this)
-      );
+      return await this.#completeUntooled(messages, functions);
     }
 
     try {
@@ -209,6 +240,15 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
 
       return result;
     } catch (error) {
+      if (isLmStudioJinjaToolTemplateError(error)) {
+        offerKpLog(
+          "warn",
+          "LM Studio native tools Jinja crash — falling back to UnTooled",
+          { model: this.model, error: error?.message || String(error) }
+        );
+        this._supportsToolCalling = false;
+        return await this.#completeUntooled(messages, functions);
+      }
       if (error instanceof OpenAI.AuthenticationError) throw error;
       if (
         error instanceof OpenAI.RateLimitError ||
