@@ -108,13 +108,13 @@ yarn setup
 
 # Заполнить server/.env.development, frontend/.env, collector/.env
 
-# Запуск в отдельных терминалах:
-yarn dev:server
-yarn dev:frontend
-yarn dev:collector
+# Одной командой — server + frontend + collector:
+yarn dev
 
-# Или одной командой:
-yarn dev:all
+# Или по отдельности:
+# yarn dev:server
+# yarn dev:frontend
+# yarn dev:collector
 ```
 
 Полезно: [`server/storage/documents/DOCUMENTS.md`](./server/storage/documents/DOCUMENTS.md) — работа с документами в хранилище.
