@@ -49,7 +49,15 @@ function formatInquiryDraftSection(draft) {
           ? `${Number(line.unitPriceNet).toFixed(2)} RUB`
           : "— (нет в ShopDB)";
       const productRef = line.productId ? ` · ID ${line.productId}` : "";
-      const status = `${line.status || "—"}${productRef}`;
+      const analogMark =
+        line.matchType === "analog"
+          ? ` · АНАЛОГ вместо «${requested}»${line.analogOf ? ` (${line.analogOf})` : ""}`
+          : "";
+      const notFoundMark =
+        !(Number(line.unitPriceNet) > 0) && line.matchType !== "analog"
+          ? " · нет такого товара в каталоге"
+          : "";
+      const status = `${line.status || "—"}${productRef}${analogMark}${notFoundMark}`;
       return `| ${idx + 1} | ${requested} | ${matched} | ${qty} ${unit} | ${price} | ${status} |`;
     })
     .join("\n");
@@ -59,6 +67,7 @@ function formatInquiryDraftSection(draft) {
 Количество — только из колонки «Кол-во» PDF (кг/шт).
 Цена — ТОЛЬКО из колонки «Цена» этой таблицы (ShopDB / matchInquiryToDraft). Запрещено брать цены из PDF, OCR и «придумывать».
 Если в черновике «— (нет в ShopDB)» — оставь цену в КП пустой или напиши «под заказ» (как ChatGPT: пустая колонка цены). Сумму для таких строк — «—». Никогда не подставляй случайные числа вроде 270.10.
+Если в статусе «АНАЛОГ вместо …» — обязательно явно напиши в КП, что это АНАЛОГ (точного товара нет, предложена замена). Если «нет такого товара в каталоге» — обязательно явно напиши клиенту, что такого товара нет; не выдавай похожий товар за запрошенный.
 
 | № | Запрошено в PDF | Подобрано из каталога | Кол-во | Цена | Статус |
 |---|-----------------|------------------------|--------|------|--------|
@@ -105,23 +114,48 @@ function buildQuoteMarkdownFromDraft(draft, opts = {}) {
       const sum = hasPrice
         ? Number((unitPrice * Number(qty)).toFixed(2)).toFixed(2)
         : "—";
-      const status = hasPrice
-        ? line.status || "В наличии"
-        : line.status || "под заказ";
+      const isAnalog = line.matchType === "analog" && hasPrice;
+      let status;
+      if (isAnalog) {
+        status = `⚠ АНАЛОГ — вместо «${name}» предложен «${matched}»${line.analogOf ? ` (${line.analogOf})` : ""}`;
+      } else if (hasPrice) {
+        status = line.status || "В наличии";
+      } else {
+        status = "❌ Нет такого товара в каталоге — под заказ";
+        if (line.similarSuggestion?.name) {
+          status += `; похожий: «${String(line.similarSuggestion.name).replace(/\|/g, "/")}» — ${Number(line.similarSuggestion.price || 0).toFixed(2)} RUB (требует подтверждения)`;
+        }
+      }
       return `| ${idx + 1} | ${showName} | ${qty} | ${unit} | ${price} | ${sum} | ${status} |`;
     })
     .join("\n");
 
   const priced = lines.filter((l) => Number(l.unitPriceNet) > 0);
+  const analogs = priced.filter((l) => l.matchType === "analog");
+  const notFound = lines.filter((l) => !(Number(l.unitPriceNet) > 0));
   const subtotal = priced.reduce(
     (s, l) => s + Number(l.unitPriceNet) * Number(l.quantity ?? 1),
     0
   );
 
+  const notesLines = [];
+  if (analogs.length) {
+    notesLines.push(
+      `**Аналоги (${analogs.length}):** точного товара нет в каталоге, предложен аналог — см. колонку «Статус».`
+    );
+  }
+  if (notFound.length) {
+    notesLines.push(
+      `**Нет в каталоге (${notFound.length}):** таких товаров нет в каталоге purolat.com — цена не указана («под заказ»).`
+    );
+  }
+  const notesBlock = notesLines.length ? `\n${notesLines.join("  \n")}\n` : "";
+
   return `# ${title}${reference}
 
 **Дата:** ${new Date().toLocaleDateString("ru-RU")}  
-**Позиций:** ${lines.length} (с ценой ShopDB: ${priced.length})
+**Позиций:** ${lines.length} (с ценой ShopDB: ${priced.length}, аналогов: ${analogs.length}, нет в каталоге: ${notFound.length})
+${notesBlock}
 
 ## Перечень позиций
 
@@ -135,7 +169,8 @@ ${rows}
 |------------|----------|
 | Всего позиций | ${lines.length} |
 | С ценой ShopDB | ${priced.length} |
-| Без цены (под заказ) | ${lines.length - priced.length} |
+| Из них аналогов | ${analogs.length} |
+| Нет в каталоге (под заказ) | ${lines.length - priced.length} |
 | **Сумма (только ShopDB)** | **${subtotal.toFixed(2)} RUB** |
 
 ## Условия

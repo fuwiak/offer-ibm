@@ -133,6 +133,25 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
   const accepted =
     best && (best.matchType === "exact" || best.matchType === "analog");
+  const isAnalog = accepted && best.matchType === "analog";
+
+  // Не найден точный товар и аналог — подсказать ближайший похожий,
+  // но НЕ подставлять его цену в строку КП.
+  let similarSuggestion = null;
+  if (!accepted) {
+    const similar = alternatives.find(
+      (a) => a.matchType === "similar" && Number(a.price) > 0
+    );
+    if (similar) {
+      similarSuggestion = {
+        productId: similar.productId,
+        name: similar.name,
+        sku: similar.sku,
+        price: Number(similar.price) || 0,
+        productUrl: similar.productUrl,
+      };
+    }
+  }
 
   const qty = inquiryLine.quantity || 1;
   const unitPrice = accepted ? Number(best.price) || 0 : 0;
@@ -146,6 +165,25 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     : accepted
       ? best.status
       : STATUS.OUT_OF_STOCK;
+
+  // Комментарий — единый явный текст для UI/КП, без домыслов.
+  const commentParts = [];
+  if (isAnalog) {
+    commentParts.push(
+      `АНАЛОГ: вместо «${inquiryLine.name}» предложен «${best.name}»` +
+        (best.analogOf ? ` (${best.analogOf})` : "")
+    );
+  } else if (!accepted) {
+    commentParts.push("Нет такого товара в каталоге");
+    if (similarSuggestion) {
+      commentParts.push(
+        `похожий вариант: «${similarSuggestion.name}» — ${similarSuggestion.price.toFixed(2)} RUB (требует подтверждения)`
+      );
+    }
+  }
+  if (inquiryLine.specialRequirements) {
+    commentParts.push(inquiryLine.specialRequirements);
+  }
 
   return {
     inquiryRaw: inquiryLine.raw,
@@ -162,7 +200,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     status,
     matchType: accepted ? best.matchType : best?.matchType || "none",
     analogOf: accepted ? best.analogOf || null : null,
-    comment: inquiryLine.specialRequirements || "",
+    similarSuggestion,
+    comment: commentParts.join("; "),
     thread: inquiryLine.thread,
     alternatives,
     productUrl: accepted ? best.productUrl : undefined,

@@ -92,22 +92,45 @@ function buildMarkdownQuote({
   const { website, companyName, catalogLabel } = QUOTE_BRAND;
   const vatPct = Math.round(vatRate * 100);
   const rows = lines
-    .map(
-      (l, i) =>
-        `| ${i + 1} | ${l.productName} | ${l.quantity} | ${l.unitPrice.toFixed(2)} ${currency} | ${l.lineTotal.toFixed(2)} ${currency} |`
-    )
+    .map((l, i) => {
+      const hasPrice = Number(l.unitPrice) > 0;
+      const price = hasPrice
+        ? `${Number(l.unitPrice).toFixed(2)} ${currency}`
+        : "—";
+      const sum = hasPrice
+        ? `${Number(l.lineTotal || 0).toFixed(2)} ${currency}`
+        : "—";
+      let status;
+      if (l.matchType === "analog" && hasPrice) {
+        status = `⚠ АНАЛОГ — вместо «${l.requestedName || l.productName}»${l.analogOf ? ` (${l.analogOf})` : ""}`;
+      } else if (hasPrice) {
+        status = l.status || "В наличии";
+      } else {
+        status = "❌ Нет такого товара в каталоге — под заказ";
+        if (l.similarSuggestion?.name) {
+          status += `; похожий: «${l.similarSuggestion.name}» — ${Number(l.similarSuggestion.price || 0).toFixed(2)} ${currency} (требует подтверждения)`;
+        }
+      }
+      return `| ${i + 1} | ${l.productName} | ${l.quantity} | ${price} | ${sum} | ${status} |`;
+    })
     .join("\n");
+
+  const analogCount = lines.filter(
+    (l) => l.matchType === "analog" && Number(l.unitPrice) > 0
+  ).length;
+  const notFoundCount = lines.filter((l) => !(Number(l.unitPrice) > 0)).length;
 
   return `# Коммерческое предложение ${reference}
 
 **Поставщик:** ${companyName} · [${catalogLabel}](${website})  
 **Клиент:** ${customer.name}${customer.country ? ` · ${customer.country}` : ""}  
-**Дата:** ${new Date().toLocaleDateString("ru-RU")}
+**Дата:** ${new Date().toLocaleDateString("ru-RU")}  
+**Позиций:** ${lines.length} (аналогов: ${analogCount}, нет в каталоге: ${notFoundCount})
 
 ## Позиции
 
-| № | Наименование | Кол-во | Цена за ед. | Сумма |
-|---|--------------|--------|-------------|-------|
+| № | Наименование | Кол-во | Цена за ед. | Сумма | Статус |
+|---|--------------|--------|-------------|-------|--------|
 ${rows}
 
 **Подытог:** ${subtotal.toFixed(2)} ${currency}  
@@ -257,6 +280,9 @@ async function emitAutoQuoteArtifacts({
     ? draft.lines.map((l) => ({
         productName: l.name,
         productNameRu: l.name,
+        requestedName: l.requestedName,
+        matchType: l.matchType,
+        similarSuggestion: l.similarSuggestion || null,
         article: l.article,
         sku: l.article,
         lengthMm: l.thread?.size ? Number(l.thread.size) : 0,
@@ -270,7 +296,12 @@ async function emitAutoQuoteArtifacts({
         analogOf: l.analogOf,
         comment: l.comment,
         alternatives: l.alternatives,
-        spec: l.analogOf || "Catalog",
+        spec:
+          l.matchType === "analog"
+            ? `ANALOG${l.analogOf ? `: ${l.analogOf}` : ""}`
+            : Number(l.unitPriceNet) > 0
+              ? "Catalog"
+              : "NOT IN CATALOG",
         productUrl: l.productUrl,
       }))
     : buildQuoteLinesFromCatalog(products.slice(0, 5), meta);

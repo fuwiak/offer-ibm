@@ -295,8 +295,18 @@ async function generateQuotePdf(quoteData) {
       txt(dims, COL.dims + 2, y - 10, { size: 8 });
       txt(spec, COL.area + 2, y - 10, { size: 7 });
       txt(String(qty), COL.qty + 2, y - 10, { size: 8 });
-      rightAlign(fmtMoney(unitPrice), COL.total - 2, y - 10, { size: 8 });
-      rightAlign(fmtMoney(ql.lineTotal), R - 4, y - 10, { size: 8 });
+      const hasPrice = Number(unitPrice) > 0;
+      rightAlign(
+        hasPrice ? fmtMoney(unitPrice) : "on request",
+        COL.total - 2,
+        y - 10,
+        {
+          size: 8,
+        }
+      );
+      rightAlign(hasPrice ? fmtMoney(ql.lineTotal) : "—", R - 4, y - 10, {
+        size: 8,
+      });
       y -= rowH;
       rowNum++;
     }
@@ -493,6 +503,20 @@ function buildFootnotes(lines) {
   fns.push(
     `Catalog: ${QUOTE_BRAND.catalogLabel} · ${totalQty} pcs · ${productNames}`
   );
+  const analogCount = lines.filter((l) => l.matchType === "analog").length;
+  const notFoundCount = lines.filter(
+    (l) => !(Number(l.unitPrice) > 0) && !(Number(l.lineTotal) > 0)
+  ).length;
+  if (analogCount > 0) {
+    fns.push(
+      `ANALOG (${analogCount}): requested item not in catalog, equivalent offered — see SPEC column`
+    );
+  }
+  if (notFoundCount > 0) {
+    fns.push(
+      `NOT IN CATALOG (${notFoundCount}): no such product — price on request`
+    );
+  }
   fns.push("Offer valid 30 days · Prices per catalog at quote date");
   fns.push(QUOTE_BRAND.warrantyNote);
   return fns;
