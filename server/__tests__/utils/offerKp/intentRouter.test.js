@@ -26,6 +26,7 @@ describe("OfferKP deterministic intent router", () => {
     for (const key of [
       "allowShopDbSearch",
       "allowQuoteMutation",
+      "allowCatalogPriceUse",
       "allowExport",
     ]) {
       if (fixture[key] != null) expect(result.policy[key]).toBe(fixture[key]);
