@@ -5,6 +5,7 @@ const {
   resolvePipelineVisionModel,
   resolvePipelineAgentModel,
   resolvePipelineAgentContext,
+  normalizePipelineStage,
   DEFAULT_VISION_MODEL,
   DEFAULT_AGENT_MODEL,
 } = require("../../../utils/offerKp/offerKpModelPipeline");
@@ -45,6 +46,20 @@ describe("offerKpModelPipeline", () => {
     expect(resolvePipelineModel("agent").modelId).toBe(DEFAULT_AGENT_MODEL);
     expect(resolvePipelineModel("agent").role).toBe("brain");
     expect(resolvePipelineModel("agent").contextLength).toBe(32768);
+  });
+
+  it("normalizes switch aliases for fast GPU swap", () => {
+    expect(normalizePipelineStage("eyes")).toBe("vision");
+    expect(normalizePipelineStage("oczy")).toBe("vision");
+    expect(normalizePipelineStage("brain")).toBe("agent");
+    expect(normalizePipelineStage("unload")).toBe("unload");
+    expect(resolvePipelineModel("eyes").role).toBe("eyes");
+    expect(resolvePipelineModel("brain").role).toBe("brain");
+    expect(resolvePipelineModel("unload")).toEqual({
+      stage: "unload",
+      modelId: "",
+      role: "idle",
+    });
   });
 
   it("honors env overrides", () => {

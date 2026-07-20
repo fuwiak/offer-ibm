@@ -30,6 +30,11 @@ const {
 const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
 const { loadLmStudioModel } = require("../utils/offerKpApp/lmStudioModels");
 const {
+  switchPipelineStage,
+  getPipelineRuntimeStatus,
+  normalizePipelineStage,
+} = require("../utils/offerKp/offerKpModelPipeline");
+const {
   runProductSearchAgent,
 } = require("../utils/offerKp/productSearchAgent");
 const { OfferKpCorrectionLog } = require("../models/offerKpCorrectionLog");
@@ -101,6 +106,48 @@ function offerKpEndpoints(app) {
         response.status(200).json(result);
       } catch (e) {
         console.error("[offerKp] LM Studio load-model:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /** Dual-model VRAM status (eyes vs brain). */
+  app.get(
+    "/offerKp/pipeline/status",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (_request, response) => {
+      try {
+        const status = await getPipelineRuntimeStatus();
+        response.status(200).json(status);
+      } catch (e) {
+        console.error("[offerKp] pipeline status:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * Fast sequential swap: { stage: "eyes"|"brain"|"unload", force?: boolean }.
+   * Only one model in VRAM — safe for T4 16GB.
+   */
+  app.post(
+    "/offerKp/pipeline/switch",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const body = reqBody(request);
+        const stage = body.stage || body.target || body.role;
+        if (!normalizePipelineStage(stage)) {
+          return response.status(400).json({
+            error: 'stage must be "eyes", "brain", or "unload"',
+          });
+        }
+        const result = await switchPipelineStage(stage, {
+          force: body.force === true,
+        });
+        response.status(200).json(result);
+      } catch (e) {
+        console.error("[offerKp] pipeline switch:", e);
         response.status(500).json({ error: e.message });
       }
     }

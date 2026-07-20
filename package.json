@@ -48,7 +48,11 @@
     "ops:build": "bash cli/run build",
     "ops:cicd": "bash cli/run cicd --plain",
     "deploy:lainey": "bash scripts/deploy-lainey-sync.sh",
-    "deploy:lainey:docker": "bash scripts/deploy-lainey-app.sh"
+    "deploy:lainey:docker": "bash scripts/deploy-lainey-app.sh",
+    "lms:switch": "bash docker/lmstudio-switch.sh",
+    "lms:eyes": "bash docker/lmstudio-switch.sh eyes",
+    "lms:brain": "bash docker/lmstudio-switch.sh brain",
+    "lms:status": "bash docker/lmstudio-switch.sh status"
   },
   "private": false,
   "devDependencies": {

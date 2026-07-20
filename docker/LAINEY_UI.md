@@ -33,6 +33,22 @@ lms load openai/gpt-oss-20b --context-length 32768 --gpu max -y
 
 Fallback brain if gpt-oss missing/OOM: `qwen/qwen3-vl-8b`.
 
+### Szybki switch VRAM (jeden model naraz)
+
+Na serwerze:
+
+```bash
+bash /opt/offer-kp/app/docker/lmstudio-switch.sh status   # co w VRAM
+bash /opt/offer-kp/app/docker/lmstudio-switch.sh eyes     # OCR / Thinking
+bash /opt/offer-kp/app/docker/lmstudio-switch.sh brain    # agent (idle)
+bash /opt/offer-kp/app/docker/lmstudio-switch.sh unload   # wolne GPU
+```
+
+Z laptopa: `yarn lms:brain` / `yarn lms:eyes` (skrypt lokalny; na Lainey przez SSH).
+
+API (auth): `GET /api/offerKp/pipeline/status`, `POST /api/offerKp/pipeline/switch` body `{"stage":"brain"}`.
+App sama robi sequential swap (mutex) — OCR → eyes, potem z powrotem brain.
+
 In `server/.env`:
 
 ```
