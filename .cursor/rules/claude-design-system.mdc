@@ -1,0 +1,23 @@
+---
+description: UI/UX must follow Claude.com design system in DESIGN.md
+globs: frontend/**/*.{js,jsx,tsx,css,scss},**/*.{css,scss},**/tailwind.config.*
+alwaysApply: false
+---
+
+# Claude Design System (UI/UX)
+
+Source of truth: [DESIGN.md](mdc:DESIGN.md)
+
+When building or changing UI, match Claude.com marketing/product surfaces:
+
+- Canvas: warm cream `{colors.canvas}` `#faf9f5` — never cool gray or pure white
+- Primary accent: coral `{colors.primary}` `#cc785c` — scarce on buttons, generous only on full-bleed callouts
+- Surfaces trinity only: cream canvas → cream cards (`#efe9de`) → dark navy (`#181715`); alternate bands, never repeat the same mode twice in a row
+- Display: slab-serif (Copernicus / Cormorant Garamond / EB Garamond) weight 400 + negative tracking — never bold, never Inter for headlines
+- Body/UI: Inter / humanist sans 400–500
+- Depth: color-block first, hairline borders; shadows rare
+- Radius: 8px buttons/inputs, 12px cards, 16px hero, pills for badges
+- Section rhythm: 96px; card padding: 32px
+- Use token refs from DESIGN.md; do not invent purple/cyan/green brand accents
+
+Do not follow generic “AI SaaS” cool-white/blue aesthetics. Prefer cream + coral + dark navy editorial pacing.
