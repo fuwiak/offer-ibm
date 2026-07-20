@@ -98,12 +98,13 @@ describe("AgentHarness", () => {
       .use(new ToolRegistryBlock());
     await harness.install();
 
+    // Нет колонок цены/суммы — sanitize не спасёт, compliance должен заблокировать.
     const rejected = await harness.resolveToolApproval({
       skillName: "create-docx-file",
       payload: {
         filename: "Kp_test.docx",
         content:
-          "| Позиция | Кол-во | Цена | Сумма |\n| --- | --- | --- | --- |\n| Болт | 40 | 21.27 | =40*21.27 |",
+          "| Позиция | Кол-во |\n| --- | --- |\n| Болт | 40 |",
       },
     });
 
