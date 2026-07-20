@@ -249,6 +249,14 @@ async function streamChatWithWorkspace(
     ),
     parsedFilesCount: parsedFiles.length,
   };
+  try {
+    const { teacherLlmMeta } = require("../offerKpApp/teacherLlm");
+    const teacher = teacherLlmMeta();
+    // Internal only: teacher answers for local-model training / prompt tuning.
+    if (teacher) ragTrace.teacher = teacher;
+  } catch {
+    /* ignore */
+  }
 
   externalContexts = await shopEnrichPromise;
   const {
@@ -382,6 +390,13 @@ async function streamChatWithWorkspace(
   sources = orchestration.sources;
   const cost = estimateChatCost(metrics);
   metrics = { ...(metrics || {}), cost };
+  if (ragTrace?.teacher) {
+    metrics = {
+      ...metrics,
+      teacher: true,
+      teacherModel: ragTrace.teacher.model,
+    };
+  }
 
   const externalLinks = buildExternalLinksSection(sources);
   if (externalLinks) {

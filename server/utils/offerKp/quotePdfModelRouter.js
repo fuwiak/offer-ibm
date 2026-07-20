@@ -189,6 +189,13 @@ function resolveQuotePdfModelSwitch({
   parsedFileTexts = [],
   availableModels = null,
 } = {}) {
+  // Teacher OpenRouter already handles PDF KP — skip local VRAM model hop.
+  try {
+    const { shouldUseTeacherLlm } = require("../offerKpApp/teacherLlm");
+    if (shouldUseTeacherLlm()) return null;
+  } catch {
+    /* ignore */
+  }
   if (!quotePdfModelAutoSwitchEnabled()) return null;
   if (!workspace?.slug) return null;
   if (!isQuoteRelatedMessage(message)) return null;

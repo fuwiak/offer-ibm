@@ -4,6 +4,10 @@ const {
   resolveOfferKpModel,
 } = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
+const {
+  shouldUseTeacherLlm,
+  resolveTeacherModel,
+} = require("./teacherLlm");
 
 function ensureLmStudioBasePath() {
   if (
@@ -53,14 +57,38 @@ function resolveRunnableModel(requestedModel, catalog = null) {
 }
 
 /**
- * Resolve LLM for offer-kp. Chat/agents use LM Studio only.
- * Prefers models with state=loaded in VRAM; falls back when the selected model is not loaded.
+ * Resolve LLM for offer-kp.
+ * Teacher mode (OFFER_KP_TEACHER_LLM=1): OpenRouter under the hood; UI stays LM Studio.
+ * Otherwise: LM Studio only. Prefers models with state=loaded in VRAM.
  */
 function resolveLlmProviderAndModel({
   provider: _provider = null,
   model = null,
   catalog = null,
 } = {}) {
+  if (shouldUseTeacherLlm()) {
+    const teacherModel = resolveTeacherModel();
+    const resolved = {
+      provider: "openrouter",
+      model: teacherModel,
+      modelFallback: null,
+      teacher: true,
+      // Public-facing label stays local so clients never see "openrouter".
+      displayProvider: "lmstudio",
+      displayModel:
+        process.env.LMSTUDIO_MODEL_PREF ||
+        llmDefaults.LMSTUDIO_MODEL_PREF ||
+        OFFER_KP_DEFAULT_MODEL,
+    };
+    offerKpLog("info", "Resolved LLM provider", {
+      provider: "lmstudio",
+      model: resolved.displayModel,
+      teacher: true,
+      runtimeModel: teacherModel,
+    });
+    return resolved;
+  }
+
   ensureLmStudioBasePath();
 
   const requestedModel =
@@ -97,6 +125,9 @@ function resolveLlmProviderAndModel({
           reason: picked.reason,
         }
       : null,
+    teacher: false,
+    displayProvider: "lmstudio",
+    displayModel: resolvedModel,
   };
   offerKpLog("info", "Resolved LLM provider", {
     provider: resolved.provider,
@@ -108,6 +139,9 @@ function resolveLlmProviderAndModel({
 
 /** Resolves provider/model after refreshing LM Studio catalog + VRAM state. */
 async function resolveLlmProviderWithFallback(params = {}) {
+  if (shouldUseTeacherLlm()) {
+    return resolveLlmProviderAndModel(params);
+  }
   const { fetchLmStudioModelCatalog } = require("./lmStudioModels");
   const catalog = await fetchLmStudioModelCatalog({
     forceRefresh: params.forceRefresh,
