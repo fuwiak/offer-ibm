@@ -128,7 +128,12 @@ module.exports.CreatePdfFile = {
                 `create-pdf-file error: ${e.message}`
               );
               this.super.introspect(`Error: ${e.message}`);
-              return `Error creating PDF document: ${e.message}`;
+              this.super.skipHandleExecution = true;
+              return (
+                `Error creating PDF document: ${e.message}\n\n` +
+                "Файл не был создан из-за технической ошибки инструмента.\n\n" +
+                `Подготовленное содержание КП:\n\n${content}`
+              );
             }
           },
         });

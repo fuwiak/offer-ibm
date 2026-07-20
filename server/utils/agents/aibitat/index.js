@@ -8,6 +8,7 @@ const { ToolReranker } = require("./utils/toolReranker.js");
 const {
   resolveLlmProviderAndModel,
 } = require("../../offerKpApp/resolveLlmProvider");
+const { errorMetadata } = require("./providers/helpers/tooled");
 
 /**
  * AIbitat is a class that manages the conversation between agents.
@@ -854,17 +855,29 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
    * This ensures provider errors are properly surfaced to the user instead of crashing.
    *
    * @param {Function} providerCall - Async function that calls the provider
+   * @param {object|null} provider - Active provider, used for diagnostics
+   * @param {object} context - Safe request metadata, never prompt contents
    * @returns {Promise<any>} - The result of the provider call
    * @throws {APIError} - If the provider call fails
    */
-  async #safeProviderCall(providerCall) {
+  async #safeProviderCall(providerCall, provider = null, context = {}) {
     try {
       return await providerCall();
     } catch (error) {
-      console.error(`[AIbitat] Provider error: ${error.message}`, {
-        hide_meta: true,
-      });
-      throw new APIError(`The agent model failed to respond: ${error.message}`);
+      console.error(
+        `[AIbitat][ProviderCall] failed ${JSON.stringify({
+          provider: provider?.constructor?.name || null,
+          model: provider?.model || null,
+          invocationUuid: provider?.invocation?.uuid || null,
+          ...context,
+          ...errorMetadata(error),
+        })}`
+      );
+      const wrapped = new APIError(
+        `The agent model failed to respond: ${error.message}`
+      );
+      wrapped.cause = error;
+      throw wrapped;
     }
   }
 
@@ -891,8 +904,15 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
     };
 
     /** @type {{ functionCall: { name: string, arguments: string }, textResponse: string }} */
-    const completionStream = await this.#safeProviderCall(() =>
-      provider.stream(messages, functions, eventHandler)
+    const completionStream = await this.#safeProviderCall(
+      () => provider.stream(messages, functions, eventHandler),
+      provider,
+      {
+        execution: "stream",
+        depth,
+        messageCount: messages.length,
+        functionCount: functions.length,
+      }
     );
 
     if (completionStream.functionCall) {
@@ -1048,8 +1068,15 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
     };
 
     // get the chat completion
-    const completion = await this.#safeProviderCall(() =>
-      provider.complete(messages, functions)
+    const completion = await this.#safeProviderCall(
+      () => provider.complete(messages, functions),
+      provider,
+      {
+        execution: "complete",
+        depth,
+        messageCount: messages.length,
+        functionCount: functions.length,
+      }
     );
 
     if (completion.functionCall) {

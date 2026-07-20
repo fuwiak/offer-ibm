@@ -17,6 +17,12 @@ class OfferKpCatalogGuidelinesBlock extends BaseBlock {
   }
 
   async install(harness) {
+    if (harness.state.get("strictSourceOnly")) {
+      harnessLog("info", "offerKp.catalogGuidelines.skippedSourceOnly", {
+        modelId: harness.ctx.modelId || null,
+      });
+      return;
+    }
     const quoteDocument = Boolean(harness.state.get("quoteDocumentRequest"));
     const preset = harness.ctx.modelPreset;
     const guidelines = preset

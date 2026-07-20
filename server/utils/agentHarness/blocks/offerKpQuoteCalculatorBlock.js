@@ -20,13 +20,20 @@ class OfferKpQuoteCalculatorBlock extends BaseBlock {
 
   async install(harness) {
     const aibitat = harness.aibitat;
-    if (!aibitat) return;
+    if (!aibitat || typeof aibitat.use !== "function") return;
 
     aibitat.use(QuoteCalculator.plugin());
 
     const agent = aibitat.agents?.get("@agent");
     if (agent?.functions && !agent.functions.includes(QuoteCalculator.name)) {
       agent.functions.push(QuoteCalculator.name);
+    }
+
+    if (harness.state.get("strictSourceOnly")) {
+      harness.log(
+        "quote calculator registered but forbidden when source has no prices"
+      );
+      return;
     }
 
     const existing = harness.state.get("contextGuidelines") || [];

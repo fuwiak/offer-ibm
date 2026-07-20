@@ -1,6 +1,40 @@
 const { v4 } = require("uuid");
 const { safeJsonParse } = require("../../../../http");
 
+const NATIVE_TOOL_STREAM_LOG_PREFIX = "[AIbitat][NativeToolStream]";
+
+function errorMetadata(error) {
+  const cause = error?.cause;
+  return {
+    errorName: error?.name || null,
+    errorMessage: error?.message || String(error),
+    errorCode: error?.code || null,
+    errorType: error?.type || null,
+    status: error?.status || null,
+    requestId: error?.request_id || error?.requestId || null,
+    causeName: cause?.name || null,
+    causeMessage: cause?.message || (cause ? String(cause) : null),
+    causeCode: cause?.code || null,
+    stack: error?.stack || null,
+  };
+}
+
+function toolCallMetadata(toolCallsByIndex) {
+  return Object.entries(toolCallsByIndex).map(([index, call]) => {
+    const args = String(call?.arguments || "");
+    return {
+      index: Number(index),
+      name: call?.name || null,
+      argumentChars: args.length,
+      argumentBytes: Buffer.byteLength(args, "utf8"),
+      argumentsLookComplete:
+        args.length > 0 &&
+        args.trimStart().startsWith("{") &&
+        args.trimEnd().endsWith("}"),
+    };
+  });
+}
+
 /**
  * Shared native OpenAI-compatible tool calling utilities.
  * Any provider with an OpenAI-compatible client can use these functions
@@ -177,6 +211,15 @@ async function tooledStream(
   options = {}
 ) {
   const { provider, ...formatOptions } = options;
+  const startedAt = Date.now();
+  let stage = "prepare_request";
+  let chunkCount = 0;
+  let usage = null;
+  const toolCallsByIndex = {};
+  const result = {
+    functionCall: null,
+    textResponse: "",
+  };
 
   // Auto-reset usage if provider is passed
   if (provider?.resetUsage) {
@@ -189,74 +232,85 @@ async function tooledStream(
   const formattedMessages = formatMessagesForTools(messages, formatOptions);
   const tools = formatFunctionsToTools(functions);
 
-  const stream = await client.chat.completions.create({
-    model,
-    stream: true,
-    stream_options: { include_usage: true },
-    messages: formattedMessages,
-    ...(tools.length > 0 ? { tools } : {}),
-  });
+  try {
+    const stream = await client.chat.completions.create({
+      model,
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: formattedMessages,
+      ...(tools.length > 0 ? { tools } : {}),
+    });
+    stage = "receive_stream";
 
-  const result = {
-    functionCall: null,
-    textResponse: "",
-  };
+    for await (const chunk of stream) {
+      chunkCount += 1;
+      // Capture usage from final chunk (some providers send usage after finish_reason)
+      if (chunk?.usage) {
+        usage = chunk.usage;
+      }
 
-  const toolCallsByIndex = {};
-  let usage = null;
+      if (!chunk?.choices?.[0]) continue;
+      const choice = chunk.choices[0];
 
-  for await (const chunk of stream) {
-    // Capture usage from final chunk (some providers send usage after finish_reason)
-    if (chunk?.usage) {
-      usage = chunk.usage;
-    }
+      if (choice.delta?.content) {
+        result.textResponse += choice.delta.content;
+        eventHandler?.("reportStreamEvent", {
+          type: "textResponseChunk",
+          uuid: msgUUID,
+          content: choice.delta.content,
+        });
+      }
 
-    if (!chunk?.choices?.[0]) continue;
-    const choice = chunk.choices[0];
+      if (choice.delta?.tool_calls) {
+        for (const toolCall of choice.delta.tool_calls) {
+          const idx = toolCall.index ?? 0;
 
-    if (choice.delta?.content) {
-      result.textResponse += choice.delta.content;
-      eventHandler?.("reportStreamEvent", {
-        type: "textResponseChunk",
-        uuid: msgUUID,
-        content: choice.delta.content,
-      });
-    }
-
-    if (choice.delta?.tool_calls) {
-      for (const toolCall of choice.delta.tool_calls) {
-        const idx = toolCall.index ?? 0;
-
-        // Initialize tool call entry if it doesn't exist yet.
-        // Some providers (e.g. mlx-server) send id as null, so we generate one.
-        if (!toolCallsByIndex[idx]) {
-          toolCallsByIndex[idx] = {
-            id: toolCall.id || `call_${v4()}`,
-            name: toolCall.function?.name || "",
-            arguments: toolCall.function?.arguments || "",
-          };
-        } else {
-          // Update existing entry with streamed data
-          if (toolCall.id && !toolCallsByIndex[idx].id.startsWith("call_")) {
-            toolCallsByIndex[idx].id = toolCall.id;
+          // Initialize tool call entry if it doesn't exist yet.
+          // Some providers (e.g. mlx-server) send id as null, so we generate one.
+          if (!toolCallsByIndex[idx]) {
+            toolCallsByIndex[idx] = {
+              id: toolCall.id || `call_${v4()}`,
+              name: toolCall.function?.name || "",
+              arguments: toolCall.function?.arguments || "",
+            };
+          } else {
+            // Update existing entry with streamed data
+            if (toolCall.id && !toolCallsByIndex[idx].id.startsWith("call_")) {
+              toolCallsByIndex[idx].id = toolCall.id;
+            }
+            if (toolCall.function?.name) {
+              toolCallsByIndex[idx].name += toolCall.function.name;
+            }
+            if (toolCall.function?.arguments) {
+              toolCallsByIndex[idx].arguments += toolCall.function.arguments;
+            }
           }
-          if (toolCall.function?.name) {
-            toolCallsByIndex[idx].name += toolCall.function.name;
-          }
-          if (toolCall.function?.arguments) {
-            toolCallsByIndex[idx].arguments += toolCall.function.arguments;
-          }
-        }
 
-        if (toolCallsByIndex[idx]) {
-          eventHandler?.("reportStreamEvent", {
-            uuid: `${msgUUID}:tool_call_invocation`,
-            type: "toolCallInvocation",
-            content: `Assembling Tool Call: ${toolCallsByIndex[idx].name}(${toolCallsByIndex[idx].arguments})`,
-          });
+          if (toolCallsByIndex[idx]) {
+            eventHandler?.("reportStreamEvent", {
+              uuid: `${msgUUID}:tool_call_invocation`,
+              type: "toolCallInvocation",
+              content: `Assembling Tool Call: ${toolCallsByIndex[idx].name}(${toolCallsByIndex[idx].arguments})`,
+            });
+          }
         }
       }
     }
+  } catch (error) {
+    console.error(
+      `${NATIVE_TOOL_STREAM_LOG_PREFIX} stream_failed ${JSON.stringify({
+        model,
+        provider: provider?.constructor?.name || null,
+        invocationUuid: provider?.invocation?.uuid || null,
+        stage,
+        durationMs: Date.now() - startedAt,
+        chunkCount,
+        textResponseChars: result.textResponse.length,
+        toolCalls: toolCallMetadata(toolCallsByIndex),
+        ...errorMetadata(error),
+      })}`
+    );
+    throw error;
   }
 
   // Auto-record usage if provider is passed and usage is available
@@ -269,10 +323,32 @@ async function tooledStream(
   const toolCallIndices = Object.keys(toolCallsByIndex).map(Number);
   if (toolCallIndices.length > 0) {
     const firstToolCall = toolCallsByIndex[Math.min(...toolCallIndices)];
+    const parsedArguments = safeJsonParse(firstToolCall.arguments, null);
+    const streamMeta = {
+      model,
+      provider: provider?.constructor?.name || null,
+      invocationUuid: provider?.invocation?.uuid || null,
+      durationMs: Date.now() - startedAt,
+      chunkCount,
+      toolCalls: toolCallMetadata(toolCallsByIndex),
+    };
+    if (parsedArguments === null) {
+      console.error(
+        `${NATIVE_TOOL_STREAM_LOG_PREFIX} arguments_invalid_json ${JSON.stringify(
+          streamMeta
+        )}`
+      );
+    } else {
+      console.log(
+        `${NATIVE_TOOL_STREAM_LOG_PREFIX} tool_call_ready ${JSON.stringify(
+          streamMeta
+        )}`
+      );
+    }
     result.functionCall = {
       id: firstToolCall.id,
       name: firstToolCall.name,
-      arguments: safeJsonParse(firstToolCall.arguments, {}),
+      arguments: parsedArguments ?? {},
     };
   }
 
@@ -377,8 +453,10 @@ async function tooledComplete(
 }
 
 module.exports = {
+  errorMetadata,
   formatFunctionsToTools,
   formatMessagesForTools,
+  toolCallMetadata,
   tooledStream,
   tooledComplete,
 };

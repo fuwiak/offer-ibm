@@ -55,7 +55,7 @@ function isQuoteDocumentRequest(message = "") {
 }
 
 function quoteDocumentStatusMessage() {
-  return "@agent: Creating Word document…";
+  return "@agent: Analyzing and verifying the source document…";
 }
 
 function quoteDocumentAgentGuidelines() {

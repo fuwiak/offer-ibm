@@ -5,6 +5,7 @@ const DEFAULT_OFFER_KP_BLOCK_IDS = [
   "harness-telemetry",
   "orchestration",
   "offerKp-document-trigger",
+  "offerKp-source-verification",
   "offerKp-catalog-context",
   "offerKp-inquiry-quality",
   "offerKp-quote-pdf-model",

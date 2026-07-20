@@ -3,6 +3,10 @@ const {
   evaluateSafeExpression,
   computeQuoteLines,
 } = require("../../../../offerKp/quoteCalculator");
+const {
+  offerKpLog,
+  offerKpLogTimed,
+} = require("../../../../offerKpApp/offerKpLog");
 
 const QuoteCalculator = {
   name: "quote-calculator",
@@ -77,12 +81,28 @@ const QuoteCalculator = {
             expression = "",
             lines = [],
           }) {
+            const logMeta = {
+              mode:
+                Array.isArray(lines) && lines.length > 0 ? "batch" : "single",
+              lines: Array.isArray(lines) ? lines.length : 0,
+              hasQuantity: quantity !== null,
+              hasUnitPrice: unitPrice !== null,
+              hasExpression: Boolean(expression),
+            };
+            offerKpLog("info", "quoteCalculator.start", logMeta);
+            const timer = offerKpLogTimed("quoteCalculator.execute", logMeta);
             try {
               if (Array.isArray(lines) && lines.length > 0) {
                 const result = computeQuoteLines(lines);
                 if (!result.ok) {
+                  timer.fail(new Error(result.error), { resultOk: false });
                   return JSON.stringify({ ok: false, error: result.error });
                 }
+                timer.done({
+                  resultOk: true,
+                  resultLines: result.lines?.length || 0,
+                  subtotal: result.subtotal,
+                });
                 return JSON.stringify(result);
               }
 
@@ -94,6 +114,9 @@ const QuoteCalculator = {
               }
 
               if (lineTotal === null) {
+                timer.fail(new Error("Missing calculator input"), {
+                  resultOk: false,
+                });
                 return JSON.stringify({
                   ok: false,
                   error:
@@ -101,6 +124,7 @@ const QuoteCalculator = {
                 });
               }
 
+              timer.done({ resultOk: true, lineTotal });
               return JSON.stringify({
                 ok: true,
                 quantity: quantity !== null ? Number(quantity) : null,
@@ -108,6 +132,12 @@ const QuoteCalculator = {
                 lineTotal,
               });
             } catch (error) {
+              timer.fail(error, {
+                resultOk: false,
+                errorName: error?.name || null,
+                errorCode: error?.code || null,
+                stack: error?.stack || null,
+              });
               return JSON.stringify({
                 ok: false,
                 error: error?.message || String(error),

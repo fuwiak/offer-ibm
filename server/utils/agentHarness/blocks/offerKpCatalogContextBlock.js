@@ -119,6 +119,12 @@ class OfferKpCatalogContextBlock extends BaseBlock {
   }
 
   async install(harness) {
+    if (harness.state.get("strictSourceOnly")) {
+      harness.log(
+        "catalog enrichment skipped: attached file is the only source"
+      );
+      return;
+    }
     const workspace = harness.ctx.workspace;
     if (!workspace?.id) return;
 

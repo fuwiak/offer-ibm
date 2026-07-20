@@ -297,7 +297,12 @@ module.exports.CreateDocxFile = {
                 `create-docx-file error: ${e.message}`
               );
               this.super.introspect(`Error: ${e.message}`);
-              return `Error creating Word document: ${e.message}`;
+              this.super.skipHandleExecution = true;
+              return (
+                `Error creating Word document: ${e.message}\n\n` +
+                "Файл не был создан из-за технической ошибки инструмента.\n\n" +
+                `Подготовленное содержание КП:\n\n${content}`
+              );
             }
           },
         });

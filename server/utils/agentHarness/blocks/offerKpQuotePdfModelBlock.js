@@ -17,6 +17,10 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
   }
 
   async install(harness) {
+    if (harness.state.get("strictSourceOnly")) {
+      harness.log("quote PDF model switch skipped in source-only mode");
+      return;
+    }
     if (!quotePdfModelAutoSwitchEnabled()) return;
 
     const workspace = harness.ctx.workspace;

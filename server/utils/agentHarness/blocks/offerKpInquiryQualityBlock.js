@@ -46,7 +46,11 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
     const lineIssues = validateInquiryLines(lines);
 
     let inquiryDbDraft = null;
-    if (lines.length > 0 && harness?.ctx?.workspace?.id) {
+    if (
+      !harness.state.get("strictSourceOnly") &&
+      lines.length > 0 &&
+      harness?.ctx?.workspace?.id
+    ) {
       try {
         inquiryDbDraft = await matchInquiryToDraft(combined, {
           workspace: harness.ctx.workspace,
@@ -76,6 +80,15 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
       layerGuidelines,
     } = require("../../../config/offerKp.harnessAntiHallucination");
     const { textQuality, lineIssues, lines } = await this.#evaluate(harness);
+
+    if (harness.state.get("strictSourceOnly")) {
+      harnessLog("info", "inquiryQuality.sourceOnly", {
+        ok: harness.state.get("inquiryQualityOk"),
+        lines: lines.length,
+        issues: lineIssues.map((i) => i.id),
+      });
+      return;
+    }
 
     const guidelines = [...layerGuidelines("verify")];
     if (!textQuality.ok) {

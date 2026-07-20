@@ -1,8 +1,14 @@
 const { AgentHarness } = require("../../../utils/agentHarness/AgentHarness");
 const { BaseBlock } = require("../../../utils/agentHarness/BaseBlock");
-const { OfferKpDocumentTriggerBlock } = require("../../../utils/agentHarness/blocks/offerKpDocumentTriggerBlock");
-const { OfferKpQuoteIntentBlock } = require("../../../utils/agentHarness/blocks/offerKpQuoteIntentBlock");
-const { ToolRegistryBlock } = require("../../../utils/agentHarness/blocks/toolRegistryBlock");
+const {
+  OfferKpDocumentTriggerBlock,
+} = require("../../../utils/agentHarness/blocks/offerKpDocumentTriggerBlock");
+const {
+  OfferKpQuoteIntentBlock,
+} = require("../../../utils/agentHarness/blocks/offerKpQuoteIntentBlock");
+const {
+  ToolRegistryBlock,
+} = require("../../../utils/agentHarness/blocks/toolRegistryBlock");
 const {
   OfferKpQuoteComplianceBlock,
 } = require("../../../utils/agentHarness/blocks/offerKpQuoteComplianceBlock");
@@ -24,7 +30,9 @@ describe("AgentHarness", () => {
 
     await harness.install();
 
-    const result = await harness.resolveToolApproval({ skillName: "demo-tool" });
+    const result = await harness.resolveToolApproval({
+      skillName: "demo-tool",
+    });
     expect(result).toEqual({ approved: true, message: "test ok" });
   });
 
@@ -70,7 +78,7 @@ describe("AgentHarness", () => {
 
     expect(harness.state.get("quoteDocumentRequest")).toBe(true);
     expect(aibitat.introspect).toHaveBeenCalledWith(
-      "@agent: Creating Word document…"
+      "@agent: Analyzing and verifying the source document…"
     );
 
     const pdf = await harness.resolveToolApproval({
@@ -103,8 +111,7 @@ describe("AgentHarness", () => {
       skillName: "create-docx-file",
       payload: {
         filename: "Kp_test.docx",
-        content:
-          "| Позиция | Кол-во |\n| --- | --- |\n| Болт | 40 |",
+        content: "| Позиция | Кол-во |\n| --- | --- |\n| Болт | 40 |",
       },
     });
 
@@ -171,7 +178,9 @@ describe("AgentHarness", () => {
     expect(approved?.approved).toBe(true);
     expect(payload.content).toContain("45.00");
     expect(payload.content).toContain("1350.00");
-    expect(payload.content).toMatch(/\| 2 \|[^|]+\| 3 \| кг \| — \|/);
+    expect(payload.content).toMatch(
+      /\| 2 \|[^|]+\|[^|]+\|[^|]+\|[^|]+\| кг \| 3 \| — \| — \|/
+    );
     expect(payload.content).not.toContain("18.50");
     expect(harness.state.get("quoteComplianceOk")).toBe(true);
   });
@@ -190,7 +199,9 @@ describe("AgentHarness", () => {
       fetchParsedFileContext: jest.fn().mockResolvedValue("base docs"),
     };
 
-    const { ContextManagerBlock } = require("../../../utils/agentHarness/blocks/contextManagerBlock");
+    const {
+      ContextManagerBlock,
+    } = require("../../../utils/agentHarness/blocks/contextManagerBlock");
     const harness = new AgentHarness({ aibitat, ctx: {} });
     harness.use(new GuidelineBlock()).use(new ContextManagerBlock());
     await harness.install();

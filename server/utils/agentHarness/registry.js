@@ -50,6 +50,12 @@ function registerDefaultBlocks() {
     } = require("./blocks/offerKpDocumentTriggerBlock");
     return new OfferKpDocumentTriggerBlock();
   });
+  registerHarnessBlock("offerKp-source-verification", () => {
+    const {
+      OfferKpSourceVerificationBlock,
+    } = require("./blocks/offerKpSourceVerificationBlock");
+    return new OfferKpSourceVerificationBlock();
+  });
   registerHarnessBlock("offerKp-catalog-guidelines", () => {
     const {
       OfferKpCatalogGuidelinesBlock,

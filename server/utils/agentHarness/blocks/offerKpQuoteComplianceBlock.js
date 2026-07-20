@@ -33,6 +33,10 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
   }
 
   async install(harness) {
+    if (harness.state.get("strictSourceOnly")) {
+      harness.log("quote compliance installed in source-only mode");
+      return;
+    }
     const guidelines = [
       ...mandatoryRequirementsGuidelines(),
       ...layerGuidelines("verify"),
@@ -53,6 +57,26 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
     if (!harness.state.get("quoteDocumentRequest")) return null;
 
     let content = String(params.payload?.content || "").trim();
+    if (harness.state.get("strictSourceOnly")) {
+      const result = checkQuoteCompliance({
+        content,
+        skillName: params.skillName,
+      });
+      if (result.ok) {
+        harness.state.set("quoteComplianceOk", true);
+        harness.state.delete("quoteComplianceViolations");
+        return null;
+      }
+      harness.state.set("quoteComplianceOk", false);
+      harness.state.set("quoteComplianceViolations", result.violations);
+      return {
+        handled: true,
+        approved: false,
+        message:
+          "КП из исходного файла не прошло проверку:\n" +
+          formatComplianceRejection(result.violations),
+      };
+    }
     const catalogBlocks = collectCatalogBlocksFromHarness(harness);
     let inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
 

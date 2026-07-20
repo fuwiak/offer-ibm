@@ -19,7 +19,9 @@ describe("quoteRequestPhrases", () => {
   });
 
   it("returns agent status message for UI", () => {
-    expect(quoteDocumentStatusMessage()).toContain("Creating Word document");
+    expect(quoteDocumentStatusMessage()).toContain(
+      "Analyzing and verifying the source document"
+    );
   });
 
   it("returns false for unrelated messages", () => {

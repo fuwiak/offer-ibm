@@ -68,11 +68,10 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
 
     const introspect = harness.aibitat.introspect;
     if (typeof introspect === "function") {
-      introspect("@agent: Creating Word document…");
-      introspect("@agent: Creating PDF document…");
+      introspect("@agent: Analyzing and verifying the source document…");
     }
 
-    harness.log("quote document request detected — Word + PDF", {
+    harness.log("quote document request detected — source verification first", {
       prompt: prompt.slice(0, 80),
     });
 

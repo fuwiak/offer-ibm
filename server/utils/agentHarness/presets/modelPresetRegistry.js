@@ -1,5 +1,6 @@
 const {
   OFFER_KP_DEFAULT_MODEL,
+  OFFER_KP_LOCAL_MODELS,
   resolveOfferKpEffectiveModel,
 } = require("../../../config/offerKp.models");
 const {
@@ -87,6 +88,11 @@ function registerDefaultModelHarnessPresets() {
     "google/gemma-4-12b-qat",
     Gemma12bQatHarnessPreset
   );
+  for (const model of OFFER_KP_LOCAL_MODELS) {
+    if (!presetByModelId.has(model.id)) {
+      registerModelHarnessPreset(model.id, DefaultOfferKpHarnessPreset);
+    }
+  }
 
   registerModelHarnessPresetPattern(/^deepseek\//i, DeepseekR1HarnessPreset);
   registerModelHarnessPresetPattern(
