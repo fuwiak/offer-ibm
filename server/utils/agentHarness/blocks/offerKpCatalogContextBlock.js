@@ -5,7 +5,9 @@ const {
   extractCatalogBlocksFromText,
   stripCatalogSection,
 } = require("../../offerKp/catalogPrompt");
-const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  layerGuidelines,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 const {
   gradeCatalogEvidence,
   shouldAbstainFromEvidence,
@@ -68,10 +70,10 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     const hops = harness.state.get("cragHops") || 0;
     const maxDocs = widen ? Math.min(baseMax + hops * 3, 12) : baseMax;
 
-    const enriched = await enrichUserPromptWithShopCatalog(
-      question,
-      { ...this.#catalogOptions(harness), maxDocs }
-    );
+    const enriched = await enrichUserPromptWithShopCatalog(question, {
+      ...this.#catalogOptions(harness),
+      maxDocs,
+    });
     const blocks = extractCatalogBlocksFromText(enriched);
     if (hasCatalogBlocks(blocks) && enriched !== prompt) {
       harness.state.set("catalogInjected", true);
@@ -121,9 +123,10 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     if (!workspace?.id) return;
 
     const invocation = harness.ctx.invocation;
-    const prompt = String(invocation?.prompt || "")
-      .replace(/^@agent\s*/i, "")
-      .trim() ||
+    const prompt =
+      String(invocation?.prompt || "")
+        .replace(/^@agent\s*/i, "")
+        .trim() ||
       String(harness.aibitat?._chats?.at(-1)?.content || "").trim();
 
     if (prompt) {
@@ -145,13 +148,13 @@ class OfferKpCatalogContextBlock extends BaseBlock {
       const needsRefine = harness.state.get("cragNeedsRefine");
       const hops = harness.state.get("cragHops") || 0;
       const widen =
-        Boolean(needsRefine) &&
-        thresholds &&
-        hops < thresholds.maxCragHops;
+        Boolean(needsRefine) && thresholds && hops < thresholds.maxCragHops;
 
       if (widen) {
         harness.state.set("cragHops", hops + 1);
-        harness.log("CRAG refine: widening catalog retrieval", { hop: hops + 1 });
+        harness.log("CRAG refine: widening catalog retrieval", {
+          hop: hops + 1,
+        });
       }
 
       const injected = await this.#enrichLastUserMessage(harness, { widen });

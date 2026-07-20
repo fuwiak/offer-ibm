@@ -1,13 +1,5 @@
 const { BaseBlock } = require("../BaseBlock");
 const { harnessLog } = require("../harnessLog");
-const { parseInquiryText } = require("../../offerKp/parseInquiry");
-const { matchInquiryToDraft } = require("../../offerKp/matchInquiryLines");
-const {
-  assessInquiryTextQuality,
-  validateInquiryLines,
-} = require("../../offerKp/inquiryTextQuality");
-const { isQuoteDocSkill } = require("../../offerKp/quoteComplianceChecker");
-const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 async function loadParsedTexts(harness) {
   const workspace = harness?.ctx?.workspace;
@@ -15,7 +7,9 @@ async function loadParsedTexts(harness) {
   if (!workspace?.id) return [];
 
   try {
-    const { WorkspaceParsedFiles } = require("../../../models/workspaceParsedFiles");
+    const {
+      WorkspaceParsedFiles,
+    } = require("../../../models/workspaceParsedFiles");
     const threadId = invocation?.thread_id || null;
     const userId = invocation?.user_id || null;
     const files = await WorkspaceParsedFiles.getContextFiles(
@@ -38,6 +32,13 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
   }
 
   async #evaluate(harness) {
+    const { parseInquiryText } = require("../../offerKp/parseInquiry");
+    const { matchInquiryToDraft } = require("../../offerKp/matchInquiryLines");
+    const {
+      assessInquiryTextQuality,
+      validateInquiryLines,
+    } = require("../../offerKp/inquiryTextQuality");
+
     const texts = await loadParsedTexts(harness);
     const combined = texts.join("\n\n");
     const textQuality = assessInquiryTextQuality(combined);
@@ -71,6 +72,9 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
   }
 
   async install(harness) {
+    const {
+      layerGuidelines,
+    } = require("../../../config/offerKp.harnessAntiHallucination");
     const { textQuality, lineIssues, lines } = await this.#evaluate(harness);
 
     const guidelines = [...layerGuidelines("verify")];
@@ -105,6 +109,7 @@ class OfferKpInquiryQualityBlock extends BaseBlock {
   }
 
   async beforeToolApproval(params, harness) {
+    const { isQuoteDocSkill } = require("../../offerKp/quoteComplianceChecker");
     if (!isQuoteDocSkill(params.skillName)) return null;
     if (!harness.state.get("quoteDocumentRequest")) return null;
 

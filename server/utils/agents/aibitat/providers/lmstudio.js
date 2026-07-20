@@ -70,12 +70,16 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
     const catalog = await fetchLmStudioModelCatalog({ forceRefresh: true });
     const picked = pickLoadedLmStudioFallback(this.model, catalog);
     if (!picked?.model || picked.model === this.model) return false;
-    offerKpLog("warn", "LM Studio agent model not loaded — retrying with loaded model", {
-      from: this.model,
-      to: picked.model,
-      reason: picked.reason,
-      loaded: catalog.loadedIds || [],
-    });
+    offerKpLog(
+      "warn",
+      "LM Studio agent model not loaded — retrying with loaded model",
+      {
+        from: this.model,
+        to: picked.model,
+        reason: picked.reason,
+        loaded: catalog.loadedIds || [],
+      }
+    );
     this.model = picked.model;
     this._supportsToolCalling = null;
     return true;

@@ -28,9 +28,7 @@ const {
   generateDocxFromMarkdown,
 } = require("../utils/offerKpApp/docxFromMarkdown");
 const { matchInquiryToDraft } = require("../utils/offerKp/matchInquiryLines");
-const {
-  loadLmStudioModel,
-} = require("../utils/offerKpApp/lmStudioModels");
+const { loadLmStudioModel } = require("../utils/offerKpApp/lmStudioModels");
 const {
   runProductSearchAgent,
 } = require("../utils/offerKp/productSearchAgent");

@@ -218,7 +218,9 @@ function resolveQuotePdfModelSwitch({
   let loadedModels = Array.isArray(availableModels) ? availableModels : null;
   if (!loadedModels?.length) {
     try {
-      const { getCachedLoadedLmStudioModelIds } = require("../offerKpApp/lmStudioModels");
+      const {
+        getCachedLoadedLmStudioModelIds,
+      } = require("../offerKpApp/lmStudioModels");
       loadedModels = getCachedLoadedLmStudioModelIds();
     } catch {
       loadedModels = [];

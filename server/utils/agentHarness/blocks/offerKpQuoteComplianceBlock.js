@@ -12,12 +12,20 @@ const {
   collectCatalogBlocksFromHarness,
   validateQuotePricesAgainstCatalog,
 } = require("../../offerKp/harnessEvidence");
-const { validateQuotePricesFromDb, sanitizeQuotePricesToShopDb } = require("../../offerKp/quoteDbPriceGate");
-const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  validateQuotePricesFromDb,
+  sanitizeQuotePricesToShopDb,
+} = require("../../offerKp/quoteDbPriceGate");
+const {
+  buildQuoteMarkdownFromDraft,
+} = require("../../offerKp/inquiryDraftPrompt");
+const {
+  layerGuidelines,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * Проверяет обязательные требования КП перед create-docx/pdf.
- * Выдуманные цены (не из ShopDB) вычищаются → «под заказ» (как ChatGPT).
+ * Если есть inquiryDbDraft — таблица берётся ТОЛЬКО из него (агент не пишет цены).
  */
 class OfferKpQuoteComplianceBlock extends BaseBlock {
   constructor() {
@@ -30,6 +38,7 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
       ...layerGuidelines("verify"),
       ...layerGuidelines("abstain"),
       "Цены как ChatGPT: только ShopDB; нет совпадения — пустая цена / «под заказ», никогда не угадывай число.",
+      "Таблицу КП сервер пересоберёт из черновика matchInquiryToDraft — не копируй одну цену 18.50 на все строки.",
     ];
     const existing = harness.state.get("contextGuidelines") || [];
     harness.state.set("contextGuidelines", [...existing, ...guidelines]);
@@ -45,19 +54,69 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
 
     let content = String(params.payload?.content || "").trim();
     const catalogBlocks = collectCatalogBlocksFromHarness(harness);
-    const inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
+    let inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
 
-    const sanitized = sanitizeQuotePricesToShopDb(content, {
-      draft: inquiryDbDraft,
-      catalogBlocks,
-    });
-    if (sanitized.changed && params.payload) {
-      params.payload.content = sanitized.content;
-      content = sanitized.content;
-      harnessLog("warn", "quoteCompliance.sanitizedInventedPrices", {
-        skillName: params.skillName,
-        replaced: sanitized.replaced,
+    // Черновик ещё не посчитан — посчитать сейчас из PDF.
+    if (!inquiryDbDraft?.lines?.length) {
+      try {
+        const { parseInquiryText } = require("../../offerKp/parseInquiry");
+        const {
+          matchInquiryToDraft,
+        } = require("../../offerKp/matchInquiryLines");
+        const {
+          WorkspaceParsedFiles,
+        } = require("../../../models/workspaceParsedFiles");
+        const workspace = harness?.ctx?.workspace;
+        const invocation = harness?.ctx?.invocation;
+        const files = workspace?.id
+          ? await WorkspaceParsedFiles.getContextFiles(
+              workspace,
+              invocation?.thread_id ? { id: invocation.thread_id } : null,
+              invocation?.user_id ? { id: invocation.user_id } : null
+            )
+          : [];
+        const texts = (files || []).map((d) => d.pageContent).filter(Boolean);
+        const combined = texts.join("\n\n");
+        if (parseInquiryText(combined).length > 0) {
+          inquiryDbDraft = await matchInquiryToDraft(combined, {
+            workspace,
+            parsedFileTexts: texts,
+          });
+          harness.state.set("inquiryDbDraft", inquiryDbDraft);
+        }
+      } catch (error) {
+        harnessLog("warn", "quoteCompliance.draftRebuildFailed", {
+          error: error?.message || String(error),
+        });
+      }
+    }
+
+    // Главный фикс: не доверяем таблице агента (18.50 на всё) — подмена из ShopDB draft.
+    if (inquiryDbDraft?.lines?.length && params.payload) {
+      const forced = buildQuoteMarkdownFromDraft(inquiryDbDraft);
+      if (forced) {
+        params.payload.content = forced;
+        content = forced;
+        harnessLog("warn", "quoteCompliance.forcedDraftMarkdown", {
+          skillName: params.skillName,
+          lines: inquiryDbDraft.lines.length,
+          priced: inquiryDbDraft.lines.filter((l) => Number(l.unitPriceNet) > 0)
+            .length,
+        });
+      }
+    } else {
+      const sanitized = sanitizeQuotePricesToShopDb(content, {
+        draft: inquiryDbDraft,
+        catalogBlocks,
       });
+      if (sanitized.changed && params.payload) {
+        params.payload.content = sanitized.content;
+        content = sanitized.content;
+        harnessLog("warn", "quoteCompliance.sanitizedInventedPrices", {
+          skillName: params.skillName,
+          replaced: sanitized.replaced,
+        });
+      }
     }
 
     const result = checkQuoteCompliance({
@@ -67,17 +126,18 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
 
     const dbPriceCheck = validateQuotePricesFromDb(content, {
       draft: inquiryDbDraft,
-      catalogBlocks,
+      catalogBlocks: inquiryDbDraft?.lines?.length ? [] : catalogBlocks,
     });
-    const catalogCheck = validateQuotePricesAgainstCatalog(content, catalogBlocks);
+    const catalogCheck = inquiryDbDraft?.lines?.length
+      ? { ok: true, violations: [] }
+      : validateQuotePricesAgainstCatalog(content, catalogBlocks);
     const violations = [
       ...result.violations,
       ...dbPriceCheck.violations,
       ...catalogCheck.violations,
     ];
 
-    const complianceOk =
-      result.ok && dbPriceCheck.ok && catalogCheck.ok;
+    const complianceOk = result.ok && dbPriceCheck.ok && catalogCheck.ok;
 
     if (complianceOk) {
       harness.state.set("quoteComplianceOk", true);
@@ -101,8 +161,7 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
     return {
       handled: true,
       approved: false,
-      message:
-        `КП не прошло обязательную проверку harness. Исправь нарушения и пересоздай документ:\n${details}`,
+      message: `КП не прошло обязательную проверку harness. Исправь нарушения и пересоздай документ:\n${details}`,
     };
   }
 }

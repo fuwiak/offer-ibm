@@ -57,7 +57,9 @@ function registerDefaultBlocks() {
     return new OfferKpCatalogGuidelinesBlock();
   });
   registerHarnessBlock("offerKp-quote-intent", () => {
-    const { OfferKpQuoteIntentBlock } = require("./blocks/offerKpQuoteIntentBlock");
+    const {
+      OfferKpQuoteIntentBlock,
+    } = require("./blocks/offerKpQuoteIntentBlock");
     return new OfferKpQuoteIntentBlock();
   });
   registerHarnessBlock("tool-registry", () => {
@@ -83,22 +85,30 @@ function registerDefaultBlocks() {
     return new OfferKpCatalogContextBlock();
   });
   registerHarnessBlock("offerKp-inquiry-quality", () => {
-    const {
-      OfferKpInquiryQualityBlock,
-    } = require("./blocks/offerKpInquiryQualityBlock");
-    return new OfferKpInquiryQualityBlock();
+    const mod = require("./blocks/offerKpInquiryQualityBlock");
+    const Block = mod?.OfferKpInquiryQualityBlock;
+    if (typeof Block !== "function") {
+      throw new Error(
+        "OfferKpInquiryQualityBlock export missing (circular require?)"
+      );
+    }
+    return new Block();
   });
   registerHarnessBlock("offerKp-quote-calculator", () => {
-    const {
-      OfferKpQuoteCalculatorBlock,
-    } = require("./blocks/offerKpQuoteCalculatorBlock");
-    return new OfferKpQuoteCalculatorBlock();
+    const mod = require("./blocks/offerKpQuoteCalculatorBlock");
+    const Block = mod?.OfferKpQuoteCalculatorBlock;
+    if (typeof Block !== "function") {
+      throw new Error("OfferKpQuoteCalculatorBlock export missing");
+    }
+    return new Block();
   });
   registerHarnessBlock("offerKp-quote-compliance", () => {
-    const {
-      OfferKpQuoteComplianceBlock,
-    } = require("./blocks/offerKpQuoteComplianceBlock");
-    return new OfferKpQuoteComplianceBlock();
+    const mod = require("./blocks/offerKpQuoteComplianceBlock");
+    const Block = mod?.OfferKpQuoteComplianceBlock;
+    if (typeof Block !== "function") {
+      throw new Error("OfferKpQuoteComplianceBlock export missing");
+    }
+    return new Block();
   });
 }
 

@@ -75,6 +75,78 @@ function mergeInquiryDraftIntoUserPrompt(userPrompt, draftSection = "") {
   return `${draft}\n\n${question}`;
 }
 
+/**
+ * Markdown КП строго из черновика ShopDB — агент не должен выдумывать цены/названия.
+ * @param {{ lines?: object[], reference?: string }} draft
+ * @param {{ title?: string }} [opts]
+ */
+function buildQuoteMarkdownFromDraft(draft, opts = {}) {
+  const lines = draft?.lines || [];
+  if (!lines.length) return "";
+
+  const title = opts.title || "Коммерческое предложение · purolat.com";
+  const reference = draft.reference ? ` ${draft.reference}` : "";
+  const rows = lines
+    .map((line, idx) => {
+      const name = String(
+        line.requestedName || line.inquiryRaw || line.name || "—"
+      ).replace(/\|/g, "/");
+      const matched = String(line.name || "").replace(/\|/g, "/");
+      const showName =
+        matched && matched !== name && Number(line.unitPriceNet) > 0
+          ? `${name} → ${matched}`
+          : name;
+      const qty = line.quantity ?? 1;
+      const unit = line.unit || "шт";
+      const hasPrice = Number(line.unitPriceNet) > 0;
+      const unitPrice = hasPrice ? Number(line.unitPriceNet) : 0;
+      const price = hasPrice ? unitPrice.toFixed(2) : "—";
+      // Сумма = net × qty (КП без НДС); не брать lineTotal с VAT.
+      const sum = hasPrice
+        ? Number((unitPrice * Number(qty)).toFixed(2)).toFixed(2)
+        : "—";
+      const status = hasPrice
+        ? line.status || "В наличии"
+        : line.status || "под заказ";
+      return `| ${idx + 1} | ${showName} | ${qty} | ${unit} | ${price} | ${sum} | ${status} |`;
+    })
+    .join("\n");
+
+  const priced = lines.filter((l) => Number(l.unitPriceNet) > 0);
+  const subtotal = priced.reduce(
+    (s, l) => s + Number(l.unitPriceNet) * Number(l.quantity ?? 1),
+    0
+  );
+
+  return `# ${title}${reference}
+
+**Дата:** ${new Date().toLocaleDateString("ru-RU")}  
+**Позиций:** ${lines.length} (с ценой ShopDB: ${priced.length})
+
+## Перечень позиций
+
+| № | Наименование | Кол-во | Ед. | Цена, RUB | Сумма, RUB | Статус |
+|---|--------------|-------|-----|-----------|------------|--------|
+${rows}
+
+## Итого
+
+| Показатель | Значение |
+|------------|----------|
+| Всего позиций | ${lines.length} |
+| С ценой ShopDB | ${priced.length} |
+| Без цены (под заказ) | ${lines.length - priced.length} |
+| **Сумма (только ShopDB)** | **${subtotal.toFixed(2)} RUB** |
+
+## Условия
+
+- Цены только из каталога purolat.com (ShopDB). Без цены — «под заказ», не угадывать.
+- Количество и наименования — из PDF-заявки.
+
+_Источник: matchInquiryToDraft / ShopDB_
+`;
+}
+
 module.exports = {
   INQUIRY_DRAFT_HEADER,
   INQUIRY_DRAFT_FOOTER,
@@ -82,4 +154,5 @@ module.exports = {
   limitCatalogBlocksForAgent,
   formatInquiryDraftSection,
   mergeInquiryDraftIntoUserPrompt,
+  buildQuoteMarkdownFromDraft,
 };

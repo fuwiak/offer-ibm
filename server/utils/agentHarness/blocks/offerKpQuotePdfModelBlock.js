@@ -3,7 +3,9 @@ const {
   resolveQuotePdfModelSwitch,
   quotePdfModelAutoSwitchEnabled,
 } = require("../../offerKp/quotePdfModelRouter");
-const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  layerGuidelines,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * При запросе КП с прикреплённым PDF переключает модель на preset,
@@ -31,7 +33,9 @@ class OfferKpQuotePdfModelBlock extends BaseBlock {
 
     let parsedFiles = [];
     try {
-      const { WorkspaceParsedFiles } = require("../../../models/workspaceParsedFiles");
+      const {
+        WorkspaceParsedFiles,
+      } = require("../../../models/workspaceParsedFiles");
       parsedFiles = await WorkspaceParsedFiles.getContextFiles(
         workspace,
         threadId ? { id: threadId } : null,

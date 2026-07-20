@@ -25,8 +25,16 @@ const QuoteCalculator = {
               prompt: "Calculate totals for a quote table",
               call: JSON.stringify({
                 lines: [
-                  { label: "Bolt DIN 931 M10x100 10.9", quantity: 40, unitPrice: 21.27 },
-                  { label: "Bolt DIN 931 M10x100 12.9", quantity: 10, unitPrice: 33.04 },
+                  {
+                    label: "Bolt DIN 931 M10x100 10.9",
+                    quantity: 40,
+                    unitPrice: 21.27,
+                  },
+                  {
+                    label: "Bolt DIN 931 M10x100 12.9",
+                    quantity: 10,
+                    unitPrice: 33.04,
+                  },
                 ],
               }),
             },

@@ -8,7 +8,8 @@ const OFFER_KP_MANDATORY_REQUIREMENTS = Object.freeze([
   {
     id: "non-empty-table",
     severity: "error",
-    description: "Таблица КП с минимум одной строкой позиции (не только заголовок).",
+    description:
+      "Таблица КП с минимум одной строкой позиции (не только заголовок).",
     hint: "Добавь markdown-таблицу с колонками позиция, кол-во, цена, сумма.",
   },
   {
@@ -27,7 +28,8 @@ const OFFER_KP_MANDATORY_REQUIREMENTS = Object.freeze([
   {
     id: "invalid-quantity",
     severity: "error",
-    description: "Количество в каждой строке — положительное число из PDF-заявки.",
+    description:
+      "Количество в каждой строке — положительное число из PDF-заявки.",
     hint: "Возьми кол-во из прикреплённого PDF (не 0 и не пусто); цену — из каталога или «под заказ».",
   },
   {

@@ -342,7 +342,10 @@ async function unloadAllLoadedLmStudioModels(opts = {}) {
   }
 
   await new Promise((resolve) =>
-    setTimeout(resolve, Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000))
+    setTimeout(
+      resolve,
+      Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000)
+    )
   );
   return loadedIds;
 }
@@ -361,7 +364,9 @@ async function unloadOtherLoadedLmStudioModels(targetModelId, opts = {}) {
       : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
 
   const { loadedIds } = await fetchLmStudioRuntimeStates(basePath, apiKey);
-  const toUnload = loadedIds.filter((loadedId) => loadedId && loadedId !== target);
+  const toUnload = loadedIds.filter(
+    (loadedId) => loadedId && loadedId !== target
+  );
   if (!toUnload.length) return [];
 
   for (const loadedId of toUnload) {
@@ -373,7 +378,10 @@ async function unloadOtherLoadedLmStudioModels(targetModelId, opts = {}) {
   }
 
   await new Promise((resolve) =>
-    setTimeout(resolve, Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000))
+    setTimeout(
+      resolve,
+      Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000)
+    )
   );
   return toUnload;
 }
@@ -390,7 +398,10 @@ async function loadLmStudioModelViaRest(modelId, opts = {}) {
     Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) ||
     32768;
   const { resolveLmStudioLoadProfile } = require("./lmStudioCli");
-  const profile = resolveLmStudioLoadProfile(id, { contextLength, gpu: opts.gpu });
+  const profile = resolveLmStudioLoadProfile(id, {
+    contextLength,
+    gpu: opts.gpu,
+  });
 
   const unloadedIds = await unloadAllLoadedLmStudioModels({ basePath, apiKey });
 
@@ -460,7 +471,10 @@ async function loadLmStudioModel(modelId, opts = {}) {
       ? process.env.LMSTUDIO_AUTH_TOKEN
       : opts.apiKey || process.env.LMSTUDIO_AUTH_TOKEN || null;
 
-  const { loadLmStudioModelViaCli, resolveLmStudioLoadProfile } = require("./lmStudioCli");
+  const {
+    loadLmStudioModelViaCli,
+    resolveLmStudioLoadProfile,
+  } = require("./lmStudioCli");
   const profile = resolveLmStudioLoadProfile(id, {
     contextLength: opts.contextLength,
     gpu: opts.gpu,
@@ -473,10 +487,7 @@ async function loadLmStudioModel(modelId, opts = {}) {
       apiKey
     );
     const loadedCtx = Number(loadedContextById[id]) || 0;
-    if (
-      isLmStudioLoadedState(stateById[id]) &&
-      loadedCtx >= contextLength
-    ) {
+    if (isLmStudioLoadedState(stateById[id]) && loadedCtx >= contextLength) {
       invalidateLmStudioModelCatalogCache();
       await fetchLmStudioModelCatalog({ basePath, apiKey, forceRefresh: true });
       return {

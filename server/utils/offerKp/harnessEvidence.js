@@ -271,7 +271,9 @@ async function ensurePdfInquiryEvidence(harness) {
 
   let hasPdf = false;
   try {
-    const { WorkspaceParsedFiles } = require("../../models/workspaceParsedFiles");
+    const {
+      WorkspaceParsedFiles,
+    } = require("../../models/workspaceParsedFiles");
     const { parsedTextHasQuoteSignals } = require("./quotePdfModelRouter");
     const threadId = invocation?.thread_id || null;
     const userId = invocation?.user_id || null;

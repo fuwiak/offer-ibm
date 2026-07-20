@@ -10,7 +10,9 @@ class MemoryBlock extends BaseBlock {
 
   async install(harness) {
     const invocation = harness.ctx.invocation;
-    const { parseThresholdsFromEnv } = require("../../../config/offerKp.harnessAntiHallucination");
+    const {
+      parseThresholdsFromEnv,
+    } = require("../../../config/offerKp.harnessAntiHallucination");
     const thresholds = parseThresholdsFromEnv();
 
     harness.state.set("sessionId", invocation?.uuid || `session-${Date.now()}`);

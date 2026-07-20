@@ -10,15 +10,9 @@ const {
   OfferKpCatalogGuidelinesBlock,
 } = require("./offerKpCatalogGuidelinesBlock");
 const { ToolRegistryBlock } = require("./toolRegistryBlock");
-const {
-  OfferKpThreadFollowUpBlock,
-} = require("./offerKpThreadFollowUpBlock");
-const {
-  OfferKpQuotePdfModelBlock,
-} = require("./offerKpQuotePdfModelBlock");
-const {
-  OfferKpCatalogContextBlock,
-} = require("./offerKpCatalogContextBlock");
+const { OfferKpThreadFollowUpBlock } = require("./offerKpThreadFollowUpBlock");
+const { OfferKpQuotePdfModelBlock } = require("./offerKpQuotePdfModelBlock");
+const { OfferKpCatalogContextBlock } = require("./offerKpCatalogContextBlock");
 
 module.exports = {
   MemoryBlock,

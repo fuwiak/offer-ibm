@@ -575,10 +575,7 @@ class EphemeralAgentHandler extends AgentHandler {
     const stateMax = this.harness?.state?.get("catalogMaxDocs");
     const maxInquiryBlocks = Math.max(
       1,
-      Math.min(
-        500,
-        parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
-      )
+      Math.min(500, parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200)
     );
     const maxDocs =
       stateMax ??

@@ -86,7 +86,10 @@ async function visionOcrImageBuffer(imageBuffer, modelId) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail =
-      body?.error?.message || body?.message || response.statusText || "Vision OCR failed";
+      body?.error?.message ||
+      body?.message ||
+      response.statusText ||
+      "Vision OCR failed";
     throw new Error(String(detail));
   }
 

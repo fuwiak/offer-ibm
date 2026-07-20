@@ -6,7 +6,9 @@ const execFileAsync = promisify(execFile);
 
 const LMS_BIN_PATH = process.env.LMSTUDIO_LMS_BIN_PATH || "/root/.lmstudio/bin";
 const LMS_LOAD_GPU = process.env.LMSTUDIO_LMS_GPU || "max";
-const LMS_SWITCH_SLEEP_MS = Number(process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000);
+const LMS_SWITCH_SLEEP_MS = Number(
+  process.env.LMSTUDIO_LMS_SWITCH_SLEEP_MS || 2000
+);
 
 /** T4 16 GB: 30B Q4_K_M (~20 GB) не влезает с --gpu max и большим KV-cache. */
 function resolveLmStudioLoadProfile(modelId, overrides = {}) {
@@ -120,8 +122,7 @@ async function loadLmStudioModelViaCli(modelId, opts = {}) {
 
   const profile = resolveLmStudioLoadProfile(id, opts);
   const { contextLength, gpu } = profile;
-  const gpuArg =
-    gpu && gpu !== "auto" ? `--gpu ${shellQuote(gpu)}` : "";
+  const gpuArg = gpu && gpu !== "auto" ? `--gpu ${shellQuote(gpu)}` : "";
 
   const shellScript = [
     `export PATH=${shellQuote(`${LMS_BIN_PATH}:$PATH`)}`,

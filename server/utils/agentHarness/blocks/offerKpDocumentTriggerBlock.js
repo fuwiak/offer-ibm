@@ -9,7 +9,10 @@ const {
   layerGuidelines,
   ABSTAIN_MESSAGE,
 } = require("../../../config/offerKp.harnessAntiHallucination");
-const { hasPdfInquiryEvidence, ensurePdfInquiryEvidence } = require("../../offerKp/harnessEvidence");
+const {
+  hasPdfInquiryEvidence,
+  ensurePdfInquiryEvidence,
+} = require("../../offerKp/harnessEvidence");
 
 /**
  * При фразах «сделай КП» — направляет @agent на Word + PDF и показывает статус в чате.
@@ -38,10 +41,7 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     const inquiryLines = harness.state.get("inquiryLineCount") || 0;
     const maxInquiryBlocks = Math.max(
       1,
-      Math.min(
-        500,
-        parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
-      )
+      Math.min(500, parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200)
     );
     harness.state.set(
       "catalogMaxDocs",
@@ -49,14 +49,17 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
         ? Math.min(maxInquiryBlocks, Math.max(8, inquiryLines))
         : 8
     );
-    harness.state.set("contextGuidelines", [
-      ...quoteDocumentAgentGuidelines(),
-      ...layerGuidelines("constrain"),
-      "Количество по каждой позиции бери из прикреплённого PDF-файла в контексте; цену — из [Каталог · purolat.com]. Не ставь 0 в колонке «Кол-во», если в заявке указано число.",
-      inquiryLines > 1
-        ? `В заявке ${inquiryLines} позиций — в КП, DOCX и PDF должно быть ровно ${inquiryLines} строк (по одной на каждую строку черновика и блок каталога). Вызови quote-calculator для каждой строки.`
-        : null,
-    ].filter(Boolean));
+    harness.state.set(
+      "contextGuidelines",
+      [
+        ...quoteDocumentAgentGuidelines(),
+        ...layerGuidelines("constrain"),
+        "Количество по каждой позиции бери из прикреплённого PDF-файла в контексте; цену — из [Каталог · purolat.com]. Не ставь 0 в колонке «Кол-во», если в заявке указано число.",
+        inquiryLines > 1
+          ? `В заявке ${inquiryLines} позиций — в КП, DOCX и PDF должно быть ровно ${inquiryLines} строк (по одной на каждую строку черновика и блок каталога). Вызови quote-calculator для каждой строки.`
+          : null,
+      ].filter(Boolean)
+    );
 
     harnessLog("info", "quoteDocument.trigger", {
       prompt: prompt.slice(0, 160),
@@ -76,7 +79,9 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     await ensurePdfInquiryEvidence(harness);
 
     try {
-      const { loadParsedFileTextsForThread } = require("../../offerKp/catalogPrompt");
+      const {
+        loadParsedFileTextsForThread,
+      } = require("../../offerKp/catalogPrompt");
       const { parseInquiryText } = require("../../offerKp/parseInquiry");
       const parsedFileTexts = await loadParsedFileTextsForThread({
         workspace: harness.ctx.workspace,
@@ -102,7 +107,10 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
 
     await ensurePdfInquiryEvidence(harness);
 
-    if (harness.state.get("catalogEvidenceThin") && !hasPdfInquiryEvidence(harness)) {
+    if (
+      harness.state.get("catalogEvidenceThin") &&
+      !hasPdfInquiryEvidence(harness)
+    ) {
       harnessLog("warn", "quoteDocument.abstainThinEvidence", {
         skillName: params.skillName,
         evidenceGrade: harness.state.get("evidenceGrade"),

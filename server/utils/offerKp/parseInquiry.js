@@ -66,7 +66,9 @@ function detectInquiryTableContext(normalized) {
 }
 
 function isLikelyPriceToken(token) {
-  const s = String(token || "").trim().replace(/\s/g, "");
+  const s = String(token || "")
+    .trim()
+    .replace(/\s/g, "");
   if (!s) return false;
   if (/^\d{1,4}(?:[.,]\d{2})$/.test(s)) return true;
   return false;
@@ -203,7 +205,8 @@ function splitInquiryChunks(text) {
 
 function parseInquiryUnit(text) {
   const raw = String(text || "");
-  if (/(?:^|\s)\d+(?:[.,]\d+)?\s*(?:кг|kg)(?:\s|$|[.,;])/i.test(raw)) return "кг";
+  if (/(?:^|\s)\d+(?:[.,]\d+)?\s*(?:кг|kg)(?:\s|$|[.,;])/i.test(raw))
+    return "кг";
   if (
     /(?:^|\s)\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)(?:\s|$|[.,;])/i.test(
       raw

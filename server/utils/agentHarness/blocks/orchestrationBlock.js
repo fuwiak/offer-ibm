@@ -1,5 +1,7 @@
 const { BaseBlock } = require("../BaseBlock");
-const { parseThresholdsFromEnv } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  parseThresholdsFromEnv,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * Observe → act loop hooks: logs turns and exposes cycle metadata to other blocks.
@@ -42,7 +44,9 @@ class OrchestrationBlock extends BaseBlock {
   }
 
   async afterTurn(params, harness) {
-    const thresholds = harness.state.get("antiHallucinationThresholds") || parseThresholdsFromEnv();
+    const thresholds =
+      harness.state.get("antiHallucinationThresholds") ||
+      parseThresholdsFromEnv();
     const grade = harness.state.get("evidenceGrade");
     const hops = harness.state.get("cragHops") || 0;
 

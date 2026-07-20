@@ -24,7 +24,9 @@ const CYRILLIC_TO_LATIN = {
 };
 
 function foldHomoglyphs(text) {
-  let out = String(text || "").toLowerCase().replace(/ё/g, "е");
+  let out = String(text || "")
+    .toLowerCase()
+    .replace(/ё/g, "е");
   out = [...out].map((ch) => CYRILLIC_TO_LATIN[ch] || ch).join("");
   return out;
 }

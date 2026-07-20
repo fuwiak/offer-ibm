@@ -3,7 +3,9 @@ const {
   extractRecentUserMessages,
   shouldAutoApproveQuoteFileSkill,
 } = require("../../offerKp/quoteIntentJudge");
-const { parseThresholdsFromEnv } = require("../../../config/offerKp.harnessAntiHallucination");
+const {
+  parseThresholdsFromEnv,
+} = require("../../../config/offerKp.harnessAntiHallucination");
 const { hasPdfInquiryEvidence } = require("../../offerKp/harnessEvidence");
 
 /**
@@ -17,12 +19,18 @@ class OfferKpQuoteIntentBlock extends BaseBlock {
   async beforeToolApproval(params, harness) {
     const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
     const pdfInquiry = hasPdfInquiryEvidence(harness);
-    if (docSkills.has(params.skillName) && harness.state.get("catalogEvidenceThin") && !pdfInquiry) {
+    if (
+      docSkills.has(params.skillName) &&
+      harness.state.get("catalogEvidenceThin") &&
+      !pdfInquiry
+    ) {
       return null;
     }
 
     const grade = harness.state.get("evidenceGrade");
-    const thresholds = harness.state.get("antiHallucinationThresholds") || parseThresholdsFromEnv();
+    const thresholds =
+      harness.state.get("antiHallucinationThresholds") ||
+      parseThresholdsFromEnv();
     if (
       docSkills.has(params.skillName) &&
       !pdfInquiry &&

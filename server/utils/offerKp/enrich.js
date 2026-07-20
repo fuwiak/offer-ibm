@@ -289,10 +289,7 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
 
   const INQUIRY_MAX_LINES = Math.max(
     1,
-    Math.min(
-      500,
-      parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
-    )
+    Math.min(500, parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200)
   );
   const maxLines = Math.min(INQUIRY_MAX_LINES, lines.length);
   const contextTexts = [];

@@ -73,10 +73,7 @@ async function fetchProductStock(productId) {
     sku: bestSku.sku || "",
     skuName: bestSku.sku_name || "",
     price:
-      Number(bestSku.price) ||
-      Number(bestSku.compare_price) ||
-      skuPrice ||
-      0,
+      Number(bestSku.price) || Number(bestSku.compare_price) || skuPrice || 0,
     stockCount: totalStock,
     skus: rows,
   };
@@ -132,23 +129,30 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   }
 
   const best = pickBestInquiryAlternative(alternatives);
+  // Только exact/analog дают цену и имя из каталога.
+  // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
+  const accepted =
+    best && (best.matchType === "exact" || best.matchType === "analog");
 
   const qty = inquiryLine.quantity || 1;
-  const unitPrice = best?.price || 0;
-  const priceWithVat = Number((unitPrice * (1 + VAT_RATE)).toFixed(2));
-  const lineTotal = Number((priceWithVat * qty).toFixed(2));
-  const weightKg = estimateWeightKg(inquiryLine, best?.name);
+  const unitPrice = accepted ? Number(best.price) || 0 : 0;
+  const priceWithVat =
+    unitPrice > 0 ? Number((unitPrice * (1 + VAT_RATE)).toFixed(2)) : 0;
+  const lineTotal = unitPrice > 0 ? Number((priceWithVat * qty).toFixed(2)) : 0;
+  const weightKg = estimateWeightKg(inquiryLine, accepted ? best.name : null);
 
   let status = inquiryLine.needsReview
     ? STATUS.NEEDS_REVIEW
-    : best?.status || STATUS.OUT_OF_STOCK;
+    : accepted
+      ? best.status
+      : STATUS.OUT_OF_STOCK;
 
   return {
     inquiryRaw: inquiryLine.raw,
-    name: best?.name || inquiryLine.name,
+    name: accepted ? best.name : inquiryLine.name,
     requestedName: inquiryLine.name,
-    article: best?.sku || "",
-    productId: best?.productId || "",
+    article: accepted ? best.sku || "" : "",
+    productId: accepted ? best.productId || "" : "",
     quantity: qty,
     unit: inquiryLine.unit || "шт",
     priceWithVat,
@@ -156,11 +160,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     lineTotal,
     weightKg,
     status,
-    matchType: best?.matchType || "none",
-    analogOf: best?.analogOf || null,
+    matchType: accepted ? best.matchType : best?.matchType || "none",
+    analogOf: accepted ? best.analogOf || null : null,
     comment: inquiryLine.specialRequirements || "",
     thread: inquiryLine.thread,
     alternatives,
+    productUrl: accepted ? best.productUrl : undefined,
   };
 }
 

@@ -53,8 +53,9 @@ function assessInquiryTextQuality(text) {
   }
 
   const mixedScriptWords = (
-    raw.match(/(?<![\p{L}])[a-zA-Z]+[а-яА-ЯёЁ]+|[а-яА-ЯёЁ]+[a-zA-Z]+(?![\p{L}])/gu) ||
-    []
+    raw.match(
+      /(?<![\p{L}])[a-zA-Z]+[а-яА-ЯёЁ]+|[а-яА-ЯёЁ]+[a-zA-Z]+(?![\p{L}])/gu
+    ) || []
   ).length;
 
   const needsReocr = garbledHeaders >= 2 || mixedScriptWords >= 4;
@@ -74,7 +75,9 @@ function assessInquiryTextQuality(text) {
 }
 
 function isLikelyPriceToken(token) {
-  const s = String(token || "").trim().replace(/\s/g, "");
+  const s = String(token || "")
+    .trim()
+    .replace(/\s/g, "");
   if (!s) return false;
   if (/^\d{1,3}(?:[.,]\d{2})$/.test(s)) return true;
   if (/^\d+[.,]\d{2}\s*(?:руб|rub|₽)?$/i.test(s)) return true;

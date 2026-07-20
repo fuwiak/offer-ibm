@@ -112,6 +112,69 @@ describe("AgentHarness", () => {
     expect(harness.state.get("quoteComplianceOk")).toBe(false);
   });
 
+  it("forces create-docx content from inquiryDbDraft (ignores agent 18.50 spam)", async () => {
+    const aibitat = {
+      _chats: [{ from: "USER", content: "сделай кп" }],
+      introspect: jest.fn(),
+      requestToolApproval: jest.fn(),
+    };
+
+    const harness = new AgentHarness({
+      aibitat,
+      ctx: { invocation: { prompt: "сделай кп" }, workspace: null },
+    });
+    harness
+      .use(new OfferKpDocumentTriggerBlock())
+      .use(new OfferKpQuoteComplianceBlock())
+      .use(new OfferKpQuoteIntentBlock())
+      .use(new ToolRegistryBlock());
+    await harness.install();
+
+    harness.state.set("inquiryDbDraft", {
+      reference: "KP-FORCE",
+      lines: [
+        {
+          requestedName: "Болт M10x100",
+          name: "Болт DIN 931 M10x100",
+          quantity: 30,
+          unit: "кг",
+          unitPriceNet: 45,
+          lineTotal: 1620,
+          status: "В наличии",
+          matchType: "exact",
+        },
+        {
+          requestedName: "Болт M6x25",
+          name: "Болт M6x25",
+          quantity: 3,
+          unit: "кг",
+          unitPriceNet: 0,
+          lineTotal: 0,
+          status: "под заказ",
+          matchType: "none",
+        },
+      ],
+    });
+
+    const payload = {
+      filename: "Kp_spam.docx",
+      content:
+        "| № | Наименование | Кол-во | Цена | Сумма |\n|---|---|---|---|---|\n| 1 | Болт | 30 | 18.50 | 555 |\n| 2 | Болт | 3 | 18.50 | 55.50 |",
+    };
+
+    const approved = await harness.resolveToolApproval({
+      skillName: "create-docx-file",
+      payload,
+    });
+
+    expect(approved?.approved).toBe(true);
+    expect(payload.content).toContain("45.00");
+    expect(payload.content).toContain("1350.00");
+    expect(payload.content).toMatch(/\| 2 \|[^|]+\| 3 \| кг \| — \|/);
+    expect(payload.content).not.toContain("18.50");
+    expect(harness.state.get("quoteComplianceOk")).toBe(true);
+  });
+
   it("merges context layers in buildContext pipeline", async () => {
     class GuidelineBlock extends BaseBlock {
       constructor() {

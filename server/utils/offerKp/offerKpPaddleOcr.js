@@ -97,7 +97,10 @@ async function ocrImageBuffer(imageBuffer, modelId) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail =
-      body?.error?.message || body?.message || response.statusText || "OCR failed";
+      body?.error?.message ||
+      body?.message ||
+      response.statusText ||
+      "OCR failed";
     throw new Error(String(detail));
   }
 

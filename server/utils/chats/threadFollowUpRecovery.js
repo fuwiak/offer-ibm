@@ -3,7 +3,9 @@
 const MAX_SUGGESTIONS = 3;
 
 function detectUiLanguage(prompt = "", hint = null) {
-  const h = String(hint || "").trim().toLowerCase();
+  const h = String(hint || "")
+    .trim()
+    .toLowerCase();
   if (h.startsWith("ru")) return "ru";
   if (h.startsWith("pl")) return "pl";
   if (h.startsWith("en")) return "en";
@@ -51,7 +53,11 @@ function detectFollowUpIssues({
   if (!catalogInjected && !hasCatalogData(userPrompt)) {
     issues.push("missing_catalog");
   }
-  if (/шаблон|template|заполн|do uzupełnienia|fill in|placeholder|\[цена\]/i.test(assistant)) {
+  if (
+    /шаблон|template|заполн|do uzupełnienia|fill in|placeholder|\[цена\]/i.test(
+      assistant
+    )
+  ) {
     issues.push("empty_template");
   }
   if (
@@ -60,10 +66,18 @@ function detectFollowUpIssues({
   ) {
     issues.push("doc_without_prices");
   }
-  if (/нет доступа к (?:бд|базе|каталог|цен)|no access to (?:db|catalog|prices)/i.test(assistant)) {
+  if (
+    /нет доступа к (?:бд|базе|каталог|цен)|no access to (?:db|catalog|prices)/i.test(
+      assistant
+    )
+  ) {
     issues.push("agent_denied_catalog");
   }
-  if (wantsQuoteFlow(userPrompt) && !hasPriceSignals(assistant) && issues.length === 0) {
+  if (
+    wantsQuoteFlow(userPrompt) &&
+    !hasPriceSignals(assistant) &&
+    issues.length === 0
+  ) {
     issues.push("quote_without_prices");
   }
 
