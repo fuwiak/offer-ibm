@@ -128,15 +128,16 @@ async function streamChatWithWorkspace(
     .map((doc) => doc.pageContent)
     .filter(Boolean);
 
-  const { resolveQuotePdfModelSwitch } = require("../offerKp/quotePdfModelRouter");
+  const {
+    resolveQuotePdfModelSwitch,
+  } = require("../offerKp/quotePdfModelRouter");
   const quotePdfModelSwitch = resolveQuotePdfModelSwitch({
     message: updatedMessage,
     workspace,
     parsedFiles,
     parsedFileTexts,
   });
-  const effectiveChatModel =
-    quotePdfModelSwitch?.model || workspace?.chatModel;
+  const effectiveChatModel = quotePdfModelSwitch?.model || workspace?.chatModel;
   const effectiveChatProvider =
     quotePdfModelSwitch?.provider || workspace?.chatProvider;
 
@@ -353,7 +354,14 @@ async function streamChatWithWorkspace(
       });
 
     completeText = textResponse;
-    metrics = performanceMetrics;
+    try {
+      const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
+      metrics = sanitizeMetricsForUi(performanceMetrics, {
+        displayModel: workspace?.chatModel || null,
+      });
+    } catch {
+      metrics = performanceMetrics;
+    }
     writeResponseChunk(response, {
       uuid,
       sources,
@@ -372,7 +380,14 @@ async function streamChatWithWorkspace(
       uuid,
       sources,
     });
-    metrics = stream.metrics;
+    try {
+      const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
+      metrics = sanitizeMetricsForUi(stream.metrics, {
+        displayModel: workspace?.chatModel || null,
+      });
+    } catch {
+      metrics = stream.metrics;
+    }
   }
 
   const orchestration = await runGenerationPipeline({
@@ -390,12 +405,15 @@ async function streamChatWithWorkspace(
   sources = orchestration.sources;
   const cost = estimateChatCost(metrics);
   metrics = { ...(metrics || {}), cost };
-  if (ragTrace?.teacher) {
-    metrics = {
-      ...metrics,
-      teacher: true,
-      teacherModel: ragTrace.teacher.model,
-    };
+  // Teacher OpenRouter stays in ragTrace only — never leak OR model id into UI metrics.
+  try {
+    const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
+    metrics = sanitizeMetricsForUi(metrics, {
+      displayModel:
+        ragTrace?.teacher?.displayModel || workspace?.chatModel || null,
+    });
+  } catch {
+    /* ignore */
   }
 
   const externalLinks = buildExternalLinksSection(sources);

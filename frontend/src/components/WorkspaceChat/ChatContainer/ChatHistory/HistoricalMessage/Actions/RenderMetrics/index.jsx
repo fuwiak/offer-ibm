@@ -31,15 +31,22 @@ function getAutoShowMetrics() {
 
 /**
  * Build the metrics string for a given metrics object
- * - Model name
+ * - Model name (hidden when OpenRouter teacher leaks into metrics)
  * - Duration and output TPS
  * - Timestamp
  * @param {metrics: {duration:number, outputTps: number, model?: string, timestamp?: number}} metrics
  * @returns {string}
  */
+function shouldHideModelName(metrics = {}) {
+  if (metrics?.teacher || metrics?.teacherModel) return true;
+  const provider = String(metrics?.provider || "");
+  if (/openrouter/i.test(provider)) return true;
+  return false;
+}
+
 function buildMetricsString(metrics = {}) {
   return [
-    metrics?.model ? metrics.model : "",
+    !shouldHideModelName(metrics) && metrics?.model ? metrics.model : "",
     `${formatDuration(metrics.duration)} (${formatTps(metrics.outputTps)} tok/s)`,
     metrics?.timestamp
       ? formatDateTimeAsMoment(metrics.timestamp, "MMM D, h:mm A")

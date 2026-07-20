@@ -5,6 +5,9 @@ const {
 const {
   pickRunnableLmStudioModel,
 } = require("../../../utils/offerKpApp/lmStudioModels");
+const {
+  sanitizeMetricsForUi,
+} = require("../../../utils/offerKpApp/teacherLlm");
 
 describe("resolveLlmProvider", () => {
   const prevPref = process.env.LMSTUDIO_MODEL_PREF;
@@ -43,6 +46,27 @@ describe("resolveLlmProvider", () => {
     expect(resolved.displayProvider).toBe("lmstudio");
     expect(resolved.displayModel).toBe("openai/gpt-oss-20b");
     expect(process.env.LMSTUDIO_MODEL_PREF).toBe("openai/gpt-oss-20b");
+  });
+
+  it("hides OpenRouter model id from UI metrics when teacher is on", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3.5-plus-20260420";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    const sanitized = sanitizeMetricsForUi({
+      model: "qwen/qwen3.5-plus-20260420",
+      provider: "OpenRouterLLM",
+      duration: 38.5,
+      outputTps: 52.89,
+      teacher: true,
+      teacherModel: "qwen/qwen3.5-plus-20260420",
+    });
+
+    expect(sanitized.model).toBe("openai/gpt-oss-20b");
+    expect(sanitized.provider).toBe("LMStudioLLM");
+    expect(sanitized.teacher).toBeUndefined();
+    expect(sanitized.teacherModel).toBeUndefined();
   });
 
   it("defaults to OpenRouter teacher when key set and flag unset", () => {

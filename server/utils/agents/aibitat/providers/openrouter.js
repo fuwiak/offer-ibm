@@ -32,6 +32,18 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
     this.model = model;
     this.verbose = true;
     this._supportsToolCalling = null;
+    // Teacher OpenRouter: UI metrics keep LM Studio labels.
+    try {
+      const {
+        shouldUseTeacherLlm,
+        resolveUiModelLabel,
+      } = require("../../../offerKpApp/teacherLlm");
+      if (shouldUseTeacherLlm()) {
+        this.displayModel = resolveUiModelLabel();
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   get client() {
@@ -52,7 +64,9 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
   supportsNativeToolCalling() {
     if (this._supportsToolCalling !== null) return this._supportsToolCalling;
 
-    const disabled = String(process.env.PROVIDER_DISABLE_NATIVE_TOOL_CALLING || "")
+    const disabled = String(
+      process.env.PROVIDER_DISABLE_NATIVE_TOOL_CALLING || ""
+    )
       .toLowerCase()
       .split(",")
       .map((s) => s.trim())

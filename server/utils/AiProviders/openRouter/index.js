@@ -54,6 +54,18 @@ class OpenRouterLLM {
     this.embedder = embedder ?? new NativeEmbedder();
     this.defaultTemp = 0.7;
     this.timeout = this.#parseTimeout();
+    // When teacher mode is on, metrics / UI show LM Studio label, not OR id.
+    try {
+      const {
+        shouldUseTeacherLlm,
+        resolveUiModelLabel,
+      } = require("../../offerKpApp/teacherLlm");
+      if (shouldUseTeacherLlm()) {
+        this.displayModel = resolveUiModelLabel();
+      }
+    } catch {
+      /* ignore */
+    }
 
     if (!fs.existsSync(cacheFolder))
       fs.mkdirSync(cacheFolder, { recursive: true });
@@ -276,8 +288,8 @@ class OpenRouterLLM {
         total_tokens: result.output.usage.total_tokens || 0,
         outputTps: result.output.usage.completion_tokens / result.duration,
         duration: result.duration,
-        model: this.model,
-        provider: this.className,
+        model: this.displayModel || this.model,
+        provider: this.displayModel ? "LMStudioLLM" : this.className,
         timestamp: new Date(),
       },
     };
@@ -307,8 +319,8 @@ class OpenRouterLLM {
       // OpenRouter returns the usage in the stream as the very last chunk **after** the finish reason.
       // so we don't need to run the prompt token calculation.
       runPromptTokenCalculation: false,
-      modelTag: this.model,
-      provider: this.className,
+      modelTag: this.displayModel || this.model,
+      provider: this.displayModel ? "LMStudioLLM" : this.className,
     });
 
     return measuredStreamRequest;

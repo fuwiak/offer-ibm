@@ -170,7 +170,11 @@ function getLLMProvider({ provider = null, model = null } = {}) {
       return new PerplexityLLM(embedder, model);
     case "openrouter":
       const { OpenRouterLLM } = require("../AiProviders/openRouter");
-      return new OpenRouterLLM(embedder, model);
+      {
+        const llm = new OpenRouterLLM(embedder, model);
+        if (resolved.displayModel) llm.displayModel = resolved.displayModel;
+        return llm;
+      }
     case "mistral":
       const { MistralLLM } = require("../AiProviders/mistral");
       return new MistralLLM(embedder, model);

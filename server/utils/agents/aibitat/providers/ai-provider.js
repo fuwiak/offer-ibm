@@ -560,8 +560,9 @@ class Provider {
       outputTps:
         completionTokens && duration > 0 ? completionTokens / duration : 0,
       duration,
-      model: this.model,
-      provider: this.constructor.name,
+      // Teacher OpenRouter: keep LM Studio label in UI metrics.
+      model: this.displayModel || this.model,
+      provider: this.displayModel ? "LMStudioProvider" : this.constructor.name,
       timestamp: new Date(),
     };
   }
@@ -571,7 +572,17 @@ class Provider {
    * @returns {ProviderUsageMetrics} The usage metrics
    */
   getUsage() {
-    return { ...this.lastUsage };
+    try {
+      const {
+        sanitizeMetricsForUi,
+      } = require("../../../offerKpApp/teacherLlm");
+      return sanitizeMetricsForUi(
+        { ...this.lastUsage },
+        { displayModel: this.displayModel || null }
+      );
+    } catch {
+      return { ...this.lastUsage };
+    }
   }
 
   /**

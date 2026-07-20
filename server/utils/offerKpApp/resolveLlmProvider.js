@@ -8,6 +8,7 @@ const { resolveOpenRouterApiKey } = require("./openRouterEnv");
 const {
   shouldUseTeacherLlm,
   resolveTeacherModel,
+  resolveUiModelLabel,
 } = require("./teacherLlm");
 
 function ensureLmStudioBasePath() {
@@ -60,6 +61,7 @@ function resolveRunnableModel(requestedModel, catalog = null) {
 /** OpenRouter runtime with LM Studio labels for the UI. */
 function resolveOpenRouterTeacherResult({ reason = "teacher" } = {}) {
   const teacherModel = resolveTeacherModel();
+  const displayModel = resolveUiModelLabel();
   const resolved = {
     provider: "openrouter",
     model: teacherModel,
@@ -68,10 +70,7 @@ function resolveOpenRouterTeacherResult({ reason = "teacher" } = {}) {
     openRouterFallback: reason !== "teacher",
     // Public-facing label stays local so clients never see "openrouter".
     displayProvider: "lmstudio",
-    displayModel:
-      process.env.LMSTUDIO_MODEL_PREF ||
-      llmDefaults.LMSTUDIO_MODEL_PREF ||
-      OFFER_KP_DEFAULT_MODEL,
+    displayModel,
   };
   offerKpLog("info", "Resolved LLM provider", {
     provider: "lmstudio",

@@ -1272,82 +1272,180 @@ https://docs.offerKp.com/agent/intelligent-tool-selection
     });
     config = { ...config, provider: resolved.provider, model: resolved.model };
 
+    /** @type {import("./providers/ai-provider")} */
+    let providerInstance = null;
     switch (config.provider) {
       case "openai":
-        return new Providers.OpenAIProvider({ model: config.model });
+        providerInstance = new Providers.OpenAIProvider({
+          model: config.model,
+        });
+        break;
       case "anthropic":
-        return new Providers.AnthropicProvider({ model: config.model });
+        providerInstance = new Providers.AnthropicProvider({
+          model: config.model,
+        });
+        break;
       case "lmstudio":
-        return new Providers.LMStudioProvider({ model: config.model });
+        providerInstance = new Providers.LMStudioProvider({
+          model: config.model,
+        });
+        break;
       case "ollama":
-        return new Providers.OllamaProvider({ model: config.model });
+        providerInstance = new Providers.OllamaProvider({
+          model: config.model,
+        });
+        break;
       case "groq":
-        return new Providers.GroqProvider({ model: config.model });
+        providerInstance = new Providers.GroqProvider({ model: config.model });
+        break;
       case "togetherai":
-        return new Providers.TogetherAIProvider({ model: config.model });
+        providerInstance = new Providers.TogetherAIProvider({
+          model: config.model,
+        });
+        break;
       case "azure":
-        return new Providers.AzureOpenAiProvider({ model: config.model });
+        providerInstance = new Providers.AzureOpenAiProvider({
+          model: config.model,
+        });
+        break;
       case "koboldcpp":
-        return new Providers.KoboldCPPProvider({});
+        providerInstance = new Providers.KoboldCPPProvider({});
+        break;
       case "localai":
-        return new Providers.LocalAIProvider({ model: config.model });
+        providerInstance = new Providers.LocalAIProvider({
+          model: config.model,
+        });
+        break;
       case "openrouter":
-        return new Providers.OpenRouterProvider({ model: config.model });
+        providerInstance = new Providers.OpenRouterProvider({
+          model: config.model,
+        });
+        break;
       case "mistral":
-        return new Providers.MistralProvider({ model: config.model });
+        providerInstance = new Providers.MistralProvider({
+          model: config.model,
+        });
+        break;
       case "generic-openai":
-        return new Providers.GenericOpenAiProvider({ model: config.model });
+        providerInstance = new Providers.GenericOpenAiProvider({
+          model: config.model,
+        });
+        break;
       case "perplexity":
-        return new Providers.PerplexityProvider({ model: config.model });
+        providerInstance = new Providers.PerplexityProvider({
+          model: config.model,
+        });
+        break;
       case "textgenwebui":
-        return new Providers.TextWebGenUiProvider({});
+        providerInstance = new Providers.TextWebGenUiProvider({});
+        break;
       case "bedrock":
-        return new Providers.AWSBedrockProvider({});
+        providerInstance = new Providers.AWSBedrockProvider({});
+        break;
       case "fireworksai":
-        return new Providers.FireworksAIProvider({ model: config.model });
+        providerInstance = new Providers.FireworksAIProvider({
+          model: config.model,
+        });
+        break;
       case "nvidia-nim":
-        return new Providers.NvidiaNimProvider({ model: config.model });
+        providerInstance = new Providers.NvidiaNimProvider({
+          model: config.model,
+        });
+        break;
       case "moonshotai":
-        return new Providers.MoonshotAiProvider({ model: config.model });
+        providerInstance = new Providers.MoonshotAiProvider({
+          model: config.model,
+        });
+        break;
       case "deepseek":
-        return new Providers.DeepSeekProvider({ model: config.model });
+        providerInstance = new Providers.DeepSeekProvider({
+          model: config.model,
+        });
+        break;
       case "litellm":
-        return new Providers.LiteLLMProvider({ model: config.model });
+        providerInstance = new Providers.LiteLLMProvider({
+          model: config.model,
+        });
+        break;
       case "apipie":
-        return new Providers.ApiPieProvider({ model: config.model });
+        providerInstance = new Providers.ApiPieProvider({
+          model: config.model,
+        });
+        break;
       case "xai":
-        return new Providers.XAIProvider({ model: config.model });
+        providerInstance = new Providers.XAIProvider({ model: config.model });
+        break;
       case "zai":
-        return new Providers.ZAIProvider({ model: config.model });
+        providerInstance = new Providers.ZAIProvider({ model: config.model });
+        break;
       case "novita":
-        return new Providers.NovitaProvider({ model: config.model });
+        providerInstance = new Providers.NovitaProvider({
+          model: config.model,
+        });
+        break;
       case "ppio":
-        return new Providers.PPIOProvider({ model: config.model });
+        providerInstance = new Providers.PPIOProvider({ model: config.model });
+        break;
       case "gemini":
-        return new Providers.GeminiProvider({ model: config.model });
+        providerInstance = new Providers.GeminiProvider({
+          model: config.model,
+        });
+        break;
       case "dpais":
-        return new Providers.DellProAiStudioProvider({ model: config.model });
+        providerInstance = new Providers.DellProAiStudioProvider({
+          model: config.model,
+        });
+        break;
       case "cometapi":
-        return new Providers.CometApiProvider({ model: config.model });
+        providerInstance = new Providers.CometApiProvider({
+          model: config.model,
+        });
+        break;
       case "foundry":
-        return new Providers.FoundryProvider({ model: config.model });
+        providerInstance = new Providers.FoundryProvider({
+          model: config.model,
+        });
+        break;
       case "giteeai":
-        return new Providers.GiteeAIProvider({ model: config.model });
+        providerInstance = new Providers.GiteeAIProvider({
+          model: config.model,
+        });
+        break;
       case "cohere":
-        return new Providers.CohereProvider({ model: config.model });
+        providerInstance = new Providers.CohereProvider({
+          model: config.model,
+        });
+        break;
       case "docker-model-runner":
-        return new Providers.DockerModelRunnerProvider({ model: config.model });
+        providerInstance = new Providers.DockerModelRunnerProvider({
+          model: config.model,
+        });
+        break;
       case "privatemode":
-        return new Providers.PrivatemodeProvider({ model: config.model });
+        providerInstance = new Providers.PrivatemodeProvider({
+          model: config.model,
+        });
+        break;
       case "sambanova":
-        return new Providers.SambaNovaProvider({ model: config.model });
+        providerInstance = new Providers.SambaNovaProvider({
+          model: config.model,
+        });
+        break;
       case "lemonade":
-        return new Providers.LemonadeProvider({ model: config.model });
+        providerInstance = new Providers.LemonadeProvider({
+          model: config.model,
+        });
+        break;
       default:
         throw new Error(
           `Unknown provider: ${config.provider}. Please use a valid provider.`
         );
     }
+
+    if (providerInstance && resolved.displayModel) {
+      providerInstance.displayModel = resolved.displayModel;
+    }
+    return providerInstance;
   }
 
   /**
