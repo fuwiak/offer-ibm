@@ -1,6 +1,6 @@
 # offerkp-ops — Selectel Lainey live dashboard
 
-Analog of `bober-ai/cli`: Bubble Tea TUI that watches container / health / docker logs / deploy log in real time.
+Analog of `bober-ai/cli`: Bubble Tea TUI that watches container / health / docker logs / deploy log / GitHub Actions CI/CD in real time.
 
 ## Install
 
@@ -11,16 +11,20 @@ yarn ops:install
 
 Puts `offerkp` on `~/bin` and enables `.githooks/post-commit`.
 
+Requires [GitHub CLI](https://cli.github.com/) (`gh auth login`) for the **CI/CD** tab.
+
 ## Usage
 
 ```bash
 offerkp              # TUI Status (auto-refresh)
 offerkp build        # live deploy log tab
-offerkp logs         # docker logs
+offerkp logs         # docker / journalctl logs
+offerkp cicd         # GitHub Actions → Selectel deploy
 offerkp status --plain   # used by post-commit
+offerkp cicd --plain
 ```
 
-Keys: `Tab` switch · `f` follow · `r` refresh · `q` quit
+Keys: `Tab` switch · `1-5` jump · `f` follow · `r` refresh · `q` quit
 
 ## Commit trigger
 
@@ -33,7 +37,8 @@ OFFERKP_OPS_SKIP=1 git commit ...
 ## Deploy (writes READY + deploy log for Build tab)
 
 ```bash
-bash scripts/deploy-lainey-app.sh
+bash scripts/deploy-lainey-sync.sh
+# or: push to main → GitHub Actions "Deploy Selectel Lainey"
 ```
 
 ## Env
@@ -45,5 +50,8 @@ bash scripts/deploy-lainey-app.sh
 | `OFFERKP_PUBLIC_URL` | `http://offer-ibm.ru` |
 | `OFFERKP_DEPLOY_LOG` | `/opt/offer-kp/build.log` |
 | `OFFERKP_READY_FILE` | `/opt/offer-kp/READY` |
+| `OFFERKP_GITHUB_REPO` | `fuwiak/offer-ibm` |
+| `OFFERKP_GITHUB_WORKFLOW` | `deploy-selectel.yml` |
 
 Detects **systemd** (`offer-kp.service`) first, then Docker. Logs come from `journalctl`.
+CI/CD reads GitHub Actions via `gh` (not Railway).

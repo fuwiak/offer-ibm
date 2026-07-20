@@ -6,17 +6,19 @@ import (
 )
 
 type Config struct {
-	Host       string
-	User       string
-	SSHKey     string
-	Container  string
-	RemoteRoot string
-	HealthPath string
-	PublicURL  string
-	PublicIP   string
-	DeployLog  string
-	ReadyFile  string
-	AppPort    string
+	Host           string
+	User           string
+	SSHKey         string
+	Container      string
+	RemoteRoot     string
+	HealthPath     string
+	PublicURL      string
+	PublicIP       string
+	DeployLog      string
+	ReadyFile      string
+	AppPort        string
+	GitHubRepo     string
+	GitHubWorkflow string
 }
 
 func loadConfig() Config {
@@ -37,17 +39,19 @@ func loadConfig() Config {
 		}
 	}
 	return Config{
-		Host:       envOr("OFFERKP_HOST", envOr("LAINEY_HOST", "87.228.90.43")),
-		User:       envOr("OFFERKP_SSH_USER", envOr("LAINEY_SSH_USER", "root")),
-		SSHKey:     key,
-		Container:  envOr("OFFERKP_CONTAINER", "offer-kp"),
-		RemoteRoot: envOr("OFFERKP_REMOTE_ROOT", "/opt/offer-kp"),
-		HealthPath: envOr("OFFERKP_HEALTH_PATH", "/ping"),
-		PublicURL:  envOr("OFFERKP_PUBLIC_URL", "http://offer-ibm.ru"),
-		PublicIP:   envOr("OFFERKP_PUBLIC_IP", "http://87.228.90.43"),
-		DeployLog:  envOr("OFFERKP_DEPLOY_LOG", "/opt/offer-kp/build.log"),
-		ReadyFile:  envOr("OFFERKP_READY_FILE", "/opt/offer-kp/READY"),
-		AppPort:    envOr("OFFERKP_APP_PORT", "3001"),
+		Host:           envOr("OFFERKP_HOST", envOr("LAINEY_HOST", "87.228.90.43")),
+		User:           envOr("OFFERKP_SSH_USER", envOr("LAINEY_SSH_USER", "root")),
+		SSHKey:         key,
+		Container:      envOr("OFFERKP_CONTAINER", "offer-kp"),
+		RemoteRoot:     envOr("OFFERKP_REMOTE_ROOT", "/opt/offer-kp"),
+		HealthPath:     envOr("OFFERKP_HEALTH_PATH", "/ping"),
+		PublicURL:      envOr("OFFERKP_PUBLIC_URL", "http://offer-ibm.ru"),
+		PublicIP:       envOr("OFFERKP_PUBLIC_IP", "http://87.228.90.43"),
+		DeployLog:      envOr("OFFERKP_DEPLOY_LOG", "/opt/offer-kp/build.log"),
+		ReadyFile:      envOr("OFFERKP_READY_FILE", "/opt/offer-kp/READY"),
+		AppPort:        envOr("OFFERKP_APP_PORT", "3001"),
+		GitHubRepo:     envOr("OFFERKP_GITHUB_REPO", "fuwiak/offer-ibm"),
+		GitHubWorkflow: envOr("OFFERKP_GITHUB_WORKFLOW", "deploy-selectel.yml"),
 	}
 }
 

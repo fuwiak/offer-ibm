@@ -17,10 +17,11 @@ const (
 	modeHealth
 	modeLogs
 	modeBuild
+	modeCICD
 	modeHelp
 )
 
-var tabOrder = []mode{modeStatus, modeHealth, modeLogs, modeBuild}
+var tabOrder = []mode{modeStatus, modeHealth, modeLogs, modeBuild, modeCICD}
 
 type snapshotMsg struct {
 	snap StatusSnapshot
@@ -36,6 +37,10 @@ type buildLogMsg struct {
 	err  string
 }
 
+type cicdMsg struct {
+	snap CICDSnapshot
+}
+
 type tickMsg time.Time
 
 type model struct {
@@ -47,6 +52,7 @@ type model struct {
 	loading      bool
 	follow       bool
 	snap         StatusSnapshot
+	cicd         CICDSnapshot
 	logs         string
 	buildLog     string
 	vp           viewport.Model
@@ -56,7 +62,7 @@ type model struct {
 }
 
 func newModel(cfg Config, start mode) model {
-	follow := start == modeLogs || start == modeStatus || start == modeHealth || start == modeBuild
+	follow := start == modeLogs || start == modeStatus || start == modeHealth || start == modeBuild || start == modeCICD
 	return model{
 		cfg:     cfg,
 		mode:    start,
@@ -103,12 +109,20 @@ func loadBuildLogCmd(cfg Config) tea.Cmd {
 	}
 }
 
+func loadCICDCmd(cfg Config) tea.Cmd {
+	return func() tea.Msg {
+		return cicdMsg{snap: fetchCICD(cfg)}
+	}
+}
+
 func (m model) refreshCmd() tea.Cmd {
 	switch m.mode {
 	case modeLogs:
 		return loadLogsCmd(m.cfg)
 	case modeBuild:
 		return loadBuildLogCmd(m.cfg)
+	case modeCICD:
+		return loadCICDCmd(m.cfg)
 	case modeHelp:
 		return nil
 	default:
@@ -126,6 +140,8 @@ func (m model) pageTitle() string {
 		return "LOGS"
 	case modeBuild:
 		return "BUILD"
+	case modeCICD:
+		return "CI/CD"
 	case modeHelp:
 		return "HELP"
 	default:
@@ -150,6 +166,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			interval := 5
 			if m.mode == modeLogs || m.mode == modeBuild {
 				interval = 2
+			}
+			if m.mode == modeCICD {
+				interval = 8
 			}
 			if sec%interval == 0 {
 				m.pollInFlight = true
@@ -191,7 +210,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.flash = fmt.Sprintf("logs %s · %s", tag, m.clock.Format("15:04:05"))
 		}
-		m.refreshViewport(atBottom || m.follow)
+		// Stick to bottom only while following and already at the end — never
+		// yank the viewport when the user is scrolling with ↑/↓.
+		m.refreshViewport(m.follow && atBottom)
 		return m, nil
 
 	case buildLogMsg:
@@ -205,7 +226,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.buildLog = msg.text
 			m.flash = fmt.Sprintf("build · %s", m.clock.Format("15:04:05"))
 		}
-		m.refreshViewport(atBottom || m.follow)
+		m.refreshViewport(m.follow && atBottom)
+		return m, nil
+
+	case cicdMsg:
+		m.cicd = msg.snap
+		m.loading = false
+		m.pollInFlight = false
+		if msg.snap.Err != "" {
+			m.flash = "ci/cd failed"
+		} else if len(msg.snap.Runs) > 0 {
+			r := msg.snap.Runs[0]
+			m.flash = fmt.Sprintf("%s · %s · %s", cicdState(r.Status, r.Conclusion), shortSHA(r.HeadSha), msg.snap.FetchedAt.Format("15:04:05"))
+		} else {
+			m.flash = fmt.Sprintf("ci/cd · %s", msg.snap.FetchedAt.Format("15:04:05"))
+		}
+		m.refreshViewport(false)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -220,10 +256,14 @@ func (m *model) layout() {
 }
 
 func (m *model) refreshViewport(stickBottom bool) {
+	offset := m.vp.YOffset
 	m.vp.SetContent(m.body())
-	if stickBottom || m.mode == modeLogs || m.mode == modeBuild {
+	if stickBottom {
 		m.vp.GotoBottom()
+		return
 	}
+	// Preserve scroll position across content refresh / live poll.
+	m.vp.SetYOffset(offset)
 }
 
 func (m model) switchTab(next mode) (tea.Model, tea.Cmd) {
@@ -231,7 +271,7 @@ func (m model) switchTab(next mode) (tea.Model, tea.Cmd) {
 	m.loading = true
 	m.pollInFlight = true
 	m.flash = "loading " + m.pageTitle() + "…"
-	if next == modeLogs || next == modeStatus || next == modeHealth || next == modeBuild {
+	if next == modeLogs || next == modeStatus || next == modeHealth || next == modeBuild || next == modeCICD {
 		m.follow = true
 	}
 	m.refreshViewport(false)
@@ -261,6 +301,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.follow {
 			m.flash = "follow ON"
 			m.pollInFlight = true
+			m.vp.GotoBottom()
 			return m, m.refreshCmd()
 		}
 		m.flash = "follow OFF"
@@ -282,6 +323,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.switchTab(modeLogs)
 	case "4":
 		return m.switchTab(modeBuild)
+	case "5", "c":
+		return m.switchTab(modeCICD)
 	case "?", "0":
 		m.mode = modeHelp
 		m.loading = false
@@ -289,18 +332,31 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "up", "k":
 		m.vp.LineUp(1)
+		// Scrolling away from the live tail pauses follow so polls don't jump.
+		if (m.mode == modeLogs || m.mode == modeBuild) && m.follow && !m.vp.AtBottom() {
+			m.follow = false
+			m.flash = "follow OFF · scroll"
+		}
 		return m, nil
 	case "down", "j":
 		m.vp.LineDown(1)
 		return m, nil
 	case "pgup":
 		m.vp.ViewUp()
+		if (m.mode == modeLogs || m.mode == modeBuild) && m.follow && !m.vp.AtBottom() {
+			m.follow = false
+			m.flash = "follow OFF · scroll"
+		}
 		return m, nil
 	case "pgdown", " ":
 		m.vp.ViewDown()
 		return m, nil
 	case "home", "g":
 		m.vp.GotoTop()
+		if m.mode == modeLogs || m.mode == modeBuild {
+			m.follow = false
+			m.flash = "follow OFF · scroll"
+		}
 		return m, nil
 	case "end", "G":
 		m.vp.GotoBottom()
@@ -360,6 +416,7 @@ func (m model) tabs() string {
 		{modeHealth, "2 Health"},
 		{modeLogs, "3 Logs"},
 		{modeBuild, "4 Build"},
+		{modeCICD, "5 CI/CD"},
 	}
 	parts := make([]string, 0, len(labels))
 	for _, t := range labels {
@@ -380,11 +437,11 @@ func (m model) footer() string {
 	if m.follow {
 		follow = "f pause"
 	}
-	return style.Render(fmt.Sprintf(" Tab/←→ switch · %s · r refresh · j/k scroll · ? help · q quit ", follow))
+	return style.Render(fmt.Sprintf(" Tab/←→ switch · %s · r refresh · ↑↓/jk scroll · ? help · q quit ", follow))
 }
 
 func (m model) body() string {
-	if m.loading && m.logs == "" && m.buildLog == "" && m.mode != modeHelp && len(m.snap.Health) == 0 && m.snap.Container.Name == "" {
+	if m.loading && m.logs == "" && m.buildLog == "" && m.mode != modeHelp && m.mode != modeCICD && len(m.snap.Health) == 0 && m.snap.Container.Name == "" {
 		return "\n  loading…\n"
 	}
 	switch m.mode {
@@ -405,6 +462,11 @@ func (m model) body() string {
 			return "\n  loading build log…\n"
 		}
 		return m.buildLog + "\n"
+	case modeCICD:
+		if m.loading && len(m.cicd.Runs) == 0 && m.cicd.Err == "" {
+			return "\n  loading CI/CD…\n"
+		}
+		return renderCICD(m.cicd, m.cfg)
 	case modeHelp:
 		return helpText(m.cfg)
 	default:
@@ -466,23 +528,26 @@ func renderStatus(s StatusSnapshot, cfg Config) string {
 		}
 	}
 	b.WriteString(fmt.Sprintf("\n  fetched %s\n", s.FetchedAt.Format(time.RFC3339)))
-	b.WriteString("\n  → 4 Build for deploy log · 3 Logs for docker\n")
+	b.WriteString("\n  → 5 CI/CD for GitHub Actions · 4 Build · 3 Logs\n")
 	return b.String()
 }
 
 func helpText(cfg Config) string {
 	return fmt.Sprintf(`
-  offerkp — Selectel Lainey ops dashboard (Railway-like)
+  offerkp — Selectel Lainey ops dashboard
 
   Tabs
     1  Status   container + deploy + health
     2  Health   /ping probes
-    3  Logs     docker logs (live)
-    4  Build    /var/log/offer-kp-deploy.log
+    3  Logs     journalctl / docker logs (live)
+    4  Build    /opt/offer-kp/build.log
+    5  CI/CD    GitHub Actions → Selectel deploy
 
   Keys
     Tab / ← →     switch tabs
-    1 2 3 4       jump
+    1 2 3 4 5     jump
+    ↑ ↓ / j k     scroll (pauses live follow)
+    PgUp / PgDn   page scroll
     f             live follow on/off
     r             refresh now
     q             quit
@@ -493,10 +558,12 @@ func helpText(cfg Config) string {
     offerkp health       Health tab
     offerkp logs         Logs tab
     offerkp build        Build tab
+    offerkp cicd         CI/CD tab
     offerkp status --plain
-    offerkp health --plain
+    offerkp cicd --plain
 
   Host: %s@%s  container=%s
   Public: %s
-`, cfg.User, cfg.Host, cfg.Container, cfg.PublicURL)
+  CI: %s · %s
+`, cfg.User, cfg.Host, cfg.Container, cfg.PublicURL, cfg.GitHubRepo, cfg.GitHubWorkflow)
 }

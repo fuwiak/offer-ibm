@@ -47,6 +47,12 @@ func main() {
 			return
 		}
 		runTUI(cfg, modeBuild)
+	case "cicd", "ci", "cd", "actions", "gh":
+		if plain {
+			printCICD(cfg)
+			return
+		}
+		runTUI(cfg, modeCICD)
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -149,6 +155,22 @@ func printBuildPlain(cfg Config, args []string) {
 	fmt.Println(out)
 }
 
+func printCICD(cfg Config) {
+	snap := fetchCICD(cfg)
+	fmt.Println(strings.TrimSpace(renderCICD(snap, cfg)))
+	if snap.Err != "" {
+		os.Exit(1)
+	}
+	if len(snap.Runs) > 0 {
+		r := snap.Runs[0]
+		c := strings.ToLower(r.Conclusion)
+		s := strings.ToLower(r.Status)
+		if s == "completed" && c != "success" && c != "skipped" {
+			os.Exit(1)
+		}
+	}
+}
+
 func printUsage() {
 	fmt.Print(`offerkp — Selectel Lainey ops dashboard (live build/status)
 
@@ -158,13 +180,15 @@ Usage:
   offerkp health          TUI → Health
   offerkp logs            TUI → Logs (live)
   offerkp build           TUI → Build / deploy log
+  offerkp cicd            TUI → GitHub Actions CI/CD
 
   offerkp status --plain  text snapshot (post-commit hook)
   offerkp health --plain
   offerkp logs --plain [-f] [--tail N]
   offerkp build --plain
+  offerkp cicd --plain
 
-In TUI: Tab / ←→ / 1-4 · f live follow · r refresh · q quit
+In TUI: Tab / ←→ / 1-5 · f live follow · r refresh · q quit
 
 Env (optional):
   LAINEY_HOST / OFFERKP_HOST          default 87.228.90.43
@@ -172,6 +196,8 @@ Env (optional):
   OFFERKP_SSH_KEY                     SSH private key path
   OFFERKP_PUBLIC_URL                  default http://offer-ibm.ru
   OFFERKP_CONTAINER                   default offer-kp
+  OFFERKP_GITHUB_REPO                 default fuwiak/offer-ibm
+  OFFERKP_GITHUB_WORKFLOW             default deploy-selectel.yml
 
 Skip post-commit check: OFFERKP_OPS_SKIP=1 git commit ...
 `)

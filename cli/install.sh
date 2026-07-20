@@ -21,4 +21,4 @@ if ! command -v offerkp >/dev/null 2>&1; then
   echo "note: ensure $BIN_DIR is on PATH"
 fi
 offerkp help | head -8
-echo "ok — offerkp | offerkp status | offerkp health | offerkp logs | offerkp build"
+echo "ok — offerkp | offerkp status | offerkp health | offerkp logs | offerkp build | offerkp cicd"
