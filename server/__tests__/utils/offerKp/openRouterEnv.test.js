@@ -31,6 +31,7 @@ describe("openRouterEnv connection errors", () => {
     expect(msg).toContain("egress");
     expect(msg).toContain("8787");
     expect(msg).toContain("openrouter-egress-proxy");
+    expect(msg).toContain("LM Studio");
   });
 
   it("hints geo-block when using direct openrouter.ai", () => {

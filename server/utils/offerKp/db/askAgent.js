@@ -11,7 +11,7 @@
  * поэтому даже при «галлюцинации» модели БД остаётся защищённой.
  */
 
-const { getLLMProvider } = require("../../helpers");
+const { getLLMProviderWithFallback } = require("../../helpers");
 const shopDbLog = require("../shopDbLog");
 const {
   listTables,
@@ -176,7 +176,7 @@ async function askShopDb({ question, workspace = null, limit } = {}) {
   }
 
   const t0 = Date.now();
-  const LLMConnector = getLLMProvider({
+  const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace?.chatProvider || null,
     model: workspace?.chatModel || null,
   });

@@ -1,6 +1,6 @@
 const { wantsFileCreation } = require("../chats/agents");
 const { isOfferFollowUp } = require("./productSearchAgent");
-const { getLLMProvider } = require("../helpers");
+const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 
 const QUOTE_FILE_SKILLS = new Set([
@@ -119,7 +119,7 @@ async function detectQuoteCreationIntentWithLlm({
     return false;
   }
 
-  const LLMConnector = getLLMProvider({
+  const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace?.chatProvider || null,
     model: workspace?.chatModel || null,
   });

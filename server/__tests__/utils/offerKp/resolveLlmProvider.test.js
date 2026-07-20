@@ -17,6 +17,7 @@ describe("resolveLlmProvider", () => {
   const prevOrKey = process.env.OPENROUTER_API_KEY;
   const prevOrToken = process.env.OPEN_ROUTER_TOKEN;
   const prevOrModel = process.env.OPENROUTER_MODEL_PREF;
+  const prevOrBase = process.env.OPENROUTER_BASE_URL;
 
   afterEach(() => {
     if (prevPref === undefined) delete process.env.LMSTUDIO_MODEL_PREF;
@@ -29,6 +30,15 @@ describe("resolveLlmProvider", () => {
     else process.env.OPEN_ROUTER_TOKEN = prevOrToken;
     if (prevOrModel === undefined) delete process.env.OPENROUTER_MODEL_PREF;
     else process.env.OPENROUTER_MODEL_PREF = prevOrModel;
+    if (prevOrBase === undefined) delete process.env.OPENROUTER_BASE_URL;
+    else process.env.OPENROUTER_BASE_URL = prevOrBase;
+    openRouterEnv.resetOpenRouterEgressCache();
+  });
+
+  beforeEach(() => {
+    // Teacher sync path is pessimistic for local egress until probed OK.
+    delete process.env.OPENROUTER_BASE_URL;
+    openRouterEnv.resetOpenRouterEgressCache();
   });
 
   it("uses OpenRouter teacher when OFFER_KP_TEACHER_LLM=1 and key set", () => {
@@ -48,6 +58,22 @@ describe("resolveLlmProvider", () => {
     expect(resolved.displayProvider).toBe("lmstudio");
     expect(resolved.displayModel).toBe("openai/gpt-oss-20b");
     expect(process.env.LMSTUDIO_MODEL_PREF).toBe("openai/gpt-oss-20b");
+  });
+
+  it("sync resolve skips OpenRouter when local egress is unprobed/down", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_BASE_URL = "http://127.0.0.1:8787/api/v1";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+    openRouterEnv.resetOpenRouterEgressCache();
+
+    const resolved = resolveLlmProviderAndModel({
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+    expect(resolved.fallbackReason).toBe("openrouter_unreachable");
   });
 
   it("hides OpenRouter model id from UI metrics when teacher is on", () => {

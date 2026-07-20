@@ -7,6 +7,9 @@ const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_EGRESS_PROXY_BASE_URL = "http://127.0.0.1:8787/api/v1";
 
 let egressEnsurePromise = null;
+/** Last /models probe result — shared so sync getLLMProvider can skip dead egress. */
+let lastProbeOk = null;
+let lastProbeAt = 0;
 
 function resolveOpenRouterApiKey() {
   const key =
@@ -23,6 +26,30 @@ function resolveOpenRouterBaseUrl() {
   const raw = String(process.env.OPENROUTER_BASE_URL || "").trim();
   if (!raw) return DEFAULT_OPENROUTER_BASE_URL;
   return raw.replace(/\/+$/, "");
+}
+
+function isLocalEgressBaseUrl(baseUrl = resolveOpenRouterBaseUrl()) {
+  return /127\.0\.0\.1:8787|localhost:8787/i.test(String(baseUrl || ""));
+}
+
+/**
+ * Sync hint for teacher short-circuit.
+ * Local egress defaults to unreachable until a successful probe (tunnel is
+ * usually down on Selectel). Stale negative probes stay negative until refreshed.
+ */
+function isOpenRouterLikelyReachable({ maxAgeMs = 60_000 } = {}) {
+  if (lastProbeAt === 0) {
+    return !isLocalEgressBaseUrl();
+  }
+  if (Date.now() - lastProbeAt > maxAgeMs && isLocalEgressBaseUrl()) {
+    // Stale: keep treating local egress as down so we don't flap back to OR.
+    return lastProbeOk === true;
+  }
+  return lastProbeOk === true;
+}
+
+function getCachedOpenRouterReachable() {
+  return { ok: lastProbeOk, at: lastProbeAt };
 }
 
 /** Default browser-like headers OpenRouter expects. */
@@ -72,7 +99,7 @@ function isOpenRouterConnectionError(error) {
 function formatOpenRouterConnectionError(error, baseUrl = null) {
   const base = baseUrl || resolveOpenRouterBaseUrl();
   const raw = String(error?.message || error || "Connection error");
-  const usingEgress = /127\.0\.0\.1:8787|localhost:8787/i.test(base);
+  const usingEgress = isLocalEgressBaseUrl(base);
   const usingDirect = /openrouter\.ai/i.test(base);
 
   if (!isOpenRouterConnectionError(error) && !/connection error/i.test(raw)) {
@@ -82,8 +109,11 @@ function formatOpenRouterConnectionError(error, baseUrl = null) {
   if (usingEgress) {
     return (
       `${raw} (OpenRouter via egress ${base}). ` +
-      `Tunnel/proxy down? On an EU host: node scripts/openrouter-egress-proxy.cjs ` +
-      `&& ssh -N -R 127.0.0.1:8787:127.0.0.1:8787 root@87.228.90.43`
+      `Tunnel/proxy down — chat should fall back to LM Studio. ` +
+      `If you still see this, a code path skipped the probe. ` +
+      `Restore tunnel: on an EU host run ` +
+      `node scripts/openrouter-egress-proxy.cjs && ` +
+      `ssh -N -R 127.0.0.1:8787:127.0.0.1:8787 root@87.228.90.43`
     );
   }
   if (usingDirect) {
@@ -108,7 +138,11 @@ async function probeOpenRouterReachable(
   const base = String(baseUrl || "")
     .trim()
     .replace(/\/+$/, "");
-  if (!base) return false;
+  if (!base) {
+    lastProbeOk = false;
+    lastProbeAt = Date.now();
+    return false;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -127,16 +161,26 @@ async function probeOpenRouterReachable(
     });
     // 401/403 still means TCP+TLS reached something (or a blocking proxy).
     // Treat 5xx / network throw as unreachable.
-    if (res.status >= 500) return false;
+    if (res.status >= 500) {
+      lastProbeOk = false;
+      lastProbeAt = Date.now();
+      return false;
+    }
     // Selectel geo-block often returns 403 HTML "Access denied by security policy".
     if (res.status === 403) {
       const text = (await res.text().catch(() => "")).toLowerCase();
       if (text.includes("access denied") || text.includes("security policy")) {
+        lastProbeOk = false;
+        lastProbeAt = Date.now();
         return false;
       }
     }
+    lastProbeOk = true;
+    lastProbeAt = Date.now();
     return true;
   } catch {
+    lastProbeOk = false;
+    lastProbeAt = Date.now();
     return false;
   } finally {
     clearTimeout(timer);
@@ -168,9 +212,21 @@ async function ensureOpenRouterEgressBaseUrl() {
   return egressEnsurePromise;
 }
 
+/** Boot / recovery: refresh probe cache (and log clearly). */
+async function warmOpenRouterReachabilityProbe() {
+  applyOpenRouterEnvAliases();
+  const base = resolveOpenRouterBaseUrl();
+  const ok = await probeOpenRouterReachable(base, 2500);
+  const tag = ok ? "reachable" : "UNREACHABLE → prefer LM Studio";
+  console.log(`\x1b[36m[OpenRouter]\x1b[0m probe ${base} → ${tag}`);
+  return ok;
+}
+
 /** Test helper — reset egress auto-detect memo. */
 function resetOpenRouterEgressCache() {
   egressEnsurePromise = null;
+  lastProbeOk = null;
+  lastProbeAt = 0;
 }
 
 module.exports = {
@@ -180,9 +236,13 @@ module.exports = {
   resolveOpenRouterBaseUrl,
   resolveOpenRouterHeaders,
   applyOpenRouterEnvAliases,
+  isLocalEgressBaseUrl,
+  isOpenRouterLikelyReachable,
+  getCachedOpenRouterReachable,
   isOpenRouterConnectionError,
   formatOpenRouterConnectionError,
   probeOpenRouterReachable,
   ensureOpenRouterEgressBaseUrl,
+  warmOpenRouterReachabilityProbe,
   resetOpenRouterEgressCache,
 };

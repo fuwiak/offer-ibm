@@ -4,7 +4,7 @@
  * 2) LLM выбирает релевантные позиции из пула кандидатов.
  */
 
-const { getLLMProvider } = require("../helpers");
+const { getLLMProviderWithFallback } = require("../helpers");
 const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
 const { expandSearchTerms } = require("./textNormalize");
@@ -362,7 +362,7 @@ function parseLlmProductIds(text) {
 async function pickProductsWithLlm(searchText, candidates, workspace) {
   if (!shopDbSearchAgentLlmEnabled() || candidates.length === 0) return [];
 
-  const LLMConnector = getLLMProvider({
+  const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace?.chatProvider || null,
     model: workspace?.chatModel || null,
   });

@@ -93,14 +93,26 @@ function resolveLlmProviderAndModel({
   catalog = null,
 } = {}) {
   if (shouldUseTeacherLlm()) {
+    // Sync callers (searchAgent / askAgent / quoteIntentJudge) never probed.
+    // If egress is known-dead (or never probed while pointing at :8787), do not
+    // construct OpenRouterLLM — that only produces Connection error.
+    if (!openRouterEnv.isOpenRouterLikelyReachable()) {
+      return resolveLmStudioOnly({
+        model,
+        catalog,
+        fallbackReason: "openrouter_unreachable",
+      });
+    }
     return resolveOpenRouterTeacherResult({ reason: "teacher" });
   }
 
   // Sync path: if caller already knows LM Studio is down, prefer OpenRouter.
   if (catalog?.reachable === false && openRouterEnv.resolveOpenRouterApiKey()) {
-    return resolveOpenRouterTeacherResult({
-      reason: "lmstudio_unreachable",
-    });
+    if (openRouterEnv.isOpenRouterLikelyReachable()) {
+      return resolveOpenRouterTeacherResult({
+        reason: "lmstudio_unreachable",
+      });
+    }
   }
 
   ensureLmStudioBasePath();
