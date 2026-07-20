@@ -42,8 +42,28 @@ remote_log() {
   remote "mkdir -p /opt/offer-kp; touch ${DEPLOY_LOG}; printf '[%s] %s\n' \"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\" $(printf %q "$*") >> ${DEPLOY_LOG}"
 }
 
+# Drop stale docker build noise (Canceled: context canceled) so `offerkp build` stays readable.
+rotate_deploy_log() {
+  remote "bash -s" <<EOS
+set -euo pipefail
+LOG=${DEPLOY_LOG}
+mkdir -p /opt/offer-kp
+if [ -f "\$LOG" ] && [ -s "\$LOG" ]; then
+  # Keep only sync-deploy lines from previous runs; archive the rest.
+  if grep -q 'Canceled: context canceled\\|#24 CANCELED\\|docker driver' "\$LOG" 2>/dev/null; then
+    mv "\$LOG" "\${LOG}.docker-stale.\$(date -u +%Y%m%dT%H%M%SZ)"
+  elif [ "\$(wc -c < "\$LOG")" -gt 200000 ]; then
+    tail -n 200 "\$LOG" > "\${LOG}.tmp" && mv "\${LOG}.tmp" "\$LOG"
+  fi
+fi
+: > "\$LOG"
+printf '[%s] %s\n' "\$(date -u +%Y-%m-%dT%H:%M:%SZ)" "LOG rotated — sync deploy ${GIT_HASH}" >> "\$LOG"
+EOS
+}
+
 log "Deploy ${GIT_HASH} → ${USER}@${HOST}:${REMOTE_APP}"
 log "  ${GIT_SUBJECT}"
+rotate_deploy_log
 remote_log "DEPLOY START ${GIT_HASH} ${GIT_SUBJECT}"
 
 log "==> Frontend build (VITE_API_BASE=/api)"
