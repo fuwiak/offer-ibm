@@ -6,7 +6,6 @@ import {
   FilePdf,
   FileDoc,
   FileHtml,
-  DownloadSimple,
   CaretLeft,
   CaretRight,
   NotePencil,
@@ -30,7 +29,7 @@ import ThreadFileDataPreview, {
   FileExtensionBadge,
   displayName,
 } from "@/components/OfferKp/ThreadFileDataPreview";
-import ThreadGeneratedQuotesSection from "@/components/OfferKp/ThreadGeneratedQuotesSection";
+import GeneratedQuotesDock from "@/components/OfferKp/GeneratedQuotesDock";
 import { openUploadedFilePreview } from "@/utils/offerKp/openUploadedPdfPreview";
 
 function fileExtension(filename = "") {
@@ -338,17 +337,20 @@ export default function DocumentPanel() {
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
   const showDocPreview = documentPanelView === "doc" && !!docPreview?.markdown;
   const hasFilePreview = showPdfPreview || showDocPreview;
-  const hasQuotePanel =
+  const hasQuoteFiles = threadQuoteFiles.length > 0;
+  /** Active quote UI (builder/preview) — not merely presence of generated files. */
+  const hasActiveQuoteWorkspace =
     showQuoteBuilder ||
     showDraftTable ||
     showPdfPreview ||
     showQuotePreview ||
-    showDocPreview ||
-    threadQuoteFiles.length > 0;
+    showDocPreview;
+  const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
+  /** Keep examples visible alongside the files dock; only hide when a quote workspace is open. */
   const showExamplePromptsPanel =
     (isHome || isOfferKpWorkspaceChat) &&
     !showAdminThreadContext &&
-    !hasQuotePanel;
+    !hasActiveQuoteWorkspace;
   const shouldRenderPanel =
     isHome || showAdminThreadContext || hasQuotePanel || showExamplePromptsPanel;
 
@@ -361,7 +363,11 @@ export default function DocumentPanel() {
   }, [hasFilePreview, setDocumentPanelOpen]);
 
   useEffect(() => {
-    if (!hasQuotePanel || showAdminThreadContext) return;
+    if (hasQuoteFiles) setDocumentPanelOpen(true);
+  }, [hasQuoteFiles, setDocumentPanelOpen]);
+
+  useEffect(() => {
+    if (!hasActiveQuoteWorkspace || showAdminThreadContext) return;
     if (documentPanelView === "pdf" && showPdfPreview) return;
     if (documentPanelView === "doc" && showDocPreview) return;
     if (documentPanelView !== "docs") return;
@@ -370,7 +376,7 @@ export default function DocumentPanel() {
     else if (showQuoteBuilder) setDocumentPanelView("builder");
     else if (showPdfPreview) setDocumentPanelView("pdf");
   }, [
-    hasQuotePanel,
+    hasActiveQuoteWorkspace,
     showAdminThreadContext,
     documentPanelView,
     showQuoteBuilder,
@@ -396,7 +402,7 @@ export default function DocumentPanel() {
         </div>
       )}
 
-      {hasQuotePanel && (
+      {hasActiveQuoteWorkspace && (
         <div className="flex flex-wrap border-b border-theme-sidebar-border shrink-0">
           {showAdminThreadContext && (
             <button
@@ -444,16 +450,6 @@ export default function DocumentPanel() {
               {t("layout.tabDocument", { defaultValue: "Document" })}
             </button>
           )}
-          {threadQuoteFiles.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setDocumentPanelView("generatedDocs")}
-              className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "generatedDocs" ? "offerKp-doc-tab--active" : ""}`}
-            >
-              <FilePdf size={13} weight="fill" />
-              {t("layout.generatedDocuments")}
-            </button>
-          )}
           {quotePdfUrl && (
             <button
               type="button"
@@ -467,84 +463,79 @@ export default function DocumentPanel() {
         </div>
       )}
 
-      {documentPanelView === "generatedDocs" && threadQuoteFiles.length > 0 ? (
-        <div className="flex-1 overflow-y-auto p-4">
-          <ThreadGeneratedQuotesSection files={threadQuoteFiles} />
-        </div>
-      ) : showDocPreview ? (
-        <DocPreviewPane
-          docPreview={docPreview}
-          onClose={() => {
-            setDocPreview(null);
-            setDocumentPanelView(
-              showAdminThreadContext
-                ? "docs"
-                : quoteDraft?.reference
-                  ? "builder"
-                  : "docs"
-            );
-          }}
-        />
-      ) : showPdfPreview && documentPanelView === "pdf" ? (
-        <PdfPreviewPane
-          quotePdfUrl={quotePdfUrl}
-          onClose={() => {
-            setQuotePdfUrl(null);
-            setDocumentPanelView(
-              showAdminThreadContext
-                ? "docs"
-                : quoteDraft?.reference
-                  ? "draftTable"
-                  : "docs"
-            );
-          }}
-        />
-      ) : showDraftTable ? (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 min-w-0">
+        {showDocPreview ? (
+          <DocPreviewPane
+            docPreview={docPreview}
+            onClose={() => {
+              setDocPreview(null);
+              setDocumentPanelView(
+                showAdminThreadContext
+                  ? "docs"
+                  : quoteDraft?.reference
+                    ? "builder"
+                    : "docs"
+              );
+            }}
+          />
+        ) : showPdfPreview && documentPanelView === "pdf" ? (
+          <PdfPreviewPane
+            quotePdfUrl={quotePdfUrl}
+            onClose={() => {
+              setQuotePdfUrl(null);
+              setDocumentPanelView(
+                showAdminThreadContext
+                  ? "docs"
+                  : quoteDraft?.reference
+                    ? "draftTable"
+                    : "docs"
+              );
+            }}
+          />
+        ) : showDraftTable ? (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <QuoteDraftTable />
           </div>
-          {threadQuoteFiles.length > 0 ? (
-            <div className="shrink-0 border-t border-theme-sidebar-border px-3 py-2 max-h-[40%] overflow-y-auto">
-              <ThreadGeneratedQuotesSection files={threadQuoteFiles} />
-            </div>
-          ) : null}
-        </div>
-      ) : showQuotePreview ? (
-        <QuotePreview />
-      ) : showQuoteBuilder && documentPanelView === "builder" ? (
-        <div className="flex-1 overflow-y-auto p-4">
-          <QuoteStepper />
-        </div>
-      ) : showExamplePromptsPanel ? (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
-          <ExamplePromptsPanel />
-        </div>
-      ) : showAdminThreadContext ? (
-        <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4">
-          <OfferKpThreadPanelSection
-            title={t("layout.memory")}
-            value={memory}
-            onSave={persistMemory}
-            placeholder={t("layout.memoryPlaceholder")}
-            showPrivateBadge
-            rows={10}
-          />
-          <OfferKpThreadPanelSection
-            title={t("layout.instructions")}
-            value={instructions}
-            onSave={persistInstructions}
-            placeholder={t("layout.instructionsPlaceholder")}
-            rows={6}
-          />
-          <ThreadFilesSection
-            workspaceSlug={activeWorkspaceSlug}
-            threadSlug={activeThreadSlug}
-            onAttach={handleAttach}
-          />
-          <ThreadGeneratedQuotesSection files={threadQuoteFiles} />
-        </div>
-      ) : null}
+        ) : showQuotePreview ? (
+          <QuotePreview />
+        ) : showQuoteBuilder && documentPanelView === "builder" ? (
+          <div className="flex-1 overflow-y-auto p-4">
+            <QuoteStepper />
+          </div>
+        ) : showExamplePromptsPanel ? (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
+            <ExamplePromptsPanel />
+          </div>
+        ) : showAdminThreadContext ? (
+          <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4">
+            <OfferKpThreadPanelSection
+              title={t("layout.memory")}
+              value={memory}
+              onSave={persistMemory}
+              placeholder={t("layout.memoryPlaceholder")}
+              showPrivateBadge
+              rows={10}
+            />
+            <OfferKpThreadPanelSection
+              title={t("layout.instructions")}
+              value={instructions}
+              onSave={persistInstructions}
+              placeholder={t("layout.instructionsPlaceholder")}
+              rows={6}
+            />
+            <ThreadFilesSection
+              workspaceSlug={activeWorkspaceSlug}
+              threadSlug={activeThreadSlug}
+              onAttach={handleAttach}
+            />
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+        {hasQuoteFiles ? (
+          <GeneratedQuotesDock files={threadQuoteFiles} />
+        ) : null}
+      </div>
     </>
   );
 
@@ -600,8 +591,10 @@ export default function DocumentPanel() {
                 threadSlug={activeThreadSlug}
                 onAttach={handleAttach}
               />
-              <ThreadGeneratedQuotesSection files={threadQuoteFiles} />
             </div>
+            {hasQuoteFiles ? (
+              <GeneratedQuotesDock files={threadQuoteFiles} />
+            ) : null}
           </div>
         )}
         <button
