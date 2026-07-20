@@ -205,7 +205,8 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
 async function matchInquiryLine(inquiryLine, options = {}) {
   const cacheRaw = inquiryLine.raw || inquiryLine.name;
   const cached = getCachedLineMatch(options.threadId, cacheRaw);
-  if (cached) return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
+  if (cached)
+    return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
 
   const searchText = inquiryLine.raw || inquiryLine.name;
   let { products } = await runProductSearchAgent({
@@ -447,51 +448,55 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
   let lastEmitAt = 0;
   const partialLines = new Array(lines.length);
 
-  const matched = await mapWithConcurrency(lines, concurrency, async (line, index) => {
-    try {
-      const result = await matchInquiryLine(line, {
-        ...options,
-        parsedFileTexts: options.parsedFileTexts || null,
-      });
-      partialLines[index] = result;
-      completed += 1;
-      const now = Date.now();
-      // Emit ~every 400ms or on first/last line to avoid SSE flood.
-      if (
-        onProgress &&
-        (completed === 1 ||
-          completed === lines.length ||
-          now - lastEmitAt >= 400)
-      ) {
-        lastEmitAt = now;
-        const ready = partialLines.filter(Boolean);
-        onProgress({
-          progressStage: "searching",
-          lineCount: lines.length,
-          matchedCount: completed,
-          total: lines.length,
-          quoteDraft: {
-            step: 2,
-            hardwareLines: ready,
-            preview: {
-              lines: ready,
-              subtotal: 0,
-              total: 0,
-              totalWeightKg: 0,
-            },
-          },
+  const matched = await mapWithConcurrency(
+    lines,
+    concurrency,
+    async (line, index) => {
+      try {
+        const result = await matchInquiryLine(line, {
+          ...options,
+          parsedFileTexts: options.parsedFileTexts || null,
         });
+        partialLines[index] = result;
+        completed += 1;
+        const now = Date.now();
+        // Emit ~every 400ms or on first/last line to avoid SSE flood.
+        if (
+          onProgress &&
+          (completed === 1 ||
+            completed === lines.length ||
+            now - lastEmitAt >= 400)
+        ) {
+          lastEmitAt = now;
+          const ready = partialLines.filter(Boolean);
+          onProgress({
+            progressStage: "searching",
+            lineCount: lines.length,
+            matchedCount: completed,
+            total: lines.length,
+            quoteDraft: {
+              step: 2,
+              hardwareLines: ready,
+              preview: {
+                lines: ready,
+                subtotal: 0,
+                total: 0,
+                totalWeightKg: 0,
+              },
+            },
+          });
+        }
+        return result;
+      } catch (e) {
+        // Ошибка на одной позиции (например, обрыв MySQL) не должна отбрасывать
+        // все уже успешно сопоставленные и оценённые строки заявки.
+        const fallback = buildLineMatchErrorFallback(line, e);
+        partialLines[index] = fallback;
+        completed += 1;
+        return fallback;
       }
-      return result;
-    } catch (e) {
-      // Ошибка на одной позиции (например, обрыв MySQL) не должна отбрасывать
-      // все уже успешно сопоставленные и оценённые строки заявки.
-      const fallback = buildLineMatchErrorFallback(line, e);
-      partialLines[index] = fallback;
-      completed += 1;
-      return fallback;
     }
-  });
+  );
 
   const draft = buildDraftFromMatchedLines(matched);
   if (onProgress) {
