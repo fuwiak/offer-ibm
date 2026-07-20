@@ -96,6 +96,8 @@
 {"text":"0000","intent":"casual_or_test","allowShopDbSearch":false}
 {"text":"...","intent":"casual_or_test","allowShopDbSearch":false}
 {"text":"asdf","intent":"casual_or_test","allowShopDbSearch":false}
+{"text":"hello","intent":"casual_or_test","allowShopDbSearch":false}
+{"text":"how are you?","intent":"casual_or_test","allowShopDbSearch":false}
 {"text":"привет, найди гайку М12 DIN 934","intent":"product_search","allowShopDbSearch":true,"alsoIntent":"casual_or_test"}
 {"text":"Нужны гайки М12 оцинкованные, 500 шт","intent":"product_inquiry","allowShopDbSearch":true,"allowQuoteMutation":true}
 {"text":"Шайба ГОСТ 11371 8 мм — 1000 шт","intent":"product_inquiry","allowShopDbSearch":true}

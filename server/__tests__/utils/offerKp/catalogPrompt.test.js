@@ -6,10 +6,12 @@ const {
   isCatalogBlock,
   applyExternalContextsForLlm,
   applyInquiryDraftToUserPrompt,
+  enrichUserPromptWithShopCatalog,
   extractCatalogBlocksFromText,
   extractCatalogBlocksFromChatHistory,
 } = require("../../../utils/offerKp/catalogPrompt");
 const matchInquiryLines = require("../../../utils/offerKp/matchInquiryLines");
+const enrich = require("../../../utils/offerKp/enrich");
 
 describe("catalogPrompt", () => {
   const sampleBlock = `[Каталог · purolat.com] Сталь шпоночная ГОСТ 8787-68 30x30x1000
@@ -50,7 +52,9 @@ describe("catalogPrompt", () => {
   });
 
   it("extracts catalog blocks from prior chat history", () => {
-    const priorPrompt = mergeCatalogIntoUserPrompt("какая цена?", [sampleBlock]);
+    const priorPrompt = mergeCatalogIntoUserPrompt("какая цена?", [
+      sampleBlock,
+    ]);
     const blocks = extractCatalogBlocksFromChatHistory([
       { role: "user", content: priorPrompt },
       { role: "assistant", content: "Цена указана выше." },
@@ -65,24 +69,42 @@ describe("catalogPrompt", () => {
     expect(blocks[0]).toContain("[Каталог · purolat.com]");
   });
 
-  it("injects inquiry draft with ShopDB prices when PDF text is present", async () => {
-    jest
-      .spyOn(matchInquiryLines, "matchInquiryToDraft")
-      .mockResolvedValue({
-        lines: [
-          {
-            requestedName: "Болт M10x100",
-            name: "Болт DIN 931 M10x100",
-            quantity: 30,
-            unit: "кг",
-            unitPriceNet: 19.69,
-            status: "in_stock",
-            productId: "123",
-          },
-        ],
-      });
+  it("does not reuse catalog history for a casual message", async () => {
+    jest.spyOn(enrich, "shopDbEnrichEnabled").mockReturnValue(true);
+    jest.spyOn(enrich, "shouldRunShopEnrich").mockReturnValue(false);
+    const getContext = jest
+      .spyOn(enrich, "getShopDbContext")
+      .mockResolvedValue({ contextTexts: [sampleBlock] });
 
-    const catalogPrompt = mergeCatalogIntoUserPrompt("сделай КП", [sampleBlock]);
+    await expect(
+      enrichUserPromptWithShopCatalog("hello", {
+        parsedFileTexts: ["Штанга DIN 975 M36x2000, 10 шт"],
+        chatHistory: [{ role: "user", content: sampleBlock }],
+      })
+    ).resolves.toBe("hello");
+    expect(getContext).not.toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
+
+  it("injects inquiry draft with ShopDB prices when PDF text is present", async () => {
+    jest.spyOn(matchInquiryLines, "matchInquiryToDraft").mockResolvedValue({
+      lines: [
+        {
+          requestedName: "Болт M10x100",
+          name: "Болт DIN 931 M10x100",
+          quantity: 30,
+          unit: "кг",
+          unitPriceNet: 19.69,
+          status: "in_stock",
+          productId: "123",
+        },
+      ],
+    });
+
+    const catalogPrompt = mergeCatalogIntoUserPrompt("сделай КП", [
+      sampleBlock,
+    ]);
     const merged = await applyInquiryDraftToUserPrompt(catalogPrompt, {
       message: "сделай КП",
       parsedFileTexts: ["Болт M10x100 ГОСТ 7805-70 | 30 | кг"],

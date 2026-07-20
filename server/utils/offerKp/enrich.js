@@ -68,7 +68,14 @@ function shouldRunShopEnrich(message, options = {}) {
   if (!combined) return false;
 
   const routed = routeOfferKpMessage(String(message || "").trim());
-  if (routed.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
+  const blockedIntents = new Set([
+    OFFER_KP_INTENTS.CASUAL_OR_TEST,
+    OFFER_KP_INTENTS.SYSTEM_HELP,
+    OFFER_KP_INTENTS.DOCUMENT_QUESTION,
+    OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN,
+    OFFER_KP_INTENTS.OUT_OF_SCOPE,
+  ]);
+  if (blockedIntents.has(routed.primaryIntent)) {
     return false;
   }
 

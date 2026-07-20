@@ -261,7 +261,11 @@ async function loadChatHistoryForShopEnrich({
  * @returns {Promise<string>}
  */
 async function enrichUserPromptWithShopCatalog(message, options = {}) {
-  const { shopDbEnrichEnabled, getShopDbContext } = require("./enrich");
+  const {
+    shopDbEnrichEnabled,
+    shouldRunShopEnrich,
+    getShopDbContext,
+  } = require("./enrich");
   const trimmed = String(message || "").trim();
   if (!shopDbEnrichEnabled() || !trimmed) {
     return trimmed;
@@ -276,6 +280,13 @@ async function enrichUserPromptWithShopCatalog(message, options = {}) {
       threadId: options.threadId ?? null,
       userId: options.userId ?? null,
     });
+  }
+
+  // Do not let an old attachment or a catalog block from chat history bypass
+  // the intent decision for the current message (for example "hello").
+  if (!shouldRunShopEnrich(trimmed, { ...options, parsedFileTexts })) {
+    shopDbLog.skip("catalog prompt skipped — current intent is not catalog");
+    return trimmed;
   }
 
   const inquirySource = [trimmed, ...parsedFileTexts]

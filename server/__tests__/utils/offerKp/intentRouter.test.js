@@ -64,5 +64,15 @@ describe("OfferKP deterministic intent router", () => {
       )
     ).toBe(false);
     expect(shouldRunShopEnrich("Какая погода в Москве?")).toBe(false);
+    expect(
+      shouldRunShopEnrich("hello", {
+        parsedFileTexts: ["Штанга DIN 975 M36x2000, 10 шт"],
+      })
+    ).toBe(false);
+    expect(
+      shouldRunShopEnrich("how are you?", {
+        parsedFileTexts: ["Штанга DIN 975 M36x2000, 10 шт"],
+      })
+    ).toBe(false);
   });
 });
