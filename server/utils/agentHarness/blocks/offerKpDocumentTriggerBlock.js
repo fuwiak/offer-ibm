@@ -36,9 +36,18 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
 
     harness.state.set("quoteDocumentRequest", true);
     const inquiryLines = harness.state.get("inquiryLineCount") || 0;
+    const maxInquiryBlocks = Math.max(
+      1,
+      Math.min(
+        500,
+        parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
+      )
+    );
     harness.state.set(
       "catalogMaxDocs",
-      inquiryLines > 1 ? Math.min(30, Math.max(8, inquiryLines)) : 8
+      inquiryLines > 1
+        ? Math.min(maxInquiryBlocks, Math.max(8, inquiryLines))
+        : 8
     );
     harness.state.set("contextGuidelines", [
       ...quoteDocumentAgentGuidelines(),

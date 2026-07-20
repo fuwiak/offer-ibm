@@ -573,10 +573,17 @@ class EphemeralAgentHandler extends AgentHandler {
       [stripped, ...parsedFileTexts].filter(Boolean).join("\n\n")
     ).length;
     const stateMax = this.harness?.state?.get("catalogMaxDocs");
+    const maxInquiryBlocks = Math.max(
+      1,
+      Math.min(
+        500,
+        parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
+      )
+    );
     const maxDocs =
       stateMax ??
       (inquiryLineCount > 1
-        ? Math.min(30, Math.max(5, inquiryLineCount))
+        ? Math.min(maxInquiryBlocks, Math.max(5, inquiryLineCount))
         : 5);
 
     const content = await enrichUserPromptWithShopCatalog(stripped, {

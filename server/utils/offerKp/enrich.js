@@ -287,11 +287,11 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     };
   }
 
-  const INQUIRY_MAX_LINES = Math.min(
-    30,
-    Math.max(
-      1,
-      parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 25
+  const INQUIRY_MAX_LINES = Math.max(
+    1,
+    Math.min(
+      500,
+      parseInt(process.env.OFFER_KP_INQUIRY_MAX_LINES, 10) || 200
     )
   );
   const maxLines = Math.min(INQUIRY_MAX_LINES, lines.length);
@@ -309,8 +309,11 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     if (!matched.productId) continue;
 
     const pid = parseInt(matched.productId, 10);
-    if (productIds.has(pid)) continue;
-    productIds.add(pid);
+    // Одна позиция заявки = один блок, даже если productId повторяется
+    // (раньше dedupe по pid схлопывал 40 строк в ~20 уникальных SKU).
+    const lineKey = `${pid}:${matched.inquiryRaw || matched.requestedName || ""}:${matched.quantity || 1}`;
+    if (productIds.has(lineKey)) continue;
+    productIds.add(lineKey);
 
     const product = (await loadProductRow(pid)) || {
       id: pid,

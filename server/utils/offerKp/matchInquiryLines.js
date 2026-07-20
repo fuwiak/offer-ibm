@@ -13,6 +13,47 @@ const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
+/**
+ * Выбор кандидата для строки заявки.
+ * Приоритет: exact → analog → in_stock → остальные.
+ * Дешёвый SKU — только среди одинакового matchType (не между M10x100 и M6x25).
+ */
+function pickBestInquiryAlternative(alternatives = []) {
+  const list = (alternatives || []).filter(Boolean);
+  if (!list.length) return null;
+
+  const byType = (type) => list.filter((a) => a.matchType === type);
+  const exact = byType("exact");
+  const analogs = byType("analog");
+  const inStock = list.filter((a) => a.status === STATUS.IN_STOCK);
+  const usable = list.filter(
+    (a) => a.matchType !== "none" && a.matchType !== "size_mismatch"
+  );
+
+  const pool = exact.length
+    ? exact
+    : analogs.length
+      ? analogs
+      : inStock.length
+        ? inStock
+        : usable;
+
+  if (!pool.length) return null;
+  if (pool.length === 1) return pool[0];
+
+  // Только среди уже отфильтрованных exact/analog — выбрать дешевле.
+  if (exact.length || analogs.length) {
+    return (
+      pickCheaperAmongSimilar(pool, {
+        getPrice: (a) => Number(a.price) || 0,
+      }) || pool[0]
+    );
+  }
+
+  // Без точного совпадения — не брать «самый дешёвый любой болт», а первого из поиска.
+  return pool[0];
+}
+
 async function fetchProductStock(productId) {
   const rows = await query(
     `SELECT ${S.sku} AS sku, ${S.name} AS sku_name, price, count, available
@@ -87,22 +128,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     });
   }
 
-  const inStock = alternatives.filter((a) => a.status === STATUS.IN_STOCK);
-  const analogs = alternatives.filter((a) => a.status === STATUS.ANALOG);
-  const matched = alternatives.filter((a) => a.matchType !== "none");
-  const pool = inStock.length
-    ? inStock
-    : analogs.length
-      ? analogs
-      : matched.length
-        ? matched
-        : [];
-
-  const best = pool.length
-    ? pickCheaperAmongSimilar(pool, {
-        getPrice: (a) => Number(a.price) || 0,
-      })
-    : null;
+  const best = pickBestInquiryAlternative(alternatives);
 
   const qty = inquiryLine.quantity || 1;
   const unitPrice = best?.price || 0;
@@ -189,4 +215,5 @@ module.exports = {
   matchInquiryToDraft,
   matchInquiryLine,
   fetchProductStock,
+  pickBestInquiryAlternative,
 };

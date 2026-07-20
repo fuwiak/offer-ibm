@@ -243,7 +243,9 @@ function pickCheaperAmongSimilar(products, options = {}) {
 
   const multi = clusters.filter((c) => c.length > 1);
   if (!multi.length) {
-    return [...list].sort((a, b) => getPrice(a) - getPrice(b))[0];
+    // Непохожие SKU: сохраняем порядок вызова (релевантность поиска),
+    // а не самый дешёвый из разных размеров.
+    return list[0];
   }
 
   const cheapestPerCluster = multi.map(

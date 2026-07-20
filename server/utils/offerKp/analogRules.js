@@ -155,14 +155,11 @@ function classifyProductMatch(requestText, product) {
   const thread = extractThread(requestText);
   const pin = extractPinDimensions(requestText);
   const stockCount = Number(product.stockCount ?? product.count ?? 0);
-
-  if (/кг|kg|метр|meter|\bm\b|упак|pack|л\s|литр/i.test(requestText)) {
-    return {
-      matchType: "needs_review",
-      status: STATUS.NEEDS_REVIEW,
-      analogOf: null,
-    };
-  }
+  // кг/упак — коммерческий флаг, НЕ отменяет точный подбор DIN/M×L
+  // (раньше early-return → все строки брали самый дешёвый SKU ~18.5).
+  const nonPieceUnit =
+    /(?:^|[^\w])(?:кг|kg|упак|pack)(?:$|[^\w])/i.test(requestText) ||
+    /метр|meter|литр/i.test(requestText);
 
   if (!requestedStandards.length) {
     if (stockCount > 0) {
@@ -227,7 +224,11 @@ function classifyProductMatch(requestText, product) {
   if (matchedExact) {
     return {
       matchType: "exact",
-      status: stockCount > 0 ? STATUS.IN_STOCK : STATUS.ON_ORDER,
+      status: nonPieceUnit
+        ? STATUS.NEEDS_REVIEW
+        : stockCount > 0
+          ? STATUS.IN_STOCK
+          : STATUS.ON_ORDER,
       analogOf: null,
     };
   }
@@ -235,7 +236,11 @@ function classifyProductMatch(requestText, product) {
   if (matchedAnalog) {
     return {
       matchType: "analog",
-      status: stockCount > 0 ? STATUS.ANALOG : STATUS.ON_ORDER,
+      status: nonPieceUnit
+        ? STATUS.NEEDS_REVIEW
+        : stockCount > 0
+          ? STATUS.ANALOG
+          : STATUS.ON_ORDER,
       analogOf: analogLabel,
     };
   }

@@ -31,13 +31,14 @@ describe("nameSimilarity", () => {
     expect(productsAreSimilar(a, c)).toBe(false);
   });
 
-  it("picks cheaper among similar products", () => {
+  it("does not pick cheapest across dissimilar bolt sizes", () => {
     const chosen = pickCheaperAmongSimilar([
-      { id: 1, name: "Болт DIN 933 M8x40", price: 120 },
-      { id: 2, name: "Болт DIN 933 M8x40 оцинк", price: 95 },
-      { id: 3, name: "Шпонка 8x7", price: 10 },
+      { id: 1, name: "Болт ГОСТ 7805-70 M10x100", price: 45 },
+      { id: 2, name: "Болт ГОСТ 7805-70 M6x25", price: 18.5 },
+      { id: 3, name: "Болт ГОСТ 7805-70 M8x40", price: 22 },
     ]);
-    expect(chosen.id).toBe(2);
+    // First candidate stays — not the cheapest wrong size.
+    expect(chosen.id).toBe(1);
   });
 
   it("reorders tied similar scores toward cheaper item", () => {

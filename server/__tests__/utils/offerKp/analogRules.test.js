@@ -53,12 +53,21 @@ describe("analogRules", () => {
     expect(result.matchType).toBe("none");
   });
 
-  test("non-piece unit → Требует проверки", () => {
+  test("non-piece unit → exact match + Требует проверки (не сбрасывает размер)", () => {
     const result = classifyProductMatch("Болт DIN 933 M8x40 — 5 кг", {
       name: "Болт DIN 933 M8x40",
       stockCount: 100,
     });
+    expect(result.matchType).toBe("exact");
     expect(result.status).toBe(STATUS.NEEDS_REVIEW);
+  });
+
+  test("kg RFQ does not match wrong thread length", () => {
+    const result = classifyProductMatch("Болт ГОСТ 7805-70 M10x100 — 30 кг", {
+      name: "Болт ГОСТ 7805-70 M6x25",
+      stockCount: 100,
+    });
+    expect(result.matchType).not.toBe("exact");
   });
 
   test("getEquivalentStandards for DIN 934", () => {
