@@ -137,6 +137,9 @@ class OpenRouterLLM {
   #cacheIsStale() {
     const MAX_STALE = 6.048e8; // 1 Week in MS
     if (!fs.existsSync(this.cacheAtPath)) return true;
+    // Empty {} from a failed geo-blocked fetch must not stick for a week.
+    const cached = this.models();
+    if (!cached || Object.keys(cached).length === 0) return true;
     const now = Number(new Date());
     const timestampMs = Number(fs.readFileSync(this.cacheAtPath));
     return now - timestampMs > MAX_STALE;
@@ -206,9 +209,29 @@ class OpenRouterLLM {
   }
 
   async isValidChatCompletionModel(model = "") {
+    const id = String(model || "").trim();
+    if (!id) return false;
+
     await this.#syncModels();
     const availableModels = this.models();
-    return availableModels.hasOwnProperty(model);
+    if (availableModels.hasOwnProperty(id)) return true;
+
+    // Cache can be empty after a geo-blocked /models fetch. Allow curated /
+    // configured teacher models through so chat is not blocked by a stale {}.
+    const {
+      lookupKnownContextWindow,
+    } = require("../../../config/openRouter.contextWindows");
+    if (lookupKnownContextWindow(id)) return true;
+
+    try {
+      const { resolveTeacherModel } = require("../../offerKpApp/teacherLlm");
+      if (id === resolveTeacherModel()) return true;
+    } catch {
+      /* ignore */
+    }
+
+    const pref = String(process.env.OPENROUTER_MODEL_PREF || "").trim();
+    return Boolean(pref && id === pref);
   }
 
   /**
@@ -554,7 +577,16 @@ async function fetchOpenRouterModels() {
     },
   })
     .then((res) => res.json())
-    .then(({ data = [] }) => {
+    .then((body) => {
+      const data = Array.isArray(body?.data) ? body.data : [];
+      // Do not clobber a good cache with {} after a blocked/failed /models call.
+      if (data.length === 0) {
+        console.warn(
+          "[OpenRouterLLM] /models returned no data — keeping existing cache"
+        );
+        return null;
+      }
+
       const models = {};
       data.forEach((model) => {
         models[model.id] = {
@@ -584,6 +616,16 @@ async function fetchOpenRouterModels() {
           encoding: "utf-8",
         }
       );
+      return models;
+    })
+    .catch((e) => {
+      console.error(
+        "[OpenRouterLLM] Could not fetch models:",
+        e?.message || e
+      );
+      return null;
+    });
+}
 
       return models;
     })
