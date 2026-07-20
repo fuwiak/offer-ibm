@@ -11,7 +11,7 @@ load_model() {
   lms load "$id" --context-length "$ctx" --gpu max -y
 }
 
-if load_model "openai/gpt-oss-20b" 8192; then
+if load_model "openai/gpt-oss-20b" 32768; then
   exit 0
 fi
 echo "WARN: gpt-oss-20b load failed — falling back to qwen/qwen3-vl-8b" >&2

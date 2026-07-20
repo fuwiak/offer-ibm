@@ -40,13 +40,13 @@ function resolveLmStudioLoadProfile(modelId, overrides = {}) {
     };
   }
 
-  // gpt-oss-20b on T4 16GB: keep KV small or OOM.
+  // gpt-oss-20b: default ctx 32k (override via OFFER_KP_PIPELINE_AGENT_CONTEXT).
   if (id.includes("gpt-oss") || /\b20b\b/.test(id)) {
     return {
       contextLength:
         overrides.contextLength ||
         Number(process.env.OFFER_KP_PIPELINE_AGENT_CONTEXT) ||
-        8192,
+        32768,
       gpu: overrides.gpu || process.env.LMSTUDIO_OSS_GPU || "max",
       offloadKvCacheToGpu: true,
     };

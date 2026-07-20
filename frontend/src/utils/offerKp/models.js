@@ -10,7 +10,7 @@ const OFFER_KP_MODEL_ID_ALIASES = {
 export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   "openai/gpt-oss-20b": {
     name: "gpt-oss-20b",
-    hint: "Локально · agent brain · tools · T4: ctx 8192",
+    hint: "Локально · agent brain · tools · T4: ctx 32768",
   },
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",

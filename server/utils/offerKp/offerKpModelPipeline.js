@@ -14,7 +14,7 @@ const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const DEFAULT_VISION_MODEL = "qwen/qwen3-vl-8b-thinking";
 const DEFAULT_AGENT_MODEL = "openai/gpt-oss-20b";
 const DEFAULT_AGENT_FALLBACK = "qwen/qwen3-vl-8b";
-const DEFAULT_AGENT_CONTEXT = 8192;
+const DEFAULT_AGENT_CONTEXT = 32768;
 
 function normalizeModelId(modelId) {
   return String(modelId || "").trim();

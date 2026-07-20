@@ -18,7 +18,7 @@
 | Rola | Model | Zadanie |
 |------|-------|---------|
 | **Oczy** | `qwen/qwen3-vl-8b-thinking` | PDF/zdjęcia → JSON (nazwa, qty, unit). Bez cen/SKU. |
-| **Mózg** | `openai/gpt-oss-20b` (ctx **8192**) | Agent tools, retry, niejednoznaczności. |
+| **Mózg** | `openai/gpt-oss-20b` (ctx **32768**) | Agent tools, retry, niejednoznaczności. |
 | **Prawda** | ShopDB + `matchInquiry` / `analogRules` / quote PDF | Exact / najtańszy analog, ceny, sumy, КП. |
 
 Start / enable LM Studio:
@@ -27,7 +27,7 @@ Start / enable LM Studio:
 export PATH="/root/.lmstudio/bin:$PATH"
 lms server start --port 1234
 # Boot brain (idle). Eyes load only during OCR via app.
-lms load openai/gpt-oss-20b --context-length 8192 --gpu max -y
+lms load openai/gpt-oss-20b --context-length 32768 --gpu max -y
 # systemd: docker/lmstudio-server.service → /etc/systemd/system/
 ```
 
@@ -43,7 +43,7 @@ LMSTUDIO_MODEL_PREF=openai/gpt-oss-20b
 OFFER_KP_PIPELINE_VISION_MODEL=qwen/qwen3-vl-8b-thinking
 OFFER_KP_PIPELINE_AGENT_MODEL=openai/gpt-oss-20b
 OFFER_KP_PIPELINE_AGENT_FALLBACK=qwen/qwen3-vl-8b
-OFFER_KP_PIPELINE_AGENT_CONTEXT=8192
+OFFER_KP_PIPELINE_AGENT_CONTEXT=32768
 LMSTUDIO_ASK_MODEL_PREF=qwen/qwen3-vl-8b
 LMSTUDIO_MODEL_TOKEN_LIMIT=32768
 ```

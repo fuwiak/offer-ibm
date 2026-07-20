@@ -10,9 +10,9 @@ const OFFER_KP_LM_AGENT_FALLBACK = "qwen/qwen3-vl-8b";
 /** LM Studio on dedicated server lainey */
 const OFFER_KP_LMSTUDIO_HOST = "http://87.228.90.43:1234/v1";
 
-/** Default chat/agent context; gpt-oss on T4 uses OFFER_KP_PIPELINE_AGENT_CONTEXT=8192. */
+/** Default chat/agent context (T4: prefer ≥26k for agent brain). */
 const OFFER_KP_LM_CONTEXT_TOKENS = 32768;
-const OFFER_KP_PIPELINE_AGENT_CONTEXT = 8192;
+const OFFER_KP_PIPELINE_AGENT_CONTEXT = 32768;
 
 module.exports = {
   LLM_PROVIDER: "lmstudio",

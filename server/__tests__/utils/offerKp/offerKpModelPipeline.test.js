@@ -44,7 +44,7 @@ describe("offerKpModelPipeline", () => {
     });
     expect(resolvePipelineModel("agent").modelId).toBe(DEFAULT_AGENT_MODEL);
     expect(resolvePipelineModel("agent").role).toBe("brain");
-    expect(resolvePipelineModel("agent").contextLength).toBe(8192);
+    expect(resolvePipelineModel("agent").contextLength).toBe(32768);
   });
 
   it("honors env overrides", () => {
