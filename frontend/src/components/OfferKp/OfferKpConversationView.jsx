@@ -36,6 +36,7 @@ export default function OfferKpConversationView({
   offerKp,
 }) {
   const isEmpty = chatHistory.length === 0;
+  const isThreadView = !!activeThreadSlug;
   const isGenerating = isOfferKpGenerationActive(
     loadingResponse,
     chatHistory
@@ -53,7 +54,7 @@ export default function OfferKpConversationView({
       />
       <DnDFileUploaderWrapper>
         <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden">
-          {isEmpty ? (
+          {isEmpty && !isThreadView ? (
             <div className="flex flex-col flex-1 min-h-0 overflow-y-auto items-start justify-start px-6 md:px-10 lg:px-14 py-8 md:py-12">
               <div className="flex flex-col w-full max-w-[920px] shrink-0 items-start">
                 <h1 className="offerKp-home-greeting">
@@ -69,6 +70,18 @@ export default function OfferKpConversationView({
                     })
                   }
                 />
+              </div>
+            </div>
+          ) : isEmpty && isThreadView ? (
+            <div className="flex flex-col flex-1 min-h-0 overflow-y-auto items-start justify-start px-6 md:px-10 lg:px-14 py-8 md:py-12">
+              <div className="flex flex-col w-full max-w-[920px] shrink-0 items-start gap-3">
+                <h1 className="text-xl md:text-2xl font-semibold text-theme-text-primary">
+                  {ta("home.threadEmptyTitle")}
+                </h1>
+                <p className="text-sm text-theme-text-secondary max-w-xl">
+                  {ta("home.threadEmptyHint")}
+                </p>
+                <OfferKpNewChatFollowUps sendCommand={sendCommand} />
               </div>
             </div>
           ) : (

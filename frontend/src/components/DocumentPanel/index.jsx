@@ -24,7 +24,10 @@ import DocPreviewPane from "@/components/OfferKp/DocPreviewPane";
 import PdfPreviewPane from "@/components/OfferKp/PdfPreviewPane";
 import CurrentWorkspaceIndicator from "@/components/OfferKp/CurrentWorkspaceIndicator";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
-import { canShowAdminThreadContextPanel } from "@/utils/offerKp/threadPanelAccess";
+import {
+  canShowAdminThreadContextPanel,
+  canShowThreadFilesPanel,
+} from "@/utils/offerKp/threadPanelAccess";
 import ThreadFileDataPreview, {
   FileExtensionBadge,
   displayName,
@@ -199,7 +202,6 @@ export default function DocumentPanel() {
   const { t } = useTranslation("offerKp");
   const { pathname } = useLocation();
   const isHome = pathname === "/";
-  const isOfferKpWorkspaceChat = /^\/workspace\/[^/]+(\/t\/[^/]+)?$/.test(pathname);
   const {
     documentPanelOpen,
     setDocumentPanelOpen,
@@ -214,7 +216,6 @@ export default function DocumentPanel() {
     setDocPreview,
     threadQuoteFiles,
     matchProgress,
-    activeChatEmpty,
   } = useOfferKp();
 
   const { role } = useOfferKpRole();
@@ -291,6 +292,13 @@ export default function DocumentPanel() {
     workspace: activeWorkspace,
     userRole: role,
   });
+  const showThreadFiles =
+    !!activeWorkspaceSlug &&
+    !!activeThreadSlug &&
+    canShowThreadFilesPanel({
+      workspace: activeWorkspace,
+      userRole: role,
+    });
 
   useEffect(() => {
     if (!activeWorkspaceSlug || !activeThreadSlug) {
@@ -356,13 +364,16 @@ export default function DocumentPanel() {
     showQuotePreview ||
     showDocPreview;
   const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
-  /** Examples only on home / empty thread — never cover an active conversation. */
+  /** Examples only on the home screen — never on /t/:threadSlug. */
   const showExamplePromptsPanel =
-    (isHome || (isOfferKpWorkspaceChat && activeChatEmpty)) &&
-    !showAdminThreadContext &&
-    !hasActiveQuoteWorkspace;
+    isHome && !showAdminThreadContext && !hasActiveQuoteWorkspace;
+  const showThreadContextPanel =
+    showAdminThreadContext || (showThreadFiles && !isHome);
   const shouldRenderPanel =
-    isHome || showAdminThreadContext || hasQuotePanel || showExamplePromptsPanel;
+    isHome ||
+    showThreadContextPanel ||
+    hasQuotePanel ||
+    showExamplePromptsPanel;
 
   // Open examples once when they appear; do NOT re-force open after the user collapses.
   const prevShowExamplesRef = useRef(false);
@@ -386,7 +397,7 @@ export default function DocumentPanel() {
   }, [hasQuoteFiles, setDocumentPanelOpen]);
 
   useEffect(() => {
-    if (!hasActiveQuoteWorkspace || showAdminThreadContext) return;
+    if (!hasActiveQuoteWorkspace || showThreadContextPanel) return;
     if (documentPanelView === "pdf" && showPdfPreview) return;
     if (documentPanelView === "doc" && showDocPreview) return;
     if (documentPanelView !== "docs") return;
@@ -396,7 +407,7 @@ export default function DocumentPanel() {
     else if (showPdfPreview) setDocumentPanelView("pdf");
   }, [
     hasActiveQuoteWorkspace,
-    showAdminThreadContext,
+    showThreadContextPanel,
     documentPanelView,
     showQuoteBuilder,
     showPdfPreview,
@@ -423,7 +434,7 @@ export default function DocumentPanel() {
 
       {hasActiveQuoteWorkspace && (
         <div className="flex flex-wrap border-b border-theme-sidebar-border shrink-0">
-          {showAdminThreadContext && (
+          {showThreadContextPanel && (
             <button
               type="button"
               onClick={() => setDocumentPanelView("docs")}
@@ -552,28 +563,34 @@ export default function DocumentPanel() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-6 min-w-0">
             <ExamplePromptsPanel />
           </div>
-        ) : showAdminThreadContext ? (
+        ) : showThreadContextPanel ? (
           <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4">
-            <OfferKpThreadPanelSection
-              title={t("layout.memory")}
-              value={memory}
-              onSave={persistMemory}
-              placeholder={t("layout.memoryPlaceholder")}
-              showPrivateBadge
-              rows={10}
-            />
-            <OfferKpThreadPanelSection
-              title={t("layout.instructions")}
-              value={instructions}
-              onSave={persistInstructions}
-              placeholder={t("layout.instructionsPlaceholder")}
-              rows={6}
-            />
-            <ThreadFilesSection
-              workspaceSlug={activeWorkspaceSlug}
-              threadSlug={activeThreadSlug}
-              onAttach={handleAttach}
-            />
+            {showAdminThreadContext ? (
+              <>
+                <OfferKpThreadPanelSection
+                  title={t("layout.memory")}
+                  value={memory}
+                  onSave={persistMemory}
+                  placeholder={t("layout.memoryPlaceholder")}
+                  showPrivateBadge
+                  rows={10}
+                />
+                <OfferKpThreadPanelSection
+                  title={t("layout.instructions")}
+                  value={instructions}
+                  onSave={persistInstructions}
+                  placeholder={t("layout.instructionsPlaceholder")}
+                  rows={6}
+                />
+              </>
+            ) : null}
+            {showThreadFiles ? (
+              <ThreadFilesSection
+                workspaceSlug={activeWorkspaceSlug}
+                threadSlug={activeThreadSlug}
+                onAttach={handleAttach}
+              />
+            ) : null}
           </div>
         ) : (
           <div className="flex-1" />
@@ -587,10 +604,10 @@ export default function DocumentPanel() {
 
   if (!shouldRenderPanel) return null;
 
-  const isPureAdminContext =
-    showAdminThreadContext && !isHome && !hasQuotePanel;
+  const isPureThreadContext =
+    showThreadContextPanel && !isHome && !hasQuotePanel;
 
-  if (isPureAdminContext) {
+  if (isPureThreadContext) {
     return (
       <div className="offerKp-context-widget fixed bottom-4 right-4 z-40 hidden lg:flex flex-col items-end gap-2">
         {contextWidgetOpen && (
@@ -617,26 +634,32 @@ export default function DocumentPanel() {
               </div>
             )}
             <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4 min-h-0">
-              <OfferKpThreadPanelSection
-                title={t("layout.memory")}
-                value={memory}
-                onSave={persistMemory}
-                placeholder={t("layout.memoryPlaceholder")}
-                showPrivateBadge
-                rows={10}
-              />
-              <OfferKpThreadPanelSection
-                title={t("layout.instructions")}
-                value={instructions}
-                onSave={persistInstructions}
-                placeholder={t("layout.instructionsPlaceholder")}
-                rows={6}
-              />
-              <ThreadFilesSection
-                workspaceSlug={activeWorkspaceSlug}
-                threadSlug={activeThreadSlug}
-                onAttach={handleAttach}
-              />
+              {showAdminThreadContext ? (
+                <>
+                  <OfferKpThreadPanelSection
+                    title={t("layout.memory")}
+                    value={memory}
+                    onSave={persistMemory}
+                    placeholder={t("layout.memoryPlaceholder")}
+                    showPrivateBadge
+                    rows={10}
+                  />
+                  <OfferKpThreadPanelSection
+                    title={t("layout.instructions")}
+                    value={instructions}
+                    onSave={persistInstructions}
+                    placeholder={t("layout.instructionsPlaceholder")}
+                    rows={6}
+                  />
+                </>
+              ) : null}
+              {showThreadFiles ? (
+                <ThreadFilesSection
+                  workspaceSlug={activeWorkspaceSlug}
+                  threadSlug={activeThreadSlug}
+                  onAttach={handleAttach}
+                />
+              ) : null}
             </div>
             {hasQuoteFiles ? (
               <GeneratedQuotesDock files={threadQuoteFiles} />

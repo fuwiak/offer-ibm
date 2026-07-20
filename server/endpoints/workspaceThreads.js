@@ -139,10 +139,14 @@ function workspaceThreadEndpoints(app) {
         const history = await WorkspaceChats.where(
           {
             workspaceId: workspace.id,
-            user_id: user?.id || null,
             thread_id: thread.id,
             api_session_id: null, // Do not include API session chats.
             include: true,
+            // Prefer caller's chats, but also include null-user rows so history
+            // is not empty when older messages were saved without user_id.
+            ...(user?.id
+              ? { OR: [{ user_id: user.id }, { user_id: null }] }
+              : { user_id: null }),
           },
           null,
           { id: "asc" }

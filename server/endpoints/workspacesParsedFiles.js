@@ -25,6 +25,35 @@ const {
   enrichDocumentsWithOfferKpOcr,
 } = require("../utils/offerKp/offerKpDocumentIngest");
 
+/** FormData may send the literal string "null"/"undefined" — treat those as absent. */
+function normalizeThreadSlug(raw) {
+  if (raw == null) return null;
+  const value = String(raw).trim();
+  if (!value || value === "null" || value === "undefined") return null;
+  return value;
+}
+
+async function resolveParsedFileThread({ workspace, threadSlug, user }) {
+  const slug = normalizeThreadSlug(threadSlug);
+  if (!slug) return null;
+
+  // Prefer the caller's thread, but fall back to workspace slug match so uploads
+  // still bind when user_id on the thread row is null/mismatched.
+  if (user?.id) {
+    const owned = await WorkspaceThread.get({
+      slug,
+      workspace_id: workspace.id,
+      user_id: user.id,
+    });
+    if (owned) return owned;
+  }
+
+  return WorkspaceThread.get({
+    slug,
+    workspace_id: workspace.id,
+  });
+}
+
 function workspaceParsedFilesEndpoints(app) {
   if (!app) return;
 
@@ -33,12 +62,14 @@ function workspaceParsedFilesEndpoints(app) {
     [validatedRequest, flexUserRoleValid([ROLES.all]), validWorkspaceSlug],
     async (request, response) => {
       try {
-        const threadSlug = request.query.threadSlug || null;
+        const threadSlug = normalizeThreadSlug(request.query.threadSlug);
         const user = await userFromSession(request, response);
         const workspace = response.locals.workspace;
-        const thread = threadSlug
-          ? await WorkspaceThread.get({ slug: String(threadSlug) })
-          : null;
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
+        });
         const { files, contextWindow, currentContextTokenCount } =
           await WorkspaceParsedFiles.getContextMetadataAndLimits(
             workspace,
@@ -62,12 +93,14 @@ function workspaceParsedFilesEndpoints(app) {
     async (request, response) => {
       try {
         const { fileId } = request.params;
-        const threadSlug = request.query.threadSlug || null;
+        const threadSlug = normalizeThreadSlug(request.query.threadSlug);
         const user = await userFromSession(request, response);
         const workspace = response.locals.workspace;
-        const thread = threadSlug
-          ? await WorkspaceThread.get({ slug: String(threadSlug) })
-          : null;
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
+        });
         const { preview, error } = await WorkspaceParsedFiles.getFilePreview({
           workspace,
           fileId,
@@ -99,12 +132,14 @@ function workspaceParsedFilesEndpoints(app) {
     async (request, response) => {
       try {
         const { fileId } = request.params;
-        const threadSlug = request.query.threadSlug || null;
+        const threadSlug = normalizeThreadSlug(request.query.threadSlug);
         const user = await userFromSession(request, response);
         const workspace = response.locals.workspace;
-        const thread = threadSlug
-          ? await WorkspaceThread.get({ slug: String(threadSlug) })
-          : null;
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
+        });
         const { file, error } = await WorkspaceParsedFiles.getOriginalFile({
           workspace,
           fileId,
@@ -166,7 +201,11 @@ function workspaceParsedFilesEndpoints(app) {
     async function (request, response) {
       try {
         const { fileIds = [], threadSlug = null } = reqBody(request);
-        if (!Array.isArray(fileIds) || !fileIds.length || !threadSlug) {
+        if (
+          !Array.isArray(fileIds) ||
+          !fileIds.length ||
+          !normalizeThreadSlug(threadSlug)
+        ) {
           return response.status(400).json({
             success: false,
             error: "fileIds and threadSlug are required",
@@ -175,10 +214,10 @@ function workspaceParsedFilesEndpoints(app) {
 
         const user = await userFromSession(request, response);
         const workspace = response.locals.workspace;
-        const thread = await WorkspaceThread.get({
-          slug: String(threadSlug),
-          workspace_id: workspace.id,
-          ...(user ? { user_id: user.id } : {}),
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
         });
 
         if (!thread) {
@@ -308,13 +347,11 @@ function workspaceParsedFilesEndpoints(app) {
 
         // Get thread ID if we have a slug
         const { threadSlug = null } = reqBody(request);
-        const thread = threadSlug
-          ? await WorkspaceThread.get({
-              slug: String(threadSlug),
-              workspace_id: workspace.id,
-              user_id: user?.id || null,
-            })
-          : null;
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
+        });
         const files = await Promise.all(
           enrichedDocuments.map(async (doc) => {
             const metadata = { ...doc };
@@ -432,13 +469,11 @@ function workspaceParsedFilesEndpoints(app) {
         }
 
         const { threadSlug = null } = reqBody(request);
-        const thread = threadSlug
-          ? await WorkspaceThread.get({
-              slug: String(threadSlug),
-              workspace_id: workspace.id,
-              user_id: user?.id || null,
-            })
-          : null;
+        const thread = await resolveParsedFileThread({
+          workspace,
+          threadSlug,
+          user,
+        });
 
         const files = await Promise.all(
           enrichedDocuments.map(async (doc) => {

@@ -172,6 +172,9 @@ const TRANSLATIONS = {
   },
   home: {
     greeting: "Welcome back, {{name}}",
+    threadEmptyTitle: "Conversation",
+    threadEmptyHint:
+      "No messages in this conversation yet. Attach an inquiry or describe the line items — files stay with this thread.",
     inputPlaceholder: "Ask a question or search for a quote...",
     quickActions: {
       generalAnalysis: "General analysis",

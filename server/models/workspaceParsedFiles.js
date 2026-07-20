@@ -181,7 +181,11 @@ const WorkspaceParsedFiles = {
       const files = await this.where({
         workspaceId: workspace.id,
         threadId: thread?.id || null,
-        ...(user ? { userId: user.id } : {}),
+        ...(user
+          ? thread
+            ? { OR: [{ userId: user.id }, { userId: null }] }
+            : { userId: user.id }
+          : {}),
       });
 
       const results = [];

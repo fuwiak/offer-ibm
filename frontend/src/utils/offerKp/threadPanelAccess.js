@@ -6,6 +6,17 @@ export function canShowAdminThreadContextPanel({ workspace, userRole } = {}) {
   return profile.id === "admin";
 }
 
+/**
+ * Thread Files section for operators (partner/sales/admin).
+ * Public/supplier stay without the files panel.
+ */
+export function canShowThreadFilesPanel({ workspace, userRole } = {}) {
+  const profile = getEffectiveWorkspaceProfile({ userRole, workspace });
+  return ["admin", "partner", "internal_sales", "external_sales"].includes(
+    profile.id
+  );
+}
+
 /** Hide raw agent/system status lines from end-user chat. */
 export function isHiddenAgentStatusMessage(content = "") {
   const text = String(content || "").trim();

@@ -173,6 +173,9 @@ const TRANSLATIONS = {
   },
   home: {
     greeting: "С возвращением, {{name}}",
+    threadEmptyTitle: "Диалог",
+    threadEmptyHint:
+      "В этом диалоге пока нет сообщений. Прикрепите заявку или опишите позиции — файлы сохранятся в этом окне.",
     inputPlaceholder: "Опишите заявку на крепёж или найдите позицию в базе...",
     quickActions: {
       generalAnalysis: "Разбор заявки",

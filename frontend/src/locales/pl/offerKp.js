@@ -168,6 +168,9 @@ const TRANSLATIONS = {
   },
   home: {
     greeting: "Witaj z powrotem, {{name}}",
+    threadEmptyTitle: "Rozmowa",
+    threadEmptyHint:
+      "W tej rozmowie nie ma jeszcze wiadomości. Dołącz zapytanie lub opisz pozycje — pliki zostaną w tym oknie.",
     inputPlaceholder: "Opisz kwestię prawną lub znajdź potrzebny dokument...",
     quickActions: {
       generalAnalysis: "Ogólna analiza",

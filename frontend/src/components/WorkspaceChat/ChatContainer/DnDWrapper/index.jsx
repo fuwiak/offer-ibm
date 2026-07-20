@@ -244,7 +244,8 @@ export function DnDFileUploaderProvider({
 
       const formData = new FormData();
       formData.append("file", attachment.file, attachment.file.name);
-      formData.append("threadSlug", threadSlug || null);
+      // FormData coerces null to the string "null" — only send a real slug.
+      if (threadSlug) formData.append("threadSlug", threadSlug);
 
       // Stream OCR progress so large scanned PDFs show page-by-page status
       // instead of a single static "Uploading..." while we wait.
