@@ -176,18 +176,20 @@ class Provider {
           apiKey: process.env.MISTRAL_API_KEY ?? null,
           ...config,
         });
-      case "openrouter":
+      case "openrouter": {
+        const {
+          resolveOpenRouterBaseUrl,
+          resolveOpenRouterHeaders,
+        } = require("../../../offerKpApp/openRouterEnv");
         return new ChatOpenAI({
           configuration: {
-            baseURL: "https://openrouter.ai/api/v1",
-            defaultHeaders: {
-              "HTTP-Referer": "https://offerKp.com",
-              "X-Title": "offer-kp",
-            },
+            baseURL: resolveOpenRouterBaseUrl(),
+            defaultHeaders: resolveOpenRouterHeaders(),
           },
           apiKey: process.env.OPENROUTER_API_KEY ?? null,
           ...config,
         });
+      }
       case "perplexity":
         return new ChatOpenAI({
           configuration: {

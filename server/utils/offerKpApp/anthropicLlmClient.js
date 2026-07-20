@@ -1,5 +1,9 @@
 const { OpenAI } = require("openai");
-const { resolveOpenRouterApiKey } = require("./openRouterEnv");
+const {
+  resolveOpenRouterApiKey,
+  resolveOpenRouterBaseUrl,
+  resolveOpenRouterHeaders,
+} = require("./openRouterEnv");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
 
 function getAnthropicLlmClient() {
@@ -7,12 +11,9 @@ function getAnthropicLlmClient() {
   if (!apiKey) return null;
   return {
     client: new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
+      baseURL: resolveOpenRouterBaseUrl(),
       apiKey,
-      defaultHeaders: {
-        "HTTP-Referer": "https://offerKp.com",
-        "X-Title": "offer-kp",
-      },
+      defaultHeaders: resolveOpenRouterHeaders(),
       maxRetries: 1,
     }),
     model:

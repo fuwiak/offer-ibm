@@ -3,13 +3,21 @@ const path = require("path");
 const { MimeDetector } = require("./mime");
 
 /**
+ * STORAGE_DIR must be a string — systemd units often forget EnvironmentFile.
+ * Fall back to the monorepo server/storage path so collector can boot.
+ */
+const storageDir =
+  String(process.env.STORAGE_DIR || "").trim() ||
+  path.resolve(__dirname, "../../../server/storage");
+
+/**
  * The folder where documents are stored to be stored when
  * processed by the collector.
  */
 const documentsFolder =
   process.env.NODE_ENV === "development"
     ? path.resolve(__dirname, `../../../server/storage/documents`)
-    : path.resolve(process.env.STORAGE_DIR, `documents`);
+    : path.resolve(storageDir, `documents`);
 
 /**
  * The folder where direct uploads are stored to be stored when
@@ -19,7 +27,7 @@ const documentsFolder =
 const directUploadsFolder =
   process.env.NODE_ENV === "development"
     ? path.resolve(__dirname, `../../../server/storage/direct-uploads`)
-    : path.resolve(process.env.STORAGE_DIR, `direct-uploads`);
+    : path.resolve(storageDir, `direct-uploads`);
 
 /**
  * Checks if a file is text by checking the mime type and then falling back to buffer inspection.

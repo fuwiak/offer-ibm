@@ -1,7 +1,7 @@
 const llmDefaults = require("../../config/offerKp.llm.defaults");
 const { resolveOfferKpChatModel } = require("../../config/offerKp.models");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
-const { resolveOpenRouterApiKey } = require("../offerKpApp/openRouterEnv");
+const { resolveOpenRouterApiKey, resolveOpenRouterBaseUrl, resolveOpenRouterHeaders } = require("../offerKpApp/openRouterEnv");
 const {
   shouldUseTeacherLlm,
   resolveTeacherModel,
@@ -12,8 +12,6 @@ const VISION_OCR_PROMPT = `Извлеки весь текст с изображ�
 Сохрани таблицу построчно: № | Наименование | Ед.изм. | Кол-во.
 Кол-во — целые числа или кг из колонки «Кол-во». НЕ путай кол-во с ценой (руб/копейки).
 Только извлечённый текст на русском, без комментариев.`;
-
-const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 function lmStudioChatUrl() {
   const base =
@@ -26,13 +24,12 @@ function lmStudioChatUrl() {
 function resolveVisionOcrEndpoint() {
   if (shouldUseTeacherLlm()) {
     return {
-      url: OPENROUTER_CHAT_URL,
+      url: `${resolveOpenRouterBaseUrl()}/chat/completions`,
       modelId: resolveTeacherModel(),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resolveOpenRouterApiKey()}`,
-        "HTTP-Referer": "https://offerKp.com",
-        "X-Title": "offer-kp",
+        ...resolveOpenRouterHeaders(),
       },
       engine: "qwen3-vl",
       teacher: true,

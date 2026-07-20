@@ -6,13 +6,14 @@ class OpenRouterEmbedder {
       throw new Error("No OpenRouter API key was set.");
     this.className = "OpenRouterEmbedder";
     const { OpenAI: OpenAIApi } = require("openai");
+    const {
+      resolveOpenRouterBaseUrl,
+      resolveOpenRouterHeaders,
+    } = require("../../offerKpApp/openRouterEnv");
     this.openai = new OpenAIApi({
-      baseURL: "https://openrouter.ai/api/v1",
+      baseURL: resolveOpenRouterBaseUrl(),
       apiKey: process.env.OPENROUTER_API_KEY,
-      defaultHeaders: {
-        "HTTP-Referer": "https://offerKp.com",
-        "X-Title": "offer-kp",
-      },
+      defaultHeaders: resolveOpenRouterHeaders(),
     });
     this.model = process.env.EMBEDDING_MODEL_PREF || "baai/bge-m3";
 
@@ -100,7 +101,10 @@ class OpenRouterEmbedder {
 }
 
 async function fetchOpenRouterEmbeddingModels() {
-  return await fetch(`https://openrouter.ai/api/v1/embeddings/models`, {
+  const {
+    resolveOpenRouterBaseUrl,
+  } = require("../../offerKpApp/openRouterEnv");
+  return await fetch(`${resolveOpenRouterBaseUrl()}/embeddings/models`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })

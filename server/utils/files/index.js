@@ -15,10 +15,8 @@ const vectorCachePath =
   process.env.NODE_ENV === "development"
     ? path.resolve(__dirname, `../../storage/vector-cache`)
     : path.resolve(process.env.STORAGE_DIR, `vector-cache`);
-const hotdirPath =
-  process.env.NODE_ENV === "development"
-    ? path.resolve(__dirname, `../../../collector/hotdir`)
-    : path.resolve(process.env.STORAGE_DIR, `../../collector/hotdir`);
+const { resolveCollectorHotdir } = require("./collectorPaths");
+const hotdirPath = resolveCollectorHotdir();
 
 // Should take in a folder that is a subfolder of documents
 // eg: youtube-subject/video-123.json

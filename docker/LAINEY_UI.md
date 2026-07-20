@@ -1,41 +1,48 @@
-# OfferKP UI on Lainey (Selectel) — доступ из РФ без Railway в браузере
+# OfferKP UI на Lainey (Selectel only)
 
-Railway (`*.up.railway.app`) из России часто недоступен. Lainey в Selectel (СПб)
-имеет публичный IP — через него отдаём UI.
+**URL:** http://offer-ibm.ru/ (и http://87.228.90.43/)
 
-## Быстрый доступ (прокси)
+Стек на сервере Lainey (`87.228.90.43`), **без Railway**:
 
-На Lainey ставится nginx, который проксирует на Railway. Пользователи открывают
-только IP Lainey (доступен из РФ).
+- nginx `:80` → Node app `:3001`
+- systemd: `offer-kp.service`, `offer-kp-collector.service`
+- код: `/opt/offer-kp/app`
+- данные: `/opt/offer-kp/data`
+- collector hotdir: `/opt/offer-kp/app/collector/hotdir`
+- LLM: OpenRouter teacher через egress-proxy (см. ниже) / LM Studio `127.0.0.1:1234` когда запущен
 
-**URL:** `http://87.228.90.43/`
+## OpenRouter 403 с Selectel
 
-### 1) Firewall Selectel
-
-В панели Selectel для сервера Lainey откройте входящий TCP **80**
-(и при необходимости **443**) на публичный IP `87.228.90.43`.
-
-### 2) Консоль сервера
-
-Selectel → Lainey → Console (VNC) → под root выполните:
+Прямой доступ к `openrouter.ai` с IP Lainey даёт `403 Access denied by security policy`.
+Нужен egress-proxy на машине вне блокировки + reverse SSH:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fuwiak/offer-ibm/main/scripts/deploy-lainey-ui-proxy.sh | bash
+# на ноутбуке (EU):
+node scripts/openrouter-egress-proxy.cjs
+ssh -N -R 127.0.0.1:8787:127.0.0.1:8787 root@87.228.90.43
 ```
 
-Или скопируйте скрипт из репозитория: `scripts/deploy-lainey-ui-proxy.sh`.
+На сервере в `server/.env`:
 
-### 3) SSH (чтобы можно было деплоить без консоли)
+```
+OPENROUTER_BASE_URL=http://127.0.0.1:8787/api/v1
+COLLECTOR_HOTDIR=/opt/offer-kp/app/collector/hotdir
+STORAGE_DIR=/opt/offer-kp/data
+```
 
-Добавьте публичный ключ в `~/.ssh/authorized_keys` на Lainey
-(через ту же Console), затем с локальной машины:
+Collector systemd обязан иметь `Environment=STORAGE_DIR=...` (иначе crash loop).
+
+## Обновление
+
+С ноутбука (SSH ключ разблокирован):
 
 ```bash
-ssh root@87.228.90.43
+cd frontend && VITE_API_BASE=/api yarn build && cd ..
+rsync -az --delete --exclude node_modules --exclude .git \
+  --exclude '**/storage/**' \
+  -e 'ssh -o BatchMode=yes' \
+  ./ root@87.228.90.43:/opt/offer-kp/app/
+ssh root@87.228.90.43 'cp -a /opt/offer-kp/app/frontend/dist/. /opt/offer-kp/app/server/public/ && systemctl restart offer-kp offer-kp-collector'
 ```
 
-## Полный self-host (позже)
-
-Если Railway нельзя даже как upstream с Lainey — поднимайте Docker-стек на Lainey
-(`docker/Dockerfile`, `LMSTUDIO_BASE_PATH=http://127.0.0.1:1234/v1`).
-Прокси выше — минимальный путь «показать UI сейчас».
+Важно: production-сборка только с `VITE_API_BASE=/api`. Если оставить `localhost:3001`, в браузере будет Failed to fetch.

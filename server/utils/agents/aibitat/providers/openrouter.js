@@ -18,14 +18,15 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
   constructor(config = {}) {
     const { model = "openrouter/auto" } = config;
     super();
+    const {
+      resolveOpenRouterBaseUrl,
+      resolveOpenRouterHeaders,
+    } = require("../../../offerKpApp/openRouterEnv");
     const client = new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
+      baseURL: resolveOpenRouterBaseUrl(),
       apiKey: process.env.OPENROUTER_API_KEY,
       maxRetries: 3,
-      defaultHeaders: {
-        "HTTP-Referer": "https://offerKp.com",
-        "X-Title": "offer-kp",
-      },
+      defaultHeaders: resolveOpenRouterHeaders(),
     });
 
     this._client = client;

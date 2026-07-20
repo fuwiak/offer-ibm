@@ -34,14 +34,15 @@ class OpenRouterLLM {
 
     this.className = "OpenRouterLLM";
     const { OpenAI: OpenAIApi } = require("openai");
-    this.basePath = "https://openrouter.ai/api/v1";
+    const {
+      resolveOpenRouterBaseUrl,
+      resolveOpenRouterHeaders,
+    } = require("../../offerKpApp/openRouterEnv");
+    this.basePath = resolveOpenRouterBaseUrl();
     this.openai = new OpenAIApi({
       baseURL: this.basePath,
       apiKey: process.env.OPENROUTER_API_KEY ?? null,
-      defaultHeaders: {
-        "HTTP-Referer": "https://offerKp.com",
-        "X-Title": "offer-kp",
-      },
+      defaultHeaders: resolveOpenRouterHeaders(),
     });
     this.model =
       modelPreference || process.env.OPENROUTER_MODEL_PREF || "openrouter/auto";
@@ -527,7 +528,10 @@ class OpenRouterLLM {
 }
 
 async function fetchOpenRouterModels() {
-  return await fetch(`https://openrouter.ai/api/v1/models`, {
+  const {
+    resolveOpenRouterBaseUrl,
+  } = require("../../offerKpApp/openRouterEnv");
+  return await fetch(`${resolveOpenRouterBaseUrl()}/models`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
