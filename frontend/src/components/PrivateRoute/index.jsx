@@ -3,7 +3,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import { FullScreenLoader } from "../Preloader";
 import validateSessionTokenForUser from "@/utils/session";
 import paths from "@/utils/paths";
-import { shouldSkipLegacyOnboarding } from "@/utils/offerKp/detectOfferKpMode";
+import {
+  shouldRequireOfferKpFirstRun,
+  shouldSkipLegacyOnboarding,
+} from "@/utils/offerKp/detectOfferKpMode";
 import { AUTH_TIMESTAMP, AUTH_TOKEN, AUTH_USER } from "@/utils/constants";
 import { userFromStorage } from "@/utils/request";
 import System from "@/models/system";
@@ -24,27 +27,31 @@ function useIsAuthenticated() {
       const systemKeys = await System.keys();
       const { MultiUserMode, RequiresAuth, HasUsers } = systemKeys ?? {};
       setMultiUserMode(MultiUserMode);
+      const skipLegacyOnboarding = shouldSkipLegacyOnboarding();
 
-      // Legacy onboarding wizard redirect (skipped for offer-kp via shouldSkipLegacyOnboarding)
-      if (onboardingComplete === false) {
+      if (
+        skipLegacyOnboarding &&
+        shouldRequireOfferKpFirstRun({
+          onboardingComplete,
+          hasUsers: HasUsers,
+          multiUserMode: MultiUserMode,
+          requiresAuth: RequiresAuth,
+        })
+      ) {
         setShouldRedirectToOnboarding(true);
-        if (!shouldSkipLegacyOnboarding()) {
-          setIsAuthed(true);
-          return;
-        }
-        // offer-kp: redirect to first-run setup, do not grant free access
         setIsAuthed(false);
         return;
       }
 
+      // Legacy onboarding wizard redirect (skipped for offer-kp via shouldSkipLegacyOnboarding)
+      if (onboardingComplete === false && !skipLegacyOnboarding) {
+        setShouldRedirectToOnboarding(true);
+        setIsAuthed(true);
+        return;
+      }
+
       // Single User mode without password - no auth required.
-      // offer-kp: if no users exist yet, force first-run admin setup.
       if (!MultiUserMode && !RequiresAuth) {
-        if (shouldSkipLegacyOnboarding() && !HasUsers) {
-          setShouldRedirectToOnboarding(true);
-          setIsAuthed(false);
-          return;
-        }
         setIsAuthed(true);
         return;
       }

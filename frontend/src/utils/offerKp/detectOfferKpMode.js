@@ -48,4 +48,18 @@ export function shouldSkipLegacyOnboarding() {
   return true;
 }
 
+/**
+ * OfferKP uses first-run only to create the initial admin. An existing user is
+ * authoritative even when a legacy deployment is missing the onboarding flag.
+ */
+export function shouldRequireOfferKpFirstRun({
+  onboardingComplete,
+  hasUsers,
+  multiUserMode,
+  requiresAuth,
+}) {
+  if (hasUsers === true) return false;
+  return onboardingComplete === false || (!multiUserMode && !requiresAuth);
+}
+
 export { PUBLIC_SLUG };
