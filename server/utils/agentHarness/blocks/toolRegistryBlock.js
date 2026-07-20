@@ -23,6 +23,18 @@ class ToolRegistryBlock extends BaseBlock {
     }
 
     aibitat.requestToolApproval = async (params) => {
+      // Harness rejects (e.g. rag-memory on КП) must win over ENV auto-approve.
+      const harnessDecision = await harness.resolveToolApproval(params);
+      if (harnessDecision) {
+        const approved = Boolean(harnessDecision.approved);
+        console.log(
+          chalk[approved ? "green" : "yellow"](
+            `Skill ${params.skillName} ${approved ? "approved" : "rejected"} by harness (${harnessDecision.message})`
+          )
+        );
+        return harnessDecision;
+      }
+
       if (skillIsAutoApproved({ skillName: params.skillName })) {
         return {
           approved: true,
@@ -43,17 +55,6 @@ class ToolRegistryBlock extends BaseBlock {
               ? ` (${violations.map((v) => v.id).join(", ")})`
               : ""),
         };
-      }
-
-      const harnessDecision = await harness.resolveToolApproval(params);
-      if (harnessDecision) {
-        const approved = Boolean(harnessDecision.approved);
-        console.log(
-          chalk[approved ? "green" : "yellow"](
-            `Skill ${params.skillName} ${approved ? "approved" : "rejected"} by harness (${harnessDecision.message})`
-          )
-        );
-        return harnessDecision;
       }
 
       return previous.call(aibitat, params);

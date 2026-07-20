@@ -139,17 +139,33 @@ class Provider {
 
   /**
    *
-   * @param {string} provider - the string key of the provider LLM being loaded.
+   * @param {string|{providerKey?: string, model?: string}} provider - provider key or tagged instance (after AIbitat#reply).
    * @param {LangChainModelConfig} config - Config to be used to override default connection object.
    * @returns
    */
   static LangChainChatModel(provider = "openai", config = {}) {
-    switch (provider) {
+    // After the first completion aibitat.provider is an instance, not a string.
+    // JSON.stringify(instance) throws "Converting circular structure to JSON"
+    // (OpenAI client). Resolve providerKey the same way as contextLimit().
+    const providerKey =
+      typeof provider === "string" ? provider : provider?.providerKey;
+    const modelFromProvider =
+      typeof provider === "object" && provider?.model
+        ? String(provider.model)
+        : null;
+    const mergedConfig = {
+      ...config,
+      ...(modelFromProvider && !config.model
+        ? { model: modelFromProvider }
+        : {}),
+    };
+
+    switch (providerKey) {
       // Cloud models
       case "openai":
         return new ChatOpenAI({
           apiKey: process.env.OPEN_AI_KEY,
-          ...config,
+          ...mergedConfig,
         });
       case "anthropic": {
         const {
@@ -157,7 +173,7 @@ class Provider {
         } = require("../../../offerKpApp/anthropicEnv");
         return new ChatAnthropic({
           apiKey: resolveAnthropicApiKey(),
-          ...config,
+          ...mergedConfig,
         });
       }
       case "groq":
@@ -166,7 +182,7 @@ class Provider {
             baseURL: "https://api.groq.com/openai/v1",
           },
           apiKey: process.env.GROQ_API_KEY,
-          ...config,
+          ...mergedConfig,
         });
       case "mistral":
         return new ChatOpenAI({
@@ -174,7 +190,7 @@ class Provider {
             baseURL: "https://api.mistral.ai/v1",
           },
           apiKey: process.env.MISTRAL_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "openrouter": {
         const {
@@ -187,7 +203,7 @@ class Provider {
             defaultHeaders: resolveOpenRouterHeaders(),
           },
           apiKey: process.env.OPENROUTER_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       }
       case "perplexity":
@@ -196,7 +212,7 @@ class Provider {
             baseURL: "https://api.perplexity.ai",
           },
           apiKey: process.env.PERPLEXITY_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "togetherai":
         return new ChatOpenAI({
@@ -204,7 +220,7 @@ class Provider {
             baseURL: "https://api.together.xyz/v1",
           },
           apiKey: process.env.TOGETHER_AI_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "generic-openai":
         return new ChatOpenAI({
@@ -216,14 +232,14 @@ class Provider {
             process.env.GENERIC_OPEN_AI_MAX_TOKENS,
             1024
           ),
-          ...config,
+          ...mergedConfig,
         });
       case "bedrock":
-        return createBedrockChatClient(config);
+        return createBedrockChatClient(mergedConfig);
       case "fireworksai":
         return new ChatOpenAI({
           apiKey: process.env.FIREWORKS_AI_LLM_API_KEY,
-          ...config,
+          ...mergedConfig,
         });
       case "apipie":
         return new ChatOpenAI({
@@ -231,7 +247,7 @@ class Provider {
             baseURL: "https://apipie.ai/v1",
           },
           apiKey: process.env.APIPIE_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "deepseek":
         return new ChatOpenAI({
@@ -239,7 +255,7 @@ class Provider {
             baseURL: "https://api.deepseek.com/v1",
           },
           apiKey: process.env.DEEPSEEK_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "xai":
         return new ChatOpenAI({
@@ -247,7 +263,7 @@ class Provider {
             baseURL: "https://api.x.ai/v1",
           },
           apiKey: process.env.XAI_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "zai":
         return new ChatOpenAI({
@@ -255,7 +271,7 @@ class Provider {
             baseURL: "https://api.z.ai/api/paas/v4",
           },
           apiKey: process.env.ZAI_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "novita":
         return new ChatOpenAI({
@@ -263,7 +279,7 @@ class Provider {
             baseURL: "https://api.novita.ai/v3/openai",
           },
           apiKey: process.env.NOVITA_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "ppio":
         return new ChatOpenAI({
@@ -271,7 +287,7 @@ class Provider {
             baseURL: "https://api.ppinfra.com/v3/openai",
           },
           apiKey: process.env.PPIO_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "gemini":
         return new ChatOpenAI({
@@ -279,7 +295,7 @@ class Provider {
             baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
           },
           apiKey: process.env.GEMINI_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "moonshotai":
         return new ChatOpenAI({
@@ -287,7 +303,7 @@ class Provider {
             baseURL: "https://api.moonshot.ai/v1",
           },
           apiKey: process.env.MOONSHOT_AI_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "cometapi":
         return new ChatOpenAI({
@@ -295,7 +311,7 @@ class Provider {
             baseURL: "https://api.cometapi.com/v1",
           },
           apiKey: process.env.COMETAPI_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "giteeai":
         return new ChatOpenAI({
@@ -303,12 +319,12 @@ class Provider {
             baseURL: "https://ai.gitee.com/v1",
           },
           apiKey: process.env.GITEE_AI_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "cohere":
         return new ChatCohere({
           apiKey: process.env.COHERE_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "privatemode":
         return new ChatOpenAI({
@@ -316,7 +332,7 @@ class Provider {
             baseURL: process.env.PRIVATEMODE_LLM_BASE_PATH,
           },
           apiKey: null,
-          ...config,
+          ...mergedConfig,
         });
       case "sambanova":
         return new ChatOpenAI({
@@ -324,16 +340,16 @@ class Provider {
             baseURL: "https://api.sambanova.ai/v1",
           },
           apiKey: process.env.SAMBANOVA_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       // OSS Model Runners
       // case "offerKp_ollama":
       //   return new ChatOllama({
       //     baseUrl: process.env.PLACEHOLDER,
-      //     ...config,
+      //     ...mergedConfig,
       //   });
       case "ollama":
-        return OllamaLangchainChatModel.create(config);
+        return OllamaLangchainChatModel.create(mergedConfig);
       case "lmstudio": {
         const apiKey = process.env.LMSTUDIO_AUTH_TOKEN ?? null;
         return new ChatOpenAI({
@@ -341,7 +357,7 @@ class Provider {
             baseURL: parseLMStudioBasePath(process.env.LMSTUDIO_BASE_PATH),
           },
           apiKey: apiKey || "not-used",
-          ...config,
+          ...mergedConfig,
         });
       }
       case "koboldcpp":
@@ -350,7 +366,7 @@ class Provider {
             baseURL: process.env.KOBOLD_CPP_BASE_PATH,
           },
           apiKey: "not-used",
-          ...config,
+          ...mergedConfig,
         });
       case "localai":
         return new ChatOpenAI({
@@ -358,7 +374,7 @@ class Provider {
             baseURL: process.env.LOCAL_AI_BASE_PATH,
           },
           apiKey: process.env.LOCAL_AI_API_KEY ?? "not-used",
-          ...config,
+          ...mergedConfig,
         });
       case "textgenwebui":
         return new ChatOpenAI({
@@ -366,7 +382,7 @@ class Provider {
             baseURL: process.env.TEXT_GEN_WEB_UI_BASE_PATH,
           },
           apiKey: process.env.TEXT_GEN_WEB_UI_API_KEY ?? "not-used",
-          ...config,
+          ...mergedConfig,
         });
       case "litellm":
         return new ChatOpenAI({
@@ -374,7 +390,7 @@ class Provider {
             baseURL: process.env.LITE_LLM_BASE_PATH,
           },
           apiKey: process.env.LITE_LLM_API_KEY ?? null,
-          ...config,
+          ...mergedConfig,
         });
       case "nvidia-nim":
         return new ChatOpenAI({
@@ -382,7 +398,7 @@ class Provider {
             baseURL: process.env.NVIDIA_NIM_LLM_BASE_PATH,
           },
           apiKey: null,
-          ...config,
+          ...mergedConfig,
         });
       case "foundry": {
         return new ChatOpenAI({
@@ -390,7 +406,7 @@ class Provider {
             baseURL: parseFoundryBasePath(process.env.FOUNDRY_BASE_PATH),
           },
           apiKey: null,
-          ...config,
+          ...mergedConfig,
         });
       }
       case "docker-model-runner":
@@ -401,7 +417,7 @@ class Provider {
             ),
           },
           apiKey: null,
-          ...config,
+          ...mergedConfig,
         });
       case "lemonade":
         return new ChatOpenAI({
@@ -409,11 +425,11 @@ class Provider {
             baseURL: process.env.LEMONADE_LLM_BASE_PATH,
           },
           apiKey: process.env.LEMONADE_LLM_API_KEY || null,
-          ...config,
+          ...mergedConfig,
         });
       default:
         throw new Error(
-          `Unsupported provider ${JSON.stringify(provider)} for this task.`
+          `Unsupported provider ${String(providerKey || typeof provider)} for this task.`
         );
     }
   }

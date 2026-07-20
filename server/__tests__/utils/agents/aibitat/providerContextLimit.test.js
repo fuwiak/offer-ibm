@@ -94,3 +94,32 @@ describe("AIbitat#getProviderForConfig tags instances with providerKey", () => {
     expect(aibitat.getProviderForConfig({ provider: tagged })).toBe(tagged);
   });
 });
+
+describe("Provider.LangChainChatModel — provider instance must not JSON.stringify", () => {
+  const prevKey = process.env.OPENROUTER_API_KEY;
+
+  beforeAll(() => {
+    process.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "sk-or-test";
+  });
+
+  afterAll(() => {
+    if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = prevKey;
+  });
+
+  it("accepts a tagged provider instance without circular JSON error", () => {
+    const circular = { providerKey: "openrouter", model: "openai/gpt-4o-mini" };
+    circular.self = circular; // would blow up JSON.stringify(provider)
+    expect(() =>
+      Provider.LangChainChatModel(circular, { temperature: 0 })
+    ).not.toThrow();
+  });
+
+  it("throws a safe message for unknown provider objects (no circular stringify)", () => {
+    const circular = { providerKey: "totally-unknown", model: "x" };
+    circular.self = circular;
+    expect(() => Provider.LangChainChatModel(circular)).toThrow(
+      /Unsupported provider totally-unknown/
+    );
+  });
+});

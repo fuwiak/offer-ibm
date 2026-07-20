@@ -533,6 +533,7 @@ class EphemeralAgentHandler extends AgentHandler {
     this.harness = await buildOfferKpHarness({
       aibitat: this.aibitat,
       invocation: {
+        prompt: this.#prompt,
         workspace: this.#workspace,
         workspace_id: this.#workspace?.id ?? null,
         user_id: this.#userId ?? null,

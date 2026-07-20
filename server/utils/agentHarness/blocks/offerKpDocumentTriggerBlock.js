@@ -14,6 +14,17 @@ const {
   ensurePdfInquiryEvidence,
 } = require("../../offerKp/harnessEvidence");
 
+const QUOTE_FORBIDDEN_RETRIEVAL_TOOLS = new Set([
+  "rag-memory",
+  "web-scraping",
+  "web-browsing",
+  "document-summarizer",
+]);
+
+function toolName(entry) {
+  return typeof entry === "string" ? entry : String(entry?.name || "");
+}
+
 /**
  * При фразах «сделай КП» — направляет @agent на Word + PDF и показывает статус в чате.
  */
@@ -38,6 +49,26 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
     if (!isQuoteDocumentRequest(prompt)) return;
 
     harness.state.set("quoteDocumentRequest", true);
+
+    // Эти универсальные инструменты регистрируются по умолчанию для обычного
+    // агента, но в КП допустимы только заявка и ShopDB. Удаляем их до первого
+    // model turn, чтобы модель даже не пыталась вызвать scraping/RAG.
+    const agent = harness.aibitat?.agents?.get?.("@agent");
+    if (agent?.functions) {
+      const before = agent.functions.length;
+      agent.functions = agent.functions.filter(
+        (entry) => !QUOTE_FORBIDDEN_RETRIEVAL_TOOLS.has(toolName(entry))
+      );
+      harnessLog("info", "quoteDocument.retrievalToolsRemoved", {
+        removed: before - agent.functions.length,
+      });
+    }
+    // Also drop handlers so a stale function Map cannot still execute tools.
+    if (harness.aibitat?.functions?.delete) {
+      for (const name of QUOTE_FORBIDDEN_RETRIEVAL_TOOLS) {
+        harness.aibitat.functions.delete(name);
+      }
+    }
     const inquiryLines = harness.state.get("inquiryLineCount") || 0;
     const maxInquiryBlocks = Math.max(
       1,
@@ -101,6 +132,15 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
   async beforeToolApproval(params, harness) {
     if (!harness.state.get("quoteDocumentRequest")) return null;
 
+    if (QUOTE_FORBIDDEN_RETRIEVAL_TOOLS.has(params.skillName)) {
+      return {
+        handled: true,
+        approved: false,
+        message:
+          "Инструмент запрещён для КП: используй только приложенную заявку и ShopDB.",
+      };
+    }
+
     const docSkills = new Set(["create-docx-file", "create-pdf-file"]);
     if (!docSkills.has(params.skillName)) return null;
 
@@ -125,4 +165,7 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
   }
 }
 
-module.exports = { OfferKpDocumentTriggerBlock };
+module.exports = {
+  OfferKpDocumentTriggerBlock,
+  QUOTE_FORBIDDEN_RETRIEVAL_TOOLS,
+};

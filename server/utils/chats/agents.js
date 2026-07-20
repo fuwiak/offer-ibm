@@ -86,17 +86,28 @@ async function grepAgents({
   const { offerKpLog } = require("../offerKpApp/offerKpLog");
 
   const quoteDocRequest = isQuoteDocumentRequest(message);
-  // «Сделай КП» → @agent (Word+PDF через harness); иначе при ShopDB — catalog stream
+  const agentHandles = WorkspaceAgentInvocation.parseAgents(message);
+  const explicitAgentRequest = agentHandles.length > 0;
+  // Запросы КП (в т.ч. с @agent) идут через серверный ShopDB pipeline:
+  // файл → match/analog → DOCX+PDF. Иначе модель зовёт rag-memory / web-scraping.
+  // Явный @agent без фразы КП сохраняет агентный режим.
   const routeKpViaCatalogStream =
     shopDbEnrichEnabled() &&
-    !quoteDocRequest &&
-    (wantsFileCreation(message) || isCatalogRelayRequest(message));
+    (quoteDocRequest ||
+      (!explicitAgentRequest &&
+        (wantsFileCreation(message) || isCatalogRelayRequest(message))));
 
   if (quoteDocRequest) {
-    offerKpLog("info", "Quote phrase → routing to @agent", {
-      message: String(message).slice(0, 160),
-      workspace: workspace?.slug || null,
-    });
+    offerKpLog(
+      "info",
+      routeKpViaCatalogStream
+        ? "Quote phrase → routing to deterministic ShopDB pipeline"
+        : "Quote phrase → routing to explicit @agent",
+      {
+        message: String(message).slice(0, 160),
+        workspace: workspace?.slug || null,
+      }
+    );
   }
 
   let nativeToolingEnabled = false;
@@ -105,14 +116,17 @@ async function grepAgents({
   if (workspace?.chatMode === "automatic" && !routeKpViaCatalogStream)
     nativeToolingEnabled = await Workspace.supportsNativeToolCalling(workspace);
 
-  const agentHandles = WorkspaceAgentInvocation.parseAgents(message);
   // Auto-trigger agent when user asks for file/PDF creation without typing @agent
   const autoAgent =
     agentHandles.length === 0 &&
     (wantsFileCreation(message) || quoteDocRequest) &&
     !routeKpViaCatalogStream;
 
-  if (agentHandles.length > 0 || nativeToolingEnabled || autoAgent) {
+  if (
+    (agentHandles.length > 0 && !routeKpViaCatalogStream) ||
+    nativeToolingEnabled ||
+    autoAgent
+  ) {
     const { invocation: newInvocation } = await WorkspaceAgentInvocation.new({
       prompt: message,
       workspace: workspace,
