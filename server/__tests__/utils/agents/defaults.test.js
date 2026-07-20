@@ -1,9 +1,10 @@
 // Set required env vars before requiring modules
 process.env.STORAGE_DIR = __dirname;
 process.env.NODE_ENV = "test";
+// Must be set before Provider/generation load — local .env often has SHOP_DB_ENRICH=1.
+process.env.SHOP_DB_ENRICH = "0";
 
 const { SystemPromptVariables } = require("../../../models/systemPromptVariables");
-const Provider = require("../../../utils/agents/aibitat/providers/ai-provider");
 
 jest.mock("../../../models/systemPromptVariables");
 jest.mock("../../../models/systemSettings");
@@ -20,17 +21,26 @@ jest.mock("../../../utils/MCP", () => {
     activeMCPServers: jest.fn().mockResolvedValue([]),
   }));
 });
+// Isolate from ShopDB / legal source instructions so role === expanded prompt.
+jest.mock("../../../utils/chats/generation", () => {
+  const actual = jest.requireActual("../../../utils/chats/generation");
+  return {
+    ...actual,
+    buildLegalSourcePriorityInstructions: jest.fn(() => ""),
+  };
+});
 
+const Provider = require("../../../utils/agents/aibitat/providers/ai-provider");
 const { WORKSPACE_AGENT } = require("../../../utils/agents/defaults");
 
 describe("WORKSPACE_AGENT.getDefinition", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Isolate from local ShopDB/.env so catalog prompt is not prepended.
     process.env.SHOP_DB_ENRICH = "0";
-    // Mock SystemSettings to return empty arrays for agent skills
     const { SystemSettings } = require("../../../models/systemSettings");
     SystemSettings.getValueOrFallback = jest.fn().mockResolvedValue("[]");
+    const { buildLegalSourcePriorityInstructions } = require("../../../utils/chats/generation");
+    buildLegalSourcePriorityInstructions.mockReturnValue("");
   });
 
   it("should use provider default system prompt when workspace has no openAiPrompt", async () => {
@@ -130,4 +140,3 @@ describe("WORKSPACE_AGENT.getDefinition", () => {
     expect(definition.role).toContain("helpful ai assistant");
   });
 });
-
