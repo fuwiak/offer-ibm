@@ -117,6 +117,12 @@ log "==> yarn install (server + collector) on host"
 remote_log "YARN install server/collector"
 remote "bash -s" <<EOS
 set -euo pipefail
+if ! command -v pdftoppm >/dev/null 2>&1 || ! command -v tesseract >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -yq --no-install-recommends \
+    poppler-utils tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
+fi
 cd ${REMOTE_APP}/server
 yarn install --production --frozen-lockfile || yarn install --production
 npx prisma generate --schema=./prisma/schema.prisma || true
@@ -136,10 +142,33 @@ elif [ -d ${REMOTE_APP}/frontend/build ]; then
 fi
 # Preserve production .env if present under app tree
 if [ -f /opt/offer-kp/app/server/.env ]; then
-  :
+  ENV_FILE=/opt/offer-kp/app/server/.env
 elif [ -f /opt/offer-kp/.env ]; then
   cp /opt/offer-kp/.env /opt/offer-kp/app/server/.env
+  ENV_FILE=/opt/offer-kp/app/server/.env
+else
+  ENV_FILE=/opt/offer-kp/app/server/.env
 fi
+
+# T4 fast profile: one resident multimodal model. This removes 30-60 second
+# unload/load cycles between OCR and chat and prevents active streams being
+# terminated by a model switch.
+touch "\$ENV_FILE"
+for pair in \
+  "LMSTUDIO_MODEL_PREF=qwen/qwen3-vl-8b" \
+  "LMSTUDIO_OCR_MODEL_PREF=qwen/qwen3-vl-8b" \
+  "OFFER_KP_PIPELINE_VISION_MODEL=qwen/qwen3-vl-8b" \
+  "OFFER_KP_PIPELINE_AGENT_MODEL=qwen/qwen3-vl-8b" \
+  "OFFER_KP_PIPELINE_AGENT_FALLBACK=qwen/qwen3-vl-8b" \
+  "OFFER_KP_SINGLE_MODEL=true" \
+  "OFFER_KP_VISION_OCR_DPI=150"; do
+  key="\${pair%%=*}"
+  if grep -q "^\${key}=" "\$ENV_FILE"; then
+    sed -i "s|^\${key}=.*|\${pair}|" "\$ENV_FILE"
+  else
+    printf '%s\n' "\$pair" >> "\$ENV_FILE"
+  fi
+done
 systemctl restart offer-kp offer-kp-collector
 sleep 2
 systemctl is-active offer-kp

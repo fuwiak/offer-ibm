@@ -29,11 +29,20 @@ async function normalizeOfferKpWorkspaceLlms() {
     },
   });
 
+  const singleModel =
+    String(
+      process.env.OFFER_KP_SINGLE_MODEL ??
+        llmDefaults.OFFER_KP_SINGLE_MODEL ??
+        "true"
+    ).toLowerCase() !== "false";
+
   for (const ws of workspaces) {
-    const chatModel = coerceToLocalModel(ws.chatModel || defaultModel);
-    const agentModel = coerceToLocalModel(
-      ws.agentModel || ws.chatModel || defaultModel
-    );
+    const chatModel = singleModel
+      ? defaultModel
+      : coerceToLocalModel(ws.chatModel || defaultModel);
+    const agentModel = singleModel
+      ? defaultModel
+      : coerceToLocalModel(ws.agentModel || ws.chatModel || defaultModel);
 
     const needsFix =
       ws.chatProvider !== "lmstudio" ||

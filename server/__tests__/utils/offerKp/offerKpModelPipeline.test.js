@@ -91,6 +91,28 @@ describe("vision OCR JSON normalize", () => {
     expect(text).not.toMatch(/цена|price|RUB/i);
   });
 
+  it("converts compact OCR rows without duplicating standards", () => {
+    const normalized = normalizeVisionOcrResponse(
+      '[["Болт M10x100 ГОСТ 7805-70",30,"кг"]]'
+    );
+    expect(normalized.format).toBe("json");
+    expect(normalized.text).toBe("1. Болт M10x100 ГОСТ 7805-70 — 30 кг");
+  });
+
+  it("does not append DIN/GOST already present in object names", () => {
+    const text = inquiryTextFromOcrJsonLines([
+      {
+        name: "Болт DIN 933 M8x40 ГОСТ 7805-70",
+        qty: 10,
+        unit: "шт",
+        din: "933",
+        gost: "7805-70",
+      },
+    ]);
+    expect(text.match(/DIN 933/g)).toHaveLength(1);
+    expect(text.match(/ГОСТ 7805-70/g)).toHaveLength(1);
+  });
+
   it("falls back to plain text when JSON missing", () => {
     const normalized = normalizeVisionOcrResponse(
       "1. Болт DIN 933 M8x40 — 10 шт"

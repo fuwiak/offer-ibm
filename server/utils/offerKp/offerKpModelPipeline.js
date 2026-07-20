@@ -1,19 +1,18 @@
 /**
- * Dual-model pipeline on Lainey (T4 16GB):
- *   eyes  = Qwen3-VL Thinking  → OCR/JSON only (no prices/SKU)
- *   brain = gpt-oss-20b        → agent tools / retry / ambiguity
+ * Resident-model pipeline on Lainey (T4 16GB):
+ *   eyes  = Qwen3-VL-8B → OCR/JSON only (no prices/SKU)
+ *   brain = Qwen3-VL-8B → agent tools / retry / ambiguity
  *   truth = ShopDB + matchInquiry + analogRules + quote PDF
  *
- * Both models cannot fit in VRAM together → sequential unload/load.
- * All swaps go through a single lock so GPU never gets concurrent loads.
+ * One model remains in VRAM. The lock still protects explicit model changes.
  */
 
 "use strict";
 
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 
-const DEFAULT_VISION_MODEL = "qwen/qwen3-vl-8b-thinking";
-const DEFAULT_AGENT_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_VISION_MODEL = "qwen/qwen3-vl-8b";
+const DEFAULT_AGENT_MODEL = "qwen/qwen3-vl-8b";
 const DEFAULT_AGENT_FALLBACK = "qwen/qwen3-vl-8b";
 const DEFAULT_AGENT_CONTEXT = 32768;
 
@@ -69,10 +68,13 @@ function resolvePipelineAgentFallbackModel() {
 }
 
 function resolvePipelineAgentContext(modelId = null) {
-  const id = normalizeModelId(modelId || resolvePipelineAgentModel()).toLowerCase();
+  const id = normalizeModelId(
+    modelId || resolvePipelineAgentModel()
+  ).toLowerCase();
   const envCtx = Number(process.env.OFFER_KP_PIPELINE_AGENT_CONTEXT);
   if (Number.isFinite(envCtx) && envCtx > 0) return envCtx;
-  if (id.includes("gpt-oss") || id.includes("20b")) return DEFAULT_AGENT_CONTEXT;
+  if (id.includes("gpt-oss") || id.includes("20b"))
+    return DEFAULT_AGENT_CONTEXT;
   return Number(process.env.LMSTUDIO_MODEL_TOKEN_LIMIT) || 32768;
 }
 

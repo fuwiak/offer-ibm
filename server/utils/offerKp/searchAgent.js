@@ -9,6 +9,10 @@ const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
 const { expandSearchTerms } = require("./textNormalize");
 const { searchByNameSimilarity } = require("./nameSimilarity");
+const {
+  retrieveFewShotExamples,
+  formatFewShotBlock,
+} = require("./goldenFewShot");
 const { query } = require("./db/client");
 const {
   TABLES,
@@ -372,6 +376,17 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
     .map((p) => `${p.id}: ${p.name}`)
     .join("\n");
 
+  const fewShotExamples = await retrieveFewShotExamples(searchText);
+  const fewShotBlock = formatFewShotBlock(fewShotExamples);
+
+  const userContent = [
+    fewShotBlock,
+    `Запрос: ${searchText}`,
+    `Каталог:\n${catalogLines}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
   const messages = [
     {
       role: "system",
@@ -379,7 +394,7 @@ async function pickProductsWithLlm(searchText, candidates, workspace) {
     },
     {
       role: "user",
-      content: `Запрос: ${searchText}\n\nКаталог:\n${catalogLines}`,
+      content: userContent,
     },
   ];
 

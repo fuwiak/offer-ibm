@@ -2,9 +2,11 @@
  * OfferKp default LLM config — LM Studio on lainey (Selectel).
  * Sync with Railway: LMSTUDIO_BASE_PATH, LMSTUDIO_MODEL_PREF, LMSTUDIO_MODEL_TOKEN_LIMIT.
  */
-const OFFER_KP_LM_DEFAULT_MODEL = "openai/gpt-oss-20b";
-const OFFER_KP_LM_OCR_MODEL = "qwen/qwen3-vl-8b-thinking";
-const OFFER_KP_LM_VISION_MODEL = "qwen/qwen3-vl-8b-thinking";
+// T4 16 GB: keep one multimodal model resident. Swapping Qwen Thinking ↔
+// gpt-oss costs 90+ seconds and can unload a model from an active request.
+const OFFER_KP_LM_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
+const OFFER_KP_LM_OCR_MODEL = "qwen/qwen3-vl-8b";
+const OFFER_KP_LM_VISION_MODEL = "qwen/qwen3-vl-8b";
 const OFFER_KP_LM_AGENT_FALLBACK = "qwen/qwen3-vl-8b";
 
 /** LM Studio on dedicated server lainey */
@@ -24,10 +26,11 @@ module.exports = {
   OFFER_KP_PIPELINE_AGENT_MODEL: OFFER_KP_LM_DEFAULT_MODEL,
   OFFER_KP_PIPELINE_AGENT_FALLBACK: OFFER_KP_LM_AGENT_FALLBACK,
   OFFER_KP_PIPELINE_AGENT_CONTEXT: String(OFFER_KP_PIPELINE_AGENT_CONTEXT),
+  OFFER_KP_SINGLE_MODEL: "true",
   // Native OpenAI-style tools for OpenRouter teacher / agents (create-docx, quote-calculator…).
   PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING:
     "generic-openai,bedrock,localai,groq,litellm,openrouter,lmstudio",
-  OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (gpt-oss-20b · agent brain)",
-  OFFER_KP_OCR_LLM_LABEL: "LM Studio (Qwen3-VL-8B Thinking · eyes / OCR)",
+  OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (Qwen3-VL-8B · resident T4 model)",
+  OFFER_KP_OCR_LLM_LABEL: "LM Studio (Qwen3-VL-8B · fast vision OCR)",
   OFFER_KP_LMSTUDIO_HOST,
 };

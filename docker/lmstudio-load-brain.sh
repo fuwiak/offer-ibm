@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Load agent brain into LM Studio after server start (T4 16GB).
-# Prefer gpt-oss-20b; fall back to qwen3-vl-8b if missing/OOM.
+# Keep the shared chat + vision model resident after server start (T4 16GB).
 set -euo pipefail
 export PATH="/root/.lmstudio/bin:${PATH}"
 sleep 2
@@ -11,8 +10,4 @@ load_model() {
   lms load "$id" --context-length "$ctx" --gpu max -y
 }
 
-if load_model "openai/gpt-oss-20b" 32768; then
-  exit 0
-fi
-echo "WARN: gpt-oss-20b load failed — falling back to qwen/qwen3-vl-8b" >&2
 load_model "qwen/qwen3-vl-8b" 32768

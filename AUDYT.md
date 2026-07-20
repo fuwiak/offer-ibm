@@ -151,3 +151,39 @@ Dodany jako **dodatkowa, opcjonalna warstwa nad** istniejącym TF-IDF/Levenshtei
 - **Env vars:** `SHOP_DB_EMBEDDING_SIMILARITY`, `SHOP_DB_EMBEDDING_MODEL`, `SHOP_DB_EMBEDDING_WEIGHT`, `SHOP_DB_EMBEDDING_MAX_CANDIDATES`, `SHOP_DB_EMBEDDING_CACHE_TTL_MS`, `SHOP_DB_EMBEDDING_CACHE_MAX_ENTRIES` — patrz `server/.env.example` (sekcja ShopDB).
 - **Testy:** `server/__tests__/utils/offerKp/embeddingSimilarity.test.js` (kill-switch, puste inputy — bez sieci). Pełny `server/__tests__/utils/offerKp/*` (367 testów, w tym `goldenSet.test.js`) przechodzi bez zmian.
 - **Świadomy zakres:** reranking działa tylko na kandydatach, które SQL LIKE w ogóle znalazł (jakiś token wspólny) — to **nie jest** pełne semantyczne wyszukiwanie kandydatów (embedding jako pierwsza noga „retrieve"), tylko poprawa kolejności/jakości w obrębie już znalezionych. Pełny retrieve-by-embedding (ANN nad całym katalogem) to większa zmiana, wciąż otwarta w 5.3/5.5.
+
+---
+
+## 6. Pętla uczenia bez fine-tuningu + audyt „Чтение документа..." (2026-07-21, dodatek 2)
+
+### 6.1 Golden set jako źródło poprawek matchingu (bez trenowania modeli)
+
+Kontekst: `test_files/*.expected.csv` do tej pory walidował **tylko ekstrakcję** (`source_name/unit/quantity`, patrz `test_files/README.md`) — nic z dodanych przykładów nie wpływało na jakość dopasowania do katalogu. Dodano dwa mechanizmy, które realnie „uczą się" z przykładów, bez trenowania żadnego modelu:
+
+1. **Tabela korekt (override)** — `server/utils/offerKp/goldenCorrections.js`. Rozszerza istniejący schemat CSV o OPCJONALNE kolumny `matched_sku,matched_name,match_type` (exact/analog/none) — pliki bez tych kolumn (czysto ekstrakcyjne, jak dziś) są ignorowane, więc nic się nie psuje. Wpięte w `matchInquiryLines.js#matchInquiryLine`: dokładny (znormalizowany) powtórzony wiersz zapytania → autorytatywna odpowiedź operatora, sprawdzana PRZED żywym wyszukiwaniem. Cena/nazwa zawsze dociągane na żywo z ShopDB po SKU (`searchByExactSku`) — golden set nigdy nie jest źródłem ceny, tylko wskazuje **który** produkt. Jeśli SKU z golden setu już nie istnieje w katalogu — pipeline spada z powrotem do normalnego wyszukiwania (nie milczy jako „brak dopasowania").
+2. **Few-shot retrieval do LLM fallbacku** — `server/utils/offerKp/goldenFewShot.js`. Reużywa embedding z 5.6: embeduje nową linię zapytania, wyciąga k (domyślnie 3, próg podobieństwa 0.55) najbardziej podobnych POZYTYWNYCH przykładów z golden setu i wstrzykuje je do prompta `searchAgent.pickProductsWithLlm` jako „tak dopasowaliśmy podobne przypadki wcześniej". Im więcej przykładów w golden secie, tym trafniejsze podpowiedzi — bez trenowania czegokolwiek.
+3. Auto-kalibracja progów (`SHOP_DB_EMBEDDING_WEIGHT`, `SHOP_DB_NAME_SIMILARITY_MIN` itd.) offline-skryptem pod golden set — **nie zrobiona**, zostaje jako kolejny krok, gdy golden set urośnie.
+
+**Env vars:** `SHOP_DB_GOLDEN_CORRECTIONS` (kill-switch), `SHOP_DB_FEW_SHOT_EXAMPLES`, `SHOP_DB_FEW_SHOT_MIN_SIMILARITY`. **Testy:** `goldenCorrections.test.js`, `goldenFewShot.test.js` — pełny `server/__tests__` (526 testów) zielony.
+
+**Żeby to zadziałało**, wpisy w `test_files/*.expected.csv` muszą mieć wypełnione `matched_sku`/`match_type` — same `nr,source_name,unit,quantity` (obecny stan plików) nic nie uczy.
+
+### 6.2 Root cause: „Чтение документа..." wisi bardzo długo
+
+Podczas testów natrafiono na **niezacommitowane, ale kompletne** zmiany w drzewie roboczym (nie moje — WIP z wcześniejszej sesji), które już celują dokładnie w ten problem. Komentarz w kodzie mówi wprost:
+
+> „Swapping Qwen Thinking ↔ gpt-oss costs 90+ seconds and can unload a model from an active request."
+
+Czyli: dotychczasowy „szybki sequential switch eyes/brain" (ostatni commit przed tą sesją) nadal kosztuje **90+ sekund** za każdym przełączeniem modelu wizyjnego (OCR) ↔ agentowego na jednym T4 16GB — i to jest główna przyczyna, że „Чтение документа..." wisi. WIP zmienia architekturę na **jeden rezydentny model** (`qwen/qwen3-vl-8b` dla obu ról — OCR i chat/agent), eliminując przełączanie w ogóle: `offerKpModelPipeline.js`, `offerKp.llm.defaults.js`, `offerKp.models.js`, `normalizeWorkspaceLlms.js` (nowy `OFFER_KP_SINGLE_MODEL`), `docker/lmstudio-switch.sh`/`lmstudio-load-brain.sh`, `scripts/deploy-lainey-sync.sh` (dopisuje profil T4 do `.env` produkcji + doinstalowuje `tesseract`/`poppler-utils` jeśli brakuje), plus nowe etapy postępu w UI (`vision-ocr`, `pipeline-agent-load`).
+
+**Dodatkowo znaleziony i naprawiony bug w tym samym WIP** (ujawnił się jako failing test `inquiryTextQuality.test.js` → „accepts a complete structured table"): `assessInquiryTableIntegrity` w `offerKpDocumentIngest.js` sprawdzał obecność jednostki (`кг/шт/м/уп`) w `line.raw` — ale `parseInquiryText` dla tabel strukturalnych **już wycina jednostkę** do osobnego pola `line.unit`, więc ten warunek zawsze failował, nawet dla idealnie czystej tabeli. Efekt: `needsReocr=true` na dobrym tekście → **niepotrzebne** wywołanie kosztownego `enrichDocumentsWithOfferKpOcr` (wizyjny model, kolejne sekundy/dziesiątki sekund) na dokumentach, które wcale tego nie potrzebowały — czyli druga, niezależna przyczyna tego samego objawu.
+
+Naprawa (`offerKpDocumentIngest.js`): zamiast fragile regexu na `raw`, wykrywany jest **over-segmentation** — jeśli `parseInquiryText` zwrócił wyraźnie więcej logicznych linii niż liczba dopasowań słów kluczowych w surowym tekście (`parsed.length > candidateRows * 1.15`), to znak że jeden produkt rozjechał się na kilka wierszy (typowy efekt złego OCR/zawijania) i **żadnemu** wierszowi nie ufamy — niezależnie od tego, czy pojedynczo wygląda kompletnie. Zweryfikowane na obu istniejących golden-testach integralności tabeli (czysty → `usableRows=3/3`, zepsuty → `usableRows=0/3`, oba zgodne z oczekiwaniami testów).
+
+**Logi produkcyjne (Selectel Lainey) nie zostały sprawdzone w tej sesji** — brak połączenia SSH w tym środowisku; root cause ustalono statycznie z komentarzy w kodzie WIP + z failing testu, nie z live logów. Jeśli po wdrożeniu problem nadal występuje, `offerkp logs` / `journalctl -u offer-kp` na Lainey pokaże, czy `OFFER_KP_SINGLE_MODEL` faktycznie wyłączył przełączanie modeli w produkcji.
+
+### 6.3 Co jeszcze zostaje otwarte
+
+- Auto-kalibracja progów golden setu (6.1 pkt 3) — nie zrobiona.
+- Realne dane w golden secie (`matched_sku`/`match_type`) — obecnie 0 przykładów ma te kolumny wypełnione; mechanizmy z 6.1 są gotowe, ale nieaktywne, dopóki ktoś nie doda danych.
+- Warto dodać licznik/log ile razy `enrichDocumentsWithOfferKpOcr` faktycznie się odpala (przed i po tej poprawce), żeby potwierdzić realny spadek liczby zbędnych wywołań na produkcji — nie zrobione w tej sesji.

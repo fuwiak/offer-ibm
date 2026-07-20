@@ -334,6 +334,12 @@ const Workspace = {
                 totalPages: event.totalPages,
               });
               break;
+            case "ocr_progress":
+              onPage?.({
+                pageNumber: event.page,
+                totalPages: event.total,
+              });
+              break;
             case "complete":
               settled = true;
               onComplete?.(event.files || []);

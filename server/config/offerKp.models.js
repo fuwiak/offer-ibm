@@ -26,7 +26,7 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
-    hint: "Локально · vision · fallback brain · Q4_K_M",
+    hint: "Локально · resident T4 · chat + vision OCR · Q4_K_M",
   },
   "qwen/qwen3-14b": {
     name: "Qwen3-14B",
@@ -47,7 +47,7 @@ const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
+const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
 const OFFER_KP_LOCAL_MODELS = Object.entries(

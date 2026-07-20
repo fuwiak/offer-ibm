@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast dual-model VRAM switch for Lainey T4 (one model at a time).
+# Resident-model control for Lainey T4.
 # Usage:
 #   ./lmstudio-switch.sh eyes|brain|status|unload
 #   yarn lms:switch brain
@@ -8,8 +8,8 @@
 set -euo pipefail
 export PATH="/root/.lmstudio/bin:${PATH}"
 
-VISION="${OFFER_KP_PIPELINE_VISION_MODEL:-qwen/qwen3-vl-8b-thinking}"
-AGENT="${OFFER_KP_PIPELINE_AGENT_MODEL:-openai/gpt-oss-20b}"
+VISION="${OFFER_KP_PIPELINE_VISION_MODEL:-qwen/qwen3-vl-8b}"
+AGENT="${OFFER_KP_PIPELINE_AGENT_MODEL:-qwen/qwen3-vl-8b}"
 FALLBACK="${OFFER_KP_PIPELINE_AGENT_FALLBACK:-qwen/qwen3-vl-8b}"
 AGENT_CTX="${OFFER_KP_PIPELINE_AGENT_CONTEXT:-32768}"
 VISION_CTX="${OFFER_KP_PIPELINE_VISION_CONTEXT:-8192}"

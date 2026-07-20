@@ -5,11 +5,15 @@
 const { query } = require("./db/client");
 const { TABLES, SKU_COLUMNS: S } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
-const { runProductSearchAgent } = require("./productSearchAgent");
+const {
+  runProductSearchAgent,
+  searchByExactSku,
+} = require("./productSearchAgent");
 const { classifyProductMatch, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { resolveProductPrice } = require("./priceResolve");
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
+const { findGoldenCorrection } = require("./goldenCorrections");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -264,31 +268,57 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
 
   const searchText = inquiryLine.raw || inquiryLine.name;
-  let { products } = await runProductSearchAgent({
-    message: searchText,
-    chatHistory: options.chatHistory,
-    workspace: options.workspace,
-    limit: 8,
-    // A single inquiry line must be ranked on its own. Prepending the complete
-    // PDF made every line share almost the same search text and candidates.
-    parsedFileTexts: null,
-  });
 
-  if (!products.length) {
-    const {
-      runShopDbSearchAgent,
-      shopDbSearchAgentEnabled,
-    } = require("./searchAgent");
-    const { parseHardwareQuery } = require("./hardwareQuery");
-    if (shopDbSearchAgentEnabled()) {
-      const fallback = await runShopDbSearchAgent({
-        searchText,
-        parsed: parseHardwareQuery(searchText),
-        existingProducts: [],
-        limit: 8,
-        workspace: options.workspace,
-      });
-      products = fallback.products || [];
+  // Golden-set override (test_files/*.expected.csv with matched_sku/match_type
+  // columns filled in): an operator-confirmed answer for this exact line text
+  // beats live search — see goldenCorrections.js.
+  const override = findGoldenCorrection([inquiryLine.raw, inquiryLine.name]);
+  let overrideProductId = null;
+  let products = [];
+  // Confirmed by golden set: no catalog product for this exact line — skip
+  // the search entirely instead of risking a fresh false positive. A
+  // positive override (exact/analog) only skips the search once its SKU
+  // actually resolves live; if the product was since removed from the
+  // catalog, fall through to the normal search below instead of silently
+  // returning "no match".
+  let skipSearch = override?.matchType === "none";
+
+  if (override?.sku) {
+    const hits = await searchByExactSku([override.sku], 1);
+    if (hits.length) {
+      overrideProductId = String(hits[0].id);
+      products = hits;
+      skipSearch = true;
+    }
+  }
+
+  if (!skipSearch) {
+    ({ products } = await runProductSearchAgent({
+      message: searchText,
+      chatHistory: options.chatHistory,
+      workspace: options.workspace,
+      limit: 8,
+      // A single inquiry line must be ranked on its own. Prepending the complete
+      // PDF made every line share almost the same search text and candidates.
+      parsedFileTexts: null,
+    }));
+
+    if (!products.length) {
+      const {
+        runShopDbSearchAgent,
+        shopDbSearchAgentEnabled,
+      } = require("./searchAgent");
+      const { parseHardwareQuery } = require("./hardwareQuery");
+      if (shopDbSearchAgentEnabled()) {
+        const fallback = await runShopDbSearchAgent({
+          searchText,
+          parsed: parseHardwareQuery(searchText),
+          existingProducts: [],
+          limit: 8,
+          workspace: options.workspace,
+        });
+        products = fallback.products || [];
+      }
     }
   }
 
@@ -302,17 +332,23 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ...product,
       ...stock,
     });
+    const isOverrideMatch = overrideProductId === String(product.id);
     return {
       productId: String(product.id),
       name: product.name,
       sku: stock.sku,
       price: stock.price || resolveProductPrice(product) || 0,
       stockCount: stock.stockCount,
-      matchType: classification.matchType,
+      // Operator-verified matchType from the golden set wins over the
+      // heuristic classifier; stock-derived status still comes from live data.
+      matchType: isOverrideMatch
+        ? override.matchType
+        : classification.matchType,
       status: classification.status,
       analogOf: classification.analogOf,
       mismatchReason: classification.mismatchReason || null,
       productUrl: product.product_url || product.url,
+      matchSource: isOverrideMatch ? "golden_override" : undefined,
     };
   });
 
@@ -377,6 +413,14 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   // Комментарий — единый явный текст для UI/КП, без домыслов.
   const commentParts = [];
+  if (accepted && best?.matchSource === "golden_override") {
+    commentParts.push(
+      "Сопоставлено по эталону golden set (проверено оператором)"
+    );
+  }
+  if (!accepted && override?.matchType === "none") {
+    commentParts.push("Подтверждено golden set: соответствия в каталоге нет");
+  }
   if (isAnalog) {
     commentParts.push(
       `АНАЛОГ: вместо «${inquiryLine.name}» предложен «${best.name}»` +

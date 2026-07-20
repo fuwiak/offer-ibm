@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { textQualityReport } = require("./pdfTextQuality");
 const { assessInquiryTextQuality } = require("./inquiryTextQuality");
+const { parseInquiryText } = require("./parseInquiry");
 const {
   isPdfFilename,
   resolveOriginalFilePath,
@@ -17,17 +18,59 @@ function isOfferKpVisionOcrEnabled() {
   return flag !== "0" && flag.toLowerCase() !== "false";
 }
 
+function assessInquiryTableIntegrity(text = "") {
+  const combined = String(text || "");
+  const tableLike =
+    /наименование\s+товара|кол-?во|потребность\s+на|перечень\s+(?:болтов|товаров)/i.test(
+      combined
+    );
+  const candidateRows = (
+    combined.match(
+      /(?:болт|винт|гайка|шайба|шуруп|саморез|закл[её]пка)\s+[MММmм]?\s*\d+/giu
+    ) || []
+  ).length;
+  const parsed = parseInquiryText(combined);
+  // If parsing produced noticeably MORE logical lines than the raw keyword
+  // count, a single product likely got split across rows (OCR line-wrap
+  // corruption, e.g. size spec landing on its own line) — none of the
+  // resulting rows can be trusted even if each looks individually complete.
+  // (Checking each row's unit against `line.raw` doesn't work: parseInquiryText
+  // already strips the unit into `line.unit` for structured/table input, so
+  // that check always failed and flagged every clean table as low quality.)
+  const overSegmented =
+    candidateRows > 0 && parsed.length > candidateRows * 1.15 + 0.5;
+  const usableRows = overSegmented
+    ? 0
+    : parsed.filter(
+        (line) =>
+          line?.productTypes?.length > 0 &&
+          line?.thread &&
+          line?.dinNumbers?.length > 0 &&
+          Number.isFinite(Number(line?.quantity))
+      ).length;
+  const needsReocr =
+    tableLike && candidateRows >= 3 && usableRows < candidateRows * 0.8;
+  return { tableLike, candidateRows, usableRows, needsReocr };
+}
+
 function documentsNeedVisionOcr(documents = []) {
   const combined = documents.map((d) => d?.pageContent || "").join("\n");
   const pageCount = Math.max(1, documents.length);
   const pdfReport = textQualityReport(combined, pageCount);
   const inquiryReport = assessInquiryTextQuality(combined);
-  return pdfReport.needsOcr || inquiryReport.needsReocr;
+  const tableReport = assessInquiryTableIntegrity(combined);
+  return (
+    pdfReport.needsOcr || inquiryReport.needsReocr || tableReport.needsReocr
+  );
 }
 
 function isVisionOcrImprovement(beforeText, afterText) {
   const before = assessInquiryTextQuality(beforeText);
   const after = assessInquiryTextQuality(afterText);
+  const beforeTable = assessInquiryTableIntegrity(beforeText);
+  const afterTable = assessInquiryTableIntegrity(afterText);
+  if (afterTable.usableRows > beforeTable.usableRows) return true;
+  if (afterTable.needsReocr && !beforeTable.needsReocr) return false;
   if (after.ok && !before.ok) return true;
   if (after.garbledHeaders < before.garbledHeaders) return true;
   if (after.mixedScriptWords < before.mixedScriptWords) return true;
@@ -82,8 +125,7 @@ function applyVisionOcrText(documents, text, meta = {}) {
 }
 
 /**
- * Eyes (Qwen3-VL Thinking) when collector/Tesseract text is bad.
- * After OCR, swap VRAM back to agent brain (gpt-oss-20b).
+ * Resident Qwen3-VL corrects collector/Tesseract text when table integrity is bad.
  */
 async function enrichDocumentsWithOfferKpOcr({
   documents = [],
@@ -198,6 +240,7 @@ async function enrichDocumentsWithOfferKpOcr({
 
 module.exports = {
   isOfferKpVisionOcrEnabled,
+  assessInquiryTableIntegrity,
   documentsNeedVisionOcr,
   enrichDocumentsWithOfferKpOcr,
 };

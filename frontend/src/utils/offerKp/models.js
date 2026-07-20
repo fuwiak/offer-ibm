@@ -22,7 +22,7 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
-    hint: "Локально · vision · fallback brain",
+    hint: "Локально · resident T4 · chat + vision OCR",
   },
   "qwen/qwen3-14b": {
     name: "Qwen3-14B",
@@ -43,7 +43,7 @@ export const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-export const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
+export const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 
 export const OFFER_KP_LOCAL_MODELS = Object.entries(
   OFFER_KP_MODEL_DISPLAY_OVERRIDES

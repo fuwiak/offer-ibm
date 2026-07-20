@@ -35,6 +35,7 @@ function applyOfferKpLlmDefaults() {
     "OFFER_KP_PIPELINE_AGENT_MODEL",
     "OFFER_KP_PIPELINE_AGENT_FALLBACK",
     "OFFER_KP_PIPELINE_AGENT_CONTEXT",
+    "OFFER_KP_SINGLE_MODEL",
     "LMSTUDIO_OCR_MODEL_PREF",
   ]) {
     if (!envIsSet(key) && defaults[key] != null && defaults[key] !== "") {

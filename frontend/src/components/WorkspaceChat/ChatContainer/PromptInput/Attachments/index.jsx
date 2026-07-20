@@ -230,6 +230,10 @@ function progressLabel(progress) {
       return "Чтение документа...";
     case "ocr":
       return "Распознавание текста...";
+    case "vision-ocr":
+      return "AI-распознавание таблицы...";
+    case "pipeline-agent-load":
+      return "Подготовка модели...";
     case "finalizing":
       return "Завершение...";
     default:
