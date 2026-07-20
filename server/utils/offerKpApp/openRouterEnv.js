@@ -3,6 +3,10 @@
  * Supports both OPENROUTER_API_KEY and OPEN_ROUTER_TOKEN.
  */
 const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+/** Local reverse-SSH egress proxy (see scripts/openrouter-egress-proxy.cjs). */
+const DEFAULT_EGRESS_PROXY_BASE_URL = "http://127.0.0.1:8787/api/v1";
+
+let egressEnsurePromise = null;
 
 function resolveOpenRouterApiKey() {
   const key =
@@ -36,10 +40,149 @@ function applyOpenRouterEnvAliases() {
   if (key) process.env.OPENROUTER_API_KEY = key;
 }
 
+function isOpenRouterConnectionError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  const cause = String(
+    error?.cause?.message || error?.cause?.code || ""
+  ).toLowerCase();
+  const code = String(error?.code || error?.cause?.code || "").toUpperCase();
+  return (
+    msg.includes("connection error") ||
+    msg.includes("fetch failed") ||
+    msg.includes("econnrefused") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("socket") ||
+    msg.includes("access denied by security policy") ||
+    cause.includes("other side closed") ||
+    [
+      "ECONNREFUSED",
+      "ECONNRESET",
+      "ETIMEDOUT",
+      "ENOTFOUND",
+      "UND_ERR_SOCKET",
+      "UND_ERR_CONNECT_TIMEOUT",
+    ].includes(code)
+  );
+}
+
+/**
+ * Enrich opaque OpenAI SDK "Connection error." with egress / geo-block hints.
+ */
+function formatOpenRouterConnectionError(error, baseUrl = null) {
+  const base = baseUrl || resolveOpenRouterBaseUrl();
+  const raw = String(error?.message || error || "Connection error");
+  const usingEgress = /127\.0\.0\.1:8787|localhost:8787/i.test(base);
+  const usingDirect = /openrouter\.ai/i.test(base);
+
+  if (!isOpenRouterConnectionError(error) && !/connection error/i.test(raw)) {
+    return raw;
+  }
+
+  if (usingEgress) {
+    return (
+      `${raw} (OpenRouter via egress ${base}). ` +
+      `Tunnel/proxy down? On an EU host: node scripts/openrouter-egress-proxy.cjs ` +
+      `&& ssh -N -R 127.0.0.1:8787:127.0.0.1:8787 root@87.228.90.43`
+    );
+  }
+  if (usingDirect) {
+    return (
+      `${raw} (direct ${base}). Selectel RU is often geo-blocked by OpenRouter — ` +
+      `set OPENROUTER_BASE_URL=http://127.0.0.1:8787/api/v1 and run the egress proxy ` +
+      `(see docker/LAINEY_UI.md).`
+    );
+  }
+  return `${raw} (OpenRouter base ${base})`;
+}
+
+/**
+ * Cheap reachability probe against OpenRouter-compatible /models.
+ * @param {string} [baseUrl]
+ * @param {number} [timeoutMs]
+ */
+async function probeOpenRouterReachable(
+  baseUrl = resolveOpenRouterBaseUrl(),
+  timeoutMs = 2500
+) {
+  const base = String(baseUrl || "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (!base) return false;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = {
+      "Content-Type": "application/json",
+      ...resolveOpenRouterHeaders(),
+    };
+    const key = resolveOpenRouterApiKey();
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const res = await fetch(`${base}/models`, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+    // 401/403 still means TCP+TLS reached something (or a blocking proxy).
+    // Treat 5xx / network throw as unreachable.
+    if (res.status >= 500) return false;
+    // Selectel geo-block often returns 403 HTML "Access denied by security policy".
+    if (res.status === 403) {
+      const text = (await res.text().catch(() => "")).toLowerCase();
+      if (text.includes("access denied") || text.includes("security policy")) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * If OPENROUTER_BASE_URL is unset, prefer local egress proxy when it answers.
+ * Idempotent; safe to call on every chat resolve.
+ */
+async function ensureOpenRouterEgressBaseUrl() {
+  if (egressEnsurePromise) return egressEnsurePromise;
+  egressEnsurePromise = (async () => {
+    applyOpenRouterEnvAliases();
+    const configured = String(process.env.OPENROUTER_BASE_URL || "").trim();
+    if (configured) return resolveOpenRouterBaseUrl();
+
+    const local = DEFAULT_EGRESS_PROXY_BASE_URL;
+    if (await probeOpenRouterReachable(local, 800)) {
+      process.env.OPENROUTER_BASE_URL = local;
+      console.log(
+        `\x1b[36m[OpenRouter]\x1b[0m using local egress proxy ${local}`
+      );
+      return local;
+    }
+    return DEFAULT_OPENROUTER_BASE_URL;
+  })().catch(() => DEFAULT_OPENROUTER_BASE_URL);
+
+  return egressEnsurePromise;
+}
+
+/** Test helper — reset egress auto-detect memo. */
+function resetOpenRouterEgressCache() {
+  egressEnsurePromise = null;
+}
+
 module.exports = {
   DEFAULT_OPENROUTER_BASE_URL,
+  DEFAULT_EGRESS_PROXY_BASE_URL,
   resolveOpenRouterApiKey,
   resolveOpenRouterBaseUrl,
   resolveOpenRouterHeaders,
   applyOpenRouterEnvAliases,
+  isOpenRouterConnectionError,
+  formatOpenRouterConnectionError,
+  probeOpenRouterReachable,
+  ensureOpenRouterEgressBaseUrl,
+  resetOpenRouterEgressCache,
 };

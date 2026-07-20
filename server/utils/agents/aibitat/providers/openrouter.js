@@ -22,10 +22,14 @@ class OpenRouterProvider extends InheritMultiple([Provider, UnTooled]) {
       resolveOpenRouterBaseUrl,
       resolveOpenRouterHeaders,
     } = require("../../../offerKpApp/openRouterEnv");
+    const requestTimeoutMs = Number(process.env.OPENROUTER_REQUEST_TIMEOUT_MS);
     const client = new OpenAI({
       baseURL: resolveOpenRouterBaseUrl(),
       apiKey: process.env.OPENROUTER_API_KEY,
-      maxRetries: 3,
+      maxRetries: Number(process.env.OPENROUTER_MAX_RETRIES || 3),
+      timeout: Number.isFinite(requestTimeoutMs) && requestTimeoutMs >= 5000
+        ? requestTimeoutMs
+        : 60_000,
       defaultHeaders: resolveOpenRouterHeaders(),
     });
 

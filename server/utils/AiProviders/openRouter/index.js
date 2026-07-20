@@ -37,12 +37,19 @@ class OpenRouterLLM {
     const {
       resolveOpenRouterBaseUrl,
       resolveOpenRouterHeaders,
+      formatOpenRouterConnectionError,
     } = require("../../offerKpApp/openRouterEnv");
     this.basePath = resolveOpenRouterBaseUrl();
+    this.formatOpenRouterConnectionError = formatOpenRouterConnectionError;
+    const requestTimeoutMs = Number(process.env.OPENROUTER_REQUEST_TIMEOUT_MS);
     this.openai = new OpenAIApi({
       baseURL: this.basePath,
       apiKey: process.env.OPENROUTER_API_KEY ?? null,
       defaultHeaders: resolveOpenRouterHeaders(),
+      maxRetries: Number(process.env.OPENROUTER_MAX_RETRIES || 2),
+      timeout: Number.isFinite(requestTimeoutMs) && requestTimeoutMs >= 5000
+        ? requestTimeoutMs
+        : 60_000,
     });
     this.model =
       modelPreference || process.env.OPENROUTER_MODEL_PREF || "openrouter/auto";
@@ -308,7 +315,9 @@ class OpenRouterLLM {
           user: user?.id ? `user_${user.id}` : "",
         })
         .catch((e) => {
-          throw new Error(e.message);
+          throw new Error(
+            this.formatOpenRouterConnectionError(e, this.basePath)
+          );
         })
     );
 
@@ -344,26 +353,30 @@ class OpenRouterLLM {
         `OpenRouter chat: ${this.model} is not valid for chat completion!`
       );
 
-    const measuredStreamRequest = await LLMPerformanceMonitor.measureStream({
-      func: this.openai.chat.completions.create({
-        model: this.model,
-        stream: true,
+    try {
+      const measuredStreamRequest = await LLMPerformanceMonitor.measureStream({
+        func: this.openai.chat.completions.create({
+          model: this.model,
+          stream: true,
+          messages,
+          temperature,
+          // This is an OpenRouter specific option that allows us to get the reasoning text
+          // before the token text.
+          include_reasoning: true,
+          user: user?.id ? `user_${user.id}` : "",
+        }),
         messages,
-        temperature,
-        // This is an OpenRouter specific option that allows us to get the reasoning text
-        // before the token text.
-        include_reasoning: true,
-        user: user?.id ? `user_${user.id}` : "",
-      }),
-      messages,
-      // OpenRouter returns the usage in the stream as the very last chunk **after** the finish reason.
-      // so we don't need to run the prompt token calculation.
-      runPromptTokenCalculation: false,
-      modelTag: this.displayModel || this.model,
-      provider: this.displayModel ? "LMStudioLLM" : this.className,
-    });
+        // OpenRouter returns the usage in the stream as the very last chunk **after** the finish reason.
+        // so we don't need to run the prompt token calculation.
+        runPromptTokenCalculation: false,
+        modelTag: this.displayModel || this.model,
+        provider: this.displayModel ? "LMStudioLLM" : this.className,
+      });
 
-    return measuredStreamRequest;
+      return measuredStreamRequest;
+    } catch (e) {
+      throw new Error(this.formatOpenRouterConnectionError(e, this.basePath));
+    }
   }
 
   /**
@@ -541,7 +554,7 @@ class OpenRouterLLM {
           type: "abort",
           textResponse: null,
           close: true,
-          error: e.message,
+          error: this.formatOpenRouterConnectionError(e, this.basePath),
         });
         response.removeListener("close", handleAbort);
         clearInterval(timeoutCheck);

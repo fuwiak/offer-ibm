@@ -18,14 +18,36 @@ async function eagerLoadContextWindows() {
     );
   };
 
+  // Prefer local OpenRouter egress (Selectel geo-block) when available.
+  try {
+    const {
+      ensureOpenRouterEgressBaseUrl,
+    } = require("../offerKpApp/openRouterEnv");
+    await ensureOpenRouterEgressBaseUrl();
+  } catch {
+    /* optional at boot */
+  }
+
   switch (currentProvider) {
     case "lmstudio": {
-      // Teacher mode runs OpenRouter at runtime — do not probe LM Studio on boot.
+      // Teacher mode runs OpenRouter at runtime — do not probe LM Studio on boot
+      // unless OpenRouter/egress is also down (then LM Studio is the fallback).
       try {
         const { shouldUseTeacherLlm } = require("../offerKpApp/teacherLlm");
+        const {
+          probeOpenRouterReachable,
+          resolveOpenRouterBaseUrl,
+        } = require("../offerKpApp/openRouterEnv");
         if (shouldUseTeacherLlm()) {
-          skip("LMStudio", "teacher/OpenRouter");
-          break;
+          const orOk = await probeOpenRouterReachable(
+            resolveOpenRouterBaseUrl(),
+            1500
+          );
+          if (orOk) {
+            skip("LMStudio", "teacher/OpenRouter");
+            break;
+          }
+          skip("LMStudio", "teacher down — probing LM Studio fallback");
         }
       } catch {
         /* teacher helper optional at boot */

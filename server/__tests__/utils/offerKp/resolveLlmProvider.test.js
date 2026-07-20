@@ -1,5 +1,6 @@
 const {
   resolveLlmProviderAndModel,
+  resolveLlmProviderWithFallback,
   coerceToLocalModel,
 } = require("../../../utils/offerKpApp/resolveLlmProvider");
 const {
@@ -8,6 +9,7 @@ const {
 const {
   sanitizeMetricsForUi,
 } = require("../../../utils/offerKpApp/teacherLlm");
+const openRouterEnv = require("../../../utils/offerKpApp/openRouterEnv");
 
 describe("resolveLlmProvider", () => {
   const prevPref = process.env.LMSTUDIO_MODEL_PREF;
@@ -180,6 +182,41 @@ describe("resolveLlmProvider", () => {
     });
     expect(resolved.model).toBe("openai/gpt-oss-20b");
     expect(resolved.modelFallback?.from).toBe("google/gemma-4-26b-a4b");
+  });
+
+  it("falls back to LM Studio when teacher OpenRouter/egress is unreachable", async () => {
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    const probeSpy = jest
+      .spyOn(openRouterEnv, "probeOpenRouterReachable")
+      .mockResolvedValue(false);
+    const egressSpy = jest
+      .spyOn(openRouterEnv, "ensureOpenRouterEgressBaseUrl")
+      .mockResolvedValue("http://127.0.0.1:8787/api/v1");
+    const lmStudioModels = require("../../../utils/offerKpApp/lmStudioModels");
+    const catalogSpy = jest
+      .spyOn(lmStudioModels, "fetchLmStudioModelCatalog")
+      .mockResolvedValue({
+        ids: ["openai/gpt-oss-20b"],
+        loadedIds: ["openai/gpt-oss-20b"],
+        stateById: { "openai/gpt-oss-20b": "loaded" },
+        reachable: true,
+      });
+
+    const resolved = await resolveLlmProviderWithFallback({
+      provider: "lmstudio",
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+    expect(resolved.model).toBe("openai/gpt-oss-20b");
+    probeSpy.mockRestore();
+    egressSpy.mockRestore();
+    catalogSpy.mockRestore();
   });
 });
 

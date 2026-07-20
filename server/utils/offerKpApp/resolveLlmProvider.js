@@ -4,7 +4,7 @@ const {
   resolveOfferKpModel,
 } = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
-const { resolveOpenRouterApiKey } = require("./openRouterEnv");
+const openRouterEnv = require("./openRouterEnv");
 const {
   shouldUseTeacherLlm,
   resolveTeacherModel,
@@ -97,7 +97,7 @@ function resolveLlmProviderAndModel({
   }
 
   // Sync path: if caller already knows LM Studio is down, prefer OpenRouter.
-  if (catalog?.reachable === false && resolveOpenRouterApiKey()) {
+  if (catalog?.reachable === false && openRouterEnv.resolveOpenRouterApiKey()) {
     return resolveOpenRouterTeacherResult({
       reason: "lmstudio_unreachable",
     });
@@ -152,30 +152,108 @@ function resolveLlmProviderAndModel({
 }
 
 /**
+ * LM Studio path without teacher short-circuit (used when OpenRouter/egress is down).
+ */
+function resolveLmStudioOnly(params = {}) {
+  ensureLmStudioBasePath();
+
+  const requestedModel =
+    params.model ||
+    process.env.LMSTUDIO_MODEL_PREF ||
+    llmDefaults.LMSTUDIO_MODEL_PREF ||
+    OFFER_KP_DEFAULT_MODEL;
+
+  const picked = resolveRunnableModel(requestedModel, params.catalog || null);
+  const resolvedModel = picked.model;
+  const resolved = {
+    provider: "lmstudio",
+    model: resolvedModel,
+    modelFallback: picked.fallback
+      ? {
+          from: picked.requested,
+          to: resolvedModel,
+          reason: picked.reason,
+        }
+      : null,
+    teacher: false,
+    openRouterFallback: false,
+    displayProvider: "lmstudio",
+    displayModel: resolvedModel,
+  };
+  offerKpLog("info", "Resolved LLM provider", {
+    provider: resolved.provider,
+    model: resolved.model,
+    fallback: resolved.modelFallback,
+    reason: "openrouter_unreachable",
+  });
+  return resolved;
+}
+
+/**
  * Resolves provider/model after refreshing LM Studio catalog + VRAM state.
  * If lainey is unreachable and OpenRouter key exists → OpenRouter (even when
  * OFFER_KP_TEACHER_LLM=0), so @agent / chat do not die with Connection error.
+ * Inverse: teacher mode with dead egress → LM Studio when available.
  */
 async function resolveLlmProviderWithFallback(params = {}) {
+  await openRouterEnv.ensureOpenRouterEgressBaseUrl();
+
+  const lmStudioModels = require("./lmStudioModels");
+
   if (shouldUseTeacherLlm()) {
-    return resolveLlmProviderAndModel(params);
+    const orOk = await openRouterEnv.probeOpenRouterReachable(
+      openRouterEnv.resolveOpenRouterBaseUrl()
+    );
+    if (orOk) {
+      return resolveLlmProviderAndModel(params);
+    }
+
+    offerKpLog(
+      "warn",
+      "OpenRouter/egress unreachable — trying LM Studio fallback",
+      { baseUrl: openRouterEnv.resolveOpenRouterBaseUrl() }
+    );
+    const catalog = await lmStudioModels.fetchLmStudioModelCatalog({
+      forceRefresh: true,
+    });
+    if (catalog?.reachable !== false) {
+      return resolveLmStudioOnly({ ...params, catalog });
+    }
+
+    offerKpLog("error", "OpenRouter and LM Studio both unreachable");
+    // Keep teacher so the chat error path can show the egress hint.
+    return resolveOpenRouterTeacherResult({ reason: "openrouter_unreachable" });
   }
 
-  const { fetchLmStudioModelCatalog } = require("./lmStudioModels");
   // Always re-probe when OpenRouter is available so a dead lainey does not
   // keep serving a stale "reachable" cache and crash @agent.
   const forceRefresh =
-    params.forceRefresh === true || Boolean(resolveOpenRouterApiKey());
-  const catalog = await fetchLmStudioModelCatalog({ forceRefresh });
+    params.forceRefresh === true ||
+    Boolean(openRouterEnv.resolveOpenRouterApiKey());
+  const catalog = await lmStudioModels.fetchLmStudioModelCatalog({
+    forceRefresh,
+  });
 
-  if (catalog?.reachable === false && resolveOpenRouterApiKey()) {
-    offerKpLog(
-      "warn",
-      "LM Studio unreachable — falling back to OpenRouter teacher"
+  if (
+    catalog?.reachable === false &&
+    openRouterEnv.resolveOpenRouterApiKey()
+  ) {
+    const orOk = await openRouterEnv.probeOpenRouterReachable(
+      openRouterEnv.resolveOpenRouterBaseUrl()
     );
-    return resolveOpenRouterTeacherResult({
-      reason: "lmstudio_unreachable",
-    });
+    if (orOk) {
+      offerKpLog(
+        "warn",
+        "LM Studio unreachable — falling back to OpenRouter teacher"
+      );
+      return resolveOpenRouterTeacherResult({
+        reason: "lmstudio_unreachable",
+      });
+    }
+    offerKpLog(
+      "error",
+      "LM Studio unreachable and OpenRouter/egress also down"
+    );
   }
 
   return resolveLlmProviderAndModel({ ...params, catalog });
@@ -185,6 +263,7 @@ module.exports = {
   resolveLlmProviderAndModel,
   resolveLlmProviderWithFallback,
   resolveOpenRouterTeacherResult,
+  resolveLmStudioOnly,
   ensureLmStudioBasePath,
   coerceToLocalModel,
   resolveRunnableModel,
