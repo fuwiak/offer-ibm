@@ -58,13 +58,12 @@ describe("quoteComplianceChecker", () => {
     expect(result.violations.map((v) => v.id)).not.toContain("numeric-prices");
   });
 
-  it("allows narrative text with «уточнения» outside table cells", () => {
+  it("allows ChatGPT-style pending price without numeric-prices violation", () => {
     const content = `
 | Позиция | Кол-во | Цена | Сумма |
 | --- | --- | --- | --- |
-| Болт | 40 | 21.27 | 850.80 |
-
-Остальные позиции требуют уточнения цены.
+| Болт M10x100 | 30 | под заказ | — |
+| Болт M8x20 | 15 | 21.27 | 319.05 |
 `;
     const result = checkQuoteCompliance({ content });
     expect(result.ok).toBe(true);

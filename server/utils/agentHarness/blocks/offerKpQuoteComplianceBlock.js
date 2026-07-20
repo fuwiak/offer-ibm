@@ -12,12 +12,12 @@ const {
   collectCatalogBlocksFromHarness,
   validateQuotePricesAgainstCatalog,
 } = require("../../offerKp/harnessEvidence");
-const { validateQuotePricesFromDb } = require("../../offerKp/quoteDbPriceGate");
+const { validateQuotePricesFromDb, sanitizeQuotePricesToShopDb } = require("../../offerKp/quoteDbPriceGate");
 const { layerGuidelines } = require("../../../config/offerKp.harnessAntiHallucination");
 
 /**
  * Проверяет обязательные требования КП перед create-docx/pdf.
- * Нарушения блокируют генерацию документа и возвращают агенту список правок.
+ * Выдуманные цены (не из ShopDB) вычищаются → «под заказ» (как ChatGPT).
  */
 class OfferKpQuoteComplianceBlock extends BaseBlock {
   constructor() {
@@ -29,6 +29,7 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
       ...mandatoryRequirementsGuidelines(),
       ...layerGuidelines("verify"),
       ...layerGuidelines("abstain"),
+      "Цены как ChatGPT: только ShopDB; нет совпадения — пустая цена / «под заказ», никогда не угадывай число.",
     ];
     const existing = harness.state.get("contextGuidelines") || [];
     harness.state.set("contextGuidelines", [...existing, ...guidelines]);
@@ -42,14 +43,28 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
     if (!isQuoteDocSkill(params.skillName)) return null;
     if (!harness.state.get("quoteDocumentRequest")) return null;
 
-    const content = String(params.payload?.content || "").trim();
+    let content = String(params.payload?.content || "").trim();
+    const catalogBlocks = collectCatalogBlocksFromHarness(harness);
+    const inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
+
+    const sanitized = sanitizeQuotePricesToShopDb(content, {
+      draft: inquiryDbDraft,
+      catalogBlocks,
+    });
+    if (sanitized.changed && params.payload) {
+      params.payload.content = sanitized.content;
+      content = sanitized.content;
+      harnessLog("warn", "quoteCompliance.sanitizedInventedPrices", {
+        skillName: params.skillName,
+        replaced: sanitized.replaced,
+      });
+    }
+
     const result = checkQuoteCompliance({
       content,
       skillName: params.skillName,
     });
 
-    const catalogBlocks = collectCatalogBlocksFromHarness(harness);
-    const inquiryDbDraft = harness.state.get("inquiryDbDraft") || null;
     const dbPriceCheck = validateQuotePricesFromDb(content, {
       draft: inquiryDbDraft,
       catalogBlocks,

@@ -1,6 +1,6 @@
 /**
  * Обязательные требования к КП OfferKP — нельзя нарушать при create-docx/pdf.
- * Расширяйте этот список; checker в harness валидирует content перед генерацией.
+ * ChatGPT-style: без цены ShopDB колонка цены пустая / «под заказ» — никогда не угадывать.
  *
  * @type {Array<{ id: string, severity: "error", description: string, hint: string }>}
  */
@@ -20,20 +20,21 @@ const OFFER_KP_MANDATORY_REQUIREMENTS = Object.freeze([
   {
     id: "numeric-prices",
     severity: "error",
-    description: "Числовые цены из каталога, без плейсхолдеров.",
-    hint: "Запрещены [цена], «уточните», TBD — только цифры из [Каталог · purolat.com].",
+    description:
+      "Числовые цены только из ShopDB; без цены каталога — пусто или «под заказ».",
+    hint: "Запрещены выдуманные цифры и [цена]/TBD. Нет в ShopDB → «под заказ» (пустая колонка цены).",
   },
   {
     id: "invalid-quantity",
     severity: "error",
     description: "Количество в каждой строке — положительное число из PDF-заявки.",
-    hint: "Возьми кол-во из прикреплённого PDF (не 0 и не пусто); цену — из [Каталог · purolat.com].",
+    hint: "Возьми кол-во из прикреплённого PDF (не 0 и не пусто); цену — из каталога или «под заказ».",
   },
   {
     id: "no-formula-sums",
     severity: "error",
     description: "Сумма строки — готовое число, не формула Excel.",
-    hint: "Вызови quote-calculator; не пиши =40*21.27 в ячейке «Сумма».",
+    hint: "Вызови quote-calculator; не пиши =40*21.27 в ячейке «Сумма». Для «под заказ» сумму оставь «—».",
   },
   {
     id: "correct-line-totals",
@@ -44,8 +45,8 @@ const OFFER_KP_MANDATORY_REQUIREMENTS = Object.freeze([
   {
     id: "no-empty-template",
     severity: "error",
-    description: "Запрещён пустой шаблон «для заполнения» без позиций и цен.",
-    hint: "Заполни все строки из каталога с SKU, ценами и статусом наличия.",
+    description: "Запрещён пустой шаблон «для заполнения» без позиций.",
+    hint: "Заполни строки из заявки; цены — из каталога или «под заказ», без выдуманных сумм.",
   },
 ]);
 

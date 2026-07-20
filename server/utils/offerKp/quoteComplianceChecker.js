@@ -50,9 +50,22 @@ function cellLooksLikeFormula(value = "") {
 }
 
 function cellHasPricePlaceholder(value = "") {
+  // «под заказ» / empty — allowed ChatGPT-style pending price, not a bad placeholder.
+  if (isPendingPriceCell(value)) return false;
   return /\[цена\]|\[price\]|\[cena\]|\bуточните\b|do uzupełnienia|\bTBD\b/i.test(
     String(value || "")
   );
+}
+
+/** Empty / «под заказ» — ok when ShopDB has no price (never invent numbers). */
+function isPendingPriceCell(value = "") {
+  const cell = String(value || "").trim();
+  if (!cell) return true;
+  if (/^(?:—|-|–)$/u.test(cell)) return true;
+  if (/под\s*заказ|требует\s*проверки|нет\s*в\s*shopdb/i.test(cell)) {
+    return true;
+  }
+  return false;
 }
 
 function findNumericColumns(headerRow = []) {
@@ -149,6 +162,9 @@ function checkQuoteCompliance({ content = "" } = {}) {
 
     if (qtyIdx < 0 || priceIdx < 0 || sumIdx < 0) continue;
 
+    // ChatGPT-style: no ShopDB price → leave empty / «под заказ», skip sum check.
+    if (isPendingPriceCell(row[priceIdx])) continue;
+
     const qty = parseAmount(row[qtyIdx]);
     const price = parseAmount(row[priceIdx]);
     const sumCell = String(row[sumIdx] || "").trim();
@@ -223,4 +239,5 @@ module.exports = {
   parseMarkdownTable,
   checkQuoteCompliance,
   formatComplianceRejection,
+  isPendingPriceCell,
 };
