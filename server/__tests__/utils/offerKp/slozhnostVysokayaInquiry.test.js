@@ -1,12 +1,13 @@
 /* eslint-env jest, node */
 
 /**
- * Строгий e2e-тест разбора заявки test_files/Slozhnost_vysokaya_1.pdf.
+ * Строгий e2e-тест разбора заявки
+ * test_files/Slozhnost_vysokaya_1/Slozhnost_vysokaya_1.pdf.
  *
  * Вход: реальный текст таблицы после ingest PDF
  *   (__tests__/fixtures/offerKp/slozhnost-vysokaya-1-table.txt).
- * Эталон: test_files/Slozhnost_vysokaya_1.expected.csv — 20 позиций,
- *   наименование/ед. изм./кол-во должны совпадать 1-в-1.
+ * Эталон: test_files/Slozhnost_vysokaya_1/Slozhnost_vysokaya_1.expected.csv —
+ *   20 позиций, наименование/ед. изм./кол-во должны совпадать 1-в-1.
  */
 
 const fs = require("fs");
@@ -21,7 +22,7 @@ const FIXTURE_TEXT = path.join(
 );
 const EXPECTED_CSV = path.join(
   __dirname,
-  "../../../../test_files/Slozhnost_vysokaya_1.expected.csv"
+  "../../../../test_files/Slozhnost_vysokaya_1/Slozhnost_vysokaya_1.expected.csv"
 );
 
 /** Минимальный CSV-парсер: поля в кавычках могут содержать запятые. */

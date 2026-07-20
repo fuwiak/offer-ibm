@@ -19,6 +19,7 @@
   },
   "scripts": {
     "test": "jest",
+    "test:golden": "jest goldenSet --verbose",
     "lint": "cd server && yarn lint && cd ../frontend && yarn lint && cd ../collector && yarn lint",
     "lint:ci": "cd server && yarn lint:check && cd ../frontend && yarn lint:check && cd ../collector && yarn lint:check",
     "setup": "cd server && yarn && cd ../collector && yarn && cd ../frontend && yarn && cd .. && yarn setup:envs && yarn prisma:setup && echo \"Done. Start everything with: yarn dev\"",
@@ -45,6 +46,7 @@
     "ops": "bash cli/run",
     "ops:status": "bash cli/run status --plain",
     "ops:build": "bash cli/run build",
+    "ops:cicd": "bash cli/run cicd --plain",
     "deploy:lainey": "bash scripts/deploy-lainey-sync.sh",
     "deploy:lainey:docker": "bash scripts/deploy-lainey-app.sh"
   },

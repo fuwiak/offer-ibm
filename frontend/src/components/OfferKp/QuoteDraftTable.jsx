@@ -393,7 +393,7 @@ export default function QuoteDraftTable() {
           <thead>
             <tr>
               <th>№</th>
-              <th>{t("draftTable.name", { defaultValue: "Наименование" })}</th>
+              <th>{t("draftTable.name", { defaultValue: "Позиция" })}</th>
               <th>{t("draftTable.article", { defaultValue: "Артикул" })}</th>
               <th>{t("quote.quantity")}</th>
               <th>{t("draftTable.unit", { defaultValue: "Ед." })}</th>

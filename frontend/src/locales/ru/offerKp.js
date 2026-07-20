@@ -467,7 +467,7 @@ const TRANSLATIONS = {
     waitTable: "Черновик КП появится по мере сопоставления позиций…",
   },
   draftTable: {
-    name: "Наименование",
+    name: "Позиция",
     article: "Артикул",
     unit: "Ед.",
     priceVat: "Цена с НДС",
