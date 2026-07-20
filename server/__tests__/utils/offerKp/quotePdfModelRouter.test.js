@@ -20,6 +20,26 @@ describe("quotePdfModelRouter", () => {
   const inquiryText =
     "1. Болт DIN 933 M8x40 — 500 шт.\n2. Гайка DIN 934 M8 — 500 шт.\nЦена 12.50 руб";
 
+  const prevTeacher = process.env.OFFER_KP_TEACHER_LLM;
+  const prevOrKey = process.env.OPENROUTER_API_KEY;
+  const prevOrToken = process.env.OPEN_ROUTER_TOKEN;
+
+  beforeEach(() => {
+    // Local VRAM model hop only applies when teacher OpenRouter is off.
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPEN_ROUTER_TOKEN;
+  });
+
+  afterEach(() => {
+    if (prevTeacher === undefined) delete process.env.OFFER_KP_TEACHER_LLM;
+    else process.env.OFFER_KP_TEACHER_LLM = prevTeacher;
+    if (prevOrKey === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = prevOrKey;
+    if (prevOrToken === undefined) delete process.env.OPEN_ROUTER_TOKEN;
+    else process.env.OPEN_ROUTER_TOKEN = prevOrToken;
+  });
+
   it("detects quote-related messages", () => {
     expect(isQuoteRelatedMessage("сделай кп по заявке")).toBe(true);
     expect(isQuoteRelatedMessage("какая погода")).toBe(false);

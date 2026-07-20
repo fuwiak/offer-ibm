@@ -170,7 +170,11 @@ async function fetchLmStudioModelCatalog(opts = {}) {
     catalogCache &&
     now - catalogCache.fetchedAt < LMSTUDIO_MODELS_CACHE_MS
   ) {
-    return catalogCache;
+    return {
+      ...catalogCache,
+      reachable: catalogCache.reachable !== false,
+      fetchError: Boolean(catalogCache.fetchError),
+    };
   }
 
   const basePath = opts.basePath || lmStudioBaseUrl();
@@ -201,15 +205,17 @@ async function fetchLmStudioModelCatalog(opts = {}) {
     });
 
   if (!raw) {
-    return (
-      catalogCache || {
-        fetchedAt: now,
-        ids: [],
-        models: [],
-        loadedIds: [],
-        stateById: {},
-      }
-    );
+    // Do not reuse a stale successful cache as "reachable" — callers must
+    // fall back to OpenRouter when lainey is down.
+    return {
+      fetchedAt: now,
+      ids: [],
+      models: [],
+      loadedIds: [],
+      stateById: {},
+      reachable: false,
+      fetchError: true,
+    };
   }
 
   const chatModels = raw.filter((m) => isLmStudioChatModelId(m?.id));
@@ -228,6 +234,8 @@ async function fetchLmStudioModelCatalog(opts = {}) {
     })),
     loadedIds,
     stateById,
+    reachable: true,
+    fetchError: false,
   };
 
   offerKpLog("info", "LM Studio model catalog refreshed", {

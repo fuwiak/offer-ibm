@@ -1,6 +1,5 @@
 const {
   resolveLlmProviderAndModel,
-  resolveLlmProviderWithFallback,
   coerceToLocalModel,
 } = require("../../../utils/offerKpApp/resolveLlmProvider");
 const {
@@ -46,6 +45,22 @@ describe("resolveLlmProvider", () => {
     expect(process.env.LMSTUDIO_MODEL_PREF).toBe("openai/gpt-oss-20b");
   });
 
+  it("defaults to OpenRouter teacher when key set and flag unset", () => {
+    delete process.env.OFFER_KP_TEACHER_LLM;
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    const resolved = resolveLlmProviderAndModel({
+      provider: "lmstudio",
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(resolved.provider).toBe("openrouter");
+    expect(resolved.teacher).toBe(true);
+    expect(resolved.model).toBe("qwen/qwen3-vl-235b-a22b-instruct");
+  });
+
   it("stays on LM Studio when teacher flag is off", () => {
     process.env.OFFER_KP_TEACHER_LLM = "0";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
@@ -58,6 +73,7 @@ describe("resolveLlmProvider", () => {
         ids: ["openai/gpt-oss-20b"],
         loadedIds: ["openai/gpt-oss-20b"],
         stateById: { "openai/gpt-oss-20b": "loaded" },
+        reachable: true,
       },
     });
 
@@ -66,7 +82,34 @@ describe("resolveLlmProvider", () => {
     expect(resolved.teacher).toBe(false);
   });
 
+  it("falls back to OpenRouter when LM Studio catalog is unreachable", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
+    process.env.LMSTUDIO_MODEL_PREF = "qwen/qwen3-vl-8b-thinking";
+
+    const resolved = resolveLlmProviderAndModel({
+      provider: "lmstudio",
+      model: "qwen/qwen3-vl-8b-thinking",
+      catalog: {
+        ids: [],
+        loadedIds: [],
+        stateById: {},
+        reachable: false,
+        fetchError: true,
+      },
+    });
+
+    expect(resolved.provider).toBe("openrouter");
+    expect(resolved.teacher).toBe(true);
+    expect(resolved.openRouterFallback).toBe(true);
+    expect(resolved.model).toBe("qwen/qwen3-vl-235b-a22b-instruct");
+  });
+
   it("keeps LM Studio catalog model ids from UI", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPEN_ROUTER_TOKEN;
     expect(
       coerceToLocalModel("google/gemma-4-26b-a4b", [
         "google/gemma-4-26b-a4b",
@@ -76,6 +119,9 @@ describe("resolveLlmProvider", () => {
   });
 
   it("does not mutate global LMSTUDIO_MODEL_PREF on resolve", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPEN_ROUTER_TOKEN;
     process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
     const resolved = resolveLlmProviderAndModel({
       provider: "lmstudio",
@@ -84,6 +130,7 @@ describe("resolveLlmProvider", () => {
         ids: ["google/gemma-4-26b-a4b", "openai/gpt-oss-20b"],
         loadedIds: ["google/gemma-4-26b-a4b"],
         stateById: { "google/gemma-4-26b-a4b": "loaded" },
+        reachable: true,
       },
     });
     expect(resolved.model).toBe("google/gemma-4-26b-a4b");
@@ -91,6 +138,9 @@ describe("resolveLlmProvider", () => {
   });
 
   it("falls back to loaded model when preferred is not in VRAM", () => {
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPEN_ROUTER_TOKEN;
     const resolved = resolveLlmProviderAndModel({
       provider: "lmstudio",
       model: "google/gemma-4-26b-a4b",
@@ -101,6 +151,7 @@ describe("resolveLlmProvider", () => {
           "google/gemma-4-26b-a4b": "loading",
           "openai/gpt-oss-20b": "loaded",
         },
+        reachable: true,
       },
     });
     expect(resolved.model).toBe("openai/gpt-oss-20b");

@@ -4,6 +4,7 @@ const {
   resolveOfferKpModel,
 } = require("../../config/offerKp.models");
 const { offerKpLog } = require("./offerKpLog");
+const { resolveOpenRouterApiKey } = require("./openRouterEnv");
 const {
   shouldUseTeacherLlm,
   resolveTeacherModel,
@@ -56,10 +57,36 @@ function resolveRunnableModel(requestedModel, catalog = null) {
   return pickRunnableLmStudioModel(requestedModel, catalogSnapshot);
 }
 
+/** OpenRouter runtime with LM Studio labels for the UI. */
+function resolveOpenRouterTeacherResult({ reason = "teacher" } = {}) {
+  const teacherModel = resolveTeacherModel();
+  const resolved = {
+    provider: "openrouter",
+    model: teacherModel,
+    modelFallback: null,
+    teacher: true,
+    openRouterFallback: reason !== "teacher",
+    // Public-facing label stays local so clients never see "openrouter".
+    displayProvider: "lmstudio",
+    displayModel:
+      process.env.LMSTUDIO_MODEL_PREF ||
+      llmDefaults.LMSTUDIO_MODEL_PREF ||
+      OFFER_KP_DEFAULT_MODEL,
+  };
+  offerKpLog("info", "Resolved LLM provider", {
+    provider: "lmstudio",
+    model: resolved.displayModel,
+    teacher: true,
+    runtimeModel: teacherModel,
+    reason,
+  });
+  return resolved;
+}
+
 /**
  * Resolve LLM for offer-kp.
- * Teacher mode (OFFER_KP_TEACHER_LLM=1): OpenRouter under the hood; UI stays LM Studio.
- * Otherwise: LM Studio only. Prefers models with state=loaded in VRAM.
+ * Teacher mode (OFFER_KP_TEACHER_LLM=1 or key present): OpenRouter under the hood;
+ * UI stays LM Studio. Otherwise: LM Studio only. Prefers models with state=loaded in VRAM.
  */
 function resolveLlmProviderAndModel({
   provider: _provider = null,
@@ -67,26 +94,14 @@ function resolveLlmProviderAndModel({
   catalog = null,
 } = {}) {
   if (shouldUseTeacherLlm()) {
-    const teacherModel = resolveTeacherModel();
-    const resolved = {
-      provider: "openrouter",
-      model: teacherModel,
-      modelFallback: null,
-      teacher: true,
-      // Public-facing label stays local so clients never see "openrouter".
-      displayProvider: "lmstudio",
-      displayModel:
-        process.env.LMSTUDIO_MODEL_PREF ||
-        llmDefaults.LMSTUDIO_MODEL_PREF ||
-        OFFER_KP_DEFAULT_MODEL,
-    };
-    offerKpLog("info", "Resolved LLM provider", {
-      provider: "lmstudio",
-      model: resolved.displayModel,
-      teacher: true,
-      runtimeModel: teacherModel,
+    return resolveOpenRouterTeacherResult({ reason: "teacher" });
+  }
+
+  // Sync path: if caller already knows LM Studio is down, prefer OpenRouter.
+  if (catalog?.reachable === false && resolveOpenRouterApiKey()) {
+    return resolveOpenRouterTeacherResult({
+      reason: "lmstudio_unreachable",
     });
-    return resolved;
   }
 
   ensureLmStudioBasePath();
@@ -137,21 +152,40 @@ function resolveLlmProviderAndModel({
   return resolved;
 }
 
-/** Resolves provider/model after refreshing LM Studio catalog + VRAM state. */
+/**
+ * Resolves provider/model after refreshing LM Studio catalog + VRAM state.
+ * If lainey is unreachable and OpenRouter key exists → OpenRouter (even when
+ * OFFER_KP_TEACHER_LLM=0), so @agent / chat do not die with Connection error.
+ */
 async function resolveLlmProviderWithFallback(params = {}) {
   if (shouldUseTeacherLlm()) {
     return resolveLlmProviderAndModel(params);
   }
+
   const { fetchLmStudioModelCatalog } = require("./lmStudioModels");
-  const catalog = await fetchLmStudioModelCatalog({
-    forceRefresh: params.forceRefresh,
-  });
+  // Always re-probe when OpenRouter is available so a dead lainey does not
+  // keep serving a stale "reachable" cache and crash @agent.
+  const forceRefresh =
+    params.forceRefresh === true || Boolean(resolveOpenRouterApiKey());
+  const catalog = await fetchLmStudioModelCatalog({ forceRefresh });
+
+  if (catalog?.reachable === false && resolveOpenRouterApiKey()) {
+    offerKpLog(
+      "warn",
+      "LM Studio unreachable — falling back to OpenRouter teacher"
+    );
+    return resolveOpenRouterTeacherResult({
+      reason: "lmstudio_unreachable",
+    });
+  }
+
   return resolveLlmProviderAndModel({ ...params, catalog });
 }
 
 module.exports = {
   resolveLlmProviderAndModel,
   resolveLlmProviderWithFallback,
+  resolveOpenRouterTeacherResult,
   ensureLmStudioBasePath,
   coerceToLocalModel,
   resolveRunnableModel,
