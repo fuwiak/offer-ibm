@@ -168,13 +168,19 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
     } else {
       setQuoteDraft(INITIAL_QUOTE_DRAFT);
     }
-    if (prevThread !== threadSlug) {
+    // Drop thread-scoped panel UI so empty chats shift back to example prompts
+    // instead of keeping the previous thread's PDF/DOC/builder view open.
+    if (prevThread !== threadSlug || prevWs !== workspaceSlug) {
       setThreadQuoteFiles([]);
       setUploadedPdfPreview(null);
+      setQuotePdfUrl(null);
+      setDocPreview(null);
+      setDocumentPanelView("docs");
+      setMatchProgress(null);
     }
     setActiveWorkspaceSlug(workspaceSlug);
     setActiveThreadSlug(threadSlug);
-  }, []);
+  }, [setQuotePdfUrl, setUploadedPdfPreview]);
 
   useEffect(() => {
     if (!activeWorkspaceSlug || !activeThreadSlug) return;

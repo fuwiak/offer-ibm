@@ -332,11 +332,16 @@ export default function DocumentPanel() {
     (quoteDraft?.preview?.lines?.length ?? 0) > 0;
   const isMatchingInProgress =
     matchProgress?.stage === "parsing" || matchProgress?.stage === "searching";
-  const showQuoteBuilder = documentPanelView === "builder";
+  const hasQuoteBuilderContent =
+    !!quoteDraft?.reference ||
+    (quoteDraft?.step ?? 0) > 0 ||
+    hasEditableQuoteLines;
+  const showQuoteBuilder =
+    documentPanelView === "builder" && hasQuoteBuilderContent;
   const showDraftTable =
     documentPanelView === "draftTable" &&
     (hasEditableQuoteLines || isMatchingInProgress);
-  const showPdfPreview = documentPanelView === "pdf" && quotePdfUrl;
+  const showPdfPreview = documentPanelView === "pdf" && !!quotePdfUrl;
   const showQuotePreview =
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
   const showDocPreview = documentPanelView === "doc" && !!docPreview?.markdown;
@@ -534,7 +539,7 @@ export default function DocumentPanel() {
             <QuoteStepper />
           </div>
         ) : showExamplePromptsPanel ? (
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-6 min-w-0">
             <ExamplePromptsPanel />
           </div>
         ) : showAdminThreadContext ? (
