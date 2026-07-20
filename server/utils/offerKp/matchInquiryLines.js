@@ -14,6 +14,7 @@ const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { resolveProductPrice } = require("./priceResolve");
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const { findGoldenCorrection } = require("./goldenCorrections");
+const { recordSearchMetric } = require("./searchMetrics");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -234,6 +235,15 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
     `[offerKp] matchInquiryLine failed for "${inquiryLine.raw}":`,
     error?.message || error
   );
+  recordSearchMetric({
+    matchType: "error",
+    source: "exception",
+    strategies: [],
+    hasPrice: false,
+    candidateCount: 0,
+    queryLen: String(inquiryLine.raw || "").length,
+    threadId: null,
+  });
   return {
     inquiryRaw: inquiryLine.raw,
     name: inquiryLine.name || inquiryLine.raw,
@@ -275,6 +285,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const override = findGoldenCorrection([inquiryLine.raw, inquiryLine.name]);
   let overrideProductId = null;
   let products = [];
+  let matchStrategies = [];
   // Confirmed by golden set: no catalog product for this exact line — skip
   // the search entirely instead of risking a fresh false positive. A
   // positive override (exact/analog) only skips the search once its SKU
@@ -282,6 +293,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // catalog, fall through to the normal search below instead of silently
   // returning "no match".
   let skipSearch = override?.matchType === "none";
+  if (skipSearch) matchStrategies.push("golden_override_none");
 
   if (override?.sku) {
     const hits = await searchByExactSku([override.sku], 1);
@@ -289,19 +301,21 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       overrideProductId = String(hits[0].id);
       products = hits;
       skipSearch = true;
+      matchStrategies = ["golden_override"];
     }
   }
 
   if (!skipSearch) {
-    ({ products } = await runProductSearchAgent({
-      message: searchText,
-      chatHistory: options.chatHistory,
-      workspace: options.workspace,
-      limit: 8,
-      // A single inquiry line must be ranked on its own. Prepending the complete
-      // PDF made every line share almost the same search text and candidates.
-      parsedFileTexts: null,
-    }));
+    ({ products, strategies: matchStrategies = [] } =
+      await runProductSearchAgent({
+        message: searchText,
+        chatHistory: options.chatHistory,
+        workspace: options.workspace,
+        limit: 8,
+        // A single inquiry line must be ranked on its own. Prepending the complete
+        // PDF made every line share almost the same search text and candidates.
+        parsedFileTexts: null,
+      }));
 
     if (!products.length) {
       const {
@@ -318,6 +332,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
           workspace: options.workspace,
         });
         products = fallback.products || [];
+        matchStrategies = [...matchStrategies, ...(fallback.strategies || [])];
       }
     }
   }
@@ -485,6 +500,19 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     alternatives,
     productUrl: accepted ? best.productUrl : undefined,
   };
+  recordSearchMetric({
+    matchType: matchedLine.matchType,
+    source:
+      best?.matchSource ||
+      matchStrategies[matchStrategies.length - 1] ||
+      "none",
+    strategies: matchStrategies,
+    hasPrice: Number(matchedLine.unitPriceNet) > 0,
+    candidateCount: candidates.length,
+    queryLen: searchText.length,
+    threadId: options.threadId || null,
+  });
+
   setCachedLineMatch(options.threadId, cacheRaw, matchedLine);
   return matchedLine;
 }

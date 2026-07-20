@@ -20,11 +20,21 @@ offerkp              # TUI Status (auto-refresh)
 offerkp build        # live deploy log tab
 offerkp logs         # docker / journalctl logs
 offerkp cicd         # GitHub Actions → Selectel deploy
+offerkp metrics      # ShopDB retrieval quality (continuous, matchInquiryLine)
 offerkp status --plain   # used by post-commit
 offerkp cicd --plain
+offerkp metrics --plain [--hours N]
 ```
 
-Keys: `Tab` switch · `1-5` jump · `f` follow · `r` refresh · `q` quit
+Keys: `Tab` switch · `1-6` jump · `f` follow · `r` refresh · `q` quit
+
+### Metrics tab
+
+Reads the aggregated report from `scripts/report-shopdb-metrics.cjs`, run remotely over SSH
+against `OFFERKP_REMOTE_APP` (default `/opt/offer-kp/app`). That script aggregates
+`storage/metrics/shopdb-search.jsonl` — a continuous, fire-and-forget log written by
+`server/utils/offerKp/searchMetrics.js` on every `matchInquiryLine` call in production
+(match type, search strategy used, candidate count — no PII, no prices). See `AUDYT.md` §9.
 
 ## Commit trigger
 
@@ -52,6 +62,7 @@ bash scripts/deploy-lainey-sync.sh
 | `OFFERKP_READY_FILE` | `/opt/offer-kp/READY` |
 | `OFFERKP_GITHUB_REPO` | `fuwiak/offer-ibm` |
 | `OFFERKP_GITHUB_WORKFLOW` | `deploy-selectel.yml` |
+| `OFFERKP_REMOTE_APP` | `/opt/offer-kp/app` (cwd for the metrics script) |
 
 Detects **systemd** (`offer-kp.service`) first, then Docker. Logs come from `journalctl`.
 CI/CD reads GitHub Actions via `gh` (not Railway).

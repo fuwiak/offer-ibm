@@ -53,6 +53,12 @@ func main() {
 			return
 		}
 		runTUI(cfg, modeCICD)
+	case "metrics", "search-metrics", "retrieval":
+		if plain {
+			printMetricsPlain(cfg, rest)
+			return
+		}
+		runTUI(cfg, modeMetrics)
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -155,6 +161,21 @@ func printBuildPlain(cfg Config, args []string) {
 	fmt.Println(out)
 }
 
+func printMetricsPlain(cfg Config, args []string) {
+	hours := 24
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--hours" && i+1 < len(args) {
+			fmt.Sscanf(args[i+1], "%d", &hours)
+			i++
+		}
+	}
+	snap := fetchMetrics(cfg, hours)
+	fmt.Println(strings.TrimSpace(renderMetrics(snap, cfg)))
+	if snap.Err != "" {
+		os.Exit(1)
+	}
+}
+
 func printCICD(cfg Config) {
 	snap := fetchCICD(cfg)
 	fmt.Println(strings.TrimSpace(renderCICD(snap, cfg)))
@@ -181,14 +202,16 @@ Usage:
   offerkp logs            TUI → Logs (live)
   offerkp build           TUI → Build / deploy log
   offerkp cicd            TUI → GitHub Actions CI/CD
+  offerkp metrics         TUI → ShopDB retrieval metrics (continuous)
 
   offerkp status --plain  text snapshot (post-commit hook)
   offerkp health --plain
   offerkp logs --plain [-f] [--tail N]
   offerkp build --plain
   offerkp cicd --plain
+  offerkp metrics --plain [--hours N]
 
-In TUI: Tab / ←→ / 1-5 · f live follow · r refresh · q quit
+In TUI: Tab / ←→ / 1-6 · f live follow · r refresh · q quit
 
 Env (optional):
   LAINEY_HOST / OFFERKP_HOST          default 87.228.90.43
@@ -196,6 +219,7 @@ Env (optional):
   OFFERKP_SSH_KEY                     SSH private key path
   OFFERKP_PUBLIC_URL                  default http://offer-ibm.ru
   OFFERKP_CONTAINER                   default offer-kp
+  OFFERKP_REMOTE_APP                  default /opt/offer-kp/app (metrics tab cwd)
   OFFERKP_GITHUB_REPO                 default fuwiak/offer-ibm
   OFFERKP_GITHUB_WORKFLOW             default deploy-selectel.yml
 

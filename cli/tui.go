@@ -18,10 +18,11 @@ const (
 	modeLogs
 	modeBuild
 	modeCICD
+	modeMetrics
 	modeHelp
 )
 
-var tabOrder = []mode{modeStatus, modeHealth, modeLogs, modeBuild, modeCICD}
+var tabOrder = []mode{modeStatus, modeHealth, modeLogs, modeBuild, modeCICD, modeMetrics}
 
 type snapshotMsg struct {
 	snap StatusSnapshot
@@ -41,6 +42,10 @@ type cicdMsg struct {
 	snap CICDSnapshot
 }
 
+type metricsMsg struct {
+	snap MetricsSnapshot
+}
+
 type tickMsg time.Time
 
 type model struct {
@@ -53,6 +58,7 @@ type model struct {
 	follow       bool
 	snap         StatusSnapshot
 	cicd         CICDSnapshot
+	metrics      MetricsSnapshot
 	logs         string
 	buildLog     string
 	vp           viewport.Model
@@ -62,7 +68,7 @@ type model struct {
 }
 
 func newModel(cfg Config, start mode) model {
-	follow := start == modeLogs || start == modeStatus || start == modeHealth || start == modeBuild || start == modeCICD
+	follow := start == modeLogs || start == modeStatus || start == modeHealth || start == modeBuild || start == modeCICD || start == modeMetrics
 	return model{
 		cfg:     cfg,
 		mode:    start,
@@ -115,6 +121,12 @@ func loadCICDCmd(cfg Config) tea.Cmd {
 	}
 }
 
+func loadMetricsCmd(cfg Config) tea.Cmd {
+	return func() tea.Msg {
+		return metricsMsg{snap: fetchMetrics(cfg, 24)}
+	}
+}
+
 func (m model) refreshCmd() tea.Cmd {
 	switch m.mode {
 	case modeLogs:
@@ -123,6 +135,8 @@ func (m model) refreshCmd() tea.Cmd {
 		return loadBuildLogCmd(m.cfg)
 	case modeCICD:
 		return loadCICDCmd(m.cfg)
+	case modeMetrics:
+		return loadMetricsCmd(m.cfg)
 	case modeHelp:
 		return nil
 	default:
@@ -142,6 +156,8 @@ func (m model) pageTitle() string {
 		return "BUILD"
 	case modeCICD:
 		return "CI/CD"
+	case modeMetrics:
+		return "METRICS"
 	case modeHelp:
 		return "HELP"
 	default:
@@ -169,6 +185,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.mode == modeCICD {
 				interval = 8
+			}
+			if m.mode == modeMetrics {
+				// Spawns node over SSH remotely — expensive to poll often.
+				interval = 20
 			}
 			if sec%interval == 0 {
 				m.pollInFlight = true
@@ -244,6 +264,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshViewport(false)
 		return m, nil
 
+	case metricsMsg:
+		m.metrics = msg.snap
+		m.loading = false
+		m.pollInFlight = false
+		if msg.snap.Err != "" && strings.TrimSpace(msg.snap.Text) == "" {
+			m.flash = "metrics failed"
+		} else {
+			m.flash = fmt.Sprintf("metrics %dh · %s", msg.snap.Hours, msg.snap.FetchedAt.Format("15:04:05"))
+		}
+		m.refreshViewport(false)
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -271,7 +303,7 @@ func (m model) switchTab(next mode) (tea.Model, tea.Cmd) {
 	m.loading = true
 	m.pollInFlight = true
 	m.flash = "loading " + m.pageTitle() + "…"
-	if next == modeLogs || next == modeStatus || next == modeHealth || next == modeBuild || next == modeCICD {
+	if next == modeLogs || next == modeStatus || next == modeHealth || next == modeBuild || next == modeCICD || next == modeMetrics {
 		m.follow = true
 	}
 	m.refreshViewport(false)
@@ -325,6 +357,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.switchTab(modeBuild)
 	case "5", "c":
 		return m.switchTab(modeCICD)
+	case "6", "m":
+		return m.switchTab(modeMetrics)
 	case "?", "0":
 		m.mode = modeHelp
 		m.loading = false
@@ -417,6 +451,7 @@ func (m model) tabs() string {
 		{modeLogs, "3 Logs"},
 		{modeBuild, "4 Build"},
 		{modeCICD, "5 CI/CD"},
+		{modeMetrics, "6 Metrics"},
 	}
 	parts := make([]string, 0, len(labels))
 	for _, t := range labels {
@@ -441,7 +476,7 @@ func (m model) footer() string {
 }
 
 func (m model) body() string {
-	if m.loading && m.logs == "" && m.buildLog == "" && m.mode != modeHelp && m.mode != modeCICD && len(m.snap.Health) == 0 && m.snap.Container.Name == "" {
+	if m.loading && m.logs == "" && m.buildLog == "" && m.mode != modeHelp && m.mode != modeCICD && m.mode != modeMetrics && len(m.snap.Health) == 0 && m.snap.Container.Name == "" {
 		return "\n  loading…\n"
 	}
 	switch m.mode {
@@ -467,6 +502,11 @@ func (m model) body() string {
 			return "\n  loading CI/CD…\n"
 		}
 		return renderCICD(m.cicd, m.cfg)
+	case modeMetrics:
+		if m.loading && strings.TrimSpace(m.metrics.Text) == "" {
+			return "\n  loading metrics…\n"
+		}
+		return renderMetrics(m.metrics, m.cfg)
 	case modeHelp:
 		return helpText(m.cfg)
 	default:
@@ -528,7 +568,7 @@ func renderStatus(s StatusSnapshot, cfg Config) string {
 		}
 	}
 	b.WriteString(fmt.Sprintf("\n  fetched %s\n", s.FetchedAt.Format(time.RFC3339)))
-	b.WriteString("\n  → 5 CI/CD for GitHub Actions · 4 Build · 3 Logs\n")
+	b.WriteString("\n  → 6 Metrics for ShopDB retrieval · 5 CI/CD · 4 Build · 3 Logs\n")
 	return b.String()
 }
 
@@ -542,10 +582,11 @@ func helpText(cfg Config) string {
     3  Logs     journalctl / docker logs (live)
     4  Build    /opt/offer-kp/build.log
     5  CI/CD    GitHub Actions → Selectel deploy
+    6  Metrics  ShopDB retrieval quality (continuous, matchInquiryLine)
 
   Keys
     Tab / ← →     switch tabs
-    1 2 3 4 5     jump
+    1 2 3 4 5 6   jump
     ↑ ↓ / j k     scroll (pauses live follow)
     PgUp / PgDn   page scroll
     f             live follow on/off
@@ -559,8 +600,10 @@ func helpText(cfg Config) string {
     offerkp logs         Logs tab
     offerkp build        Build tab
     offerkp cicd         CI/CD tab
+    offerkp metrics      Metrics tab
     offerkp status --plain
     offerkp cicd --plain
+    offerkp metrics --plain [--hours N]
 
   Host: %s@%s  container=%s
   Public: %s

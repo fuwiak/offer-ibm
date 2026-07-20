@@ -11,6 +11,7 @@ type Config struct {
 	SSHKey         string
 	Container      string
 	RemoteRoot     string
+	RemoteApp      string
 	HealthPath     string
 	PublicURL      string
 	PublicIP       string
@@ -44,6 +45,7 @@ func loadConfig() Config {
 		SSHKey:         key,
 		Container:      envOr("OFFERKP_CONTAINER", "offer-kp"),
 		RemoteRoot:     envOr("OFFERKP_REMOTE_ROOT", "/opt/offer-kp"),
+		RemoteApp:      envOr("OFFERKP_REMOTE_APP", "/opt/offer-kp/app"),
 		HealthPath:     envOr("OFFERKP_HEALTH_PATH", "/ping"),
 		PublicURL:      envOr("OFFERKP_PUBLIC_URL", "http://offer-ibm.ru"),
 		PublicIP:       envOr("OFFERKP_PUBLIC_IP", "http://87.228.90.43"),
