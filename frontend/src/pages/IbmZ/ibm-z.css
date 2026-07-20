@@ -760,28 +760,28 @@ body:has(.ibm-z-page) #root {
 @media (prefers-color-scheme: dark) {
   body:has(.ibm-z-page),
   body:has(.ibm-z-page) #root {
-    background: #161616;
-    color: #f4f4f4;
+    background: #181715;
+    color: #faf9f5;
   }
 
   .ibm-z-page {
-    --ibm-canvas: #161616;
-    --ibm-surface-1: #262626;
-    --ibm-surface-2: #393939;
-    --ibm-hairline: #393939;
-    --ibm-hairline-strong: #6f6f6f;
-    --ibm-ink: #f4f4f4;
-    --ibm-ink-muted: #c6c6c6;
-    --ibm-ink-subtle: #6f6f6f;
-    --ibm-primary: #78a9ff;
-    --ibm-blue-60: #a6c8ff;
-    --ibm-blue-80: #4589ff;
-    --ibm-blue-hover: #a6c8ff;
-    --ibm-on-primary: #161616;
-    --ibm-inverse-canvas: #f4f4f4;
-    --ibm-inverse-surface-1: #e0e0e0;
-    --ibm-inverse-ink: #161616;
-    --ibm-inverse-ink-muted: #525252;
+    --ibm-canvas: #181715;
+    --ibm-surface-1: #252320;
+    --ibm-surface-2: #1f1e1b;
+    --ibm-hairline: #2f2d29;
+    --ibm-hairline-strong: #a09d96;
+    --ibm-ink: #faf9f5;
+    --ibm-ink-muted: #a09d96;
+    --ibm-ink-subtle: #8e8b82;
+    --ibm-primary: #cc785c;
+    --ibm-blue-60: #a9583e;
+    --ibm-blue-80: #8a4632;
+    --ibm-blue-hover: #a9583e;
+    --ibm-on-primary: #ffffff;
+    --ibm-inverse-canvas: #faf9f5;
+    --ibm-inverse-surface-1: #efe9de;
+    --ibm-inverse-ink: #141413;
+    --ibm-inverse-ink-muted: #3d3d3a;
     color: var(--ibm-ink);
     background: var(--ibm-canvas);
   }
@@ -789,7 +789,7 @@ body:has(.ibm-z-page) #root {
   .ibm-z-hero::before {
     background: linear-gradient(
       135deg,
-      rgba(120, 169, 255, 0.08) 0%,
+      rgba(204, 120, 92, 0.12) 0%,
       transparent 70%
     );
   }

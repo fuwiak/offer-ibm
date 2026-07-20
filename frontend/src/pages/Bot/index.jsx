@@ -113,7 +113,7 @@ function PublicBotChat() {
             key={i}
             className={`text-sm max-w-[85%] ${
               m.role === "user"
-                ? "ml-auto bg-blue-600 text-white px-3 py-2"
+                ? "ml-auto bg-primary-button text-white px-3 py-2"
                 : "bg-white/10 text-white/90 light:bg-slate-100 light:text-slate-800 px-3 py-2"
             }`}
           >
@@ -133,7 +133,7 @@ function PublicBotChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={streaming}
-          className="flex-1 bg-white/10 text-white light:bg-slate-100 light:text-slate-900 px-3 py-2 text-sm border-0 focus:outline focus:outline-2 focus:outline-blue-500"
+          className="flex-1 bg-white/10 text-white light:bg-slate-100 light:text-slate-900 px-3 py-2 text-sm border-0 focus:outline focus:outline-2 focus:outline-primary-button"
           placeholder="Message offer-kp…"
         />
         <button

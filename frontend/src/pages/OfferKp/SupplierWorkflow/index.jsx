@@ -40,12 +40,12 @@ const STATUS_OPTIONS = [
 
 function StatusBadge({ status }) {
   const STYLE = {
-    confirmed: "bg-blue-600/15 text-blue-400 light:text-blue-600",
-    in_production: "bg-yellow-500/15 text-yellow-400 light:text-yellow-600",
-    quality_check: "bg-orange-500/15 text-orange-400 light:text-orange-600",
-    ready_to_ship: "bg-purple-500/15 text-purple-400 light:text-purple-600",
-    shipped: "bg-teal-500/15 text-teal-400 light:text-teal-600",
-    delivered: "bg-green-500/15 text-green-400 light:text-green-600",
+    confirmed: "bg-primary-button/15 text-primary-button",
+    in_production: "bg-[#e8a55a]/15 text-[#e8a55a]",
+    quality_check: "bg-[#d4a017]/15 text-[#d4a017]",
+    ready_to_ship: "bg-[#5db8a6]/15 text-[#5db8a6]",
+    shipped: "bg-[#5db8a6]/20 text-[#5db8a6]",
+    delivered: "bg-[#5db872]/15 text-[#5db872]",
   };
   const LABEL = {
     confirmed: "Confirmed",
@@ -93,7 +93,7 @@ export default function SupplierWorkflow() {
       {/* Order list */}
       <aside className="w-64 shrink-0 bg-theme-bg-primary border-r border-white/10 light:border-slate-200 flex flex-col">
         <div className="px-4 py-5 border-b border-white/10 light:border-slate-200">
-          <Link to={paths.home()} className="text-[10px] text-blue-400 hover:text-blue-300 light:text-blue-600">
+          <Link to={paths.home()} className="text-[10px] text-primary-button hover:text-[#a9583e]">
             ← Back to app
           </Link>
           <h1 className="text-sm font-semibold text-white light:text-slate-900 mt-2">
@@ -234,7 +234,7 @@ export default function SupplierWorkflow() {
                     onClick={() => handleStatusUpdate(opt.id)}
                     className={`text-[11px] py-2 px-3 text-left flex items-center gap-2 transition-colors border ${
                       isCurrent
-                        ? "border-blue-500 bg-blue-600/15 text-blue-400 light:text-blue-600"
+                        ? "border-primary-button bg-primary-button/15 text-primary-button"
                         : "border-white/10 light:border-slate-200 text-white/50 light:text-slate-500 hover:border-white/30 hover:bg-white/5"
                     }`}
                   >

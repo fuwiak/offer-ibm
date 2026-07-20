@@ -92,7 +92,7 @@ export default function SavModal({ onClose }) {
                     key={type.id}
                     className={`flex items-center gap-2 px-3 py-2 cursor-pointer border text-xs ${
                       form.issueType === type.id
-                        ? "border-blue-500 bg-blue-600/10 text-white light:text-slate-900"
+                        ? "border-primary-button bg-primary-button/10 text-white light:text-slate-900"
                         : "border-white/10 light:border-slate-200 text-white/60 light:text-slate-500 hover:border-white/30"
                     }`}
                   >
@@ -105,7 +105,7 @@ export default function SavModal({ onClose }) {
                     />
                     <span
                       className={`w-3 h-3 border flex items-center justify-center shrink-0 ${
-                        form.issueType === type.id ? "border-blue-500 bg-blue-500" : "border-white/30"
+                        form.issueType === type.id ? "border-primary-button bg-primary-button" : "border-white/30"
                       }`}
                     >
                       {form.issueType === type.id && (
@@ -128,7 +128,7 @@ export default function SavModal({ onClose }) {
                 value={form.orderRef}
                 onChange={(e) => setForm({ ...form, orderRef: e.target.value })}
                 placeholder="ORD-2025-012 or AV-2025-031"
-                className="w-full bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-white light:text-slate-900 placeholder:text-white/30 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-white light:text-slate-900 placeholder:text-white/30 focus:border-primary-button focus:outline-none"
               />
             </div>
 
@@ -143,7 +143,7 @@ export default function SavModal({ onClose }) {
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder={t("sav.descriptionPlaceholder", "Describe the issue in detail…")}
-                className="w-full bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-white light:text-slate-900 placeholder:text-white/30 focus:border-blue-500 focus:outline-none resize-none"
+                className="w-full bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-white light:text-slate-900 placeholder:text-white/30 focus:border-primary-button focus:outline-none resize-none"
               />
             </div>
 

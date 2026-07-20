@@ -161,7 +161,7 @@ export default function QuoteStepper() {
           <p className="text-[10px] text-white/40 light:text-slate-400 uppercase tracking-wide">
             Step {step + 1} of {QUOTE_STEPS.length}
           </p>
-          <p className="text-[10px] font-medium text-blue-400 light:text-blue-600">
+          <p className="text-[10px] font-medium text-primary-button">
             {t(`quote.${STEP_KEYS[step]}`, QUOTE_STEPS[step])}
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function QuoteStepper() {
             <div
               key={i}
               className={`h-1 flex-1 transition-all ${
-                i <= step ? "bg-blue-500" : "bg-white/10 light:bg-slate-200"
+                i <= step ? "bg-primary-button" : "bg-white/10 light:bg-slate-200"
               }`}
             />
           ))}
@@ -289,7 +289,7 @@ function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode 
             value={customer?.name || ""}
             onChange={(e) => setCustomer?.("name", e.target.value)}
             placeholder="e.g. Client name"
-            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none mt-0.5"
+            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-primary-button focus:outline-none mt-0.5"
           />
         </label>
         <label className="block">
@@ -299,7 +299,7 @@ function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode 
             value={customer?.country || ""}
             onChange={(e) => setCustomer?.("country", e.target.value)}
             placeholder="e.g. Poland"
-            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none mt-0.5"
+            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-primary-button focus:outline-none mt-0.5"
           />
         </label>
         {priceMode === "public" && (
@@ -315,7 +315,7 @@ function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode 
           <select
             value={line.productId}
             onChange={(e) => setProduct(i, e.target.value)}
-            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none"
+            className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1.5 text-xs text-white light:text-slate-900 focus:border-primary-button focus:outline-none"
           >
             {OFFER_KP_PRODUCTS.map((p) => (
               <option key={p.id} value={p.id}>
@@ -362,7 +362,7 @@ function DimensionsStep({ lines, setDim, addLine, removeLine }) {
                     min="1"
                     value={line[field]}
                     onChange={(e) => setDim(i, field, e.target.value)}
-                    className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1 text-xs text-white light:text-slate-900 focus:border-blue-500 focus:outline-none mt-0.5"
+                    className="w-full bg-black/30 light:bg-white border border-white/20 light:border-slate-300 px-2 py-1 text-xs text-white light:text-slate-900 focus:border-primary-button focus:outline-none mt-0.5"
                   />
                 </label>
               ))}
@@ -386,7 +386,7 @@ function PreviewStep({ preview, step, reference }) {
   return (
     <div className="space-y-2">
       {reference && (
-        <p className="text-[10px] font-mono text-blue-400 light:text-blue-600 mb-2">
+        <p className="text-[10px] font-mono text-primary-button mb-2">
           {t("quote.reference", "Reference")}: {reference}
         </p>
       )}
@@ -448,7 +448,7 @@ function ShareStep({ reference }) {
           <button
             type="button"
             onClick={copy}
-            className="w-full py-1.5 bg-blue-600 text-white text-[11px] hover:bg-blue-700 transition-colors"
+            className="w-full py-1.5 bg-primary-button text-white text-[11px] hover:bg-[#a9583e] transition-colors"
           >
             {copied ? "✓ Copied!" : "Copy link"}
           </button>

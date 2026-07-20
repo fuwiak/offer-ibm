@@ -1613,11 +1613,11 @@ html.carbon-ui .offerKp-hero-title {
   background: var(--theme-bg-secondary);
 }
 
-.offerKp-status--ok { background: #defbe6; color: #198038; }
-.offerKp-status--analog { background: #edf5ff; color: #0043ce; }
-.offerKp-status--order { background: #fff8e1; color: #b28600; }
-.offerKp-status--none { background: #fff1f1; color: #da1e28; }
-.offerKp-status--review { background: #f4f4f4; color: #525252; }
+.offerKp-status--ok { background: #e8f5ec; color: #3d8a4f; }
+.offerKp-status--analog { background: #f5ebe0; color: #a9583e; }
+.offerKp-status--order { background: #f7edd8; color: #b28600; }
+.offerKp-status--none { background: #f8e8e8; color: #c64545; }
+.offerKp-status--review { background: #efe9de; color: #6c6a64; }
 
 .offerKp-btn-primary-block {
   display: flex;
