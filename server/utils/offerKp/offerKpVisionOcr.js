@@ -100,7 +100,9 @@ function inquiryTextFromOcrJsonLines(lines = []) {
     .map((row, index) => {
       if (row == null) return "";
       if (typeof row === "string") return row.trim();
-      const name = String(row.name || row.title || row.наименование || "").trim();
+      const name = String(
+        row.name || row.title || row.наименование || ""
+      ).trim();
       if (!name) return "";
       const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
       const unit = String(row.unit || row.ед || "шт").trim() || "шт";
@@ -108,9 +110,7 @@ function inquiryTextFromOcrJsonLines(lines = []) {
       const gost = row.gost ? ` ГОСТ ${row.gost}` : "";
       const notes = row.notes ? ` (${row.notes})` : "";
       const qtyPart =
-        qty != null && String(qty).trim() !== ""
-          ? ` — ${qty} ${unit}`
-          : "";
+        qty != null && String(qty).trim() !== "" ? ` — ${qty} ${unit}` : "";
       return `${index + 1}. ${name}${din}${gost}${qtyPart}${notes}`.trim();
     })
     .filter(Boolean)
@@ -135,7 +135,8 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
   const base64 = imageBuffer.toString("base64");
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
-  const prompt = opts.json !== false ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
+  const prompt =
+    opts.json !== false ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
 
   const response = await fetch(endpoint.url, {
     method: "POST",
@@ -181,7 +182,8 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
  */
 async function visionOcrPdf(pdfPath, opts = {}) {
   const endpoint = resolveVisionOcrEndpoint();
-  let modelId = endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
+  let modelId =
+    endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
   const startedAt = Date.now();
 
   if (!endpoint.teacher) {
@@ -243,7 +245,8 @@ async function visionOcrPdf(pdfPath, opts = {}) {
   }
 
   const fullText = usedJson
-    ? inquiryTextFromOcrJsonLines(allLines) || parts.filter(Boolean).join("\n\n")
+    ? inquiryTextFromOcrJsonLines(allLines) ||
+      parts.filter(Boolean).join("\n\n")
     : parts.filter(Boolean).join("\n\n");
 
   offerKpLog("info", "Vision OCR PDF complete", {
