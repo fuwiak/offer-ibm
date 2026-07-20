@@ -619,10 +619,7 @@ async function fetchOpenRouterModels() {
       return models;
     })
     .catch((e) => {
-      console.error(
-        "[OpenRouterLLM] Could not fetch models:",
-        e?.message || e
-      );
+      console.error("[OpenRouterLLM] Could not fetch models:", e?.message || e);
       return null;
     });
 }
