@@ -445,6 +445,22 @@ const TRANSLATIONS = {
     matched: "Dopasowanie zakończone",
     waitTable: "Szkic oferty pojawi się w trakcie dopasowywania pozycji…",
   },
+  draftTable: {
+    name: "Pozycja",
+    article: "Indeks",
+    unit: "J.m.",
+    priceVat: "Cena brutto",
+    sum: "Suma",
+    weight: "Waga",
+    status: "Status",
+    alternatives: "Zamienniki",
+    addFromDb: "Z bazy",
+    searchPlaceholder: "DIN 931 M8x40…",
+    comment: "Uwaga",
+    commentPlaceholder: "Komentarz",
+    manualHint:
+      "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena, suma, waga, status, komentarz.",
+  },
   modelLoad: {
     title: "Zmiana modelu",
     subtitle: "Ładowanie {{model}} do LM Studio (VRAM)",

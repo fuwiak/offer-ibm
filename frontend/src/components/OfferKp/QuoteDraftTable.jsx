@@ -39,15 +39,40 @@ function statusClass(status) {
   return "offerKp-status--review";
 }
 
-function recalcLine(line, vatRate) {
+const COMMON_UNITS = ["шт", "кг", "м", "компл", "уп"];
+
+function recalcLine(line, vatRate, { preserveLineTotal = false } = {}) {
   const qty = Number(line.quantity) || 0;
   const priceWithVat = Number(line.priceWithVat) || 0;
   const unitPriceNet = priceWithVat / (1 + vatRate);
-  return {
+  const next = {
     ...line,
+    quantity: qty,
+    priceWithVat,
     unitPriceNet: Number(unitPriceNet.toFixed(2)),
-    lineTotal: Number((qty * unitPriceNet).toFixed(2)),
   };
+  if (!preserveLineTotal) {
+    next.lineTotal = Number((qty * unitPriceNet).toFixed(2));
+  }
+  if (line.unit === "кг") {
+    next.lineWeightKg = qty;
+  } else if (
+    line.lineWeightKg != null &&
+    Number.isFinite(Number(line.lineWeightKg)) &&
+    line._weightEdited
+  ) {
+    next.lineWeightKg = Number(Number(line.lineWeightKg).toFixed(4));
+    next.weightKg =
+      qty > 0
+        ? Number((Number(line.lineWeightKg) / qty).toFixed(4))
+        : Number(line.weightKg) || 0;
+  } else {
+    const unitWeight = Number(line.weightKg) || 0;
+    next.weightKg = unitWeight;
+    next.lineWeightKg = Number((unitWeight * qty).toFixed(4));
+  }
+  delete next._weightEdited;
+  return next;
 }
 
 function lineNeedsReview(line = {}) {
@@ -149,11 +174,11 @@ export default function QuoteDraftTable() {
   ]);
 
   const updateLine = useCallback(
-    (index, patch) => {
+    (index, patch, recalcOpts) => {
       setQuoteDraft((prev) => {
         const current = prev.hardwareLines || prev.preview?.lines || [];
         const next = current.map((l, i) =>
-          i === index ? recalcLine({ ...l, ...patch }, vatRate) : l
+          i === index ? recalcLine({ ...l, ...patch }, vatRate, recalcOpts) : l
         );
         const subtotal = next.reduce(
           (sum, line) => sum + lineNetTotal(line, vatRate),
@@ -201,11 +226,65 @@ export default function QuoteDraftTable() {
     [activeThreadSlug, quoteDraft?.reference]
   );
 
-  const handleFieldChange = (index, field, value, line) => {
-    const old = line[field];
-    updateLine(index, { [field]: value });
+  const handleFieldChange = (index, field, value, line, opts = {}) => {
+    const old =
+      field === "lineTotalGross"
+        ? lineNetTotal(line, vatRate) * (1 + vatRate)
+        : field === "lineWeightKg"
+          ? lineTotalWeight(line)
+          : line[field];
+    if (field === "lineTotalGross") {
+      const qty = Number(line.quantity) || 0;
+      const gross = Number(value) || 0;
+      const priceWithVat = qty > 0 ? Number((gross / qty).toFixed(2)) : 0;
+      const lineTotal = Number((gross / (1 + vatRate)).toFixed(2));
+      setQuoteDraft((prev) => {
+        const current = prev.hardwareLines || prev.preview?.lines || [];
+        const next = current.map((l, i) =>
+          i === index
+            ? recalcLine(
+                { ...l, priceWithVat, lineTotal },
+                vatRate,
+                { preserveLineTotal: true }
+              )
+            : l
+        );
+        const subtotal = next.reduce(
+          (sum, row) => sum + lineNetTotal(row, vatRate),
+          0
+        );
+        const totalWeightKg = next.reduce(
+          (sum, row) => sum + lineTotalWeight(row),
+          0
+        );
+        return {
+          ...prev,
+          hardwareLines: next,
+          preview: {
+            ...(prev.preview || {}),
+            lines: next,
+            subtotal,
+            totalWeightKg,
+            total: subtotal,
+          },
+        };
+      });
+    } else if (field === "lineWeightKg") {
+      updateLine(index, {
+        lineWeightKg: Number(value) || 0,
+        _weightEdited: true,
+      });
+    } else {
+      updateLine(index, { [field]: value }, opts);
+    }
     if (String(old) !== String(value)) {
-      logCorrection(index, field, old, value, line);
+      logCorrection(
+        index,
+        field === "lineTotalGross" ? "lineTotal" : field,
+        old,
+        value,
+        line
+      );
     }
   };
 
@@ -386,7 +465,7 @@ export default function QuoteDraftTable() {
           <span className="text-[10px] text-theme-text-secondary">
             {t("draftTable.manualHint", {
               defaultValue:
-                "Ручная коррекция: кол-во, цена, статус, комментарии, позиции из базы.",
+                "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена, сумма, вес, статус, комментарий.",
             })}
           </span>
         </div>
@@ -535,7 +614,22 @@ export default function QuoteDraftTable() {
                     className="w-14 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
                   />
                 </td>
-                <td>{line.unit || "шт"}</td>
+                <td>
+                  <input
+                    type="text"
+                    list={`offerKp-unit-${i}`}
+                    value={line.unit || "шт"}
+                    onChange={(e) =>
+                      handleFieldChange(i, "unit", e.target.value, line)
+                    }
+                    className="w-12 bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none"
+                  />
+                  <datalist id={`offerKp-unit-${i}`}>
+                    {COMMON_UNITS.map((u) => (
+                      <option key={u} value={u} />
+                    ))}
+                  </datalist>
+                </td>
                 <td>
                   <input
                     type="number"
@@ -553,11 +647,44 @@ export default function QuoteDraftTable() {
                     className="w-20 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
                   />
                 </td>
-                <td className="text-right whitespace-nowrap">
-                  {(lineNetTotal(line, vatRate) * (1 + vatRate)).toFixed(2)}
+                <td>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={Number(
+                      (
+                        lineNetTotal(line, vatRate) *
+                        (1 + vatRate)
+                      ).toFixed(2)
+                    )}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        i,
+                        "lineTotalGross",
+                        Number(e.target.value),
+                        line
+                      )
+                    }
+                    className="w-20 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
+                  />
                 </td>
-                <td className="text-right">
-                  {lineTotalWeight(line).toFixed(3)}
+                <td>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.001}
+                    value={Number(lineTotalWeight(line).toFixed(3))}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        i,
+                        "lineWeightKg",
+                        Number(e.target.value),
+                        line
+                      )
+                    }
+                    className="w-16 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
+                  />
                 </td>
                 <td>
                   <select

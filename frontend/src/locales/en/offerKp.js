@@ -467,6 +467,22 @@ const TRANSLATIONS = {
     matched: "Matching complete",
     waitTable: "Quote draft will appear as lines are matched…",
   },
+  draftTable: {
+    name: "Item",
+    article: "SKU",
+    unit: "Unit",
+    priceVat: "Price w/ VAT",
+    sum: "Total",
+    weight: "Weight",
+    status: "Status",
+    alternatives: "Alternatives",
+    addFromDb: "From catalog",
+    searchPlaceholder: "DIN 931 M8x40…",
+    comment: "Note",
+    commentPlaceholder: "Comment",
+    manualHint:
+      "Edit any field: name, SKU, qty, unit, price, total, weight, status, comment.",
+  },
   modelLoad: {
     title: "Switching model",
     subtitle: "Loading {{model}} into LM Studio (VRAM)",

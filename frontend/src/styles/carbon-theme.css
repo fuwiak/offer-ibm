@@ -1596,8 +1596,21 @@ html.carbon-ui .offerKp-hero-title {
   margin-bottom: -1px;
 }
 
-.offerKp-draft-table {
-  border-collapse: collapse;
+.offerKp-thread-panel-section--files-pdf {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.offerKp-thread-pdf-embed {
+  flex: 1 1 auto;
+  min-height: 240px;
+}
+
+.offerKp-thread-pdf-embed .offerKp-pdfjs-viewer {
+  height: 100%;
+  min-height: 240px;
 }
 
 .offerKp-draft-table th,

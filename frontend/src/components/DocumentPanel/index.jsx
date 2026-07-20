@@ -34,6 +34,7 @@ import ThreadFileDataPreview, {
 } from "@/components/OfferKp/ThreadFileDataPreview";
 import GeneratedQuotesDock from "@/components/OfferKp/GeneratedQuotesDock";
 import { openUploadedFilePreview } from "@/utils/offerKp/openUploadedPdfPreview";
+import PdfJsViewer from "@/components/OfferKp/PdfJsViewer";
 
 function fileExtension(filename = "") {
   const parts = filename.split(".");
@@ -46,7 +47,16 @@ function fileIcon(ext) {
   return FileDoc;
 }
 
-function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
+/**
+ * Thread files + inline source-PDF preview for side-by-side comparison
+ * with «Сводка позиций» (draft table tab next to this «Диалог» tab).
+ */
+function ThreadFilesSection({
+  workspaceSlug,
+  threadSlug,
+  onAttach,
+  embedPdfPreview = false,
+}) {
   const { t } = useTranslation("offerKp");
   const {
     setUploadedPdfPreview,
@@ -56,23 +66,27 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
   const [files, setFiles] = useState([]);
   const [capacityPct, setCapacityPct] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState(false);
+  const autoOpenedRef = useRef(null);
 
   const loadFiles = useCallback(async () => {
     if (!workspaceSlug || !threadSlug) {
       setFiles([]);
       setCapacityPct(0);
       setLoading(false);
-      return;
+      return [];
     }
     setLoading(true);
     const data = await Workspace.getParsedFiles(workspaceSlug, threadSlug);
-    setFiles(data?.files || []);
+    const nextFiles = data?.files || [];
+    setFiles(nextFiles);
     const window = data?.contextWindow || 0;
     const used = data?.currentContextTokenCount || 0;
     setCapacityPct(
       window > 0 ? Math.min(100, Math.round((used / window) * 100)) : 0
     );
     setLoading(false);
+    return nextFiles;
   }, [workspaceSlug, threadSlug]);
 
   useEffect(() => {
@@ -86,34 +100,91 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
       window.removeEventListener("offerKp:thread-files-changed", refresh);
   }, [loadFiles]);
 
-  async function handleOpenUploadedPdf(file) {
-    if (!file?.isPdf || !workspaceSlug) return;
-    try {
-      await openUploadedFilePreview({
-        workspaceSlug,
-        threadSlug,
-        file,
-        setUploadedPdfPreview,
-        setUploadedPdfSidebarOpen,
-        previousUrl: uploadedPdfPreview?.url,
-        fetchTextPreview: async () => {
-          const result = await Workspace.getParsedFilePreview(
-            workspaceSlug,
-            file.id,
-            { threadSlug, limit: 80, offset: 0 }
-          );
-          return result?.preview || null;
-        },
-      });
-    } catch (e) {
-      console.error("[ThreadFilesSection] uploaded PDF preview:", e?.message || e);
-    }
-  }
+  const handleOpenUploadedPdf = useCallback(
+    async (file, { openSidebar = true } = {}) => {
+      if (!file?.isPdf || !workspaceSlug || opening) return;
+      setOpening(true);
+      try {
+        await openUploadedFilePreview({
+          workspaceSlug,
+          threadSlug,
+          file,
+          setUploadedPdfPreview,
+          setUploadedPdfSidebarOpen: openSidebar
+            ? setUploadedPdfSidebarOpen
+            : () => {},
+          previousUrl: uploadedPdfPreview?.url,
+          fetchTextPreview: async () => {
+            const result = await Workspace.getParsedFilePreview(
+              workspaceSlug,
+              file.id,
+              { threadSlug, limit: 80, offset: 0 }
+            );
+            return result?.preview || null;
+          },
+        });
+        if (openSidebar) setUploadedPdfSidebarOpen(true);
+      } catch (e) {
+        console.error(
+          "[ThreadFilesSection] uploaded PDF preview:",
+          e?.message || e
+        );
+      } finally {
+        setOpening(false);
+      }
+    },
+    [
+      workspaceSlug,
+      threadSlug,
+      opening,
+      setUploadedPdfPreview,
+      setUploadedPdfSidebarOpen,
+      uploadedPdfPreview?.url,
+    ]
+  );
+
+  useEffect(() => {
+    if (!embedPdfPreview || loading || opening) return;
+    const pdfs = files.filter((f) => f.isPdf);
+    if (!pdfs.length) return;
+    const currentId = uploadedPdfPreview?.fileId;
+    const stillValid = pdfs.some((f) => f.id === currentId);
+    const key = `${threadSlug}:${pdfs[0].id}`;
+    if (stillValid || autoOpenedRef.current === key) return;
+    autoOpenedRef.current = key;
+    handleOpenUploadedPdf(pdfs[0], { openSidebar: true });
+  }, [
+    embedPdfPreview,
+    loading,
+    opening,
+    files,
+    uploadedPdfPreview?.fileId,
+    threadSlug,
+    handleOpenUploadedPdf,
+  ]);
+
+  const pdfFiles = files.filter((f) => f.isPdf);
+  const showEmbeddedPdf =
+    embedPdfPreview &&
+    uploadedPdfPreview?.mode === "pdf" &&
+    !!uploadedPdfPreview?.url;
+  const showEmbeddedText =
+    embedPdfPreview &&
+    uploadedPdfPreview?.mode === "text" &&
+    !!uploadedPdfPreview?.textPreview;
 
   return (
-    <section className="offerKp-thread-panel-section offerKp-thread-panel-section--files">
+    <section
+      className={`offerKp-thread-panel-section offerKp-thread-panel-section--files${
+        embedPdfPreview ? " offerKp-thread-panel-section--files-pdf" : ""
+      }`}
+    >
       <div className="offerKp-thread-panel-section__head">
-        <h3 className="offerKp-thread-panel-section__title">{t("layout.files")}</h3>
+        <h3 className="offerKp-thread-panel-section__title">
+          {embedPdfPreview
+            ? t("layout.uploadedPdfPanel", { defaultValue: "Uploaded PDF" })
+            : t("layout.files")}
+        </h3>
         <button
           type="button"
           className="offerKp-thread-panel-section__edit"
@@ -147,53 +218,109 @@ function ThreadFilesSection({ workspaceSlug, threadSlug, onAttach }) {
           {t("layout.filesEmpty")}
         </p>
       ) : (
-        <ul className="offerKp-thread-files__grid">
-          {files.map((file) => {
-            const ext = fileExtension(displayName(file));
-            const Icon = fileIcon(ext);
-            const lines = file.lineCount;
-            return (
-              <li key={file.id} className="offerKp-thread-files__card">
-                <button
-                  type="button"
-                  className={`offerKp-thread-files__card-btn${
-                    file.isPdf ? " offerKp-thread-files__card-btn--pdf" : ""
-                  }`}
-                  onClick={() => handleOpenUploadedPdf(file)}
-                  disabled={!file.isPdf}
-                  title={
-                    file.isPdf
-                      ? t("layout.openUploadedPdf", {
-                          defaultValue: "Open uploaded PDF",
-                        })
-                      : undefined
-                  }
+        <>
+          {pdfFiles.length > 0 && (
+            <div className="px-0 pb-2">
+              {pdfFiles.length > 1 ? (
+                <select
+                  className="w-full text-xs rounded-md border border-theme-sidebar-border bg-theme-bg-chat-input text-theme-text-primary px-2 py-1.5"
+                  value={uploadedPdfPreview?.fileId || pdfFiles[0]?.id || ""}
+                  onChange={(e) => {
+                    const next = pdfFiles.find(
+                      (f) => String(f.id) === e.target.value
+                    );
+                    if (next) handleOpenUploadedPdf(next, { openSidebar: true });
+                  }}
+                  disabled={opening}
                 >
-                  <Icon
-                    size={22}
-                    weight="duotone"
-                    className="offerKp-thread-files__card-icon"
-                  />
-                  <span className="offerKp-thread-files__card-name">
-                    {displayName(file)}
-                  </span>
-                  {lines != null && (
-                    <span className="offerKp-thread-files__card-meta">
-                      {t("layout.fileLines", { count: lines })}
-                    </span>
-                  )}
-                  <FileExtensionBadge file={file} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  {pdfFiles.map((file) => (
+                    <option key={file.id} value={file.id}>
+                      {displayName(file)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[11px] text-theme-text-secondary truncate">
+                  {displayName(pdfFiles[0])}
+                </p>
+              )}
+              <p className="text-[10px] text-theme-text-secondary/80 mt-0.5">
+                {t("layout.uploadedPdfHint", {
+                  defaultValue: "Compare with uploaded PDF",
+                })}
+              </p>
+            </div>
+          )}
+
+          {showEmbeddedPdf ? (
+            <div className="offerKp-thread-pdf-embed flex-1 min-h-[280px] min-w-0 rounded-md border border-theme-sidebar-border overflow-hidden">
+              <PdfJsViewer
+                url={uploadedPdfPreview.url}
+                title={uploadedPdfPreview.filename || "Uploaded PDF"}
+              />
+            </div>
+          ) : showEmbeddedText ? (
+            <div className="offerKp-thread-pdf-embed flex-1 min-h-[200px] overflow-auto p-2 rounded-md border border-theme-sidebar-border">
+              <pre className="offerKp-thread-db-preview__text text-xs whitespace-pre-wrap">
+                {uploadedPdfPreview.textPreview}
+              </pre>
+            </div>
+          ) : pdfFiles.length > 0 && (opening || loading) ? (
+            <p className="text-xs text-theme-text-secondary py-4">…</p>
+          ) : (
+            <ul className="offerKp-thread-files__grid">
+              {files.map((file) => {
+                const ext = fileExtension(displayName(file));
+                const Icon = fileIcon(ext);
+                const lines = file.lineCount;
+                return (
+                  <li key={file.id} className="offerKp-thread-files__card">
+                    <button
+                      type="button"
+                      className={`offerKp-thread-files__card-btn${
+                        file.isPdf ? " offerKp-thread-files__card-btn--pdf" : ""
+                      }`}
+                      onClick={() =>
+                        handleOpenUploadedPdf(file, { openSidebar: true })
+                      }
+                      disabled={!file.isPdf || opening}
+                      title={
+                        file.isPdf
+                          ? t("layout.openUploadedPdf", {
+                              defaultValue: "Open uploaded PDF",
+                            })
+                          : undefined
+                      }
+                    >
+                      <Icon
+                        size={22}
+                        weight="duotone"
+                        className="offerKp-thread-files__card-icon"
+                      />
+                      <span className="offerKp-thread-files__card-name">
+                        {displayName(file)}
+                      </span>
+                      {lines != null && (
+                        <span className="offerKp-thread-files__card-meta">
+                          {t("layout.fileLines", { count: lines })}
+                        </span>
+                      )}
+                      <FileExtensionBadge file={file} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
-      <ThreadFileDataPreview
-        files={files}
-        workspaceSlug={workspaceSlug}
-        threadSlug={threadSlug}
-      />
+      {!embedPdfPreview && (
+        <ThreadFileDataPreview
+          files={files}
+          workspaceSlug={workspaceSlug}
+          threadSlug={threadSlug}
+        />
+      )}
     </section>
   );
 }
@@ -216,6 +343,7 @@ export default function DocumentPanel() {
     setDocPreview,
     threadQuoteFiles,
     matchProgress,
+    setUploadedPdfSidebarOpen,
   } = useOfferKp();
 
   const { role } = useOfferKpRole();
@@ -364,6 +492,11 @@ export default function DocumentPanel() {
     showQuotePreview ||
     showDocPreview;
   const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
+
+  // Keep source PDF comparison panel open while editing the positions table.
+  useEffect(() => {
+    if (showDraftTable) setUploadedPdfSidebarOpen(true);
+  }, [showDraftTable, setUploadedPdfSidebarOpen]);
   /** Examples only on the home screen — never on /t/:threadSlug. */
   const showExamplePromptsPanel =
     isHome && !showAdminThreadContext && !hasActiveQuoteWorkspace;
@@ -564,7 +697,13 @@ export default function DocumentPanel() {
             <ExamplePromptsPanel />
           </div>
         ) : showThreadContextPanel ? (
-          <div className="flex-1 overflow-y-auto flex flex-col gap-0 p-4">
+          <div
+            className={`flex-1 min-h-0 flex flex-col gap-0 p-4 ${
+              hasEditableQuoteLines || hasQuoteBuilderContent
+                ? "overflow-hidden"
+                : "overflow-y-auto"
+            }`}
+          >
             {showAdminThreadContext ? (
               <>
                 <OfferKpThreadPanelSection
@@ -589,6 +728,9 @@ export default function DocumentPanel() {
                 workspaceSlug={activeWorkspaceSlug}
                 threadSlug={activeThreadSlug}
                 onAttach={handleAttach}
+                embedPdfPreview={
+                  hasEditableQuoteLines || hasQuoteBuilderContent
+                }
               />
             ) : null}
           </div>
