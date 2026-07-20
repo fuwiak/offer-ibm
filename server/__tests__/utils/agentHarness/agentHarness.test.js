@@ -88,6 +88,37 @@ describe("AgentHarness", () => {
     expect(pdf?.approved).toBe(true);
   });
 
+  it("removes web scraping and RAG memory tools for quote documents", async () => {
+    const agent = {
+      functions: [
+        "rag-memory",
+        "web-scraping",
+        "web-browsing",
+        "create-docx-file",
+        "create-pdf-file",
+      ],
+    };
+    const aibitat = {
+      _chats: [{ from: "USER", content: "сделай кп" }],
+      agents: new Map([["@agent", agent]]),
+      introspect: jest.fn(),
+    };
+    const harness = new AgentHarness({
+      aibitat,
+      ctx: { invocation: { prompt: "сделай кп" }, workspace: null },
+    });
+    harness.use(new OfferKpDocumentTriggerBlock());
+    await harness.install();
+
+    expect(agent.functions).toEqual([
+      "create-docx-file",
+      "create-pdf-file",
+    ]);
+    await expect(
+      harness.resolveToolApproval({ skillName: "web-scraping" })
+    ).resolves.toMatchObject({ approved: false });
+  });
+
   it("rejects invalid КП content via compliance checker before doc generation", async () => {
     const aibitat = {
       _chats: [{ from: "USER", content: "сделай кп" }],

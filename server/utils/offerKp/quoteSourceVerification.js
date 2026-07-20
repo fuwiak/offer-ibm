@@ -91,10 +91,16 @@ function extractVerbatimItems(text = "") {
           /^\d+(?:[.,]\d+)?$/.test(cell) &&
           index > unitIdx
       );
-      const fallbackQuantityIdx = cols.findLastIndex(
-        (cell, index) =>
-          index > 0 && index !== unitIdx && /^\d+(?:[.,]\d+)?$/.test(cell)
-      );
+      let fallbackQuantityIdx = -1;
+      for (let index = cols.length - 1; index > 0; index--) {
+        if (
+          index !== unitIdx &&
+          /^\d+(?:[.,]\d+)?$/.test(cols[index])
+        ) {
+          fallbackQuantityIdx = index;
+          break;
+        }
+      }
       const qtyIdx = quantityIdx >= 0 ? quantityIdx : fallbackQuantityIdx;
       if (qtyIdx < 0) continue;
       const nameEnd = Math.min(unitIdx, qtyIdx);

@@ -11,6 +11,7 @@ const { generateQuotePdf } = require("../offerKpApp/generateQuotePdf");
 const { generateDocxFromMarkdown } = require("../offerKpApp/docxFromMarkdown");
 const { QUOTE_BRAND, localeForCountry } = require("../offerKpApp/quoteBrand");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
+const { parseInquiryText } = require("./parseInquiry");
 
 function parseCatalogBlock(block = "") {
   const text = String(block || "").trim();
@@ -309,6 +310,45 @@ function buildQuoteLinesFromCatalog(products, meta) {
 }
 
 /**
+ * Безопасный fallback при недоступной ShopDB: сохраняет каждую строку заявки
+ * один-к-одному, но не придумывает товар, SKU или цену.
+ */
+function buildUnmatchedDraftFromInquiry(inquiryLines = []) {
+  return {
+    reference: generateQuoteReference({ prefix: "KP" }),
+    lines: inquiryLines.map((line) => {
+      const quantity = Number(line.quantity);
+      return {
+        inquiryRaw: line.raw,
+        name: line.name || line.raw,
+        requestedName: line.name || line.raw,
+        article: "",
+        productId: "",
+        quantity: Number.isFinite(quantity) ? quantity : 1,
+        unit: line.unit || "шт",
+        priceWithVat: 0,
+        unitPriceNet: 0,
+        lineTotal: 0,
+        weightKg: 0,
+        status: "Нет в наличии",
+        kpStatus: "Нет в базе",
+        unitNeedsRecalc: Boolean(line.needsReview),
+        matchType: "none",
+        analogOf: null,
+        similarSuggestion: null,
+        comment:
+          "Совпадение и подтверждённая цена в ShopDB отсутствуют — цена по запросу",
+        thread: line.thread,
+        alternatives: [],
+      };
+    }),
+    subtotal: 0,
+    totalWeightKg: 0,
+    total: 0,
+  };
+}
+
+/**
  * @param {object} opts
  * @param {import("express").Response} opts.response
  * @param {string} opts.uuid — uuid основного ответа чата
@@ -324,9 +364,13 @@ async function emitAutoQuoteArtifacts({
   chatHistory = null,
   parsedFileTexts = [],
 }) {
-  const inquirySource = [message, ...(parsedFileTexts || [])]
-    .filter(Boolean)
-    .join("\n\n");
+  // При наличии файла именно он определяет перечень строк. Сообщение пользователя
+  // служит командой и не должно дублировать/расширять приложенную заявку.
+  const sourceTexts = (parsedFileTexts || []).filter(Boolean);
+  const inquirySource = sourceTexts.length
+    ? sourceTexts.join("\n\n")
+    : String(message || "");
+  const inquiryLines = parseInquiryText(inquirySource);
 
   if (
     !wantsFileCreation(message) &&
@@ -344,6 +388,18 @@ async function emitAutoQuoteArtifacts({
     });
   } catch (e) {
     console.error("[offerKp] matchInquiryToDraft:", e.message);
+  }
+
+  // N позиций на входе = N строк в обоих документах. При любой ошибке или
+  // неполном результате ShopDB возвращаем полный перечень без выдуманных цен.
+  if (
+    inquiryLines.length > 0 &&
+    Number(draft?.lines?.length || 0) !== inquiryLines.length
+  ) {
+    console.warn(
+      `[offerKp] quote line invariant fallback: source=${inquiryLines.length}, matched=${draft?.lines?.length || 0}`
+    );
+    draft = buildUnmatchedDraftFromInquiry(inquiryLines);
   }
 
   const products = (catalogBlocks || []).map(parseCatalogBlock).filter(Boolean);
@@ -382,6 +438,12 @@ async function emitAutoQuoteArtifacts({
         productUrl: l.productUrl,
       }))
     : buildQuoteLinesFromCatalog(products.slice(0, 5), meta);
+
+  if (inquiryLines.length > 0 && lines.length !== inquiryLines.length) {
+    throw new Error(
+      `Quote line invariant violated: source=${inquiryLines.length}, output=${lines.length}`
+    );
+  }
 
   const subtotal =
     draft?.subtotal ?? lines.reduce((s, l) => s + l.lineTotal, 0);
@@ -562,6 +624,7 @@ module.exports = {
   buildQuoteArtifactsSummary,
   buildQuoteFileOutputs,
   buildGeneratedFilesList,
+  buildUnmatchedDraftFromInquiry,
   emitAutoQuoteArtifacts,
   hasInquirySignals,
 };

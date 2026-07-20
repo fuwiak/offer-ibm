@@ -101,11 +101,23 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
           : [];
         const texts = (files || []).map((d) => d.pageContent).filter(Boolean);
         const combined = texts.join("\n\n");
-        if (parseInquiryText(combined).length > 0) {
+        const sourceLines = parseInquiryText(combined);
+        if (sourceLines.length > 0) {
           inquiryDbDraft = await matchInquiryToDraft(combined, {
             workspace,
             parsedFileTexts: texts,
           });
+          if (inquiryDbDraft?.lines?.length !== sourceLines.length) {
+            const matchedCount = inquiryDbDraft?.lines?.length || 0;
+            const {
+              buildUnmatchedDraftFromInquiry,
+            } = require("../../offerKp/autoQuoteArtifacts");
+            inquiryDbDraft = buildUnmatchedDraftFromInquiry(sourceLines);
+            harnessLog("warn", "quoteCompliance.lineInvariantFallback", {
+              source: sourceLines.length,
+              matched: matchedCount,
+            });
+          }
           harness.state.set("inquiryDbDraft", inquiryDbDraft);
         }
       } catch (error) {
@@ -115,10 +127,44 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
       }
     }
 
+    // Даже если ShopDB полностью недоступна, документ всё равно содержит все
+    // строки заявки — без SKU и цен, которые нельзя подтвердить.
+    const sourceAnalysis = harness.state.get("quoteSourceAnalysis") || {};
+    const expectedSourceLines = Number(sourceAnalysis.itemCount || 0);
+    if (
+      expectedSourceLines > 0 &&
+      Number(inquiryDbDraft?.lines?.length || 0) !== expectedSourceLines
+    ) {
+      const {
+        buildUnmatchedDraftFromInquiry,
+      } = require("../../offerKp/autoQuoteArtifacts");
+      inquiryDbDraft = buildUnmatchedDraftFromInquiry(
+        sourceAnalysis.items || []
+      );
+      harness.state.set("inquiryDbDraft", inquiryDbDraft);
+      harnessLog("warn", "quoteCompliance.sourceInvariantFallback", {
+        source: expectedSourceLines,
+        output: inquiryDbDraft.lines.length,
+      });
+    }
+
     // Главный фикс: не доверяем таблице агента (18.50 на всё) — подмена из ShopDB draft.
     if (inquiryDbDraft?.lines?.length && params.payload) {
       const forced = buildQuoteMarkdownFromDraft(inquiryDbDraft);
       if (forced) {
+        const expected = Number(
+          sourceAnalysis.itemCount || inquiryDbDraft.lines.length
+        );
+        const actual = forced
+          .split("\n")
+          .filter((line) => /^\|\s*\d+\s*\|/.test(line.trim())).length;
+        if (actual !== expected) {
+          return {
+            handled: true,
+            approved: false,
+            message: `Создание файла заблокировано: строк в источнике ${expected}, в КП ${actual}.`,
+          };
+        }
         params.payload.content = forced;
         content = forced;
         harnessLog("warn", "quoteCompliance.forcedDraftMarkdown", {

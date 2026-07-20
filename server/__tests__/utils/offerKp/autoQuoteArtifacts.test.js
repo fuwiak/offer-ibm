@@ -4,6 +4,7 @@ const {
   buildMarkdownQuote,
   buildQuoteArtifactsSummary,
   buildQuoteFileOutputs,
+  buildUnmatchedDraftFromInquiry,
 } = require("../../../utils/offerKp/autoQuoteArtifacts");
 
 describe("autoQuoteArtifacts", () => {
@@ -83,5 +84,21 @@ ID товара (shop_product.id): 42
     expect(outputs).toHaveLength(2);
     expect(outputs[0].payload.storageFilename).toBe("doc-abc.docx");
     expect(outputs[1].payload.storageFilename).toBe("quote-abc.pdf");
+  });
+
+  it("keeps one fallback output row for every input position", () => {
+    const input = Array.from({ length: 20 }, (_, index) => ({
+      raw: `Болт M${index + 6}x${index + 20}`,
+      name: `Болт M${index + 6}x${index + 20}`,
+      unit: "кг",
+      quantity: index + 1,
+    }));
+    const draft = buildUnmatchedDraftFromInquiry(input);
+
+    expect(draft.lines).toHaveLength(20);
+    expect(draft.lines.map((line) => line.requestedName)).toEqual(
+      input.map((line) => line.name)
+    );
+    expect(draft.lines.every((line) => line.unitPriceNet === 0)).toBe(true);
   });
 });

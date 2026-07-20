@@ -26,5 +26,12 @@ describe("quoteRequestPhrases", () => {
 
   it("returns false for unrelated messages", () => {
     expect(isQuoteDocumentRequest("какая погода")).toBe(false);
+    expect(isQuoteDocumentRequest("@agent какая погода")).toBe(false);
+  });
+
+  it("detects an explicit agent quote without treating every agent call as КП", () => {
+    expect(isQuoteDocumentRequest("@agent сделай кп")).toBe(true);
+    expect(isQuoteDocumentRequest("@agent: подготовь коммерческое предложение"))
+      .toBe(true);
   });
 });

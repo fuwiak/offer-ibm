@@ -2,7 +2,6 @@ const { BaseBlock } = require("../BaseBlock");
 const { harnessLog } = require("../harnessLog");
 const {
   analyzeQuoteSourceDocuments,
-  buildSourceOnlyQuoteMarkdown,
   verifySourceDeclaration,
 } = require("../../offerKp/quoteSourceVerification");
 
@@ -10,12 +9,13 @@ const VERIFY_TOOL_NAME = "verify-quote-source";
 const DOC_SKILLS = new Set(["create-docx-file", "create-pdf-file"]);
 
 const STRICT_SOURCE_GUIDELINES = [
-  "СТРОГИЙ РЕЖИМ ИСТОЧНИКА: приложенный файл — единственный источник данных о товарах и коммерческих условиях.",
-  "Дословно извлеки все строки заявки. Не заменяй товары аналогами, не сокращай и не объединяй позиции, не исправляй ГОСТ/DIN/размеры по своему усмотрению.",
+  "СТРОГИЙ РЕЖИМ КП: приложенный файл — единственный источник перечня запрошенных позиций, их порядка, количества и единиц измерения; ShopDB — единственный источник сопоставлений, SKU, наличия и цен.",
+  "Дословно извлеки все строки заявки. Не сокращай и не объединяй позиции, не исправляй ГОСТ/DIN/размеры по своему усмотрению. Аналог из ShopDB указывай отдельно как предложенный товар, не заменяя поле «Запрошено».",
   "Количество и единицы измерения бери только из файла: кг нельзя заменять на шт., а 30 кг нельзя интерпретировать как 30 штук.",
-  "Не используй ShopDB, каталог, интернет, память или предыдущие запросы для цен, товаров, поставщика, клиента, даты, срока поставки, оплаты, доставки, НДС и реквизитов.",
+  "Не используй интернет, web-scraping, web-browsing, rag-memory, другие документы или предыдущие запросы. Коммерческие данные разрешено брать только из ShopDB; отсутствующие данные оставляй пустыми/«по запросу».",
   "Если текст не читается, напиши [НЕРАЗБОРЧИВО — ТРЕБУЕТ ПРОВЕРКИ], ничего не угадывай.",
-  "Если в источнике нет цен, цена и сумма — «уточняется»; не вызывай quote-calculator, не считай НДС и общий итог.",
+  "Если для строки нет подтверждённой цены ShopDB, цена и сумма — «по запросу»/«—». Не угадывай число и не считай такую строку в итог.",
+  "Если в заявке N позиций, итоговая таблица, DOCX и PDF должны содержать ровно N товарных строк в исходном порядке — включая позиции без совпадения в ShopDB.",
   "До DOCX/PDF выведи анализ источника, полную таблицу, строку «Проверено: извлечено X из X позиций», проект КП, отсутствующие данные и финальную проверку.",
   `Перед create-docx-file/create-pdf-file обязательно вызови ${VERIFY_TOOL_NAME} с полным массивом items. Документы разрешены только при ready_to_generate=true, подтверждённом сервером.`,
   "Не сообщай об успешном создании файла, пока инструмент фактически не вернул Success. При ошибке процитируй её точно и напиши: «Файл не был создан из-за технической ошибки инструмента».",
@@ -47,7 +47,7 @@ class OfferKpSourceVerificationBlock extends BaseBlock {
     if (!documents.length) return;
 
     const analysis = analyzeQuoteSourceDocuments(documents);
-    harness.state.set("strictSourceOnly", true);
+    harness.state.set("quoteSourceLocked", true);
     harness.state.set("quoteSourceAnalysis", analysis);
     harness.state.set("inquiryLineCount", analysis.itemCount);
     harness.state.set("sourceVerificationReady", false);
@@ -59,7 +59,9 @@ class OfferKpSourceVerificationBlock extends BaseBlock {
       `заказчик=${analysis.customer ? "есть" : "отсутствует"}; ` +
       `период=${analysis.period || "не указан"}; ` +
       `нечитаемые фрагменты=${analysis.unreadableFragments}.`;
+    const existingGuidelines = harness.state.get("contextGuidelines") || [];
     harness.state.set("contextGuidelines", [
+      ...existingGuidelines,
       ...STRICT_SOURCE_GUIDELINES,
       serverAnalysisGuideline,
     ]);
@@ -132,7 +134,7 @@ class OfferKpSourceVerificationBlock extends BaseBlock {
   }
 
   async beforeToolApproval(params, harness) {
-    if (!harness.state.get("strictSourceOnly")) return null;
+    if (!harness.state.get("quoteSourceLocked")) return null;
 
     if (params.skillName === VERIFY_TOOL_NAME) {
       return {
@@ -142,18 +144,7 @@ class OfferKpSourceVerificationBlock extends BaseBlock {
       };
     }
 
-    if (params.skillName === "quote-calculator") {
-      const analysis = harness.state.get("quoteSourceAnalysis") || {};
-      if (!analysis.pricesPresent) {
-        return {
-          handled: true,
-          approved: false,
-          message:
-            "Калькулятор запрещён: в исходном документе цены отсутствуют.",
-        };
-      }
-      return null;
-    }
+    if (params.skillName === "quote-calculator") return null;
 
     if (!DOC_SKILLS.has(params.skillName)) return null;
 
@@ -172,22 +163,8 @@ class OfferKpSourceVerificationBlock extends BaseBlock {
       };
     }
 
-    const analysis = harness.state.get("quoteSourceAnalysis") || {};
-    if (analysis.pricesPresent) {
-      return {
-        handled: true,
-        approved: false,
-        message:
-          "Создание файла заблокировано: источник содержит цены, требуется их отдельная построчная серверная проверка.",
-      };
-    }
-
-    if (params.payload) {
-      params.payload.content = buildSourceOnlyQuoteMarkdown(analysis);
-      delete params.payload.author;
-      params.payload.includeTitlePage = false;
-    }
-    harness.state.set("canonicalSourceQuoteApplied", true);
+    // Канонический markdown из ShopDB draft применит следующий compliance
+    // block. Здесь контролируется только целостность строк исходного файла.
     return null;
   }
 }

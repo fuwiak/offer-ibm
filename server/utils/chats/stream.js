@@ -38,10 +38,15 @@ async function streamChatWithWorkspace(
   // automatycznej detekcji języka treści wiadomości.
   const language = options?.language || null;
   const uuid = uuidv4();
-  const updatedMessage = await grepCommand(message, user);
+  const commandMessage = await grepCommand(message, user);
+  const { isQuoteDocumentRequest } = require("../offerKp/quoteRequestPhrases");
+  const quoteDocumentRequest = isQuoteDocumentRequest(commandMessage);
+  const updatedMessage = quoteDocumentRequest
+    ? String(commandMessage).replace(/^@agent\s*:?\s*/i, "").trim()
+    : commandMessage;
 
-  if (Object.keys(VALID_COMMANDS).includes(updatedMessage)) {
-    const data = await VALID_COMMANDS[updatedMessage](
+  if (Object.keys(VALID_COMMANDS).includes(commandMessage)) {
+    const data = await VALID_COMMANDS[commandMessage](
       workspace,
       message,
       uuid,
@@ -161,24 +166,26 @@ async function streamChatWithWorkspace(
   // it will undergo prompt compression anyway to make it work. If there is so much pinned that the context here is bigger than
   // what the model can support - it would get compressed anyway and that really is not the point of pinning. It is really best
   // suited for high-context models.
-  await new DocumentManager({
-    workspace,
-    maxTokens: LLMConnector.promptWindowLimit(),
-  })
-    .pinnedDocs()
-    .then((pinnedDocs) => {
-      pinnedDocs.forEach((doc) => {
-        const { pageContent, ...metadata } = doc;
-        pinnedDocIdentifiers.push(sourceIdentifier(doc));
-        contextTexts.push(doc.pageContent);
-        sources.push({
-          text:
-            pageContent.slice(0, 1_000) +
-            "...continued on in source document...",
-          ...metadata,
+  if (!quoteDocumentRequest) {
+    await new DocumentManager({
+      workspace,
+      maxTokens: LLMConnector.promptWindowLimit(),
+    })
+      .pinnedDocs()
+      .then((pinnedDocs) => {
+        pinnedDocs.forEach((doc) => {
+          const { pageContent, ...metadata } = doc;
+          pinnedDocIdentifiers.push(sourceIdentifier(doc));
+          contextTexts.push(doc.pageContent);
+          sources.push({
+            text:
+              pageContent.slice(0, 1_000) +
+              "...continued on in source document...",
+            ...metadata,
+          });
         });
       });
-    });
+  }
 
   parsedFiles.forEach((doc) => {
     const { pageContent, title, ...metadata } = doc;
@@ -194,7 +201,7 @@ async function streamChatWithWorkspace(
   });
 
   const vectorSearchResults =
-    embeddingsCount !== 0
+    !quoteDocumentRequest && embeddingsCount !== 0
       ? await VectorDb.performSimilaritySearch({
           namespace: workspace.slug,
           input: updatedMessage,
@@ -224,12 +231,14 @@ async function streamChatWithWorkspace(
   }
 
   const { fillSourceWindow } = require("../helpers/chat");
-  const filledSources = fillSourceWindow({
-    nDocs: workspace?.topN || 4,
-    searchResults: vectorSearchResults.sources,
-    history: rawHistory,
-    filterIdentifiers: pinnedDocIdentifiers,
-  });
+  const filledSources = quoteDocumentRequest
+    ? { contextTexts: [], sources: [] }
+    : fillSourceWindow({
+        nDocs: workspace?.topN || 4,
+        searchResults: vectorSearchResults.sources,
+        history: rawHistory,
+        filterIdentifiers: pinnedDocIdentifiers,
+      });
 
   // Why does contextTexts get all the info, but sources only get current search?
   // This is to give the ability of the LLM to "comprehend" a contextual response without
@@ -428,9 +437,11 @@ async function streamChatWithWorkspace(
     });
   }
 
-  // КП + каталог: карточки файлов после текста ответа (кнопки Preview / Download в чате)
+  // КП: карточки файлов после текста ответа (кнопки Preview / Download в чате).
+  // Для явного запроса КП генерация обязательна даже при нуле совпадений ShopDB:
+  // строки без цены сохраняются как «Нет в базе» / «по запросу».
   let quoteOutputs = [];
-  if (llmCatalog.catalogInjected) {
+  if (llmCatalog.catalogInjected || quoteDocumentRequest) {
     try {
       const {
         emitAutoQuoteArtifacts,

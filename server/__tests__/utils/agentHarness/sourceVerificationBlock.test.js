@@ -36,7 +36,7 @@ describe("OfferKpSourceVerificationBlock", () => {
     ).toBe("OfferKpSourceVerificationBlock");
   });
 
-  it("blocks documents until verification and then applies canonical content", async () => {
+  it("blocks documents until verification, then delegates content to ShopDB compliance", async () => {
     jest
       .spyOn(WorkspaceParsedFiles, "getContextFiles")
       .mockResolvedValue([
@@ -62,7 +62,8 @@ describe("OfferKpSourceVerificationBlock", () => {
     harness.use(new OfferKpSourceVerificationBlock());
     await harness.install();
 
-    expect(harness.state.get("strictSourceOnly")).toBe(true);
+    expect(harness.state.get("quoteSourceLocked")).toBe(true);
+    expect(harness.state.get("strictSourceOnly")).toBeUndefined();
     expect(agent.functions).toContain(VERIFY_TOOL_NAME);
 
     const blocked = await harness.resolveToolApproval({
@@ -95,14 +96,10 @@ describe("OfferKpSourceVerificationBlock", () => {
       payload,
     });
     expect(allowed).toBeNull();
-    expect(payload.content).toContain("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ");
-    expect(
-      payload.content.split("\n").filter((line) => /^\|\s*\d+\s*\|/.test(line))
-    ).toHaveLength(20);
-    expect(payload.content).not.toContain("invented");
+    expect(payload.content).toBe("invented");
   });
 
-  it("rejects quote-calculator when the source has no prices", async () => {
+  it("allows quote-calculator because confirmed prices come from ShopDB", async () => {
     jest
       .spyOn(WorkspaceParsedFiles, "getContextFiles")
       .mockResolvedValue([
@@ -124,7 +121,6 @@ describe("OfferKpSourceVerificationBlock", () => {
       skillName: "quote-calculator",
       payload: { quantity: 2, unitPrice: 18.5 },
     });
-    expect(result).toMatchObject({ approved: false });
-    expect(result.message).toMatch(/цены отсутствуют/i);
+    expect(result).toBeNull();
   });
 });
