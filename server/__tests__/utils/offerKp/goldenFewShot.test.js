@@ -19,7 +19,9 @@ describe("goldenFewShot", () => {
     expect(block).toContain("(аналог)");
   });
 
-  it("returns no examples when the golden set has none (current test_files state)", async () => {
+  it("returns no examples for a query dissimilar to the golden set", async () => {
+    // "Болт DIN 933 M8x40" doesn't closely match any verified golden entry
+    // (DIN912 M8x14/16, DIN933 M16x40/70, anchor bolts) — below MIN_SIMILARITY.
     const examples = await retrieveFewShotExamples("Болт DIN 933 M8x40");
     expect(examples).toEqual([]);
   });

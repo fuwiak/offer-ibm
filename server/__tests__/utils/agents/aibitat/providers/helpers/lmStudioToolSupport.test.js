@@ -3,7 +3,7 @@
 const {
   isLmStudioJinjaToolTemplateError,
   lmStudioModelAllowsNativeTools,
-} = require("../../../../utils/agents/aibitat/providers/helpers/lmStudioToolSupport");
+} = require("../../../../../../utils/agents/aibitat/providers/helpers/lmStudioToolSupport");
 
 describe("lmStudioToolSupport", () => {
   it("blocks native tools for Qwen VL resident models", () => {

@@ -21,7 +21,7 @@ const fs = require("fs");
 const path = require("path");
 const { normalizeSearchText, foldHomoglyphs } = require("./textNormalize");
 
-const TEST_FILES_DIR = path.resolve(__dirname, "../../../../test_files");
+const TEST_FILES_DIR = path.resolve(__dirname, "../../../test_files");
 const VALID_MATCH_TYPES = new Set(["exact", "analog", "none"]);
 
 function envFlagEnabled(name, defaultValue = true) {
