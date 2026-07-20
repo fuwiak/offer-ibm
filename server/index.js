@@ -9,14 +9,19 @@ const {
 applyOfferKpLlmDefaults();
 if (process.env.NODE_ENV === "production") syncOfferKpEnvFile();
 
-const {
-  fetchLmStudioModelCatalog,
-} = require("./utils/offerKpApp/lmStudioModels");
-fetchLmStudioModelCatalog().catch((err) => {
-  console.warn(
-    `[OFFER_KP-LLM] LM Studio catalog warmup failed: ${err?.message || err}`
-  );
-});
+const { shouldUseTeacherLlm } = require("./utils/offerKpApp/teacherLlm");
+// Warm LM Studio catalog only when local inference is active. Teacher mode
+// uses OpenRouter at runtime — probing a down lainey only spam boot logs.
+if (!shouldUseTeacherLlm()) {
+  const {
+    fetchLmStudioModelCatalog,
+  } = require("./utils/offerKpApp/lmStudioModels");
+  fetchLmStudioModelCatalog().catch((err) => {
+    console.warn(
+      `[OFFER_KP-LLM] LM Studio catalog warmup failed: ${err?.message || err}`
+    );
+  });
+}
 
 require("./utils/logger")();
 console.log(

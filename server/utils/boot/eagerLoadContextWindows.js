@@ -12,23 +12,42 @@ async function eagerLoadContextWindows() {
   const log = (provider) => {
     console.log(`⚡\x1b[32mPre-cached context windows for ${provider}\x1b[0m`);
   };
+  const skip = (provider, reason) => {
+    console.log(
+      `⚡\x1b[33mSkip ${provider} context cache (${reason})\x1b[0m`
+    );
+  };
 
   switch (currentProvider) {
-    case "lmstudio":
+    case "lmstudio": {
+      // Teacher mode runs OpenRouter at runtime — do not probe LM Studio on boot.
+      try {
+        const { shouldUseTeacherLlm } = require("../offerKpApp/teacherLlm");
+        if (shouldUseTeacherLlm()) {
+          skip("LMStudio", "teacher/OpenRouter");
+          break;
+        }
+      } catch {
+        /* teacher helper optional at boot */
+      }
       const { LMStudioLLM } = require("../AiProviders/lmStudio");
-      await LMStudioLLM.cacheContextWindows(true);
-      log("LMStudio");
+      const ok = await LMStudioLLM.cacheContextWindows(true);
+      if (ok) log("LMStudio");
+      else skip("LMStudio", "unreachable");
       break;
-    case "ollama":
+    }
+    case "ollama": {
       const { OllamaAILLM } = require("../AiProviders/ollama");
       await OllamaAILLM.cacheContextWindows(true);
       log("Ollama");
       break;
-    case "foundry":
+    }
+    case "foundry": {
       const { FoundryLLM } = require("../AiProviders/foundry");
       await FoundryLLM.cacheContextWindows(true);
       log("Foundry");
       break;
+    }
   }
 }
 

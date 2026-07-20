@@ -35,12 +35,14 @@ function getGitVersion() {
   if (process.env.ANYTHING_LLM_RUNTIME === "docker") return "--";
   try {
     return require("child_process")
-      .execSync("git rev-parse HEAD")
+      .execSync("git rev-parse HEAD", {
+        stdio: ["ignore", "pipe", "ignore"],
+      })
       .toString()
       .trim();
-  } catch (e) {
-    console.error("getGitVersion", e.message);
-    return "--";
+  } catch {
+    // Selectel sync deploys rsync without .git — fall back quietly.
+    return getDeploymentVersion() || "--";
   }
 }
 

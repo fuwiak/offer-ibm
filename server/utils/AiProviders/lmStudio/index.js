@@ -76,44 +76,45 @@ class LMStudioLLM {
       if (Object.keys(LMStudioLLM.modelContextWindows).length > 0 && !force)
         return;
 
+      if (!process.env.LMSTUDIO_BASE_PATH) {
+        LMStudioLLM.#slog(`No LMSTUDIO_BASE_PATH — skipping context window cache`);
+        return false;
+      }
+
       const apiKey = process.env.LMSTUDIO_AUTH_TOKEN ?? null;
       const endpoint = new URL(
         parseLMStudioBasePath(process.env.LMSTUDIO_BASE_PATH)
       );
       endpoint.pathname = "/api/v0/models";
-      await fetch(endpoint.toString(), {
+      const res = await fetch(endpoint.toString(), {
         headers: {
           "Content-Type": "application/json",
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         },
-      })
-        .then((res) => {
-          if (!res.ok)
-            throw new Error(`LMStudio:cacheContextWindows - ${res.statusText}`);
-          return res.json();
-        })
-        .then(({ data: models }) => {
-          models.forEach((model) => {
-            if (model.type === "embeddings") return;
-            const loaded =
-              model.state === "loaded" &&
-              Number(model.loaded_context_length) > 0
-                ? Number(model.loaded_context_length)
-                : null;
-            const maxLen = Number(model.max_context_length) || 4096;
-            LMStudioLLM.modelContextWindows[model.id] = loaded ?? maxLen;
-            // VRAM status on LM Studio server — not the active backend model selection.
-          });
-        })
-        .catch((e) => {
-          LMStudioLLM.#slog(`Error caching context windows`, e);
-          return;
-        });
+      });
+      if (!res.ok)
+        throw new Error(`LMStudio:cacheContextWindows - ${res.statusText}`);
+      const { data: models } = await res.json();
+      (models || []).forEach((model) => {
+        if (model.type === "embeddings") return;
+        const loaded =
+          model.state === "loaded" &&
+          Number(model.loaded_context_length) > 0
+            ? Number(model.loaded_context_length)
+            : null;
+        const maxLen = Number(model.max_context_length) || 4096;
+        LMStudioLLM.modelContextWindows[model.id] = loaded ?? maxLen;
+        // VRAM status on LM Studio server — not the active backend model selection.
+      });
 
       LMStudioLLM.#slog(`Context windows cached for all models!`);
+      return true;
     } catch (e) {
-      LMStudioLLM.#slog(`Error caching context windows`, e);
-      return;
+      const reason = e?.cause?.code || e?.message || String(e);
+      LMStudioLLM.#slog(
+        `LM Studio unreachable — context windows not cached (${reason})`
+      );
+      return false;
     }
   }
 

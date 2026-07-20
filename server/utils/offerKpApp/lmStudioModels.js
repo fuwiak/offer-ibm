@@ -197,9 +197,12 @@ async function fetchLmStudioModelCatalog(opts = {}) {
     .list()
     .then((results) => results.data || [])
     .catch((e) => {
-      offerKpLog("warn", "LM Studio /v1/models fetch failed", {
+      // Connection refused / timeout is expected when lainey is down or
+      // teacher/OpenRouter is the active runtime — keep boot logs quiet.
+      const detail = e?.cause?.code || e?.message || String(e);
+      offerKpLog("warn", "LM Studio /v1/models unreachable", {
         basePath,
-        error: e.message,
+        error: detail,
       });
       return null;
     });
