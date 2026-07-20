@@ -42,6 +42,12 @@ function shopDbConnectTimeoutMs() {
   return 15000;
 }
 
+function shopDbConnectionLimit() {
+  const n = parseInt(process.env.SHOP_DB_CONNECTION_LIMIT, 10);
+  if (Number.isFinite(n) && n > 0) return Math.min(n, 32);
+  return 4;
+}
+
 /**
  * Безопасные метаданные подключения (без пароля) — для логов Railway.
  */
@@ -87,7 +93,7 @@ function getPoolOptions() {
   const opts = {
     uri,
     waitForConnections: true,
-    connectionLimit: 4,
+    connectionLimit: shopDbConnectionLimit(),
     connectTimeout: shopDbConnectTimeoutMs(),
     charset: "utf8mb4",
   };
@@ -212,4 +218,5 @@ module.exports = {
   rawQuery,
   pingShopDb,
   formatShopDbConnectionHint,
+  shopDbConnectionLimit,
 };

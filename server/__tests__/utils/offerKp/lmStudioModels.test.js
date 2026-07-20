@@ -6,6 +6,7 @@ const {
   isLmStudioChatModelId,
   fetchLmStudioModelCatalog,
   pickRunnableLmStudioModel,
+  runtimeCatalogHasModel,
 } = require("../../../utils/offerKpApp/lmStudioModels");
 
 describe("lmStudioModels", () => {
@@ -86,9 +87,23 @@ describe("lmStudioModels", () => {
     expect(
       merged.some((m) => m.id.includes("paddleocr"))
     ).toBe(false);
-    expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(false);
+    expect(merged.some((m) => m.id.includes("gpt-oss"))).toBe(true);
     const qwen8b = merged.find((m) => m.id === "qwen/qwen3-vl-8b");
     expect(qwen8b?.loaded).toBe(true);
+  });
+
+  it("distinguishes a missing model from an unavailable runtime catalog", () => {
+    expect(
+      runtimeCatalogHasModel("openai/gpt-oss-20b", {
+        "qwen/qwen3-vl-8b": "loaded",
+      })
+    ).toBe(false);
+    expect(
+      runtimeCatalogHasModel("qwen/qwen3-vl-8b", {
+        "qwen/qwen3-vl-8b": "loaded",
+      })
+    ).toBe(true);
+    expect(runtimeCatalogHasModel("openai/gpt-oss-20b", {})).toBeNull();
   });
 });
 

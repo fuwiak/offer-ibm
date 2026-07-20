@@ -67,6 +67,25 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines[1].quantity).toBe(25);
   });
 
+  it("preserves decimal quantities for weight units", () => {
+    const lines = parseInquiryText(
+      "Болт DIN 933 M10x50 8.8 - 7,40 кг\nГайка DIN 934 M10 - 0,5 кг"
+    );
+
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({ quantity: 7.4, unit: "кг" });
+    expect(lines[1]).toMatchObject({ quantity: 0.5, unit: "кг" });
+  });
+
+  it("preserves decimal kg quantities from table columns", () => {
+    const lines = parseInquiryText(
+      "Наименование | Ед. изм. | Количество\nБолт DIN 933 M10x50 | кг | 7.40"
+    );
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ quantity: 7.4, unit: "кг" });
+  });
+
   it("parses Slozhnost_vysokaya_1 bolt table (20 rows, kg units, GOST)", () => {
     const text = fs.readFileSync(SLOZHNOST_FIXTURE, "utf8");
 

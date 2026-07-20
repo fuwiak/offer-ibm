@@ -90,6 +90,12 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   let qtyCol = null;
   if (tableCtx?.qtyIdx >= 0 && cols[tableCtx.qtyIdx]) {
     qtyCol = cols[tableCtx.qtyIdx];
+  } else if (unitCol) {
+    const unitIdx = cols.indexOf(unitCol);
+    const afterUnit = unitIdx >= 0 ? cols[unitIdx + 1] : null;
+    if (/^\d+(?:[.,]\d+)?$/.test(String(afterUnit || ""))) {
+      qtyCol = afterUnit;
+    }
   } else {
     const skip = new Set(
       [tableCtx?.priceIdx, tableCtx?.unitIdx].filter((i) => i >= 0)
@@ -107,7 +113,7 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   const parts = [productCol.replace(/^\d+[.)]\s*/, "").trim()];
   if (qtyCol) {
     const qty = String(qtyCol).match(/(\d+(?:[.,]\d+)?)/)?.[1];
-    if (qty && !isLikelyPriceToken(qty)) {
+    if (qty && (!isLikelyPriceToken(qty) || unitCol || tableCtx?.qtyIdx >= 0)) {
       parts.push(`${qty} ${unitCol || "шт"}`);
     } else if (
       QTY_HEADER_RE.test(qtyCol) ||
@@ -226,19 +232,23 @@ function parseInquiryUnit(text) {
   return "шт";
 }
 
+function normalizeInquiryQuantity(value, unit) {
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) return 1;
+  if (unit === "шт") return Math.max(1, Math.round(quantity));
+  return Number(quantity.toFixed(3));
+}
+
 function parseQuantity(text) {
   const raw = String(text || "");
+  const unit = parseInquiryUnit(raw);
   const withUnit = raw.match(
     /(\d+(?:[.,]\d+)?)\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)/i
   );
   if (withUnit) {
     const qtyStr = withUnit[1];
-    if (isLikelyPriceToken(qtyStr)) {
-      /* fall through */
-    } else {
-      const qty = parseFloat(String(qtyStr).replace(",", "."));
-      return Number.isFinite(qty) ? Math.max(1, Math.round(qty)) : 1;
-    }
+    const qty = parseFloat(String(qtyStr).replace(",", "."));
+    return normalizeInquiryQuantity(qty, unit);
   }
 
   const cols = splitTableColumns(raw);
@@ -247,8 +257,11 @@ function parseQuantity(text) {
     if (unitIdx >= 0) {
       const qtyCol = cols[unitIdx + 1] || cols[cols.length - 1];
       const m = String(qtyCol || "").match(/^(\d+(?:[.,]\d+)?)$/);
-      if (m && !isLikelyPriceToken(m[1])) {
-        return Math.max(1, Math.round(parseFloat(m[1].replace(",", "."))));
+      if (m && (unit !== "шт" || !isLikelyPriceToken(m[1]))) {
+        return normalizeInquiryQuantity(
+          parseFloat(m[1].replace(",", ".")),
+          unit
+        );
       }
     }
   }
@@ -259,7 +272,7 @@ function parseQuantity(text) {
     if (isLikelyPriceToken(token)) continue;
     const n = parseFloat(token.replace(",", "."));
     if (Number.isFinite(n) && n > 0) {
-      return Math.max(1, Math.round(n));
+      return normalizeInquiryQuantity(n, unit);
     }
   }
 
@@ -333,6 +346,7 @@ module.exports = {
   parseInquiryLine,
   parseQuantity,
   parseInquiryUnit,
+  normalizeInquiryQuantity,
   usesNonPieceUnit,
   normalizeOcrInquiryText,
   splitInquiryChunks,
