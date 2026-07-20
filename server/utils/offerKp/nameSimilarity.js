@@ -14,6 +14,10 @@ const {
   PRODUCT_COLUMNS: P,
   CATEGORY_COLUMNS: C,
 } = require("./db/schema");
+const {
+  EMBEDDING_WEIGHT,
+  computeEmbeddingSimilarities,
+} = require("./embeddingSimilarity");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -394,7 +398,49 @@ async function fetchNameSimilarityCandidatePool(
 }
 
 /**
+ * Dokłada opcjonalny sygnał embeddingowy (semantyczny) do już przefiltrowanych
+ * przez TF-IDF kandydatów. Blend jest addytywny względem istniejącego score —
+ * gdy embedding jest wyłączony/niedostępny, funkcja zwraca `products` bez zmian
+ * (dokładnie te same obiekty i kolejność co dziś).
+ * @param {string} queryText
+ * @param {object[]} products - obiekty z już policzonym `_nameSimilarity`
+ * @returns {Promise<object[]>}
+ */
+async function applyEmbeddingBoost(queryText, products) {
+  if (!products.length) return products;
+
+  const similarities = await computeEmbeddingSimilarities(
+    queryText,
+    products.map((p) => ({ id: p.id, name: p.name }))
+  );
+  if (!similarities.size) return products;
+
+  return products.map((p) => {
+    const embedScore = similarities.get(p.id);
+    if (embedScore == null) return p;
+    const base = p._nameSimilarity || 0;
+    const blended = Math.max(
+      base,
+      base * (1 - EMBEDDING_WEIGHT) + embedScore * EMBEDDING_WEIGHT
+    );
+    return {
+      ...p,
+      _nameSimilarity: Number(blended.toFixed(4)),
+      _embeddingSimilarity: Number(embedScore.toFixed(4)),
+      _matchSources: [
+        ...new Set([...(p._matchSources || []), "name_embedding"]),
+      ],
+      shopMatchSources: [
+        ...new Set([...(p.shopMatchSources || []), "name_embedding"]),
+      ],
+    };
+  });
+}
+
+/**
  * Поиск по косинусному сходству названий в пуле кандидатов из БД.
+ * Дополнительно (опционально) переранжирует TF-IDF-кандидатов лёгким
+ * embedding-сигналом — см. applyEmbeddingBoost / embeddingSimilarity.js.
  * @returns {Promise<object[]>}
  */
 async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
@@ -420,8 +466,10 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
     ],
   }));
 
+  const boosted = await applyEmbeddingBoost(searchText, withMeta);
+
   const deduped = applyCheaperPreferenceAmongSimilar(
-    withMeta.map((p, index) => ({
+    boosted.map((p, index) => ({
       p,
       score: (p._nameSimilarity || 0) * 100,
       index,

@@ -69,3 +69,85 @@ Lazy routing na poziomie routera, panel draftu KP pushowany w trakcie streamu, k
 3. Progress-stage'y w enrich + finalize przed follow-upami (największy skok odczuwalnej jakości).
 4. Timeout/concurrency/cache w matchingu.
 5. Test na żywo: po podłączeniu rozszerzenia Claude in Chrome mogę zmierzyć realne czasy ładowania i przejść cały flow KP na offer-ibm.ru.
+
+---
+
+## 5. Dodatek (2026-07-21): mocne/słabe strony backendu, techniki przyspieszania, ocena stanowiska ML
+
+Zakres rozszerzony na żądanie: pełny audyt trzech podsystemów (czytanie plików/OCR, matching ShopDB, generacja LLM) + research zewnętrzny (web search) o technikach przyspieszania + ocena, czy kompetencje z opisu stanowiska ML Engineer (BERT/LoRA/PEFT, matching/retrieval, quantization) realnie pomogłyby temu projektowi.
+
+### 5.1 Mocne strony (nie psuć)
+
+| Obszar | Co jest dobre |
+|---|---|
+| OCR (`collector/utils/OCRLoader`, `SmartOCRAgent`) | 2-stronicowy "probe" przed pełnym OCR (early-abort na nieczytelnym skanie), worker-pool do 4 wątków Tesseract z kolejką stron, waterfall 9 strategii zamiast jednej sztywnej ścieżki |
+| `parseCache` (`collector/utils/parseCache`) | Cache po fingerprint pliku (rozmiar + próbki bajtów) — ten sam PDF wysłany drugi raz nie jest re-OCR-owany |
+| Matching ShopDB (`shopDbSearch.js`) | 5 strategii SQL leci równolegle (`Promise.all`), nie sekwencyjnie |
+| Cache'owanie w matchingu | Trzy niezależne warstwy: `ShopDbQueryCache` (SQL), `agentResultCache` (wyniki agenta), `lineMatchCache` per-wątek (follow-up „dodaj pozycję 5" nie liczy wszystkiego od nowa) |
+| `SHOP_DB_SEARCH_AGENT_LLM=0` domyślnie | Najdroższa ścieżka (LLM per linia) jest **wyłączona domyślnie** — świadoma decyzja kosztowa, nie przeoczenie |
+| Streaming + keepalive | Główna odpowiedź stream'uje end-to-end; 15 s keepalive w SSE utrzymuje połączenie przez wieloetapowy post-processing zamiast go zrywać |
+| `skipStylePolish` dla KP | Druga tura LLM nie dotyka liczb w dokumencie — słuszna ochrona danych |
+| `OFFER_KP_MATCH_CONCURRENCY` | Świadomie niski default (1–2), bo „mały pool MySQL" — to nie przeoczenie wydajności, tylko celowy trade-off stabilność > szybkość |
+
+### 5.2 Słabe strony / ryzyka
+
+1. **Matching to w 100% leksyka, zero embeddingów.** `nameSimilarity.js` liczy TF-IDF cosine + Levenshtein ręcznie w JS — to nie semantyczne wyszukiwanie, tylko zaawansowane dopasowanie tekstu. Synonimy, warianty транслитерacji (ГОСТ/GOST), parafrazy pozycji spoza katalogu i tak lądują na LLM-fallbacku (`searchAgent.pickProductsWithLlm`, per linia, sekwencyjnie). To największa pojedyncza dźwignia do poprawy — patrz 5.4.
+2. **Do 6+N sekwencyjnych round-tripów LLM na jedną wiadomość**: quote-intent judge → per-line LLM fallback (jeśli włączony) → generacja → Yandex fact-check → OpenRouter/ГАРАНТ fact-check → style-polish → follow-up suggestions. Kroki fact-check (Yandex i OpenRouter/ГАРАНТ) działają na **tym samym** wygenerowanym tekście, niezależnie od siebie, a mimo to lecą sekwencyjnie (`generation.js`, kroki 12a→12b) zamiast `Promise.all` — to czysta zmiana w kodzie, bez nowej infrastruktury, skracająca krytyczną ścieżkę o pełny round-trip.
+3. **Brak prompt/KV cache dla realnie używanych providerów.** `cache_control` (Anthropic-style prompt caching) istnieje tylko w `AiProviders/anthropic`, którego produkcja nie używa — LM Studio i OpenRouter (faktyczni providerzy) nie mają nic. Duży współdzielony blok systemowy (instrukcje ГАРАНТ/Yandex/Google + RAG) jest liczony od zera przy każdym request.
+4. **Pojedynczy T4 16GB dzielony między model wizyjny a czatowy przez pełny unload/reload** (`lms unload --all` → `lms load`, `docker/lmstudio-switch.sh`). Każde przełączenie OCR-wizja ↔ chat to kilka–kilkanaście sekund martwego czasu, bez możliwości nakładania się zapytań.
+5. **LM Studio zamiast silnika z continuous batching.** Brak PagedAttention/prefix caching klasy vLLM czy `llama-server` — przy równoległych użytkownikach i dużym współdzielonym prefiksie promptu to bezpośrednia strata przepustowości.
+6. `parseCache` tylko w pamięci, 50 wpisów, restart czyści wszystko — dla realnego workflow (retry, ten sam PDF od klienta drugi raz) cache szybko się „wypłukuje".
+7. Kruchy re-parsing formatu bloku katalogowego (`autoQuoteArtifacts.parseCatalogBlock`) — już odnotowane w sekcji 3, wciąż aktualne jako ryzyko processingu.
+
+### 5.3 Techniki przyspieszania — z researchu zewnętrznego, dopasowane do konkretnego kodu
+
+**Generacja LLM**
+- `Promise.all` dla Yandex fact-check + OpenRouter/ГАРАНТ fact-check zamiast sekwencyjnego `await`/`await` w `generation.js` — zero nowej infry, jeden round-trip mniej na krytycznej ścieżce.
+- Prefix/KV-cache reuse: `llama-server` (llama.cpp) ma `--prompt-cache` i slot-matching po podobieństwie prefiksu promptu — w publicznych benchmarkach TTFT spada z ~1,7 s do ~0,03 s przy trafieniu w cache. Przy dużym, w większości stałym system-prompcie tego projektu (instrukcje ГАРАНТ/Yandex/Google) to bezpośrednio adresuje pkt 5.2.3. [Tutorial: KV cache reuse with llama-server](https://github.com/ggml-org/llama.cpp/discussions/13606)
+- vLLM z `--enable-prefix-caching` daje ~30% throughput przy współdzielonym system-prompcie „za darmo" (jedna flaga) — rozważyć jako zamiennik/dopełnienie LM Studio, jeśli chodzi o wiele równoległych sesji. [vLLM Optimization for Scalable Scheduling, Batching & Concurrent Inference](https://medium.com/@abonia/vllm-optimization-for-scalable-scheduling-batching-concurrent-inference-a050f3ab1f06)
+
+**Matching ShopDB (retrieve → rerank zamiast LIKE + LLM-per-linia)**
+- Klasyczny wzorzec: bi-encoder (sentence-transformers) liczy embeddingi całego katalogu **raz**, zapytanie enkodowane w locie, top-K po cosine w milisekundach; cross-encoder dogrywa tylko top ~10 kandydatów przed ewentualnym LLM-em. [Retrieve & Re-Rank — Sentence Transformers docs](https://www.sbert.net/examples/sentence_transformer/applications/retrieve_rerank/README.html)
+- Katalog jest w MySQL i prawdopodobnie < 100k SKU — nie trzeba nowej bazy wektorowej. Zgodnie z filozofią projektu (wszystkie cache'e są in-memory) najprostsze rozwiązanie to biblioteka ANN in-process (np. `hnswlib-node`/`usearch`) obok istniejących strategii SQL LIKE, a nie osobna infrastruktura. FAISS nie wspiera hybrydowego BM25+wektor natywnie; pgvector wymagałby Postgresa, którego tu nie ma. [Hybrid Search in 100 Lines: BM25 + pgvector with RRF](https://dev.to/gabrielanhaia/hybrid-search-in-100-lines-bm25-pgvector-with-rrf-merge-58cn)
+- Ważna nauka z researchu: embeddingi „rozmywają" identyfikatory/SKU/kody ГОСТ — dlatego istniejące strategie `exact_sku`/`structured`/`keywords` (leksykalne) **nie powinny** zniknąć, tylko zostać nogą „sparse" w hybrydzie, z dense (embeddingi) jako drugą nogą i fuzją (RRF) na końcu. Połowa hybrydy już istnieje w kodzie.
+
+**Czytanie plików / OCR**
+- Tesseract.js pozostaje słusznym wyborem jako CPU-bound fallback (mały footprint, działa wszędzie) — literatura to potwierdza. Przyspieszenie ma sens tylko jeśli collector faktycznie ma dostęp do GPU T4 (do zweryfikowania) — wtedy PaddleOCR (~120 stron/min na RTX 3090 vs ~25 stron/min Tesseract na CPU) albo Surya (lepszy na layout-heavy dokumentach) to realny zysk na ciężkich skanach. Nie wdrażać na ślepo — najpierw zmierzyć, jak często SmartOCRAgent w ogóle schodzi do pełnego OCR (probe powinien to już ograniczać). [PaddleOCR vs Tesseract vs EasyOCR: OCR Speed and Accuracy 2026](https://www.codesota.com/ocr/paddleocr-vs-tesseract)
+
+**GPU / quantization**
+- Agresywniejsza kwantyzacja (AWQ/GPTQ 4-bit) modelu wizyjnego (`qwen3-vl-8b`, obecnie ctx 8192) mogłaby zejść poniżej ~5–6 GB, co przy 16 GB T4 pozwoliłoby trzymać **oba** modele (eyes + brain) rezydentne jednocześnie i wyeliminować `lms unload --all`/`lms load` na każde przełączenie — to prawdopodobnie pojedyncza najbardziej wartościowa zmiana infrastrukturalna z całego audytu, bo usuwa twardy, synchroniczny stall z każdego requestu mieszającego OCR-wizję i czat. [Running Multiple LLMs Simultaneously: GPU Memory Management](https://dasroot.net/posts/2026/03/running-multiple-llms-gpu-memory-management/)
+
+### 5.4 Czy techniki z opisu stanowiska (BERT/LoRA/PEFT, matching, quantization, multi-GPU) pomogą temu projektowi?
+
+Krótko: **tak, w części matching/retrieval — to jest niemal książkowe dopasowanie do sekcji 5.2.1/5.3**; reszta opisu stanowiska jest przewymiarowana względem obecnej skali projektu.
+
+| Kompetencja z opisu | Dopasowanie do tego projektu |
+|---|---|
+| Dostrajanie BERT z LoRA/PEFT | **Wysokie.** Dostrojenie małego encodera bi-encoderowego na parach (linia zapytania ↔ dopasowany produkt) wydobytych z istniejącego golden setu `test_files/*.expected.csv` + logów matchingu produkcyjnego, jest realistyczne przy skromnym zbiorze domenowym — dokładnie tam LoRA radzi sobie lepiej niż full fine-tuning (raportowane +1,6–4,6 pkt out-of-domain vs full FT). |
+| Matching-modele: generacja kandydatów, ranking, offline/online walidacja | **Wysokie.** To 1:1 opis tego, co dziś robi `productSearchAgent.js` ręcznie (SQL LIKE + TF-IDF + LLM). Bi-encoder (kandydaci) + cross-encoder (ranking) + rozbudowa golden setu (offline walidacja, już wspomniana w sekcji 3.5 jako „do zrobienia") to naturalne rozszerzenie roli. |
+| Bi-encoder / cross-encoder | **Wysokie.** Wprost adresuje 5.2.1 — patrz 5.3. |
+| Optymalizacja inferencji: quantization, distillation | **Średnie/wysokie.** Bezpośrednio adresuje problem współdzielonego T4 (5.2.4) — quantization modelu wizyjnego, ewentualnie distillation lokalnego modelu-agenta pod mniejszy footprint. |
+| Multi-GPU / distributed training | **Niskie tu i teraz.** Projekt działa na pojedynczym T4 wyłącznie do inferencji; dotrenowanie małego bi-encodera LoRA mieści się na jednym GPU (nawet tym samym T4, poza godzinami szczytu). Istotne dopiero przy realnym treningu dużych modeli od zera. |
+| Uplift-modeling, highload ML-systemy | **Niskie.** To chatbot-KP dla jednego sklepu, nie system rekomendacji/pricingu z eksperymentami treatment/control na dużą skalę. |
+
+**Wniosek dla procesu rekrutacyjnego:** jeśli ta oferta ma finansować pracę nad tym repo, warto wagować kryteria w stronę matching/retrieval + PEFT (to realny, zidentyfikowany dług techniczny), a multi-GPU/uplift/highload traktować jako „nice to have", nie „must have" — inaczej ryzyko zatrudnienia profilu niedopasowanego do faktycznej skali problemu.
+
+### 5.5 Priorytety (dodatek)
+
+1. `Promise.all` dla dwóch fact-checków (5.2.2) — najtańsza zmiana, jeden PR.
+2. Zmierzyć rzeczywistą częstość pełnego OCR i LLM-fallbacku per linia (dziś brak licznika — patrz pkt 3.4 głównego audytu) **przed** inwestowaniem w bi-encoder/kwantyzację — bez danych nie wiadomo, który koszt boli bardziej.
+3. ~~Prototyp bi-encoder + ANN in-process dla ShopDB matching~~ ✅ **Zrobione 2026-07-21** — patrz 5.6.
+4. Kwantyzacja modelu wizyjnego pod współrezydencję z modelem czatowym na T4 — usuwa stall przełączania.
+5. `llama-server`/vLLM prefix-caching jako alternatywa dla LM Studio, jeśli liczba równoległych sesji zacznie rosnąć.
+
+### 5.6 Wdrożenie: lekki embedding-reranking w matchingu (2026-07-21)
+
+Dodany jako **dodatkowa, opcjonalna warstwa nad** istniejącym TF-IDF/Levenshtein/Jaro-Winkler — struktura `nameSimilarity.js`/`shopDbSearch.js` (SQL LIKE, klastrowanie `productsAreSimilar`/`pickCheaperAmongSimilar`) jest nietknięta.
+
+- **Nowy plik:** `server/utils/offerKp/embeddingSimilarity.js` — model `MintplexLabs/multilingual-e5-small` przez `@xenova/transformers` (ta sama biblioteka i mechanizm ładowania/fallbacku co istniejący `NativeEmbedder` w `server/utils/EmbeddingEngines/native`, reużyty przez podklasę z nadpisanym `getEmbeddingModel()` — zero zmian w istniejącym kodzie RAG-embeddera). CPU-only, nie dotyka GPU/LM Studio/T4.
+- **Punkt wpięcia:** `nameSimilarity.js#searchByNameSimilarity` — nowa funkcja `applyEmbeddingBoost` reranżuje **już przefiltrowanych przez TF-IDF** kandydatów (nie surową pulę SQL LIKE, zostaje „lekki"), blendując `_nameSimilarity = max(base, base·(1-w) + cosine·w)`, domyślnie `w=0.3`.
+- **Cache:** osobna in-memory mapa embeddingów produktów (TTL 24h, 4000 wpisów) w tym samym stylu co `ShopDbQueryCache`/`lineMatchCache` — nazwy produktów rzadko się zmieniają, więc powtórne zapytania nie re-embedują całego katalogu.
+- **Fail-safe:** każdy błąd (brak sieci przy pierwszym pobraniu modelu ~487MB, itp.) wyłącza embedding-boost na resztę procesu i pipeline **milcząco wraca do czystego TF-IDF** — identyczne zachowanie jak przed zmianą. Kill-switch: `SHOP_DB_EMBEDDING_SIMILARITY=0`.
+- **Env vars:** `SHOP_DB_EMBEDDING_SIMILARITY`, `SHOP_DB_EMBEDDING_MODEL`, `SHOP_DB_EMBEDDING_WEIGHT`, `SHOP_DB_EMBEDDING_MAX_CANDIDATES`, `SHOP_DB_EMBEDDING_CACHE_TTL_MS`, `SHOP_DB_EMBEDDING_CACHE_MAX_ENTRIES` — patrz `server/.env.example` (sekcja ShopDB).
+- **Testy:** `server/__tests__/utils/offerKp/embeddingSimilarity.test.js` (kill-switch, puste inputy — bez sieci). Pełny `server/__tests__/utils/offerKp/*` (367 testów, w tym `goldenSet.test.js`) przechodzi bez zmian.
+- **Świadomy zakres:** reranking działa tylko na kandydatach, które SQL LIKE w ogóle znalazł (jakiś token wspólny) — to **nie jest** pełne semantyczne wyszukiwanie kandydatów (embedding jako pierwsza noga „retrieve"), tylko poprawa kolejności/jakości w obrębie już znalezionych. Pełny retrieve-by-embedding (ANN nad całym katalogem) to większa zmiana, wciąż otwarta w 5.3/5.5.
