@@ -452,6 +452,8 @@ const TRANSLATIONS = {
     uploadedPdfTextFallback: "Parsed text (original PDF unavailable)",
     openUploadedPdf: "Open uploaded PDF",
     resizePanel: "Resize panel",
+    narrowPanel: "Narrow panel",
+    widenPanel: "Widen panel",
     tabCrossSection: "Product cross-section",
     shareLink: "Share link",
     shareLinkSoon: "30-day share links — Phase 2",

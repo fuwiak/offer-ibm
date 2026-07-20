@@ -430,6 +430,8 @@ const TRANSLATIONS = {
     uploadedPdfTextFallback: "Tekst z OCR (oryginał PDF niedostępny)",
     openUploadedPdf: "Otwórz przesłany PDF",
     resizePanel: "Zmień szerokość panelu",
+    narrowPanel: "Zwęż panel",
+    widenPanel: "Rozszerz panel",
     tabCrossSection: "Przekrój produktu",
     shareLink: "Link do udostępnienia",
     shareLinkSoon: "30-dniowe linki — Faza 2",

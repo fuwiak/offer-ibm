@@ -454,6 +454,8 @@ const TRANSLATIONS = {
     uploadedPdfTextFallback: "Распознанный текст (оригинал PDF недоступен)",
     openUploadedPdf: "Открыть загруженный PDF",
     resizePanel: "Изменить ширину панели",
+    narrowPanel: "Сузить панель",
+    widenPanel: "Расширить панель",
     tabCrossSection: "Сводка позиций",
     shareLink: "Ссылка для обмена",
     shareLinkSoon: "30-дневные ссылки — Фаза 2",

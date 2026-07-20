@@ -1524,11 +1524,11 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-uploaded-pdf-panel__resizer {
   position: absolute;
   top: 0;
-  right: -3px;
-  width: 7px;
+  left: -3px;
+  width: 8px;
   height: 100%;
   cursor: col-resize;
-  z-index: 20;
+  z-index: 30;
   background: transparent;
 }
 
@@ -1536,15 +1536,16 @@ html.carbon-ui .offerKp-hero-title {
   content: "";
   position: absolute;
   top: 0;
-  right: 3px;
+  left: 3px;
   width: 1px;
   height: 100%;
   background: transparent;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, width 0.15s ease;
 }
 
 .offerKp-uploaded-pdf-panel__resizer:hover::after,
-.offerKp-uploaded-pdf-panel__resizer:active::after {
+.offerKp-uploaded-pdf-panel__resizer:active::after,
+.offerKp-uploaded-pdf-panel__resizer.is-active::after {
   background: var(--offerKp-profile-accent, var(--theme-button-primary, #cc785c));
   width: 2px;
 }

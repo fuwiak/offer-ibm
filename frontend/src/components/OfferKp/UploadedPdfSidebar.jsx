@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CaretLeft, FilePdf } from "@phosphor-icons/react";
+import {
+  ArrowsInLineHorizontal,
+  ArrowsOutLineHorizontal,
+  CaretLeft,
+  FilePdf,
+} from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import Workspace from "@/models/workspace";
 import PdfJsViewer from "@/components/OfferKp/PdfJsViewer";
@@ -13,9 +18,20 @@ function isPdfFile(file) {
   return !!file?.isPdf;
 }
 
+const PANEL_MIN_WIDTH = 240;
+const PANEL_DEFAULT_WIDTH = 360;
+const PANEL_STEP = 80;
+const PANEL_WIDTH_STORAGE_KEY = "offerKp_uploaded_pdf_width";
+
+function clampPanelWidth(width) {
+  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 640);
+  return Math.min(maxWidth, Math.max(PANEL_MIN_WIDTH, Math.round(width)));
+}
+
 /**
  * Resizable sidebar with the uploaded source PDF for side-by-side comparison
  * with generated KP output in the right DocumentPanel.
+ * Drag the left edge (chat ↔ PDF) or use header +/- width buttons.
  */
 export default function UploadedPdfSidebar() {
   const { t } = useTranslation("offerKp");
@@ -29,12 +45,13 @@ export default function UploadedPdfSidebar() {
     setUploadedPdfSidebarOpen,
   } = useOfferKp();
 
-  const PANEL_MIN_WIDTH = 280;
-  const PANEL_WIDTH_STORAGE_KEY = "offerKp_uploaded_pdf_width";
   const [panelWidth, setPanelWidth] = useState(() => {
     const stored = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY));
-    return Number.isFinite(stored) && stored >= PANEL_MIN_WIDTH ? stored : 360;
+    return Number.isFinite(stored) && stored >= PANEL_MIN_WIDTH
+      ? stored
+      : PANEL_DEFAULT_WIDTH;
   });
+  const [isResizing, setIsResizing] = useState(false);
   const [pdfFiles, setPdfFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -66,22 +83,36 @@ export default function UploadedPdfSidebar() {
     []
   );
 
+  const persistWidth = useCallback((width) => {
+    const next = clampPanelWidth(width);
+    setPanelWidth(next);
+    panelWidthRef.current = next;
+    window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(next));
+    return next;
+  }, []);
+
+  const nudgeWidth = useCallback(
+    (delta) => {
+      persistWidth(panelWidthRef.current + delta);
+    },
+    [persistWidth]
+  );
+
   useEffect(() => {
     function onMove(e) {
       if (!resizingRef.current) return;
       e.preventDefault();
       const rect = asideRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 720);
-      const next = Math.min(
-        maxWidth,
-        Math.max(PANEL_MIN_WIDTH, e.clientX - rect.left)
-      );
+      // Left-edge drag: move left → wider, right → narrower (avoids clash with DocumentPanel).
+      const next = clampPanelWidth(rect.right - e.clientX);
+      panelWidthRef.current = next;
       setPanelWidth(next);
     }
     function onUp() {
       if (!resizingRef.current) return;
       resizingRef.current = false;
+      setIsResizing(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       window.localStorage.setItem(
@@ -215,7 +246,9 @@ export default function UploadedPdfSidebar() {
 
   function startResize(e) {
     e.preventDefault();
+    e.stopPropagation();
     resizingRef.current = true;
+    setIsResizing(true);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }
@@ -231,13 +264,16 @@ export default function UploadedPdfSidebar() {
     uploadedPdfSidebarOpen &&
     uploadedPdfPreview?.mode === "text" &&
     !!uploadedPdfPreview?.textPreview;
+  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 640);
+  const canNarrow = panelWidth > PANEL_MIN_WIDTH;
+  const canWiden = panelWidth < maxWidth;
 
   return (
     <aside
       ref={asideRef}
-      className={`offerKp-uploaded-pdf-panel relative hidden lg:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
-        uploadedPdfSidebarOpen ? "" : "w-10 items-center"
-      }`}
+      className={`offerKp-uploaded-pdf-panel relative hidden lg:flex flex-col shrink-0 h-full ${
+        isResizing ? "" : "transition-[width] duration-200 ease-out"
+      } ${uploadedPdfSidebarOpen ? "" : "w-10 items-center"}`}
       style={uploadedPdfSidebarOpen ? { width: panelWidth } : undefined}
       aria-label={t("layout.uploadedPdfPanel", {
         defaultValue: "Uploaded PDF",
@@ -245,11 +281,17 @@ export default function UploadedPdfSidebar() {
     >
       {uploadedPdfSidebarOpen && (
         <div
-          className="offerKp-uploaded-pdf-panel__resizer"
+          className={`offerKp-uploaded-pdf-panel__resizer${
+            isResizing ? " is-active" : ""
+          }`}
           onMouseDown={startResize}
           role="separator"
           aria-orientation="vertical"
+          aria-valuenow={panelWidth}
+          aria-valuemin={PANEL_MIN_WIDTH}
+          aria-valuemax={maxWidth}
           aria-label={t("layout.resizePanel", { defaultValue: "Resize panel" })}
+          title={t("layout.resizePanel", { defaultValue: "Resize panel" })}
         />
       )}
 
@@ -265,19 +307,49 @@ export default function UploadedPdfSidebar() {
               {t("layout.uploadedPdfPanel", { defaultValue: "Uploaded PDF" })}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              userCollapsedRef.current = true;
-              setUploadedPdfSidebarOpen(false);
-            }}
-            className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer shrink-0"
-            aria-label={t("layout.collapsePanel", {
-              defaultValue: "Collapse panel",
-            })}
-          >
-            <CaretLeft size={16} />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => nudgeWidth(-PANEL_STEP)}
+              disabled={!canNarrow}
+              className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={t("layout.narrowPanel", {
+                defaultValue: "Narrow panel",
+              })}
+              title={t("layout.narrowPanel", {
+                defaultValue: "Narrow panel",
+              })}
+            >
+              <ArrowsInLineHorizontal size={15} weight="bold" />
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgeWidth(PANEL_STEP)}
+              disabled={!canWiden}
+              className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={t("layout.widenPanel", {
+                defaultValue: "Widen panel",
+              })}
+              title={t("layout.widenPanel", {
+                defaultValue: "Widen panel",
+              })}
+            >
+              <ArrowsOutLineHorizontal size={15} weight="bold" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                userCollapsedRef.current = true;
+                setUploadedPdfSidebarOpen(false);
+              }}
+              className="text-theme-text-secondary hover:text-theme-text-primary border-none bg-transparent p-1 cursor-pointer"
+              aria-label={t("layout.collapsePanel", {
+                defaultValue: "Collapse panel",
+              })}
+            >
+              <CaretLeft size={16} />
+            </button>
+          </div>
         </div>
       ) : (
         <button
