@@ -84,7 +84,12 @@ describe("WORKSPACE_AGENT.getDefinition", () => {
       user.id,
       workspace.id
     );
-    expect(definition.role).toBe(expandedPrompt);
+    // Compare to Provider.systemPrompt (may prepend catalog/legal instructions
+    // depending on env) — not the bare expanded string alone.
+    expect(definition.role).toBe(
+      await Provider.systemPrompt({ provider, workspace, user })
+    );
+    expect(definition.role).toContain(expandedPrompt);
   });
 
   it("should handle workspace system prompt without user context", async () => {
@@ -109,7 +114,10 @@ describe("WORKSPACE_AGENT.getDefinition", () => {
       null,
       workspace.id
     );
-    expect(definition.role).toBe(expandedPrompt);
+    expect(definition.role).toBe(
+      await Provider.systemPrompt({ provider, workspace, user })
+    );
+    expect(definition.role).toContain(expandedPrompt);
   });
 
   it("should return functions array in definition", async () => {
