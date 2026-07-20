@@ -434,6 +434,12 @@ const TRANSLATIONS = {
     crossSectionPlaceholder:
       "Interaktywny wizualizer przekroju (One 8.3 → Diamond → Laminated → Hybrid) — Faza 2.",
   },
+  matchProgress: {
+    parsing: "Rozpoznano pozycji: {{count}}. Dopasowywanie do katalogu…",
+    searching: "Szukanie w ShopDB: wiersz {{current}} / {{total}}",
+    matched: "Dopasowanie zakończone",
+    waitTable: "Szkic oferty pojawi się w trakcie dopasowywania pozycji…",
+  },
   modelLoad: {
     title: "Zmiana modelu",
     subtitle: "Ładowanie {{model}} do LM Studio (VRAM)",
@@ -493,6 +499,8 @@ const TRANSLATIONS = {
     reference: "Numer referencyjny",
     duplicate: "Duplikuj opinię",
     validate: "Wygeneruj dokument",
+    downloadError: "Nie udało się pobrać dokumentu. Spróbuj ponownie.",
+    searchError: "Nie udało się wyszukać produktów. Spróbuj ponownie.",
   },
 };
 

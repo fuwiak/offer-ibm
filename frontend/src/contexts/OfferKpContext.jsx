@@ -87,6 +87,7 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
 
   const [docPreview, setDocPreview] = useState(null);
   const [threadQuoteFiles, setThreadQuoteFiles] = useState([]);
+  const [matchProgress, setMatchProgress] = useState(null);
   const quoteDraftRef = useRef(quoteDraft);
   const activeWorkspaceRef = useRef(activeWorkspaceSlug);
   const activeThreadRef = useRef(activeThreadSlug);
@@ -103,9 +104,32 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   useEffect(() => {
     if (!enabled) return undefined;
     const onQuotePanel = (e) => {
-      const { quoteDraft: draft, documentPanelView: view } = e.detail || {};
+      const {
+        quoteDraft: draft,
+        documentPanelView: view,
+        progressStage,
+        matchedCount,
+        total,
+        lineCount,
+      } = e.detail || {};
       if (draft) setQuoteDraft((prev) => ({ ...prev, ...draft }));
       if (view) setDocumentPanelView(view);
+      if (progressStage) {
+        setMatchProgress({
+          stage: progressStage,
+          matchedCount: matchedCount ?? 0,
+          total: total ?? lineCount ?? 0,
+          lineCount: lineCount ?? total ?? 0,
+        });
+        if (progressStage === "matched") {
+          // Keep banner briefly then clear so table takes focus.
+          setTimeout(() => {
+            setMatchProgress((prev) =>
+              prev?.stage === "matched" ? null : prev
+            );
+          }, 1200);
+        }
+      }
       setDocumentPanelOpen(true);
     };
     const onQuoteFiles = (e) => {
@@ -188,6 +212,7 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       setDocPreview,
       threadQuoteFiles,
       syncThreadQuoteFiles,
+      matchProgress,
     }),
     [
       enabled,
@@ -214,6 +239,7 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
       setDocPreview,
       threadQuoteFiles,
       syncThreadQuoteFiles,
+      matchProgress,
     ]
   );
 
@@ -255,6 +281,7 @@ export function useOfferKp() {
       setDocPreview: () => {},
       threadQuoteFiles: [],
       syncThreadQuoteFiles: () => {},
+      matchProgress: null,
     }
   );
 }

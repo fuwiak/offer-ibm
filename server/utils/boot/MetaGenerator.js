@@ -81,7 +81,7 @@ class MetaGenerator {
       { tag: "meta", props: { property: "og:type", content: "website" } },
       {
         tag: "meta",
-        props: { property: "og:url", content: "https://offer-kp.local" },
+        props: { property: "og:url", content: "https://offer-ibm.ru" },
       },
       {
         tag: "meta",
@@ -101,8 +101,7 @@ class MetaGenerator {
         tag: "meta",
         props: {
           property: "og:image",
-          content:
-            "https://raw.githubusercontent.com/Mintplex-Labs/av-elia-bot/master/images/promo.png",
+          content: "/favicon.png",
         },
       },
 
@@ -113,7 +112,7 @@ class MetaGenerator {
       },
       {
         tag: "meta",
-        props: { property: "twitter:url", content: "https://offer-kp.local" },
+        props: { property: "twitter:url", content: "https://offer-ibm.ru" },
       },
       {
         tag: "meta",
@@ -133,8 +132,7 @@ class MetaGenerator {
         tag: "meta",
         props: {
           property: "twitter:image",
-          content:
-            "https://raw.githubusercontent.com/Mintplex-Labs/av-elia-bot/master/images/promo.png",
+          content: "/favicon.png",
         },
       },
 

@@ -14,7 +14,6 @@ import FileDownloadCard from "./FileDownloadCard";
 import { useManageWorkspaceModal } from "../../../Modals/ManageWorkspace";
 import ManageWorkspace from "../../../Modals/ManageWorkspace";
 import { ArrowDown } from "@phosphor-icons/react";
-import debounce from "lodash.debounce";
 import Chartable from "./Chartable";
 import Workspace from "@/models/workspace";
 import { useParams } from "react-router-dom";
@@ -57,7 +56,7 @@ export default forwardRef(function (
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
-    const isBottom = scrollHeight - scrollTop - clientHeight < 2;
+    const isBottom = scrollHeight - scrollTop - clientHeight < 40;
 
     // Detect if this is a user-initiated scroll
     if (Math.abs(scrollTop - lastScrollTopRef.current) > 10) {
@@ -67,17 +66,6 @@ export default forwardRef(function (
     setIsAtBottom(isBottom);
     lastScrollTopRef.current = scrollTop;
   };
-
-  const debouncedScroll = debounce(handleScroll, 100);
-
-  useEffect(() => {
-    const chatHistoryElement = chatHistoryRef.current;
-    if (chatHistoryElement) {
-      chatHistoryElement.addEventListener("scroll", debouncedScroll);
-      return () =>
-        chatHistoryElement.removeEventListener("scroll", debouncedScroll);
-    }
-  }, []);
 
   const scrollToBottom = (smooth = false) => {
     if (chatHistoryRef.current) {

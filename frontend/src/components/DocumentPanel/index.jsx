@@ -213,6 +213,7 @@ export default function DocumentPanel() {
     docPreview,
     setDocPreview,
     threadQuoteFiles,
+    matchProgress,
   } = useOfferKp();
 
   const { role } = useOfferKpRole();
@@ -329,9 +330,12 @@ export default function DocumentPanel() {
   const hasEditableQuoteLines =
     (quoteDraft?.hardwareLines?.length ?? 0) > 0 ||
     (quoteDraft?.preview?.lines?.length ?? 0) > 0;
+  const isMatchingInProgress =
+    matchProgress?.stage === "parsing" || matchProgress?.stage === "searching";
   const showQuoteBuilder = documentPanelView === "builder";
   const showDraftTable =
-    documentPanelView === "draftTable" && hasEditableQuoteLines;
+    documentPanelView === "draftTable" &&
+    (hasEditableQuoteLines || isMatchingInProgress);
   const showPdfPreview = documentPanelView === "pdf" && quotePdfUrl;
   const showQuotePreview =
     documentPanelView === "quotePreview" && !!quoteDraft?.preview;
@@ -493,8 +497,35 @@ export default function DocumentPanel() {
             }}
           />
         ) : showDraftTable ? (
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <QuoteDraftTable />
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            {isMatchingInProgress || matchProgress?.stage === "matched" ? (
+              <div className="px-4 py-2.5 border-b border-theme-sidebar-border bg-theme-bg-secondary text-xs text-theme-text-secondary shrink-0">
+                {matchProgress?.stage === "parsing"
+                  ? t("matchProgress.parsing", {
+                      count: matchProgress.lineCount || 0,
+                      defaultValue: "Распознано позиций: {{count}}. Сопоставление с каталогом…",
+                    })
+                  : matchProgress?.stage === "searching"
+                    ? t("matchProgress.searching", {
+                        current: matchProgress.matchedCount || 0,
+                        total: matchProgress.total || 0,
+                        defaultValue:
+                          "Поиск в ShopDB: строка {{current}} / {{total}}",
+                      })
+                    : t("matchProgress.matched", {
+                        defaultValue: "Сопоставление завершено",
+                      })}
+              </div>
+            ) : null}
+            {hasEditableQuoteLines ? (
+              <QuoteDraftTable />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-6 text-sm text-theme-text-secondary">
+                {t("matchProgress.waitTable", {
+                  defaultValue: "Черновик КП появится по мере сопоставления позиций…",
+                })}
+              </div>
+            )}
           </div>
         ) : showQuotePreview ? (
           <QuotePreview />
@@ -546,7 +577,7 @@ export default function DocumentPanel() {
 
   if (isPureAdminContext) {
     return (
-      <div className="offerKp-context-widget fixed bottom-4 right-4 z-40 hidden xl:flex flex-col items-end gap-2">
+      <div className="offerKp-context-widget fixed bottom-4 right-4 z-40 hidden lg:flex flex-col items-end gap-2">
         {contextWidgetOpen && (
           <div className="offerKp-context-widget__panel flex flex-col w-[360px] max-h-[70vh] rounded-xl border border-theme-sidebar-border bg-theme-bg-chat-input shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0">
@@ -615,7 +646,7 @@ export default function DocumentPanel() {
 
   return (
     <aside
-      className={`offerKp-document-panel relative hidden xl:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
+      className={`offerKp-document-panel relative hidden lg:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
         documentPanelOpen ? "" : "w-12 items-center"
       }`}
       style={documentPanelOpen ? { width: panelWidth } : undefined}

@@ -456,6 +456,12 @@ const TRANSLATIONS = {
     crossSectionPlaceholder:
       "Interactive cross-section viewer (One 8.3 → Diamond → Laminated → Hybrid) — Phase 2.",
   },
+  matchProgress: {
+    parsing: "Recognized {{count}} line(s). Matching against catalog…",
+    searching: "ShopDB search: line {{current}} / {{total}}",
+    matched: "Matching complete",
+    waitTable: "Quote draft will appear as lines are matched…",
+  },
   modelLoad: {
     title: "Switching model",
     subtitle: "Loading {{model}} into LM Studio (VRAM)",
@@ -515,6 +521,8 @@ const TRANSLATIONS = {
     viewDocument: "View document",
     duplicate: "Duplicate quote",
     validate: "Generate quote",
+    downloadError: "Could not download the document. Please try again.",
+    searchError: "Could not search products. Please try again.",
   },
 };
 

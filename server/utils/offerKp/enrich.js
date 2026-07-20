@@ -30,7 +30,7 @@ const {
   SKU_COLUMNS: S,
 } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
-const { matchInquiryLine } = require("./matchInquiryLines");
+const { matchInquiryToDraft } = require("./matchInquiryLines");
 const { STATUS } = require("./analogRules");
 const { resolveProductPrice } = require("./priceResolve");
 
@@ -38,7 +38,7 @@ const MAX_EXCERPT_CHARS = 2200;
 
 const SHOP_DB_ENRICH_TIMEOUT_MS = Math.min(
   120000,
-  Math.max(5000, parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 60000)
+  Math.max(5000, parseInt(process.env.SHOP_DB_ENRICH_TIMEOUT_MS, 10) || 30000)
 );
 
 const FEATURE_TABLES = [
@@ -215,9 +215,17 @@ function buildShopDbTablesFooter(flags = {}) {
   return `\n\n---\n**Таблицы БД (каталог):** ${tables.join(", ")}.${stratLine}`;
 }
 
-async function loadProductRow(productId) {
-  const id = parseInt(productId, 10);
-  if (!Number.isFinite(id) || id <= 0) return null;
+async function loadProductRows(productIds = []) {
+  const ids = [
+    ...new Set(
+      productIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    ),
+  ];
+  const map = new Map();
+  if (!ids.length) return map;
+  const placeholders = ids.map(() => "?").join(",");
   const rows = await query(
     `SELECT p.${P.id} AS id, p.${P.name} AS name, p.${P.summary} AS summary,
             p.${P.description} AS description, p.${P.price} AS price,
@@ -226,11 +234,11 @@ async function loadProductRow(productId) {
      FROM ${TABLES.product} p
      LEFT JOIN ${TABLES.category} c
        ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
-     WHERE p.${P.id} = ? AND p.${P.status} = 1
-     LIMIT 1`,
-    [id]
+     WHERE p.${P.id} IN (${placeholders}) AND p.${P.status} = 1`,
+    ids
   );
-  return rows[0] || null;
+  for (const row of rows) map.set(Number(row.id), row);
+  return map;
 }
 
 function buildInquiryCatalogExcerpt(
@@ -295,35 +303,63 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
   const contextTexts = [];
   const sources = [];
   const productIds = new Set();
+  const lineKeys = new Set();
   const baseUrl = getShopBaseUrl();
+  const onProgress =
+    typeof options.onProgress === "function" ? options.onProgress : null;
 
-  for (const line of lines.slice(0, maxLines)) {
-    const matched = await matchInquiryLine(line, {
-      workspace: options.workspace,
-      chatHistory: options.chatHistory || options.history || null,
-      parsedFileTexts,
+  if (onProgress) {
+    onProgress({
+      progressStage: "parsing",
+      lineCount: maxLines,
+      matchedCount: 0,
+      total: maxLines,
+      quoteDraft: {
+        step: 2,
+        hardwareLines: [],
+        preview: { lines: [], subtotal: 0, total: 0, totalWeightKg: 0 },
+      },
     });
+  }
+
+  const inquirySource = lines
+    .slice(0, maxLines)
+    .map((line) => line.raw)
+    .join("\n");
+  const inquiryDraft = await matchInquiryToDraft(inquirySource, {
+    workspace: options.workspace,
+    chatHistory: options.chatHistory || options.history || null,
+    threadId: options.threadId || null,
+    onProgress,
+  });
+  const matchedLines = inquiryDraft.lines || [];
+  const matchedProductIds = matchedLines
+    .map((line) => Number(line.productId))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  const [productMap, featureMap, skuMap] = await Promise.all([
+    loadProductRows(matchedProductIds),
+    loadFeatureLines(matchedProductIds),
+    loadProductSkus(matchedProductIds),
+  ]);
+
+  for (const matched of matchedLines) {
     if (!matched.productId) continue;
 
     const pid = parseInt(matched.productId, 10);
     // Одна позиция заявки = один блок, даже если productId повторяется
     // (раньше dedupe по pid схлопывал 40 строк в ~20 уникальных SKU).
     const lineKey = `${pid}:${matched.inquiryRaw || matched.requestedName || ""}:${matched.quantity || 1}`;
-    if (productIds.has(lineKey)) continue;
-    productIds.add(lineKey);
+    if (lineKeys.has(lineKey)) continue;
+    lineKeys.add(lineKey);
+    productIds.add(pid);
 
-    const product = (await loadProductRow(pid)) || {
+    const product = productMap.get(pid) || {
       id: pid,
       name: matched.name,
       price: matched.unitPriceNet,
       currency: "RUB",
       product_url: matched.productUrl,
     };
-
-    const [featureMap, skuMap] = await Promise.all([
-      loadFeatureLines([pid]),
-      loadProductSkus([pid]),
-    ]);
 
     const { name, url, excerpt, body } = buildInquiryCatalogExcerpt(
       product,
@@ -361,6 +397,7 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     contextTexts,
     sources,
     productIds,
+    inquiryDraft,
     strategies: contextTexts.length ? ["inquiry_pdf_lines"] : [],
   };
 }
@@ -413,6 +450,9 @@ async function getShopDbContext(message, options = {}) {
     )
   );
 
+  /** Filled as soon as inquiry matching finishes — used on timeout (no full retry). */
+  const partial = { inquiryEnrich: null };
+
   const runEnrich = async () => {
     const searchText = buildProductSearchText(effectiveMessage, options);
 
@@ -422,12 +462,14 @@ async function getShopDbContext(message, options = {}) {
       maxDocs,
       searchAgent: true,
       parsedFiles: parsedFileTexts.length,
+      timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
     });
 
     const inquiryEnrich = await enrichInquiryLinesFromPdf(
       effectiveMessage,
       options
     );
+    partial.inquiryEnrich = inquiryEnrich;
 
     const agentResult = await runProductSearchAgent({
       message: effectiveMessage,
@@ -439,7 +481,7 @@ async function getShopDbContext(message, options = {}) {
 
     const inquiryIds = inquiryEnrich.productIds || new Set();
     const ranked = agentResult.products
-      .filter((p) => !inquiryIds.has(p.id))
+      .filter((p) => !inquiryIds.has(Number(p.id)))
       .slice(0, maxDocs);
     const searchTerms =
       agentResult.signals?.searchTerms || extractSearchTerms(searchText);
@@ -508,6 +550,7 @@ async function getShopDbContext(message, options = {}) {
     return {
       contextTexts,
       sources,
+      inquiryDraft: inquiryEnrich.inquiryDraft || null,
       flags: {
         shopDbSearchHitCount:
           agentResult.products.length +
@@ -525,13 +568,26 @@ async function getShopDbContext(message, options = {}) {
   try {
     return await Promise.race([runEnrich(), timeoutPromise]);
   } catch (e) {
-    if (e?.message === "SHOP_DB_TIMEOUT" && !options._retried) {
-      shopDbLog.warn("enrich timeout, retry once", {
-        timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
-      });
-      return getShopDbContext(message, { ...options, _retried: true });
-    }
     if (e?.message === "SHOP_DB_TIMEOUT") {
+      const inquiryEnrich = partial.inquiryEnrich;
+      if (inquiryEnrich?.inquiryDraft?.lines?.length) {
+        shopDbLog.warn("enrich timeout — returning partial inquiry draft", {
+          timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
+          inquiryLines: inquiryEnrich.inquiryDraft.lines.length,
+        });
+        return {
+          contextTexts: inquiryEnrich.contextTexts || [],
+          sources: inquiryEnrich.sources || [],
+          inquiryDraft: inquiryEnrich.inquiryDraft,
+          flags: {
+            shopDbTimeout: true,
+            shopDbPartial: true,
+            shopDbSearchHitCount: inquiryEnrich.contextTexts?.length || 0,
+            shopDbDocCount: inquiryEnrich.contextTexts?.length || 0,
+            shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
+          },
+        };
+      }
       shopDbLog.enrichTimeout({ timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS });
       return {
         contextTexts: [],

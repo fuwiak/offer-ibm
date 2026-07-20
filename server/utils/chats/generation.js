@@ -155,6 +155,8 @@ async function collectExternalContexts({
   language = null,
   chatHistory = null,
   parsedFileTexts = null,
+  onProgress = null,
+  threadId = null,
 }) {
   const shopEnabledFn = await loadOptional(
     "../offerKp/enrich",
@@ -169,6 +171,8 @@ async function collectExternalContexts({
         maxDocs: 5,
         chatHistory,
         parsedFileTexts,
+        onProgress,
+        threadId,
       });
       return [
         {
@@ -176,6 +180,7 @@ async function collectExternalContexts({
           contextTexts: r?.contextTexts || [],
           sources: r?.sources || [],
           flags: r?.flags,
+          inquiryDraft: r?.inquiryDraft || null,
         },
       ];
     } catch (err) {
@@ -296,7 +301,11 @@ function dedupeSources(sources = []) {
  * @param {{ text: string, context: object }} opts
  * @returns {Promise<{ text: string, postProcessLog: object }>}
  */
-async function applyPostProcessingPipeline({ text, context = {} }) {
+async function applyPostProcessingPipeline({
+  text,
+  context = {},
+  skipStylePolish = false,
+}) {
   let output = text;
 
   const log = {
@@ -328,7 +337,7 @@ async function applyPostProcessingPipeline({ text, context = {} }) {
   );
   const polishOrKey = !!(process.env.OPENROUTER_API_KEY || "").trim();
   log.stylePolish.configured =
-    !polishDisabled && (polishYandexKey || polishOrKey);
+    !skipStylePolish && !polishDisabled && (polishYandexKey || polishOrKey);
 
   // ── 12a. Судья Yandex ────────────────────────────────────────────────────────
   if (log.yandexFactCheck.configured) {
@@ -578,6 +587,7 @@ async function runGenerationPipeline({
   externalContexts = null,
   metrics = {},
   language = null,
+  skipStylePolish = false,
 }) {
   const collectedExternalContexts = Array.isArray(externalContexts)
     ? externalContexts
@@ -599,6 +609,7 @@ async function runGenerationPipeline({
     const result = await runChatPostProcessWithKeepalive(response, async () =>
       applyPostProcessingPipeline({
         text: finalText,
+        skipStylePolish,
         context: {
           contextTexts: mergedContext,
           sources: mergedSources,

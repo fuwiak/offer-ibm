@@ -230,7 +230,7 @@ async function generateThreadFollowUpSuggestions({
 }
 
 /**
- * Generates follow-up questions and streams them to the client before finalize.
+ * Generates follow-up questions and streams them after finalize (non-blocking UX).
  */
 async function emitThreadFollowUpSuggestions({
   response,

@@ -39,10 +39,35 @@ async function streamChatWithWorkspace(
   const language = options?.language || null;
   const uuid = uuidv4();
   const commandMessage = await grepCommand(message, user);
+
+  // Fetched early (before the quote-intent check below) because an attached
+  // PDF inquiry — not just a matching phrase in the chat message — must be
+  // able to switch the pipeline into ShopDB-only mode. See parsedTextHasQuoteSignals.
+  const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
+    workspace,
+    thread || null,
+    user || null
+  );
+  const parsedFileTexts = parsedFiles
+    .map((doc) => doc.pageContent)
+    .filter(Boolean);
+
   const { isQuoteDocumentRequest } = require("../offerKp/quoteRequestPhrases");
-  const quoteDocumentRequest = isQuoteDocumentRequest(commandMessage);
+  const {
+    parsedTextHasQuoteSignals,
+  } = require("../offerKp/quotePdfModelRouter");
+  // Trigger ShopDB-only mode either when the message text asks for a КП/oferta
+  // directly, or when an attached/pinned file already looks like a priced
+  // inquiry — otherwise a bare "here's the file" message with no recognized
+  // trigger phrase silently falls through to vector search / web enrich,
+  // reopening the hallucination path the ShopDB-only mandate exists to close.
+  const quoteDocumentRequest =
+    isQuoteDocumentRequest(commandMessage) ||
+    parsedTextHasQuoteSignals(parsedFileTexts.join("\n"));
   const updatedMessage = quoteDocumentRequest
-    ? String(commandMessage).replace(/^@agent\s*:?\s*/i, "").trim()
+    ? String(commandMessage)
+        .replace(/^@agent\s*:?\s*/i, "")
+        .trim()
     : commandMessage;
 
   if (Object.keys(VALID_COMMANDS).includes(commandMessage)) {
@@ -123,16 +148,8 @@ async function streamChatWithWorkspace(
     messageLimit,
   });
 
-  // Inject parsed files early — shop enrich and КП matching need PDF text.
-  const parsedFiles = await WorkspaceParsedFiles.getContextFiles(
-    workspace,
-    thread || null,
-    user || null
-  );
-  const parsedFileTexts = parsedFiles
-    .map((doc) => doc.pageContent)
-    .filter(Boolean);
-
+  // parsedFiles / parsedFileTexts were already fetched above (needed for the
+  // quoteDocumentRequest check before the agent-mode early-return).
   const {
     resolveQuotePdfModelSwitch,
   } = require("../offerKp/quotePdfModelRouter");
@@ -158,6 +175,25 @@ async function streamChatWithWorkspace(
     language,
     chatHistory: rawHistory,
     parsedFileTexts,
+    threadId: thread?.id || null,
+    onProgress: (payload = {}) => {
+      writeResponseChunk(response, {
+        uuid,
+        type: "offerKpQuotePanel",
+        content: {
+          documentPanelView: "draftTable",
+          progressStage: payload.progressStage || "searching",
+          matchedCount: payload.matchedCount,
+          total: payload.total,
+          lineCount: payload.lineCount,
+          quoteDraft: payload.quoteDraft || {
+            step: 2,
+            hardwareLines: [],
+            preview: { lines: [] },
+          },
+        },
+      });
+    },
   });
 
   // Look for pinned documents
@@ -284,8 +320,31 @@ async function streamChatWithWorkspace(
       workspace,
       chatHistory: rawHistory,
       parsedFileTexts,
+      inquiryDraft: llmCatalog.inquiryDraft,
     }
   );
+  if (llmCatalog.inquiryDraft?.lines?.length) {
+    const draft = llmCatalog.inquiryDraft;
+    writeResponseChunk(response, {
+      uuid,
+      type: "offerKpQuotePanel",
+      content: {
+        documentPanelView: "draftTable",
+        progressStage: "matched",
+        quoteDraft: {
+          step: 2,
+          reference: draft.reference,
+          hardwareLines: draft.lines,
+          preview: {
+            lines: draft.lines,
+            subtotal: draft.subtotal,
+            total: draft.total,
+            totalWeightKg: draft.totalWeightKg,
+          },
+        },
+      },
+    });
+  }
   if (llmCatalog.contextTexts.length) {
     contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
@@ -409,6 +468,11 @@ async function streamChatWithWorkspace(
     externalContexts,
     metrics,
     language,
+    // КП contains commercial numbers and table structure. A second LLM pass
+    // must never rewrite it after the streamed answer has already been shown.
+    skipStylePolish: Boolean(
+      quoteDocumentRequest || llmCatalog.catalogInjected
+    ),
   });
   completeText = orchestration.text;
   sources = orchestration.sources;
@@ -454,6 +518,7 @@ async function streamChatWithWorkspace(
         workspace,
         chatHistory: rawHistory,
         parsedFileTexts,
+        inquiryDraft: llmCatalog.inquiryDraft,
       });
       if (quoteArtifacts?.summaryText) {
         completeText = `${completeText || ""}${quoteArtifacts.summaryText}`;
@@ -483,6 +548,18 @@ async function streamChatWithWorkspace(
       user,
     });
 
+    // Finalize immediately after artifacts so the UI stops "hanging" on the
+    // last token while follow-up LLM suggestions are still generating.
+    writeResponseChunk(response, {
+      uuid,
+      type: "finalizeResponseStream",
+      close: true,
+      error: false,
+      chatId: chat.id,
+      metrics,
+      ...(quoteOutputs.length ? { outputs: quoteOutputs } : {}),
+    });
+
     if (thread?.id) {
       try {
         const {
@@ -504,16 +581,6 @@ async function streamChatWithWorkspace(
         console.warn("[threadFollowUp] stream:", e?.message || e);
       }
     }
-
-    writeResponseChunk(response, {
-      uuid,
-      type: "finalizeResponseStream",
-      close: true,
-      error: false,
-      chatId: chat.id,
-      metrics,
-      ...(quoteOutputs.length ? { outputs: quoteOutputs } : {}),
-    });
     return;
   }
 
