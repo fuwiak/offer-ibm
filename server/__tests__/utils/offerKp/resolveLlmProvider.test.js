@@ -97,10 +97,9 @@ describe("resolveLlmProvider", () => {
     expect(sanitized.teacherModel).toBeUndefined();
   });
 
-  it("defaults to OpenRouter teacher when key set and flag unset", () => {
+  it("defaults to LM Studio when teacher flag is unset (even with OR key)", () => {
     delete process.env.OFFER_KP_TEACHER_LLM;
     process.env.OPENROUTER_API_KEY = "sk-or-test";
-    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
     process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
 
     const resolved = resolveLlmProviderAndModel({
@@ -108,9 +107,9 @@ describe("resolveLlmProvider", () => {
       model: "openai/gpt-oss-20b",
     });
 
-    expect(resolved.provider).toBe("openrouter");
-    expect(resolved.teacher).toBe(true);
-    expect(resolved.model).toBe("qwen/qwen3-vl-235b-a22b-instruct");
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+    expect(resolved.displayProvider).toBe("lmstudio");
   });
 
   it("stays on LM Studio when teacher flag is off", () => {

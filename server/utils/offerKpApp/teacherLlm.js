@@ -2,8 +2,8 @@
  * Teacher LLM (OpenRouter) — runtime only.
  * UI / workspace stay on LM Studio labels; flip via OFFER_KP_TEACHER_LLM.
  *
- * Default: ON when OpenRouter key is set and the flag is unset.
- * Explicit OFFER_KP_TEACHER_LLM=0 keeps local LM Studio.
+ * Default: OFF (LM Studio primary). Explicit OFFER_KP_TEACHER_LLM=1 uses
+ * OpenRouter when reachable, with LM Studio as fallback if egress/OR is down.
  */
 const { resolveOpenRouterApiKey } = require("./openRouterEnv");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
@@ -14,8 +14,8 @@ const DEFAULT_TEACHER_MODEL = "qwen/qwen3-vl-235b-a22b-instruct";
 function isOfferKpTeacherLlmEnabled() {
   const raw = process.env.OFFER_KP_TEACHER_LLM;
   if (raw == null || String(raw).trim() === "") {
-    // Prefer OpenRouter when key exists (LM Studio often unreachable from cloud).
-    return Boolean(resolveOpenRouterApiKey());
+    // Prefer local LM Studio; enable OpenRouter teacher only with explicit flag.
+    return false;
   }
   const flag = String(raw).trim().toLowerCase();
   return flag === "1" || flag === "true" || flag === "yes" || flag === "on";

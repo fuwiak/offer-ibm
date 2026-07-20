@@ -11,7 +11,7 @@ const REPO_ROOT = path.resolve(SERVER_DIR, "..");
 
 /**
  * 1) Снимок Railway / process.env + опционально .env.railway (fallback-источник).
- * 2) server/.env и ../.env — приоритет (override), локальные файлы перебивают Railway.
+ * 2) ../.env затем server/.env — server/.env приоритетнее (override).
  * 3) Для ключей, не заданных в .env, подставляется fallback из Railway / .env.railway.
  */
 function loadEnv({ override = true } = {}) {
@@ -21,8 +21,9 @@ function loadEnv({ override = true } = {}) {
   if (process.env.NODE_ENV === "development") {
     paths.push(path.join(SERVER_DIR, `.env.${process.env.NODE_ENV}`));
   }
-  paths.push(path.join(SERVER_DIR, ".env"));
+  // Root .env first, then server/.env — server wins (more specific for the API).
   paths.push(path.join(REPO_ROOT, ".env"));
+  paths.push(path.join(SERVER_DIR, ".env"));
 
   for (const envPath of paths) {
     if (fs.existsSync(envPath)) {

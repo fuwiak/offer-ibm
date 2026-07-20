@@ -11,7 +11,28 @@
 - collector hotdir: `/opt/offer-kp/app/collector/hotdir`
 - LLM: OpenRouter teacher через egress-proxy (см. ниже) / LM Studio `127.0.0.1:1234` когда запущен
 
-## OpenRouter 403 с Selectel
+## LLM on Lainey
+
+- **LM Studio** (`lms server` on `:1234`) — primary when `OFFER_KP_TEACHER_LLM=0`
+- **OpenRouter** via egress `:8787` — used when teacher=1, or as fallback if LM Studio is down
+
+Start / enable LM Studio:
+
+```bash
+export PATH="/root/.lmstudio/bin:$PATH"
+lms server start --port 1234
+lms load qwen/qwen3-vl-8b-thinking --gpu max
+# optional systemd unit: lmstudio-server.service
+```
+
+In `server/.env`:
+
+```
+OFFER_KP_TEACHER_LLM=0
+LLM_PROVIDER=lmstudio
+LMSTUDIO_BASE_PATH=http://127.0.0.1:1234/v1
+LMSTUDIO_MODEL_PREF=qwen/qwen3-vl-8b-thinking
+```
 
 Прямой доступ к `openrouter.ai` с IP Lainey даёт `403 Access denied by security policy`.
 Нужен egress-proxy на машине вне блокировки + reverse SSH:
