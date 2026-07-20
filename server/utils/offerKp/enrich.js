@@ -31,7 +31,7 @@ const {
 } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
-const { STATUS } = require("./analogRules");
+const { STATUS, classifyProductMatch, detectAnalogIntent } = require("./analogRules");
 const { resolveProductPrice } = require("./priceResolve");
 
 const MAX_EXCERPT_CHARS = 2200;
@@ -71,6 +71,8 @@ function shouldRunShopEnrich(message, options = {}) {
   if (hasHardwareSignals(searchText)) return true;
   if (extractSkuCodes(combined).length) return true;
   if (isPriceOnlyQuery(String(message || "").trim())) return true;
+  if (detectAnalogIntent(String(message || "").trim())) return true;
+  if (detectAnalogIntent(combined)) return true;
   if (isCatalogRelayRequest(String(message || "").trim())) return true;
   if (isCatalogListingRequest(String(message || "").trim())) return true;
   if (isOfferFollowUp(String(message || "").trim())) return true;
@@ -403,7 +405,14 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
 }
 
 async function getShopDbContext(message, options = {}) {
-  const maxDocs = Math.min(10, Math.max(1, parseInt(options.maxDocs, 10) || 5));
+  const analogIntent = detectAnalogIntent(String(message || ""));
+  const maxDocs = Math.min(
+    12,
+    Math.max(
+      1,
+      parseInt(options.maxDocs, 10) || (analogIntent ? 10 : 5)
+    )
+  );
   const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
   const effectiveMessage =
     String(message || "").trim() ||
@@ -503,6 +512,7 @@ async function getShopDbContext(message, options = {}) {
 
     const contextTexts = [...(inquiryEnrich.contextTexts || [])];
     const sources = [...(inquiryEnrich.sources || [])];
+    const classifyAgainst = searchText || effectiveMessage;
 
     for (const product of ranked) {
       const featureLines = featureMap.get(product.id) || [];
@@ -518,9 +528,29 @@ async function getShopDbContext(message, options = {}) {
         skuRows,
         baseUrl
       );
+      let catalogExcerpt = excerpt;
+      const match = classifyProductMatch(classifyAgainst, {
+        name: product.name,
+        stockCount: skuRows?.[0]?.count ?? product.count,
+        price: product.price,
+      });
+      if (
+        match?.matchType &&
+        match.matchType !== "none" &&
+        (analogIntent ||
+          match.matchType === "analog" ||
+          match.matchType === "similar")
+      ) {
+        const statusLine = `Статус: ${match.status}${
+          match.analogOf ? ` (${match.analogOf})` : ""
+        } · тип: ${match.matchType}`;
+        const lines = catalogExcerpt.split("\n");
+        lines.splice(1, 0, statusLine);
+        catalogExcerpt = lines.join("\n");
+      }
       const id = `shop-${product.id}-${uuidv4().slice(0, 8)}`;
 
-      contextTexts.push(excerpt);
+      contextTexts.push(catalogExcerpt);
       sources.push({
         id,
         title: name,
@@ -533,6 +563,8 @@ async function getShopDbContext(message, options = {}) {
         shopCategory: product.category_name || null,
         shopDbTables: productTables,
         shopMatchSources: product.shopMatchSources || [],
+        matchType: match?.matchType || null,
+        analogOf: match?.analogOf || null,
       });
     }
 

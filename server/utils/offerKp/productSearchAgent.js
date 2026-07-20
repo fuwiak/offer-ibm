@@ -27,6 +27,8 @@ const {
 const {
   applyAnalogScoringPenalty,
   applyMatchPriorityBonus,
+  detectAnalogIntent,
+  expandDinNumbersWithEquivalents,
 } = require("./analogRules");
 const {
   applyCheaperPreferenceAmongSimilar,
@@ -214,6 +216,7 @@ function buildProductSearchText(message, options = {}) {
 
   const needsHistory =
     isPriceOnlyQuery(String(message || "").trim()) ||
+    detectAnalogIntent(String(message || "").trim()) ||
     (skuCodes.length &&
       isSkuOnlyQuery(String(message || "").trim(), skuCodes)) ||
     isCatalogRelayRequest(String(message || "").trim()) ||
@@ -326,6 +329,9 @@ function rankAgentProducts(
         (p._nameSimilarity || nameSimilarityScore(searchText, p.name)) * 80
       );
     }
+    // Для «аналогов» / похожих — не проталкивать вверх позиции с ценой 0.
+    if (detectAnalogIntent(searchText) && Number(p.price) > 0) score += 40;
+    if (detectAnalogIntent(searchText) && Number(p.price) <= 0) score -= 30;
     return { p, score, index };
   });
 
@@ -384,6 +390,12 @@ async function runProductSearchAgent({
     parsedFileTexts: parsedTexts,
   });
   const parsed = parseHardwareQuery(searchText);
+  const analogIntent = detectAnalogIntent(
+    `${String(message || "")}\n${searchText}`
+  );
+  if (parsed.dinNumbers?.length) {
+    parsed.dinNumbers = expandDinNumbersWithEquivalents(parsed.dinNumbers);
+  }
   const terms = extractSearchTerms(searchText);
   const searchTerms =
     terms.length > 0 ? terms : [String(searchText).trim().slice(0, 120)];
@@ -395,6 +407,7 @@ async function runProductSearchAgent({
     skuOnly,
     searchTerms,
     hasHardware: hasHardwareSignals(searchText),
+    analogIntent,
   };
 
   shopDbLog.info("product search agent", {
@@ -402,6 +415,7 @@ async function runProductSearchAgent({
     searchTextLen: searchText.length,
     skuCodes,
     skuOnly,
+    analogIntent,
     terms: searchTerms,
     parsed: {
       dinNumbers: parsed.dinNumbers,
@@ -414,6 +428,7 @@ async function runProductSearchAgent({
   if (
     !signals.hasHardware &&
     !skuCodes.length &&
+    !analogIntent &&
     !isPriceOnlyQuery(message) &&
     !isOfferFollowUp(message) &&
     !isCatalogRelayRequest(message) &&
@@ -435,9 +450,10 @@ async function runProductSearchAgent({
 
   const strategies = [];
   let products = [];
+  const searchLimit = analogIntent ? Math.max(limit, 12) * 3 : limit * 3;
 
   if (skuCodes.length) {
-    const skuHits = await searchByExactSku(skuCodes, limit);
+    const skuHits = await searchByExactSku(skuCodes, searchLimit);
     if (skuHits.length) {
       strategies.push("exact_sku");
       products = mergeProductHits([products, skuHits]);
@@ -449,7 +465,7 @@ async function runProductSearchAgent({
   }
 
   const { products: baseProducts, tablesUsed: baseTables } =
-    await searchProductsExtended(searchTerms, parsed, limit * 3);
+    await searchProductsExtended(searchTerms, parsed, searchLimit);
 
   if (baseProducts.length) {
     strategies.push(
@@ -472,12 +488,19 @@ async function runProductSearchAgent({
         ]),
       ],
     };
-    if (needsSearchAgentFallback(products, searchText, agentParsed)) {
+    agentParsed.dinNumbers = expandDinNumbersWithEquivalents(
+      agentParsed.dinNumbers
+    );
+    const forceAnalogWiden = analogIntent;
+    if (
+      forceAnalogWiden ||
+      needsSearchAgentFallback(products, searchText, agentParsed)
+    ) {
       const agentResult = await runShopDbSearchAgent({
         searchText,
         parsed: agentParsed,
         existingProducts: products,
-        limit: limit * 3,
+        limit: searchLimit,
         workspace,
       });
       if (agentResult.strategies?.length) {
@@ -548,4 +571,5 @@ module.exports = {
   hasHardwareSignals,
   searchByExactSku,
   runProductSearchAgent,
+  detectAnalogIntent,
 };

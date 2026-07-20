@@ -198,6 +198,33 @@ function getEquivalentStandards(stdNum) {
   return [rule.din, ...rule.analogs];
 }
 
+/**
+ * Пользователь явно или по смыслу просит аналоги / zamienniki / similar.
+ * «какие аналоги», «подбери аналог», «zamiennik», «equivalent»…
+ * Важно: не использовать \\b для кириллицы — в JS \\b только ASCII.
+ */
+function detectAnalogIntent(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (/аналог/i.test(t)) return true;
+  if (/zamiennik|ekwiwalent|podobn/i.test(t)) return true;
+  if (/\banalog(ue|s|ous)?\b|\bequivalent\w*\b|\balternative\w*\b/i.test(t))
+    return true;
+  if (/вместо\s+(этого|него|нее)|замен[аие]|не\s+точн\w*\s+совпад/i.test(t))
+    return true;
+  if (/нет\s+в\s+наличии.{0,40}(подбер|найд|аналог)/i.test(t)) return true;
+  return false;
+}
+
+/** DIN/ГОСТ/ISO из запроса → все номера из пилотных пар (для SQL LIKE). */
+function expandDinNumbersWithEquivalents(dinNumbers = []) {
+  const out = new Set();
+  for (const n of dinNumbers || []) {
+    for (const eq of getEquivalentStandards(n)) out.add(String(eq));
+  }
+  return [...out];
+}
+
 function classifyProductMatch(requestText, product) {
   const nameNorm = normalizeForMatch(product.name || "");
   const parsed = parseHardwareQuery(requestText);
@@ -411,6 +438,8 @@ module.exports = {
   applyAnalogScoringPenalty,
   applyMatchPriorityBonus,
   getEquivalentStandards,
+  detectAnalogIntent,
+  expandDinNumbersWithEquivalents,
   threadMatchesExact,
   pinMatchesExact,
   requestedSpecsMatch,

@@ -5,6 +5,7 @@ const {
   extractCatalogBlocksFromText,
   stripCatalogSection,
 } = require("../../offerKp/catalogPrompt");
+const { detectAnalogIntent } = require("../../offerKp/analogRules");
 const {
   layerGuidelines,
 } = require("../../../config/offerKp.harnessAntiHallucination");
@@ -13,6 +14,9 @@ const {
   shouldAbstainFromEvidence,
   ensurePdfInquiryEvidence,
 } = require("../../offerKp/harnessEvidence");
+
+const ANALOG_LIST_GUIDELINE =
+  "Пользователь спрашивает про аналоги. По блокам [Каталог · purolat.com] перечисли похожие позиции (цена > 0 предпочтительнее): название, SKU, цена, остаток, статус (exact/analog/similar). Явно укажи «запрошено → подобрано».";
 
 function isUserChatMessage(message) {
   const from = String(message?.from || message?.role || "")
@@ -29,14 +33,17 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     super("offerKp-catalog-context");
   }
 
-  #catalogOptions(harness) {
+  #catalogOptions(harness, question = "") {
     const invocation = harness.ctx.invocation || {};
+    const analogIntent = detectAnalogIntent(question);
+    const baseMax = harness.state.get("catalogMaxDocs") || 5;
     return {
       workspace: harness.ctx.workspace,
       userId: invocation.user_id ?? null,
       threadId: invocation.thread_id ?? null,
-      maxDocs: harness.state.get("catalogMaxDocs") || 5,
+      maxDocs: analogIntent ? Math.max(baseMax, 10) : baseMax,
       agentMode: true,
+      analogIntent,
     };
   }
 
@@ -66,12 +73,28 @@ class OfferKpCatalogContextBlock extends BaseBlock {
     if (!question) return prompt;
 
     const pdfInquiry = await ensurePdfInquiryEvidence(harness);
+    const analogIntent = detectAnalogIntent(question);
     const baseMax = harness.state.get("catalogMaxDocs") || 5;
     const hops = harness.state.get("cragHops") || 0;
-    const maxDocs = widen ? Math.min(baseMax + hops * 3, 12) : baseMax;
+    const maxDocs = widen
+      ? Math.min(baseMax + hops * 3, 12)
+      : analogIntent
+        ? Math.max(baseMax, 10)
+        : baseMax;
+
+    if (analogIntent) {
+      harness.state.set("analogIntent", true);
+      const existing = harness.state.get("contextGuidelines") || [];
+      if (!existing.includes(ANALOG_LIST_GUIDELINE)) {
+        harness.state.set("contextGuidelines", [
+          ...existing,
+          ANALOG_LIST_GUIDELINE,
+        ]);
+      }
+    }
 
     const enriched = await enrichUserPromptWithShopCatalog(question, {
-      ...this.#catalogOptions(harness),
+      ...this.#catalogOptions(harness, question),
       maxDocs,
     });
     const blocks = extractCatalogBlocksFromText(enriched);

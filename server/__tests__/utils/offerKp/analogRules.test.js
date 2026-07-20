@@ -77,6 +77,17 @@ describe("analogRules", () => {
     expect(equiv).toContain("4032");
   });
 
+  test("detectAnalogIntent ru/pl/en", () => {
+    const { detectAnalogIntent, expandDinNumbersWithEquivalents } = require("../../../utils/offerKp/analogRules");
+    expect(detectAnalogIntent("какие аналоги есть?")).toBe(true);
+    expect(detectAnalogIntent("Podaj zamiennik DIN 934")).toBe(true);
+    expect(detectAnalogIntent("find equivalent for this nut")).toBe(true);
+    expect(detectAnalogIntent("цена на болт")).toBe(false);
+    expect(expandDinNumbersWithEquivalents(["934"])).toEqual(
+      expect.arrayContaining(["934", "5915", "4032"])
+    );
+  });
+
   test("threadMatchesExact", () => {
     expect(
       threadMatchesExact("bolt m8x40 zinc", { size: "8", length: "40" })
