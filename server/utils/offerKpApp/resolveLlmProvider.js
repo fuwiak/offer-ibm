@@ -208,21 +208,18 @@ async function resolveLlmProviderWithFallback(params = {}) {
       return resolveLlmProviderAndModel(params);
     }
 
+    // Never route chat to a known-dead OpenRouter/egress — that only produces
+    // "Connection error" with no chance of recovery. Prefer LM Studio even if
+    // the catalog probe is soft-failing; the actual request will surface truth.
     offerKpLog(
       "warn",
-      "OpenRouter/egress unreachable — trying LM Studio fallback",
+      "OpenRouter/egress unreachable — using LM Studio (do not call OpenRouter)",
       { baseUrl: openRouterEnv.resolveOpenRouterBaseUrl() }
     );
     const catalog = await lmStudioModels.fetchLmStudioModelCatalog({
       forceRefresh: true,
     });
-    if (catalog?.reachable !== false) {
-      return resolveLmStudioOnly({ ...params, catalog });
-    }
-
-    offerKpLog("error", "OpenRouter and LM Studio both unreachable");
-    // Keep teacher so the chat error path can show the egress hint.
-    return resolveOpenRouterTeacherResult({ reason: "openrouter_unreachable" });
+    return resolveLmStudioOnly({ ...params, catalog });
   }
 
   // Always re-probe when OpenRouter is available so a dead lainey does not

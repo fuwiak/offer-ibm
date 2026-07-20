@@ -218,6 +218,34 @@ describe("resolveLlmProvider", () => {
     egressSpy.mockRestore();
     catalogSpy.mockRestore();
   });
+
+  it("uses LM Studio even when catalog looks unreachable if OpenRouter is down", async () => {
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    jest
+      .spyOn(openRouterEnv, "probeOpenRouterReachable")
+      .mockResolvedValue(false);
+    jest
+      .spyOn(openRouterEnv, "ensureOpenRouterEgressBaseUrl")
+      .mockResolvedValue("http://127.0.0.1:8787/api/v1");
+    const lmStudioModels = require("../../../utils/offerKpApp/lmStudioModels");
+    jest.spyOn(lmStudioModels, "fetchLmStudioModelCatalog").mockResolvedValue({
+      ids: [],
+      loadedIds: [],
+      stateById: {},
+      reachable: false,
+      fetchError: true,
+    });
+
+    const resolved = await resolveLlmProviderWithFallback({
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+  });
 });
 
 describe("pickRunnableLmStudioModel", () => {
