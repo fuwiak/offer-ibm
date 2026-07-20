@@ -43,7 +43,7 @@ const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b-thinking";
+const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
 const OFFER_KP_LOCAL_MODELS = Object.entries(

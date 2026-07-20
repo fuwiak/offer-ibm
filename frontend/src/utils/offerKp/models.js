@@ -39,7 +39,7 @@ export const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-export const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b-thinking";
+export const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 
 export const OFFER_KP_LOCAL_MODELS = Object.entries(
   OFFER_KP_MODEL_DISPLAY_OVERRIDES

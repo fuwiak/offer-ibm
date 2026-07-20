@@ -2,7 +2,7 @@
  * OfferKp default LLM config — LM Studio on lainey (Selectel).
  * Sync with Railway: LMSTUDIO_BASE_PATH, LMSTUDIO_MODEL_PREF, LMSTUDIO_MODEL_TOKEN_LIMIT.
  */
-const OFFER_KP_LM_DEFAULT_MODEL = "qwen/qwen3-vl-8b-thinking";
+const OFFER_KP_LM_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
 const OFFER_KP_LM_OCR_MODEL =
   "paddlepaddle/paddleocr-vl-1.5-gguf/paddleocr-vl-1.5.gguf";
 
@@ -21,7 +21,7 @@ module.exports = {
   // Native OpenAI-style tools for OpenRouter teacher / agents (create-docx, quote-calculator…).
   PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING:
     "generic-openai,bedrock,localai,groq,litellm,openrouter",
-  OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (Qwen3-VL-8B Thinking)",
+  OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (Qwen3-VL-8B)",
   OFFER_KP_OCR_LLM_LABEL: "LM Studio (PaddleOCR-VL 1.5 · чтение файлов)",
   OFFER_KP_LMSTUDIO_HOST,
 };

@@ -31,6 +31,22 @@ const DEFAULT_QUERY_LIMIT = 50;
 // Таблицы каталога purolat имеют приоритет в описании схемы.
 const PRIORITY_TABLES = Object.values(TABLES);
 
+/**
+ * ShopDB ask — два коротких JSON-вызова. Thinking-модели (…-thinking) здесь
+ * вредны: длинный CoT + очередь за чатом → 499/таймаут в UI.
+ * По умолчанию снимаем суффикс -thinking или берём LMSTUDIO_ASK_MODEL_PREF.
+ */
+function resolveAskLlmModel(preferredModel = null) {
+  const explicit = String(process.env.LMSTUDIO_ASK_MODEL_PREF || "").trim();
+  if (explicit) return explicit;
+  const base = String(
+    preferredModel || process.env.LMSTUDIO_MODEL_PREF || "qwen/qwen3-vl-8b"
+  )
+    .trim()
+    .replace(/-thinking$/i, "");
+  return base || "qwen/qwen3-vl-8b";
+}
+
 function priorityIndex(name) {
   const i = PRIORITY_TABLES.indexOf(name);
   return i === -1 ? PRIORITY_TABLES.length + 1 : i;
@@ -83,7 +99,16 @@ const SQL_SYSTEM_PROMPT = `Ты SQL-аналитик каталога purolat.co
 - Всегда добавляй разумный LIMIT (не больше ${DEFAULT_QUERY_LIMIT}).
 - Если данных для ответа в схеме нет — верни пустую строку в поле sql.
 
-Ответ строго в JSON без markdown:
+Подсказки по полям:
+- Цена (cena/price): shop_product.price (+ currency); при необходимости SKU — shop_product_skus.price.
+- Количество/остаток (liczba/count/stock): только shop_product_skus.count (и available). У shop_product колонки count НЕТ.
+- Не копируй полное название в один LIKE — в БД часто двойные пробелы (DIN␠␠933, M␠30x230).
+  Пиши шаблоны БЕЗ опоры на один пробел: p.name LIKE '%DIN%933%' AND p.name LIKE '%30x230%' AND p.name LIKE '%8.8%'
+  (и при необходимости LIKE '%оцинк%' / '%zn%'). НИКОГДА не используй '%DIN 933%' — не найдёт.
+- JOIN: LEFT JOIN shop_product_skus s ON s.product_id = p.id. В SELECT бери p.name, p.price, p.currency, s.count, s.available, s.sku.
+- DIN/ГОСТ/размер обычно уже в shop_product.name.
+
+Ответ строго в JSON без markdown и без рассуждений:
 {"sql": "SELECT ...", "rationale": "кратко зачем этот запрос"}`;
 
 function extractJsonObject(text) {
@@ -176,9 +201,14 @@ async function askShopDb({ question, workspace = null, limit } = {}) {
   }
 
   const t0 = Date.now();
+  const askModel = resolveAskLlmModel(workspace?.chatModel || null);
   const LLMConnector = await getLLMProviderWithFallback({
-    provider: workspace?.chatProvider || null,
-    model: workspace?.chatModel || null,
+    provider: workspace?.chatProvider || "lmstudio",
+    model: askModel,
+  });
+  shopDbLog.info("ask: llm", {
+    model: askModel,
+    provider: LLMConnector?.className || LLMConnector?.constructor?.name,
   });
 
   const { text: schemaText } = await buildSchemaSummary();
@@ -247,4 +277,5 @@ async function askShopDb({ question, workspace = null, limit } = {}) {
 module.exports = {
   askShopDb,
   buildSchemaSummary,
+  resolveAskLlmModel,
 };
