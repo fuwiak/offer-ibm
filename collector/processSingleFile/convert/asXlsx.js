@@ -11,21 +11,7 @@ const {
 const { tokenizeString } = require("../../utils/tokenizer");
 const { default: slugify } = require("slugify");
 const { SmartOCRAgent, scoreText } = require("../../utils/SmartOCRAgent");
-
-function convertToCSV(data) {
-  return data
-    .map((row) =>
-      row
-        .map((cell) => {
-          if (cell === null || cell === undefined) return "";
-          if (typeof cell === "string" && cell.includes(","))
-            return `"${cell}"`;
-          return cell;
-        })
-        .join(",")
-    )
-    .join("\n");
-}
+const { scrapeSheetData } = require("../../utils/scrapeSpreadsheet");
 
 async function asXlsx({
   fullFilePath = "",
@@ -49,8 +35,9 @@ async function asXlsx({
     // If node-xlsx produced nothing or failed, try SmartOCRAgent fallback chain
     const rawText =
       workSheetsFromFile
-        ?.flatMap((s) => (s.data || []).map((r) => (r || []).join("\t")))
-        .join("\n") ?? "";
+        ?.map((s) => scrapeSheetData(s.data || []))
+        .filter(Boolean)
+        .join("\n\n") ?? "";
     const rawScore = scoreText(rawText);
 
     if (!workSheetsFromFile || !rawScore.isAcceptable) {
@@ -210,14 +197,15 @@ async function asXlsx({
 }
 
 /**
- * Processes a single sheet and returns its content and metadata
- * @param {{name: string, data: Array<Array<string|number|null|undefined>>}} sheet - Parsed sheet with name and 2D array of cell values
- * @returns {{name: string, content: string, wordCount: number}|null} - Object with name, CSV content, and word count, or null if sheet is empty
+ * Processes a single sheet and returns its content and metadata.
+ * Sparse BOM/spec sheets become TSV (`обозначение\tколичество`), not padded CSV.
+ * @param {{name: string, data: Array<Array<string|number|null|undefined>>}} sheet
+ * @returns {{name: string, content: string, wordCount: number}|null}
  */
 function processSheet(sheet) {
   try {
     const { name, data } = sheet;
-    const content = convertToCSV(data);
+    const content = scrapeSheetData(data);
 
     if (!content?.length) {
       console.log(`Sheet "${name}" is empty. Skipping.`);
@@ -237,3 +225,5 @@ function processSheet(sheet) {
 }
 
 module.exports = asXlsx;
+module.exports.processSheet = processSheet;
+module.exports.scrapeSheetData = scrapeSheetData;

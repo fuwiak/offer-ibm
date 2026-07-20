@@ -102,4 +102,30 @@ describe("parseInquiry PDF/OCR extraction", () => {
       expect(line.name).toMatch(new RegExp(`ГОСТ ${expected.gost}`, "i"));
     });
   });
+
+  it("parses Excel-scraped designation\\tqty TSV without header noise", () => {
+    const text = [
+      "Спецификация 77",
+      "Обозначение (Артикул)\tКоличество шт",
+      "Болт М12-6gx40.88.019 ГОСТ 7805-70\t4",
+      "Винт DIN 7500-Е М5х12-St\t75",
+      "Гайка М6-6Н.5.019 ГОСТ 5927-70\t6",
+    ].join("\n");
+
+    const chunks = splitInquiryChunks(text);
+    expect(chunks.some((c) => /Спецификац/i.test(c))).toBe(false);
+    expect(chunks.some((c) => /Обозначение/i.test(c))).toBe(false);
+    expect(chunks.length).toBeGreaterThanOrEqual(3);
+
+    const lines = parseInquiryText(text);
+    expect(lines.some((l) => l.quantity === 4 && /ГОСТ 7805/i.test(l.name))).toBe(
+      true
+    );
+    expect(lines.some((l) => l.quantity === 75 && /DIN 7500/i.test(l.name))).toBe(
+      true
+    );
+    expect(lines.some((l) => l.quantity === 6 && /Гайка/i.test(l.name))).toBe(
+      true
+    );
+  });
 });

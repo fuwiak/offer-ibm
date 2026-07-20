@@ -9,7 +9,7 @@ const LINE_SPLIT_RE = /\n+|;\s*(?=\d)|(?<=\d)\s*[,;]\s*(?=\D)/;
 const HARDWARE_LINE_RE =
   /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bштанг|\bболт\s+m|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк|\bвинт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
 const INQUIRY_SKIP_LINE_RE =
-  /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|ед\.?\s*изм|кол-?во|итого|всего)/i;
+  /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац)/i;
 const INQUIRY_UNIT_RE = /^(?:кг|kg|шт\.?|pcs|м|м\.|т|упак|ед\.?)$/i;
 const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć/i;
 const PRICE_HEADER_RE = /цен|price|cena|сумм|стоимост/i;
@@ -109,6 +109,12 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
     const qty = String(qtyCol).match(/(\d+(?:[.,]\d+)?)/)?.[1];
     if (qty && !isLikelyPriceToken(qty)) {
       parts.push(`${qty} ${unitCol || "шт"}`);
+    } else if (
+      QTY_HEADER_RE.test(qtyCol) ||
+      /обозначен|артикул|наименован/i.test(productCol)
+    ) {
+      // Строка заголовка таблицы («Обозначение… | Количество»), не позиция.
+      return null;
     }
   }
   return parts.join(" ").trim();

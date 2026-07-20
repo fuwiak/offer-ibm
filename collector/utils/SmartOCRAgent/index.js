@@ -403,14 +403,10 @@ const EXCEL_STRATEGIES = [
     async fn(filePath) {
       try {
         const xlsx = require("node-xlsx").default;
+        const { scrapeWorkbookSheets } = require("../scrapeSpreadsheet");
         const sheets = xlsx.parse(filePath);
-        const parts = sheets.map((s) => {
-          const rows = (s.data || [])
-            .map((row) => (row || []).map((c) => (c == null ? "" : String(c))).join("\t"))
-            .join("\n");
-          return `[Sheet: ${s.name}]\n${rows}`;
-        });
-        return parts.join("\n\n") || null;
+        const text = scrapeWorkbookSheets(sheets);
+        return text || null;
       } catch (e) {
         log("node-xlsx", `failed: ${e.message}`);
         return null;
@@ -424,19 +420,22 @@ const EXCEL_STRATEGIES = [
     async fn(filePath) {
       try {
         const ExcelJS = require("exceljs");
+        const { scrapeSheetData } = require("../scrapeSpreadsheet");
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.readFile(filePath);
         const parts = [];
         wb.eachSheet((sheet) => {
-          const rows = [];
-          sheet.eachRow((row) => {
-            const cells = [];
-            row.eachCell({ includeEmpty: true }, (cell) => {
-              cells.push(cell.text != null ? String(cell.text) : "");
+          const data = [];
+          sheet.eachRow({ includeEmpty: false }, (row) => {
+            const sparse = [];
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+              sparse[colNumber - 1] =
+                cell.text != null ? String(cell.text) : "";
             });
-            rows.push(cells.join("\t"));
+            data.push(sparse);
           });
-          parts.push(`[Sheet: ${sheet.name}]\n${rows.join("\n")}`);
+          const content = scrapeSheetData(data);
+          if (content) parts.push(`Sheet: ${sheet.name}\n${content}`);
         });
         return parts.join("\n\n") || null;
       } catch (e) {
@@ -483,14 +482,10 @@ const EXCEL_STRATEGIES = [
     async fn(filePath) {
       try {
         const xlsx = require("node-xlsx").default;
+        const { scrapeWorkbookSheets } = require("../scrapeSpreadsheet");
         const sheets = xlsx.parse(filePath, { defval: "" });
-        const parts = sheets.map((s) => {
-          const rows = (s.data || [])
-            .map((row) => (row || []).map((c) => String(c)).join("\t"))
-            .join("\n");
-          return `[Sheet: ${s.name}]\n${rows}`;
-        });
-        return parts.join("\n\n") || null;
+        const text = scrapeWorkbookSheets(sheets);
+        return text || null;
       } catch (e) {
         log("node-xlsx-defval", `failed: ${e.message}`);
         return null;
