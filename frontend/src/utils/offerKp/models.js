@@ -8,9 +8,13 @@ const OFFER_KP_MODEL_ID_ALIASES = {
 };
 
 export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
+  "openai/gpt-oss-20b": {
+    name: "gpt-oss-20b",
+    hint: "Локально · agent brain · tools · T4: ctx 8192",
+  },
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",
-    hint: "Локально · vision · рассуждения · Q4_K_M · ~8 GB VRAM",
+    hint: "Локально · eyes / OCR · vision",
   },
   "qwen/qwen3-vl-30b": {
     name: "Qwen3-VL-30B A3B",
@@ -18,7 +22,7 @@ export const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
-    hint: "Локально · vision · Q4_K_M",
+    hint: "Локально · vision · fallback brain",
   },
   "qwen/qwen3-14b": {
     name: "Qwen3-14B",
@@ -39,7 +43,7 @@ export const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-export const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
+export const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
 
 export const OFFER_KP_LOCAL_MODELS = Object.entries(
   OFFER_KP_MODEL_DISPLAY_OVERRIDES

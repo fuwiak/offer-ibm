@@ -40,6 +40,18 @@ function resolveLmStudioLoadProfile(modelId, overrides = {}) {
     };
   }
 
+  // gpt-oss-20b on T4 16GB: keep KV small or OOM.
+  if (id.includes("gpt-oss") || /\b20b\b/.test(id)) {
+    return {
+      contextLength:
+        overrides.contextLength ||
+        Number(process.env.OFFER_KP_PIPELINE_AGENT_CONTEXT) ||
+        8192,
+      gpu: overrides.gpu || process.env.LMSTUDIO_OSS_GPU || "max",
+      offloadKvCacheToGpu: true,
+    };
+  }
+
   return {
     contextLength: overrides.contextLength || defaultCtx,
     gpu: overrides.gpu || LMS_LOAD_GPU,

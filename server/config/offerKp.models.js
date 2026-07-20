@@ -12,9 +12,13 @@ const OFFER_KP_MODEL_ID_ALIASES = {
 };
 
 const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
+  "openai/gpt-oss-20b": {
+    name: "gpt-oss-20b",
+    hint: "Локально · agent brain · tools · T4: ctx 8192",
+  },
   "qwen/qwen3-vl-8b-thinking": {
     name: "Qwen3-VL-8B Thinking",
-    hint: "Локально · vision · рассуждения · Q4_K_M · ~8 GB VRAM",
+    hint: "Локально · eyes / OCR · vision · ~8 GB VRAM",
   },
   "qwen/qwen3-vl-30b": {
     name: "Qwen3-VL-30B A3B",
@@ -22,7 +26,7 @@ const OFFER_KP_MODEL_DISPLAY_OVERRIDES = {
   },
   "qwen/qwen3-vl-8b": {
     name: "Qwen3-VL-8B",
-    hint: "Локально · vision · Q4_K_M",
+    hint: "Локально · vision · fallback brain · Q4_K_M",
   },
   "qwen/qwen3-14b": {
     name: "Qwen3-14B",
@@ -43,7 +47,7 @@ const OFFER_KP_OCR_MODEL_METADATA = {
   },
 };
 
-const OFFER_KP_DEFAULT_MODEL = "qwen/qwen3-vl-8b";
+const OFFER_KP_DEFAULT_MODEL = "openai/gpt-oss-20b";
 
 /** Fallback when LM Studio API is unreachable (dev/offline). */
 const OFFER_KP_LOCAL_MODELS = Object.entries(
@@ -261,10 +265,15 @@ function resolveOfferKpEffectiveModel(workspace) {
 
 function resolveOfferKpOcrModel() {
   const llmDefaults = require("./offerKp.llm.defaults");
+  const {
+    resolvePipelineVisionModel,
+  } = require("../utils/offerKp/offerKpModelPipeline");
   return normalizeOfferKpModelId(
-    process.env.LMSTUDIO_OCR_MODEL_PREF ||
+    process.env.OFFER_KP_PIPELINE_VISION_MODEL ||
+      process.env.LMSTUDIO_OCR_MODEL_PREF ||
+      llmDefaults.OFFER_KP_PIPELINE_VISION_MODEL ||
       llmDefaults.LMSTUDIO_OCR_MODEL_PREF ||
-      OFFER_KP_PADDLEOCR_VL_15_MODEL
+      resolvePipelineVisionModel()
   );
 }
 

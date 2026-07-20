@@ -7,11 +7,14 @@ const { hasHardwareSignals } = require("./productSearchAgent");
 const { isQuoteDocumentRequest } = require("./quoteRequestPhrases");
 const { detectQuoteCreationIntentSync } = require("./quoteIntentJudge");
 
-const DEFAULT_WEAK_MODELS = ["openai/gpt-oss-20b"];
-const DEFAULT_FALLBACK_CHAIN = [
-  "google/gemma-4-12b",
-  "google/gemma-4-12b-qat",
+const DEFAULT_WEAK_MODELS = [
+  // gpt-oss-20b is the agent brain — not weak.
   "deepseek/deepseek-r1-0528-qwen3-8b",
+];
+const DEFAULT_FALLBACK_CHAIN = [
+  "openai/gpt-oss-20b",
+  "qwen/qwen3-vl-8b",
+  "google/gemma-4-12b",
 ];
 
 function quotePdfModelAutoSwitchEnabled() {

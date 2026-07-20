@@ -9,22 +9,29 @@
 - код: `/opt/offer-kp/app`
 - данные: `/opt/offer-kp/data`
 - collector hotdir: `/opt/offer-kp/app/collector/hotdir`
-- LLM: OpenRouter teacher через egress-proxy (см. ниже) / LM Studio `127.0.0.1:1234` когда запущен
+- LLM: dual-model LM Studio на T4 16GB (см. ниже) / OpenRouter teacher через egress
 
-## LLM on Lainey
+## Dual-model LLM (oczy / mózg / prawda)
 
-- **LM Studio** (`lms server` on `:1234`) — primary when `OFFER_KP_TEACHER_LLM=0`
-- **OpenRouter** via egress `:8787` — used when teacher=1, or as fallback if LM Studio is down
+На Tesla T4 **16 ГБ** обе модели **не** держатся в VRAM сразу — только sequential `unload → load`.
+
+| Rola | Model | Zadanie |
+|------|-------|---------|
+| **Oczy** | `qwen/qwen3-vl-8b-thinking` | PDF/zdjęcia → JSON (nazwa, qty, unit). Bez cen/SKU. |
+| **Mózg** | `openai/gpt-oss-20b` (ctx **8192**) | Agent tools, retry, niejednoznaczności. |
+| **Prawda** | ShopDB + `matchInquiry` / `analogRules` / quote PDF | Exact / najtańszy analog, ceny, sumy, КП. |
 
 Start / enable LM Studio:
 
 ```bash
 export PATH="/root/.lmstudio/bin:$PATH"
 lms server start --port 1234
-# Fast default for ShopDB ask + chat. Agent prompts need ≥10k tokens — always set context.
-lms load qwen/qwen3-vl-8b --context-length 32768 --gpu max -y
-# systemd unit: docker/lmstudio-server.service → /etc/systemd/system/
+# Boot brain (idle). Eyes load only during OCR via app.
+lms load openai/gpt-oss-20b --context-length 8192 --gpu max -y
+# systemd: docker/lmstudio-server.service → /etc/systemd/system/
 ```
+
+Fallback brain if gpt-oss missing/OOM: `qwen/qwen3-vl-8b`.
 
 In `server/.env`:
 
@@ -32,13 +39,15 @@ In `server/.env`:
 OFFER_KP_TEACHER_LLM=0
 LLM_PROVIDER=lmstudio
 LMSTUDIO_BASE_PATH=http://127.0.0.1:1234/v1
-LMSTUDIO_MODEL_PREF=qwen/qwen3-vl-8b
+LMSTUDIO_MODEL_PREF=openai/gpt-oss-20b
+OFFER_KP_PIPELINE_VISION_MODEL=qwen/qwen3-vl-8b-thinking
+OFFER_KP_PIPELINE_AGENT_MODEL=openai/gpt-oss-20b
+OFFER_KP_PIPELINE_AGENT_FALLBACK=qwen/qwen3-vl-8b
+OFFER_KP_PIPELINE_AGENT_CONTEXT=8192
 LMSTUDIO_ASK_MODEL_PREF=qwen/qwen3-vl-8b
 LMSTUDIO_MODEL_TOKEN_LIMIT=32768
 ```
 
-`…-thinking` годится для сложных чатов, но для «Спросить базу» блокирует GPU длинным CoT
-(очередь → 499 в браузере). Ask всегда берёт `LMSTUDIO_ASK_MODEL_PREF` / non-thinking.
 Прямой доступ к `openrouter.ai` с IP Lainey даёт `403 Access denied by security policy`.
 Нужен egress-proxy на машине вне блокировки + reverse SSH:
 

@@ -36,7 +36,7 @@ const OFFER_KP_HARNESS_GUIDELINES = [
   {
     id: "prices-catalog-only",
     when: "always",
-    text: "Цены только из блоков [Каталог · purolat.com]. Запрещены плейсхолдеры «[цена]», «уточните» и выдуманные суммы.",
+    text: "Цены только из блоков [Каталог · purolat.com]. Запрещены плейсхолдеры «[цена]», «уточните» и выдуманные суммы. Qwen-VL — только OCR; gpt-oss оркестрирует; источник правды — ShopDB/matchInquiry.",
   },
   {
     id: "docx-nonempty",

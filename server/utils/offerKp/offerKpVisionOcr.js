@@ -1,17 +1,40 @@
 const llmDefaults = require("../../config/offerKp.llm.defaults");
-const { resolveOfferKpChatModel } = require("../../config/offerKp.models");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
-const { resolveOpenRouterApiKey, resolveOpenRouterBaseUrl, resolveOpenRouterHeaders } = require("../offerKpApp/openRouterEnv");
+const {
+  resolveOpenRouterApiKey,
+  resolveOpenRouterBaseUrl,
+  resolveOpenRouterHeaders,
+} = require("../offerKpApp/openRouterEnv");
 const {
   shouldUseTeacherLlm,
   resolveTeacherModel,
 } = require("../offerKpApp/teacherLlm");
 const { renderPdfPages } = require("./offerKpPaddleOcr");
+const {
+  resolvePipelineVisionModel,
+  ensurePipelineModelLoaded,
+} = require("./offerKpModelPipeline");
 
+/** Legacy plain-text OCR (fallback when JSON parse fails). */
 const VISION_OCR_PROMPT = `Извлеки весь текст с изображения заявки/спецификации.
 Сохрани таблицу построчно: № | Наименование | Ед.изм. | Кол-во.
 Кол-во — целые числа или кг из колонки «Кол-во». НЕ путай кол-во с ценой (руб/копейки).
 Только извлечённый текст на русском, без комментариев.`;
+
+/**
+ * Eyes only: extract line items as JSON. Never invent prices or SKUs —
+ * catalog truth lives in ShopDB / matchInquiry.
+ */
+const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на крепёж. Извлеки позиции с изображения.
+
+Верни ТОЛЬКО JSON-массив (без markdown, без рассуждений):
+[{"name":"полное наименование","qty":число_или_null,"unit":"шт|кг|м|уп|…","din":"933 или null","gost":"7805 или null","notes":"кратко или пусто"}]
+
+Правила:
+- name — как на документе (DIN/ГОСТ/размер/покрытие).
+- qty — только колонка количества; НЕ путай с ценой.
+- Не выдумывай цены, SKU, остатки и ссылки — их нет в твоей роли.
+- Если таблица пуста — верни [].`;
 
 function lmStudioChatUrl() {
   const base =
@@ -42,17 +65,77 @@ function resolveVisionOcrEndpoint() {
 
   return {
     url: lmStudioChatUrl(),
-    modelId: null,
+    modelId: resolvePipelineVisionModel(),
     headers,
-    engine: "qwen3-vl",
+    engine: "qwen3-vl-thinking-json",
     teacher: false,
   };
 }
 
-async function visionOcrImageBuffer(imageBuffer, modelId) {
+function extractJsonArray(text) {
+  if (typeof text !== "string") return null;
+  const cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(cleaned.slice(start, end + 1));
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convert OCR JSON lines into plain inquiry text for parseInquiryText.
+ * @param {Array<object>} lines
+ * @returns {string}
+ */
+function inquiryTextFromOcrJsonLines(lines = []) {
+  if (!Array.isArray(lines) || !lines.length) return "";
+  return lines
+    .map((row, index) => {
+      if (row == null) return "";
+      if (typeof row === "string") return row.trim();
+      const name = String(row.name || row.title || row.наименование || "").trim();
+      if (!name) return "";
+      const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
+      const unit = String(row.unit || row.ед || "шт").trim() || "шт";
+      const din = row.din ? ` DIN ${row.din}` : "";
+      const gost = row.gost ? ` ГОСТ ${row.gost}` : "";
+      const notes = row.notes ? ` (${row.notes})` : "";
+      const qtyPart =
+        qty != null && String(qty).trim() !== ""
+          ? ` — ${qty} ${unit}`
+          : "";
+      return `${index + 1}. ${name}${din}${gost}${qtyPart}${notes}`.trim();
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * @param {string} raw
+ * @returns {{ text: string, lines: object[]|null, format: "json"|"text" }}
+ */
+function normalizeVisionOcrResponse(raw) {
+  const content = String(raw || "").trim();
+  const lines = extractJsonArray(content);
+  if (lines) {
+    const text = inquiryTextFromOcrJsonLines(lines);
+    if (text) return { text, lines, format: "json" };
+  }
+  return { text: content, lines: null, format: "text" };
+}
+
+async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
   const base64 = imageBuffer.toString("base64");
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
+  const prompt = opts.json !== false ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
 
   const response = await fetch(endpoint.url, {
     method: "POST",
@@ -63,7 +146,7 @@ async function visionOcrImageBuffer(imageBuffer, modelId) {
         {
           role: "user",
           content: [
-            { type: "text", text: VISION_OCR_PROMPT },
+            { type: "text", text: prompt },
             {
               type: "image_url",
               image_url: {
@@ -94,16 +177,27 @@ async function visionOcrImageBuffer(imageBuffer, modelId) {
 }
 
 /**
- * Чтение PDF через Qwen3-VL (teacher OpenRouter или локальный LM Studio).
+ * Чтение PDF через Qwen3-VL Thinking (eyes) → JSON lines → inquiry text.
  */
 async function visionOcrPdf(pdfPath, opts = {}) {
   const endpoint = resolveVisionOcrEndpoint();
-  const modelId =
-    endpoint.modelId ||
-    opts.modelId ||
-    resolveOfferKpChatModel(opts.workspace) ||
-    llmDefaults.LMSTUDIO_MODEL_PREF;
+  let modelId = endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
   const startedAt = Date.now();
+
+  if (!endpoint.teacher) {
+    try {
+      const loaded = await ensurePipelineModelLoaded("vision", {
+        workspace: opts.workspace || null,
+      });
+      modelId = loaded.modelId || modelId;
+    } catch (error) {
+      offerKpLog("warn", "Vision OCR: failed to load eyes model", {
+        model: modelId,
+        error: error?.message || String(error),
+      });
+      throw error;
+    }
+  }
 
   const pages = await renderPdfPages(pdfPath, {
     dpi: Number(process.env.OFFER_KP_VISION_OCR_DPI) || 200,
@@ -115,6 +209,9 @@ async function visionOcrPdf(pdfPath, opts = {}) {
   }
 
   const parts = [];
+  const allLines = [];
+  let usedJson = false;
+
   for (const { pageNumber, buffer } of pages) {
     opts.onProgress?.({
       type: "ocr_progress",
@@ -122,30 +219,57 @@ async function visionOcrPdf(pdfPath, opts = {}) {
       page: pageNumber,
       total: pages.length,
     });
-    const text = await visionOcrImageBuffer(buffer, modelId);
-    parts.push(text);
+    let raw = await visionOcrImageBuffer(buffer, modelId, { json: true });
+    let normalized = normalizeVisionOcrResponse(raw);
+
+    if (normalized.format !== "json" || !normalized.text) {
+      raw = await visionOcrImageBuffer(buffer, modelId, { json: false });
+      normalized = normalizeVisionOcrResponse(raw);
+    }
+
+    if (normalized.format === "json" && normalized.lines) {
+      usedJson = true;
+      allLines.push(...normalized.lines);
+    }
+    parts.push(normalized.text);
     offerKpLog("info", "Vision OCR page done", {
       page: pageNumber,
       total: pages.length,
-      chars: text.length,
+      chars: normalized.text.length,
+      format: normalized.format,
       model: modelId,
       teacher: endpoint.teacher || false,
     });
   }
 
-  const fullText = parts.filter(Boolean).join("\n\n");
+  const fullText = usedJson
+    ? inquiryTextFromOcrJsonLines(allLines) || parts.filter(Boolean).join("\n\n")
+    : parts.filter(Boolean).join("\n\n");
+
   offerKpLog("info", "Vision OCR PDF complete", {
     pages: pages.length,
     chars: fullText.length,
+    format: usedJson ? "json" : "text",
     durationMs: Date.now() - startedAt,
     model: modelId,
     teacher: endpoint.teacher || false,
   });
-  return fullText;
+
+  return {
+    text: fullText,
+    lines: usedJson ? allLines : null,
+    format: usedJson ? "json" : "text",
+    modelId,
+    engine: usedJson ? "qwen3-vl-thinking-json" : endpoint.engine,
+  };
 }
 
 module.exports = {
   visionOcrPdf,
   visionOcrImageBuffer,
   VISION_OCR_PROMPT,
+  VISION_OCR_JSON_PROMPT,
+  extractJsonArray,
+  inquiryTextFromOcrJsonLines,
+  normalizeVisionOcrResponse,
 };

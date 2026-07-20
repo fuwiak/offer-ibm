@@ -8,10 +8,7 @@ RemainAfterExit=yes
 User=root
 Environment=PATH=/root/.lmstudio/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/root/.lmstudio/bin/lms server start --port 1234
-ExecStartPost=/bin/sleep 2
-# Non-thinking 8B keeps ShopDB ask + chat responsive. Prefer …-thinking only via UI when needed.
-# Always pass --context-length 32768 (LMS default window is 4k and breaks agent prompts).
-ExecStartPost=/root/.lmstudio/bin/lms load qwen/qwen3-vl-8b --context-length 32768 --gpu max -y
+ExecStartPost=/opt/offer-kp/app/docker/lmstudio-load-brain.sh
 ExecStop=/root/.lmstudio/bin/lms server stop
 Restart=no
 

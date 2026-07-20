@@ -553,7 +553,7 @@ async function loadLmStudioModel(modelId, opts = {}) {
 }
 
 /**
- * @param {"chat"|"ocr"} task
+ * @param {"chat"|"ocr"|"vision"|"agent"} task
  * @param {{ workspace?: object, modelId?: string }} [opts]
  */
 async function loadLmStudioModelForTask(task, opts = {}) {
@@ -562,15 +562,31 @@ async function loadLmStudioModelForTask(task, opts = {}) {
     resolveOfferKpChatModel,
     OFFER_KP_DEFAULT_MODEL,
   } = require("../../config/offerKp.models");
+  const {
+    resolvePipelineVisionModel,
+    resolvePipelineAgentModel,
+    resolvePipelineAgentContext,
+  } = require("../offerKp/offerKpModelPipeline");
 
-  const modelId =
-    opts.modelId ||
-    (task === "ocr"
-      ? resolveOfferKpOcrModel()
-      : resolveOfferKpChatModel(opts.workspace) || OFFER_KP_DEFAULT_MODEL);
+  const t = String(task || "").toLowerCase();
+  let modelId = opts.modelId;
+  let contextLength = opts.contextLength;
+
+  if (!modelId) {
+    if (t === "ocr" || t === "vision" || t === "eyes") {
+      modelId = resolvePipelineVisionModel() || resolveOfferKpOcrModel();
+    } else if (t === "agent" || t === "brain") {
+      modelId = resolvePipelineAgentModel();
+      contextLength = contextLength || resolvePipelineAgentContext(modelId);
+    } else {
+      modelId =
+        resolveOfferKpChatModel(opts.workspace) || OFFER_KP_DEFAULT_MODEL;
+    }
+  }
 
   return loadLmStudioModel(modelId, {
     ...opts,
+    contextLength,
     force: opts.force !== false,
   });
 }

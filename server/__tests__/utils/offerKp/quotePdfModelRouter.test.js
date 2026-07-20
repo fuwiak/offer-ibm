@@ -50,14 +50,14 @@ describe("quotePdfModelRouter", () => {
     expect(parsedTextHasQuoteSignals("короткий текст")).toBe(false);
   });
 
-  it("marks gpt-oss as weak and picks gemma fallback", () => {
-    expect(modelMatchesWeakList("openai/gpt-oss-20b")).toBe(true);
-    expect(pickQuotePdfFallbackModel("openai/gpt-oss-20b")).toBe(
-      "google/gemma-4-12b"
+  it("does not mark gpt-oss-20b as weak (agent brain)", () => {
+    expect(modelMatchesWeakList("openai/gpt-oss-20b")).toBe(false);
+    expect(pickQuotePdfFallbackModel("deepseek/deepseek-r1-0528-qwen3-8b")).toBe(
+      "openai/gpt-oss-20b"
     );
   });
 
-  it("switches model when quote + PDF with line items and fallback is loaded", () => {
+  it("does not switch away from gpt-oss brain on quote+PDF", () => {
     const result = resolveQuotePdfModelSwitch({
       message: "сформируй КП по прикреплённому PDF",
       workspace,
@@ -66,9 +66,24 @@ describe("quotePdfModelRouter", () => {
       availableModels: ["openai/gpt-oss-20b", "google/gemma-4-12b"],
     });
 
+    expect(result).toBeNull();
+  });
+
+  it("switches weak model when quote + PDF and fallback is loaded", () => {
+    const result = resolveQuotePdfModelSwitch({
+      message: "сформируй КП по прикреплённому PDF",
+      workspace: { ...workspace, chatModel: "deepseek/deepseek-r1-0528-qwen3-8b" },
+      parsedFiles: [{ ...pdfFile, pageContent: inquiryText }],
+      parsedFileTexts: [inquiryText],
+      availableModels: [
+        "deepseek/deepseek-r1-0528-qwen3-8b",
+        "openai/gpt-oss-20b",
+      ],
+    });
+
     expect(result).toEqual({
-      from: "openai/gpt-oss-20b",
-      model: "google/gemma-4-12b",
+      from: "deepseek/deepseek-r1-0528-qwen3-8b",
+      model: "openai/gpt-oss-20b",
       provider: "lmstudio",
       reason: "quote_pdf_document",
     });
@@ -78,10 +93,13 @@ describe("quotePdfModelRouter", () => {
     expect(
       resolveQuotePdfModelSwitch({
         message: "сформируй КП по прикреплённому PDF",
-        workspace,
+        workspace: {
+          ...workspace,
+          chatModel: "deepseek/deepseek-r1-0528-qwen3-8b",
+        },
         parsedFiles: [{ ...pdfFile, pageContent: inquiryText }],
         parsedFileTexts: [inquiryText],
-        availableModels: ["openai/gpt-oss-20b"],
+        availableModels: ["deepseek/deepseek-r1-0528-qwen3-8b"],
       })
     ).toBeNull();
   });

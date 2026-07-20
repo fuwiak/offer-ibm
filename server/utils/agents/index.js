@@ -843,6 +843,18 @@ class AgentHandler {
       loadParsedFileTextsForThread,
     } = require("../offerKp/catalogPrompt");
     const { parseInquiryText } = require("../offerKp/parseInquiry");
+    const {
+      ensurePipelineModelLoaded,
+    } = require("../offerKp/offerKpModelPipeline");
+
+    // Brain must be in VRAM (not eyes/Thinking) before tools run.
+    await ensurePipelineModelLoaded("agent", {
+      workspace: this.invocation.workspace,
+    }).catch((error) => {
+      this?.log?.(
+        `pipeline agent load skipped: ${error?.message || String(error)}`
+      );
+    });
 
     const parsedFileTexts = await loadParsedFileTextsForThread({
       workspace: this.invocation.workspace,

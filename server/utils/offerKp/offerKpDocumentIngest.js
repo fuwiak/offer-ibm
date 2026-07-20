@@ -10,6 +10,7 @@ const { directUploadsPath } = require("../files");
 const { safeJsonParse } = require("../http");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const { visionOcrPdf } = require("./offerKpVisionOcr");
+const { ensurePipelineModelLoaded } = require("./offerKpModelPipeline");
 
 function isOfferKpVisionOcrEnabled() {
   const flag = String(process.env.OFFER_KP_USE_VISION_OCR ?? "1").trim();
@@ -49,24 +50,40 @@ function persistDocumentPageContent(doc) {
   const data = safeJsonParse(fs.readFileSync(sourceFile, "utf-8"), {});
   data.pageContent = doc.pageContent;
   if (doc.ocrEngine) data.ocrEngine = doc.ocrEngine;
+  if (doc.ocrLines) data.ocrLines = doc.ocrLines;
   fs.writeFileSync(sourceFile, JSON.stringify(data));
   return true;
 }
 
-function applyVisionOcrText(documents, text) {
+function applyVisionOcrText(documents, text, meta = {}) {
+  const engine = meta.engine || "qwen3-vl-thinking-json";
+  const ocrLines = meta.lines || null;
   if (documents.length <= 1) {
     const base = documents[0] || { id: 0 };
-    return [{ ...base, pageContent: text, ocrEngine: "qwen3-vl" }];
+    return [
+      {
+        ...base,
+        pageContent: text,
+        ocrEngine: engine,
+        ...(ocrLines ? { ocrLines } : {}),
+      },
+    ];
   }
   return documents.map((doc, index) =>
     index === 0
-      ? { ...doc, pageContent: text, ocrEngine: "qwen3-vl" }
-      : { ...doc, pageContent: "", ocrEngine: "qwen3-vl" }
+      ? {
+          ...doc,
+          pageContent: text,
+          ocrEngine: engine,
+          ...(ocrLines ? { ocrLines } : {}),
+        }
+      : { ...doc, pageContent: "", ocrEngine: engine }
   );
 }
 
 /**
- * Qwen3-VL-8B Thinking — и КП, и vision-OCR при битом тексте collector/Tesseract.
+ * Eyes (Qwen3-VL Thinking) when collector/Tesseract text is bad.
+ * After OCR, swap VRAM back to agent brain (gpt-oss-20b).
  */
 async function enrichDocumentsWithOfferKpOcr({
   documents = [],
@@ -91,19 +108,30 @@ async function enrichDocumentsWithOfferKpOcr({
   });
 
   try {
-    const text = await visionOcrPdf(pdfPath, {
+    const ocrResult = await visionOcrPdf(pdfPath, {
       workspace,
       onPage: ({ pageNumber, total }) => {
         onProgress?.({
           type: "ocr_progress",
-          engine: "qwen3-vl",
+          engine: "qwen3-vl-thinking-json",
           page: pageNumber,
           total,
         });
       },
     });
 
-    if (!text?.trim()) return documents;
+    const text =
+      typeof ocrResult === "string" ? ocrResult : ocrResult?.text || "";
+    const lines =
+      typeof ocrResult === "object" && ocrResult ? ocrResult.lines : null;
+    const engine =
+      (typeof ocrResult === "object" && ocrResult?.engine) ||
+      "qwen3-vl-thinking-json";
+
+    if (!text?.trim()) {
+      await ensurePipelineModelLoaded("agent", { workspace }).catch(() => null);
+      return documents;
+    }
 
     if (!isVisionOcrImprovement(beforeText, text)) {
       offerKpLog(
@@ -115,6 +143,7 @@ async function enrichDocumentsWithOfferKpOcr({
           afterChars: text.length,
         }
       );
+      await ensurePipelineModelLoaded("agent", { workspace }).catch(() => null);
       return documents;
     }
 
@@ -124,10 +153,12 @@ async function enrichDocumentsWithOfferKpOcr({
       {
         filename: originalFilename,
         chars: text.length,
+        format: lines ? "json" : "text",
+        engine,
       }
     );
 
-    const updated = applyVisionOcrText(documents, text);
+    const updated = applyVisionOcrText(documents, text, { engine, lines });
     if (!persistDocumentPageContent(updated[0])) {
       offerKpLog(
         "warn",
@@ -138,6 +169,18 @@ async function enrichDocumentsWithOfferKpOcr({
         }
       );
     }
+
+    onProgress?.({
+      type: "stage",
+      stage: "pipeline-agent-load",
+      filename: originalFilename,
+    });
+    await ensurePipelineModelLoaded("agent", { workspace }).catch((error) => {
+      offerKpLog("warn", "OfferKP ingest: failed to restore agent brain", {
+        error: error?.message || String(error),
+      });
+    });
+
     return updated;
   } catch (error) {
     offerKpLog(
@@ -148,6 +191,7 @@ async function enrichDocumentsWithOfferKpOcr({
         error: error?.message || String(error),
       }
     );
+    await ensurePipelineModelLoaded("agent", { workspace }).catch(() => null);
     return documents;
   }
 }

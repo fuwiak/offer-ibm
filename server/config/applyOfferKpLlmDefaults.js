@@ -29,6 +29,19 @@ function applyOfferKpLlmDefaults() {
       defaults.LMSTUDIO_BASE_PATH || "http://87.228.90.43:1234/v1";
   }
 
+  // Dual-model pipeline defaults (eyes / brain) — only if unset.
+  for (const key of [
+    "OFFER_KP_PIPELINE_VISION_MODEL",
+    "OFFER_KP_PIPELINE_AGENT_MODEL",
+    "OFFER_KP_PIPELINE_AGENT_FALLBACK",
+    "OFFER_KP_PIPELINE_AGENT_CONTEXT",
+    "LMSTUDIO_OCR_MODEL_PREF",
+  ]) {
+    if (!envIsSet(key) && defaults[key] != null && defaults[key] !== "") {
+      process.env[key] = String(defaults[key]);
+    }
+  }
+
   // Always enable OpenRouter native tools unless explicitly set/disabled.
   if (!envIsSet("PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING")) {
     process.env.PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING = String(
