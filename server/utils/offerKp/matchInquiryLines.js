@@ -41,12 +41,15 @@ function pickBestInquiryAlternative(alternatives = []) {
   if (!pool.length) return null;
   if (pool.length === 1) return pool[0];
 
-  // Только среди уже отфильтрованных exact/analog — выбрать дешевле.
+  // Среди exact/analog одного размера — берём дешевле (варианты покрытия и т.п.).
   if (exact.length || analogs.length) {
+    const byPrice = [...pool].sort(
+      (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
+    );
     return (
-      pickCheaperAmongSimilar(pool, {
+      pickCheaperAmongSimilar(byPrice, {
         getPrice: (a) => Number(a.price) || 0,
-      }) || pool[0]
+      }) || byPrice[0]
     );
   }
 
