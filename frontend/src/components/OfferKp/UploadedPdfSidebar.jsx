@@ -235,7 +235,7 @@ export default function UploadedPdfSidebar() {
   return (
     <aside
       ref={asideRef}
-      className={`offerKp-uploaded-pdf-panel relative hidden xl:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
+      className={`offerKp-uploaded-pdf-panel relative hidden lg:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
         uploadedPdfSidebarOpen ? "" : "w-10 items-center"
       }`}
       style={uploadedPdfSidebarOpen ? { width: panelWidth } : undefined}

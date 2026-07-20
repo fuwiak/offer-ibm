@@ -15,6 +15,7 @@ import { downloadBlob } from "@/utils/downloadBlob";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
 import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
+import showToast from "@/utils/toast";
 
 const EMPTY_LINE = {
   name: "",
@@ -186,6 +187,12 @@ export default function QuoteDraftTable() {
       setSearchResults(data.products || []);
     } catch (e) {
       console.error(e);
+      showToast(
+        t("quote.searchError", {
+          defaultValue: "Could not search products. Please try again.",
+        }),
+        "error"
+      );
     } finally {
       setSearchLoading(false);
     }
@@ -285,6 +292,12 @@ export default function QuoteDraftTable() {
       }
     } catch (e) {
       console.error("[QuoteDraftTable]", e);
+      showToast(
+        t("quote.downloadError", {
+          defaultValue: "Could not download the document. Please try again.",
+        }),
+        "error"
+      );
     } finally {
       setBusy(null);
     }

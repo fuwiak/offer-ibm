@@ -152,7 +152,14 @@ function getLLMProvider({ provider = null, model = null } = {}) {
       return new GeminiLLM(embedder, model);
     case "lmstudio":
       const { LMStudioLLM } = require("../AiProviders/lmStudio");
-      return new LMStudioLLM(embedder, model);
+      {
+        const llm = new LMStudioLLM(embedder, model);
+        // Surface a silent local-model substitution (requested model not
+        // loaded/known → a different LM Studio model was used instead) so
+        // it shows up in chat metrics/logs instead of only a server warn.
+        if (resolved.modelFallback) llm.modelFallback = resolved.modelFallback;
+        return llm;
+      }
     case "localai":
       const { LocalAiLLM } = require("../AiProviders/localAi");
       return new LocalAiLLM(embedder, model);

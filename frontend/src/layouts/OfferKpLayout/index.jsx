@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { OfferKpProvider } from "@/contexts/OfferKpContext";
-import DocumentPanel from "@/components/DocumentPanel";
 import Sidebar from "@/components/Sidebar";
 import { isMobile } from "react-device-detect";
 import useOfferKpRole from "@/hooks/useOfferKpRole";
@@ -8,7 +7,15 @@ import OfferKpOnboarding, { useOfferKpOnboarding } from "@/components/OfferKp/Of
 import OfferKpActiveThreadSync from "@/components/OfferKp/OfferKpActiveThreadSync";
 import OfferKpSavHost from "@/components/OfferKp/OfferKpSavHost";
 import OfferKpHeaderActions from "@/components/OfferKp/OfferKpHeaderActions";
-import UploadedPdfSidebar from "@/components/OfferKp/UploadedPdfSidebar";
+
+// Pulls in the quote/document component tree, incl. pdfjs-dist (1MB+ worker),
+// so it's split into its own chunk instead of blocking the initial chat route
+// bundle — every workspace mounts this layout, so it still loads almost
+// immediately, but no longer delays first paint/interactivity of the chat itself.
+const DocumentPanel = lazy(() => import("@/components/DocumentPanel"));
+const UploadedPdfSidebar = lazy(
+  () => import("@/components/OfferKp/UploadedPdfSidebar")
+);
 
 /**
  * 3-panel shell: optional left sidebar · center chat · right document panel.
@@ -42,8 +49,16 @@ export default function OfferKpLayout({
           {enabled && <OfferKpHeaderActions />}
           {children}
         </div>
-        {enabled && <UploadedPdfSidebar />}
-        {enabled && <DocumentPanel />}
+        {enabled && (
+          <Suspense fallback={null}>
+            <UploadedPdfSidebar />
+          </Suspense>
+        )}
+        {enabled && (
+          <Suspense fallback={null}>
+            <DocumentPanel />
+          </Suspense>
+        )}
       </div>
       {enabled && <OfferKpSavHost />}
       {showOnboarding && <OfferKpOnboarding onDone={handleOnboardingDone} />}

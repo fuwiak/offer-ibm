@@ -132,6 +132,19 @@ function pinMatchesExact(nameNorm, pin) {
   return re.test(nameNorm);
 }
 
+// When the inquiry line itself carries no parseable thread/pin dimension
+// (common when OCR drops "M10x100"), threadMatchesExact()/pinMatchesExact()
+// return true unconditionally — there is nothing to compare against. That
+// must NOT be read as "size confirmed": if the candidate product's own name
+// does carry a specific size, we simply can't tell whether it's the right
+// one, so it has to be flagged for review rather than accepted as exact.
+function productNameHasUnverifiableDimension(nameNorm, rule) {
+  if (rule?.matchRule === "pin_dimensions") {
+    return Boolean(extractPinDimensions(nameNorm));
+  }
+  return Boolean(extractThread(nameNorm));
+}
+
 function findRuleForStandard(stdNum) {
   const n = String(stdNum);
   const asDin = ANALOG_RULES.find((r) => r.din === n);
@@ -182,10 +195,26 @@ function classifyProductMatch(requestText, product) {
     const rule = ruleInfo?.rule;
 
     if (nameContainsStandard(nameNorm, std)) {
-      if (rule?.matchRule === "pin_dimensions" && pin) {
-        if (!pinMatchesExact(nameNorm, pin)) continue;
+      if (rule?.matchRule === "pin_dimensions") {
+        if (pin) {
+          if (!pinMatchesExact(nameNorm, pin)) continue;
+        } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+          return {
+            matchType: "size_unconfirmed",
+            status: STATUS.NEEDS_REVIEW,
+            analogOf: null,
+            mismatchReason: "size_unconfirmed",
+          };
+        }
       } else if (thread) {
         if (!threadMatchesExact(nameNorm, thread)) continue;
+      } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+        return {
+          matchType: "size_unconfirmed",
+          status: STATUS.NEEDS_REVIEW,
+          analogOf: null,
+          mismatchReason: "size_unconfirmed",
+        };
       }
       matchedExact = true;
       break;
@@ -195,10 +224,26 @@ function classifyProductMatch(requestText, product) {
       if (alt === std) continue;
       if (!nameContainsStandard(nameNorm, alt)) continue;
 
-      if (rule?.matchRule === "pin_dimensions" && pin) {
-        if (!pinMatchesExact(nameNorm, pin)) continue;
+      if (rule?.matchRule === "pin_dimensions") {
+        if (pin) {
+          if (!pinMatchesExact(nameNorm, pin)) continue;
+        } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+          return {
+            matchType: "size_unconfirmed",
+            status: STATUS.NEEDS_REVIEW,
+            analogOf: null,
+            mismatchReason: "size_unconfirmed",
+          };
+        }
       } else if (thread) {
         if (!threadMatchesExact(nameNorm, thread)) continue;
+      } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+        return {
+          matchType: "size_unconfirmed",
+          status: STATUS.NEEDS_REVIEW,
+          analogOf: null,
+          mismatchReason: "size_unconfirmed",
+        };
       }
 
       matchedAnalog = true;
@@ -305,6 +350,7 @@ module.exports = {
   extractStandardNumbers,
   extractThread,
   extractPinDimensions,
+  productNameHasUnverifiableDimension,
   classifyProductMatch,
   applyAnalogScoringPenalty,
   applyMatchPriorityBonus,

@@ -248,6 +248,7 @@ class LMStudioLLM {
         duration: result.duration,
         model: this.model,
         provider: this.className,
+        modelFallback: this.modelFallback || null,
         timestamp: new Date(),
       },
     };

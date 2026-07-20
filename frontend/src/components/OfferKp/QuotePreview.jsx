@@ -5,6 +5,7 @@ import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { QUOTE_BRAND, localeForCountry } from "@/utils/offerKp/quoteBrand";
+import showToast from "@/utils/toast";
 
 function fmtDate(d) {
   return new Date(d).toLocaleDateString("ru-RU", {
@@ -90,6 +91,7 @@ export default function QuotePreview() {
       saveAs(blob, result.filename);
     } catch (e) {
       console.error("[QuotePreview] download error:", e);
+      showToast("Не удалось скачать документ. Попробуйте ещё раз.", "error");
     } finally {
       setBusy(null);
     }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MarkdownIt from "markdown-it";
-import hljs from "highlight.js";
+import hljs from "@/utils/chat/hljsCore";
 import { CaretDown } from "@phosphor-icons/react";
 import "highlight.js/styles/github-dark.css";
 import DOMPurify from "@/utils/chat/purify";

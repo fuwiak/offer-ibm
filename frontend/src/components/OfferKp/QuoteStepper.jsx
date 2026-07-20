@@ -13,6 +13,7 @@ import { Plus, Trash, FilePdf, FileDoc, CircleNotch, Eye } from "@phosphor-icons
 import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
+import showToast from "@/utils/toast";
 
 const STEP_KEYS = [
   "stepProduct",
@@ -112,6 +113,7 @@ export default function QuoteStepper() {
       saveAs(blob, result.filename);
     } catch (e) {
       console.error("[QuoteStepper] PDF error:", e);
+      showToast(t("quote.downloadError"), "error");
     } finally {
       setGeneratingPdf(false);
     }
@@ -145,6 +147,7 @@ export default function QuoteStepper() {
       saveAs(blob, result.filename);
     } catch (e) {
       console.error("[QuoteStepper] DOCX error:", e);
+      showToast(t("quote.downloadError"), "error");
     } finally {
       setGeneratingDocx(false);
     }

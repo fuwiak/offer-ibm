@@ -46,7 +46,16 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
 
   async install(harness) {
     const prompt = this.#resolvePrompt(harness);
-    if (!isQuoteDocumentRequest(prompt)) return;
+    // A phrase match on the message text isn't the only valid trigger: an
+    // attached PDF that already reads as a priced inquiry must also switch
+    // the agent into ShopDB-only mode, otherwise a bare "here's the file"
+    // message silently keeps rag-memory/web-scraping tools available.
+    if (
+      !isQuoteDocumentRequest(prompt) &&
+      !(await ensurePdfInquiryEvidence(harness))
+    ) {
+      return;
+    }
 
     harness.state.set("quoteDocumentRequest", true);
 
