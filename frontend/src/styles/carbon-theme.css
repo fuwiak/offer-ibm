@@ -254,12 +254,19 @@ html.carbon-ui[data-theme="dark"] body {
   background: var(--theme-bg-container);
 }
 
-/* Dark theme — coral CTAs on navy surfaces */
-[data-theme="dark"] .bg-primary-button,
-[data-theme="dark"] .offerKp-btn-primary-block,
-html:not([data-theme="light"]) .bg-primary-button {
+/* Primary CTAs always need light label text.
+   Light theme remaps `.text-white` → `--theme-text-primary` (near-black),
+   which disappears on dark profile accents (e.g. admin #1b2a4a). */
+.bg-primary-button,
+.offerKp-btn-primary-block {
   color: #ffffff;
   border: 1px solid transparent;
+}
+
+[data-theme="light"] .bg-primary-button,
+[data-theme="light"] .bg-primary-button.text-white,
+[data-theme="light"] .offerKp-btn-primary-block {
+  color: #ffffff !important;
 }
 
 [data-theme="dark"] .offerKp-btn-new-chat,

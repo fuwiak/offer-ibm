@@ -277,7 +277,7 @@ export default function ShopDbExplorer() {
                 type="button"
                 onClick={askDb}
                 disabled={asking || !question.trim()}
-                className="flex items-center gap-2 text-xs px-3 py-1.5 bg-primary-button text-white disabled:opacity-50 hover:opacity-90"
+                className="flex items-center gap-2 text-xs px-3 py-1.5 rounded bg-primary-button text-white disabled:opacity-50 hover:opacity-90"
               >
                 <Sparkle size={13} weight="fill" />
                 {asking ? t("admin.db.asking") : t("admin.db.ask")}
@@ -315,7 +315,7 @@ export default function ShopDbExplorer() {
                 type="button"
                 onClick={runQuery}
                 disabled={running || !sql.trim()}
-                className="flex items-center gap-2 text-xs px-3 py-1.5 bg-primary-button text-white disabled:opacity-50 hover:opacity-90"
+                className="flex items-center gap-2 text-xs px-3 py-1.5 rounded bg-primary-button text-white disabled:opacity-50 hover:opacity-90"
               >
                 <Play size={13} weight="fill" />
                 {running ? t("admin.db.running") : t("admin.db.run")}
