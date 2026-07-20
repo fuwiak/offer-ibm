@@ -627,14 +627,6 @@ async function fetchOpenRouterModels() {
     });
 }
 
-      return models;
-    })
-    .catch((e) => {
-      console.error(e);
-      return {};
-    });
-}
-
 module.exports = {
   OpenRouterLLM,
   fetchOpenRouterModels,
