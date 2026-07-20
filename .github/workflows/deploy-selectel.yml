@@ -1,0 +1,65 @@
+name: Deploy Selectel Lainey
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-selectel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Sync → Lainey (87.228.90.43)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: yarn
+          cache-dependency-path: |
+            frontend/yarn.lock
+            server/yarn.lock
+            collector/yarn.lock
+
+      - name: Setup SSH
+        env:
+          LAINEY_SSH_KEY: ${{ secrets.LAINEY_SSH_KEY }}
+        run: |
+          if [ -z "${LAINEY_SSH_KEY}" ]; then
+            echo "Missing secret LAINEY_SSH_KEY — add private key for root@87.228.90.43"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$LAINEY_SSH_KEY" > ~/.ssh/lainey_offer_ibm
+          chmod 600 ~/.ssh/lainey_offer_ibm
+          ssh-keyscan -H 87.228.90.43 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to Selectel
+        env:
+          LAINEY_HOST: 87.228.90.43
+          LAINEY_SSH_USER: root
+          OFFERKP_SSH_KEY: ${{ runner.temp }}/../.ssh/lainey_offer_ibm
+        run: |
+          export OFFERKP_SSH_KEY="$HOME/.ssh/lainey_offer_ibm"
+          chmod +x scripts/deploy-lainey-sync.sh
+          bash scripts/deploy-lainey-sync.sh
+
+      - name: Verify health
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 http://87.228.90.43/ || echo 000)
+            echo "attempt $i → HTTP $code"
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed"
+          exit 1

@@ -32,17 +32,21 @@ STORAGE_DIR=/opt/offer-kp/data
 
 Collector systemd обязан иметь `Environment=STORAGE_DIR=...` (иначе crash loop).
 
-## Обновление
+## Обновление (CI/CD)
 
-С ноутбука (SSH ключ разблокирован):
+**Автоматически:** push в `main` → GitHub Actions `Deploy Selectel Lainey`
+(`.github/workflows/deploy-selectel.yml`). Нужен secret `LAINEY_SSH_KEY`.
+
+**Вручную с ноутбука:**
 
 ```bash
-cd frontend && VITE_API_BASE=/api yarn build && cd ..
-rsync -az --delete --exclude node_modules --exclude .git \
-  --exclude '**/storage/**' \
-  -e 'ssh -o BatchMode=yes' \
-  ./ root@87.228.90.43:/opt/offer-kp/app/
-ssh root@87.228.90.43 'cp -a /opt/offer-kp/app/frontend/dist/. /opt/offer-kp/app/server/public/ && systemctl restart offer-kp offer-kp-collector'
+yarn deploy:lainey
+# = bash scripts/deploy-lainey-sync.sh
 ```
+
+Скрипт: frontend `VITE_API_BASE=/api` → rsync → `/opt/offer-kp/app` →
+`server/public` → `systemctl restart offer-kp offer-kp-collector`.
+
+Старый docker-путь: `yarn deploy:lainey:docker`.
 
 Важно: production-сборка только с `VITE_API_BASE=/api`. Если оставить `localhost:3001`, в браузере будет Failed to fetch.

@@ -45,7 +45,8 @@
     "ops": "bash cli/run",
     "ops:status": "bash cli/run status --plain",
     "ops:build": "bash cli/run build",
-    "deploy:lainey": "bash scripts/deploy-lainey-app.sh"
+    "deploy:lainey": "bash scripts/deploy-lainey-sync.sh",
+    "deploy:lainey:docker": "bash scripts/deploy-lainey-app.sh"
   },
   "private": false,
   "devDependencies": {
