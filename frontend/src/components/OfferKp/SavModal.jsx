@@ -71,7 +71,7 @@ export default function SavModal({ onClose }) {
 
         {submitted ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-            <CheckCircle size={40} className="text-green-400" weight="fill" />
+            <CheckCircle size={40} className="text-[#cc785c]" weight="fill" />
             <p className="text-sm font-semibold text-white light:text-slate-900">
               {t("sav.submitted", "Ticket created")}
             </p>

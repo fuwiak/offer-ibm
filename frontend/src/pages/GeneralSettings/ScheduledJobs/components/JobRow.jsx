@@ -92,7 +92,7 @@ export default function JobRow({ job, onTrigger, onToggle, onEdit, onDelete }) {
               : t("scheduledJobs.row.enable")
           }
           className={`border-none relative h-[15px] w-7 rounded-full p-0.5 transition-colors ${
-            job.enabled ? "bg-green-400" : "bg-zinc-600 light:bg-slate-300"
+            job.enabled ? "bg-primary-button" : "bg-zinc-600 light:bg-slate-300"
           }`}
         >
           <span

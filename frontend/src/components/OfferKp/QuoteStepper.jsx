@@ -303,7 +303,7 @@ function ProductStep({ lines, setProduct, customer = {}, setCustomer, priceMode 
           />
         </label>
         {priceMode === "public" && (
-          <span className="inline-block text-[9px] font-medium text-green-400 light:text-green-600 uppercase tracking-wide">
+          <span className="inline-block text-[9px] font-medium text-[#cc785c] light:text-[#a9583e] uppercase tracking-wide">
             Public price
           </span>
         )}
@@ -416,7 +416,7 @@ function PreviewStep({ preview, step, reference }) {
         </div>
       </div>
       {step >= 4 && (
-        <p className="text-[10px] text-green-400 light:text-green-600 mt-2">
+        <p className="text-[10px] text-[#cc785c] light:text-[#a9583e] mt-2">
           ✓ Quote validated — ready to download or share
         </p>
       )}

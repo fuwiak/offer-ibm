@@ -45,7 +45,7 @@ function StatusBadge({ status }) {
     quality_check: "bg-[#d4a017]/15 text-[#d4a017]",
     ready_to_ship: "bg-[#5db8a6]/15 text-[#5db8a6]",
     shipped: "bg-[#5db8a6]/20 text-[#5db8a6]",
-    delivered: "bg-[#5db872]/15 text-[#5db872]",
+    delivered: "bg-[#cc785c]/15 text-[#cc785c]",
   };
   const LABEL = {
     confirmed: "Confirmed",
@@ -185,7 +185,7 @@ export default function SupplierWorkflow() {
                     <div>
                       <p className="text-xs text-white/70 light:text-slate-700">{doc.label}</p>
                       {uploaded && (
-                        <p className="text-[10px] text-green-400 light:text-green-600 mt-0.5">
+                        <p className="text-[10px] text-[#cc785c] light:text-[#a9583e] mt-0.5">
                           ✓ {uploaded.name} — {uploaded.at}
                         </p>
                       )}
@@ -195,7 +195,7 @@ export default function SupplierWorkflow() {
                       onClick={() => fileRefs.current[doc.id]?.click()}
                       className={`text-[11px] px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${
                         uploaded
-                          ? "bg-green-600/20 text-green-400 light:text-green-600"
+                          ? "bg-green-600/20 text-[#cc785c] light:text-[#a9583e]"
                           : "bg-white/10 light:bg-slate-100 text-white/70 light:text-slate-600 hover:bg-white/20 light:hover:bg-slate-200"
                       }`}
                     >
@@ -238,7 +238,7 @@ export default function SupplierWorkflow() {
                         : "border-white/10 light:border-slate-200 text-white/50 light:text-slate-500 hover:border-white/30 hover:bg-white/5"
                     }`}
                   >
-                    {isUpdated && <CheckCircle size={11} className="text-green-400 shrink-0" />}
+                    {isUpdated && <CheckCircle size={11} className="text-[#cc785c] shrink-0" />}
                     {opt.label}
                   </button>
                 );

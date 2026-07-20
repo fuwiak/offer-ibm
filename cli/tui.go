@@ -328,7 +328,7 @@ func (m model) header() string {
 			}
 		}
 		if allOK {
-			bg = lipgloss.Color("22")
+			bg = lipgloss.Color("#cc785c")
 		} else if m.snap.Container.Running {
 			bg = lipgloss.Color("58")
 		} else if !m.loading {
@@ -351,7 +351,7 @@ func (m model) header() string {
 
 func (m model) tabs() string {
 	inactive := lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Padding(0, 1)
-	active := lipgloss.NewStyle().Background(lipgloss.Color("62")).Foreground(lipgloss.Color("15")).Bold(true).Padding(0, 1)
+	active := lipgloss.NewStyle().Background(lipgloss.Color("#a9583e")).Foreground(lipgloss.Color("15")).Bold(true).Padding(0, 1)
 	labels := []struct {
 		mode  mode
 		label string

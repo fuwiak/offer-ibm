@@ -58,7 +58,7 @@ export default function LmStudioModelLoadModal({
             <CheckCircle
               size={22}
               weight="fill"
-              className="shrink-0 mt-0.5 text-green-500"
+              className="shrink-0 mt-0.5 text-[#cc785c]"
             />
           ) : null}
           {isError ? (

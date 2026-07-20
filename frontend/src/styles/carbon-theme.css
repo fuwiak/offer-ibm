@@ -1613,7 +1613,7 @@ html.carbon-ui .offerKp-hero-title {
   background: var(--theme-bg-secondary);
 }
 
-.offerKp-status--ok { background: #e8f5ec; color: #3d8a4f; }
+.offerKp-status--ok { background: #efe9de; color: #a9583e; }
 .offerKp-status--analog { background: #f5ebe0; color: #a9583e; }
 .offerKp-status--order { background: #f7edd8; color: #b28600; }
 .offerKp-status--none { background: #f8e8e8; color: #c64545; }

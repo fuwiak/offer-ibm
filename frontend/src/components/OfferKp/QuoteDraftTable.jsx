@@ -577,7 +577,7 @@ export default function QuoteDraftTable() {
           type="button"
           onClick={() => exportFile("xlsx")}
           disabled={!!busy}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-emerald-700 text-white text-xs font-medium disabled:opacity-60"
+          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-primary-button text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "xlsx" ? (
             <CircleNotch size={14} className="animate-spin" />

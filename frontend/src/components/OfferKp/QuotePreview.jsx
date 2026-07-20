@@ -123,7 +123,7 @@ export default function QuotePreview() {
             type="button"
             onClick={() => download("xlsx")}
             disabled={!!busy}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary-button hover:bg-[#a9583e] text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy === "xlsx" ? (
               <CircleNotch size={12} weight="bold" className="animate-spin" />

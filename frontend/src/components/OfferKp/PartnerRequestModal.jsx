@@ -70,7 +70,7 @@ export default function PartnerRequestModal({ isOpen, onClose }) {
             />
           </label>
           {status === "success" && (
-            <p className="text-sm text-green-700">{t("bot.submitSuccess")}</p>
+            <p className="text-sm text-[#a9583e]">{t("bot.submitSuccess")}</p>
           )}
           {status === "error" && (
             <p className="text-sm text-red-600">{t("bot.submitError")}</p>

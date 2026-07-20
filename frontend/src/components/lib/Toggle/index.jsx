@@ -125,8 +125,8 @@ function ToggleSwitch({ name, disabled, size, inputProps, value }) {
           after:absolute after:rounded-full after:bg-white
           after:transition-all after:content-['']
           peer-focus:ring-2
-          bg-zinc-500 light:bg-zinc-300 peer-focus:ring-zinc-700 light:peer-focus:bg-green-100 light:peer-focus:ring-green-200
-          peer-checked:bg-green-400 peer-checked:peer-focus:bg-green-300 peer-checked:peer-focus:ring-green-900 light:peer-checked:peer-focus:bg-green-300 light:peer-checked:peer-focus:ring-green-200
+          bg-zinc-500 light:bg-zinc-300 peer-focus:ring-zinc-700 light:peer-focus:bg-[#efe9de] light:peer-focus:ring-[#cc785c]/40
+          peer-checked:bg-primary-button peer-checked:peer-focus:bg-[#a9583e] peer-checked:peer-focus:ring-[#a9583e] light:peer-checked:peer-focus:bg-[#a9583e] light:peer-checked:peer-focus:ring-[#cc785c]/50
         `}
       />
     </>
@@ -192,7 +192,7 @@ export function SimpleToggleSwitch({
         relative shrink-0 cursor-pointer rounded-full ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
         ${size === "sm" ? "h-[12px] w-[20px]" : size === "md" ? "h-[16px] w-[28px]" : "h-[19px] w-[36px]"}
         transition-colors duration-200
-        ${enabled ? "bg-green-400" : "bg-zinc-500"}
+        ${enabled ? "bg-primary-button" : "bg-zinc-500"}
         ${className}
       `}
     >

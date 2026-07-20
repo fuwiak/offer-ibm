@@ -23,7 +23,7 @@ export const WORKSPACE_MODEL_PRESETS = OFFER_KP_BOT_PROFILES.map((p) => ({
       partner: "#cc785c",
       internal_sales: "#1192e8",
       external_sales: "#8a3ffc",
-      supplier: "#198038",
+      supplier: "#a9583e",
     }[p.id] || "#cc785c",
 }));
 

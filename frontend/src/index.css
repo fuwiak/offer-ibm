@@ -77,10 +77,10 @@
   --theme-checklist-item-bg: #1f1e1b;
   --theme-checklist-item-bg-hover: #252320;
   --theme-checklist-item-text: #faf9f5;
-  --theme-checklist-item-completed-bg: #1a2e22;
-  --theme-checklist-item-completed-text: #5db872;
-  --theme-checklist-checkbox-fill: #5db872;
-  --theme-checklist-checkbox-text: #181715;
+  --theme-checklist-item-completed-bg: #2a221c;
+  --theme-checklist-item-completed-text: #e8a894;
+  --theme-checklist-checkbox-fill: #cc785c;
+  --theme-checklist-checkbox-text: #faf9f5;
   --theme-checklist-item-hover: #faf9f5;
   --theme-checklist-checkbox-border: #6c6a64;
   --theme-checklist-button-border: #cc785c;
@@ -181,9 +181,9 @@
   --theme-checklist-item-bg: #f5f0e8;
   --theme-checklist-item-bg-hover: #efe9de;
   --theme-checklist-item-text: #141413;
-  --theme-checklist-item-completed-bg: #e8f5ec;
-  --theme-checklist-item-completed-text: #3d8a4f;
-  --theme-checklist-checkbox-fill: #5db872;
+  --theme-checklist-item-completed-bg: #efe9de;
+  --theme-checklist-item-completed-text: #a9583e;
+  --theme-checklist-checkbox-fill: #cc785c;
   --theme-checklist-checkbox-text: #ffffff;
   --theme-checklist-item-hover: #cc785c;
   --theme-checklist-checkbox-border: #8e8b82;
