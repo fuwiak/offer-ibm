@@ -40,7 +40,11 @@ const SEED_DOCUMENTS = [
   },
 ];
 
-export function OfferKpProvider({ children, enabled = false, role = "public" }) {
+export function OfferKpProvider({
+  children,
+  enabled = false,
+  role = "public",
+}) {
   const [documentPreview, setDocumentPreview] = useState(null);
   const [activeDocumentTab, setActiveDocumentTab] = useState("quote");
   const [quoteDraft, setQuoteDraft] = useState(INITIAL_QUOTE_DRAFT);
@@ -150,37 +154,46 @@ export function OfferKpProvider({ children, enabled = false, role = "public" }) 
   }, []);
 
   const addSavTicket = useCallback((ticket) => {
-    setSavTickets((prev) => [{ id: Date.now(), status: "open", at: Date.now(), ...ticket }, ...prev]);
+    setSavTickets((prev) => [
+      { id: Date.now(), status: "open", at: Date.now(), ...ticket },
+      ...prev,
+    ]);
   }, []);
 
   const addSavedDocument = useCallback((doc) => {
-    setSavedDocuments((prev) => [{ id: Date.now(), createdAt: Date.now(), ...doc }, ...prev]);
+    setSavedDocuments((prev) => [
+      { id: Date.now(), createdAt: Date.now(), ...doc },
+      ...prev,
+    ]);
   }, []);
 
-  const setActiveConversation = useCallback((workspaceSlug, threadSlug) => {
-    const prevWs = activeWorkspaceRef.current;
-    const prevThread = activeThreadRef.current;
-    if (prevWs && prevThread) {
-      saveQuoteDraft(prevWs, prevThread, quoteDraftRef.current);
-    }
-    if (workspaceSlug && threadSlug) {
-      setQuoteDraft(loadQuoteDraft(workspaceSlug, threadSlug));
-    } else {
-      setQuoteDraft(INITIAL_QUOTE_DRAFT);
-    }
-    // Drop thread-scoped panel UI so empty chats shift back to example prompts
-    // instead of keeping the previous thread's PDF/DOC/builder view open.
-    if (prevThread !== threadSlug || prevWs !== workspaceSlug) {
-      setThreadQuoteFiles([]);
-      setUploadedPdfPreview(null);
-      setQuotePdfUrl(null);
-      setDocPreview(null);
-      setDocumentPanelView("docs");
-      setMatchProgress(null);
-    }
-    setActiveWorkspaceSlug(workspaceSlug);
-    setActiveThreadSlug(threadSlug);
-  }, [setQuotePdfUrl, setUploadedPdfPreview]);
+  const setActiveConversation = useCallback(
+    (workspaceSlug, threadSlug) => {
+      const prevWs = activeWorkspaceRef.current;
+      const prevThread = activeThreadRef.current;
+      if (prevWs && prevThread) {
+        saveQuoteDraft(prevWs, prevThread, quoteDraftRef.current);
+      }
+      if (workspaceSlug && threadSlug) {
+        setQuoteDraft(loadQuoteDraft(workspaceSlug, threadSlug));
+      } else {
+        setQuoteDraft(INITIAL_QUOTE_DRAFT);
+      }
+      // Drop thread-scoped panel UI so empty chats shift back to example prompts
+      // instead of keeping the previous thread's PDF/DOC/builder view open.
+      if (prevThread !== threadSlug || prevWs !== workspaceSlug) {
+        setThreadQuoteFiles([]);
+        setUploadedPdfPreview(null);
+        setQuotePdfUrl(null);
+        setDocPreview(null);
+        setDocumentPanelView("docs");
+        setMatchProgress(null);
+      }
+      setActiveWorkspaceSlug(workspaceSlug);
+      setActiveThreadSlug(threadSlug);
+    },
+    [setQuotePdfUrl, setUploadedPdfPreview]
+  );
 
   useEffect(() => {
     if (!activeWorkspaceSlug || !activeThreadSlug) return;

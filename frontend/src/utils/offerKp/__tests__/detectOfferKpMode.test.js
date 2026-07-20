@@ -35,10 +35,21 @@ describe("shouldRequireOfferKpFirstRun", () => {
     ).toBe(true);
   });
 
-  it("enters first-run for a passwordless single-user setup without users", () => {
+  it("does not re-enter first-run once onboarding is marked complete", () => {
     expect(
       shouldRequireOfferKpFirstRun({
         onboardingComplete: true,
+        hasUsers: false,
+        multiUserMode: false,
+        requiresAuth: false,
+      })
+    ).toBe(false);
+  });
+
+  it("enters first-run for passwordless single-user when onboarding flag is missing", () => {
+    expect(
+      shouldRequireOfferKpFirstRun({
+        onboardingComplete: undefined,
         hasUsers: false,
         multiUserMode: false,
         requiresAuth: false,
