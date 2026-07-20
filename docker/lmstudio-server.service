@@ -1,0 +1,18 @@
+[Unit]
+Description=LM Studio local server
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Environment=PATH=/root/.lmstudio/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/root/.lmstudio/bin/lms server start --port 1234
+ExecStartPost=/bin/sleep 2
+# Agent prompts exceed the default 4k window; keep in sync with LMSTUDIO_MODEL_TOKEN_LIMIT.
+ExecStartPost=/root/.lmstudio/bin/lms load qwen/qwen3-vl-8b-thinking --context-length 32768 --gpu max -y
+ExecStop=/root/.lmstudio/bin/lms server stop
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -21,8 +21,9 @@ Start / enable LM Studio:
 ```bash
 export PATH="/root/.lmstudio/bin:$PATH"
 lms server start --port 1234
-lms load qwen/qwen3-vl-8b-thinking --gpu max
-# optional systemd unit: lmstudio-server.service
+# Agent prompts need ~10k+ tokens — default LMS window is 4k and will fail.
+lms load qwen/qwen3-vl-8b-thinking --context-length 32768 --gpu max -y
+# systemd unit: docker/lmstudio-server.service → /etc/systemd/system/
 ```
 
 In `server/.env`:
@@ -32,6 +33,7 @@ OFFER_KP_TEACHER_LLM=0
 LLM_PROVIDER=lmstudio
 LMSTUDIO_BASE_PATH=http://127.0.0.1:1234/v1
 LMSTUDIO_MODEL_PREF=qwen/qwen3-vl-8b-thinking
+LMSTUDIO_MODEL_TOKEN_LIMIT=32768
 ```
 
 Прямой доступ к `openrouter.ai` с IP Lainey даёт `403 Access denied by security policy`.
