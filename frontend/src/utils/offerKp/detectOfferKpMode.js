@@ -49,8 +49,9 @@ export function shouldSkipLegacyOnboarding() {
 }
 
 /**
- * OfferKP uses first-run only to create the initial admin. An existing user is
- * authoritative even when a legacy deployment is missing the onboarding flag.
+ * OfferKP uses first-run only to create the initial admin. An existing user /
+ * multi-user mode is authoritative even when the onboarding flag is missing
+ * (e.g. admin created via initialize-admin API).
  */
 export function shouldRequireOfferKpFirstRun({
   onboardingComplete,
@@ -59,7 +60,11 @@ export function shouldRequireOfferKpFirstRun({
   requiresAuth,
 }) {
   if (hasUsers === true) return false;
-  return onboardingComplete === false || (!multiUserMode && !requiresAuth);
+  if (multiUserMode === true) return false;
+  if (onboardingComplete === true) return false;
+  // Passwordless single-user still needs the setup wizard.
+  if (multiUserMode === false && requiresAuth === false) return true;
+  return onboardingComplete === false;
 }
 
 export { PUBLIC_SLUG };

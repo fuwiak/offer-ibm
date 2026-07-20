@@ -1,6 +1,6 @@
 import { API_BASE, AUTH_TIMESTAMP, fullApiUrl } from "@/utils/constants";
 import { baseHeaders, jsonHeaders, safeJsonParse } from "@/utils/request";
-import { cachedFetch } from "@/utils/requestCache";
+import { cachedFetch, invalidateCache } from "@/utils/requestCache";
 import DataConnector from "./dataConnector";
 import LiveDocumentSync from "./experimental/liveSync";
 import AgentPlugins from "./experimental/agentPlugins";
@@ -59,6 +59,9 @@ const System = {
       .then((res) => res.ok)
       .catch(() => false);
   },
+  invalidateKeysCache: function () {
+    invalidateCache("system:keys");
+  },
   keys: async function () {
     return cachedFetch("system:keys", async () => {
       return fetch(`${API_BASE}/setup-complete`)
@@ -111,7 +114,10 @@ const System = {
         if (!res.ok) throw new Error("Could not validate login.");
         return res.json();
       })
-      .then((res) => res)
+      .then((res) => {
+        if (res?.valid) this.invalidateKeysCache();
+        return res;
+      })
       .catch((e) => {
         return { valid: false, message: e.message };
       });
@@ -264,7 +270,7 @@ const System = {
         needsFirstRun: true,
       }));
   },
-  initializeAdmin: async (data) => {
+  initializeAdmin: async function (data) {
     const username = String(data?.username ?? "").trim().toLowerCase();
     return await fetch(`${API_BASE}/system/initialize-admin`, {
       method: "POST",
@@ -272,6 +278,10 @@ const System = {
       body: JSON.stringify({ username, password: data?.password }),
     })
       .then((res) => res.json())
+      .then((res) => {
+        if (res?.success) this.invalidateKeysCache();
+        return res;
+      })
       .catch((e) => {
         console.error(e);
         return { success: false, error: e.message };

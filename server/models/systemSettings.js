@@ -659,7 +659,12 @@ const SystemSettings = {
   isOnboardingComplete: async function () {
     try {
       const setting = await this.get({ label: "onboarding_complete" });
-      return setting?.value === "true";
+      if (setting?.value === "true" || setting?.value === true) return true;
+      // Admin created via API (initialize-admin) may skip the wizard flag —
+      // if users already exist, onboarding is effectively done.
+      const { User } = require("./user");
+      const users = await User.count();
+      return Number(users) > 0;
     } catch (error) {
       console.error(error.message);
       return false;

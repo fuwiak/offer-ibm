@@ -13,6 +13,17 @@ describe("shouldRequireOfferKpFirstRun", () => {
     ).toBe(false);
   });
 
+  it("does not enter first-run when multi-user mode is on without HasUsers flag", () => {
+    expect(
+      shouldRequireOfferKpFirstRun({
+        onboardingComplete: false,
+        hasUsers: undefined,
+        multiUserMode: true,
+        requiresAuth: false,
+      })
+    ).toBe(false);
+  });
+
   it("enters first-run when onboarding is incomplete and no users exist", () => {
     expect(
       shouldRequireOfferKpFirstRun({

@@ -732,6 +732,7 @@ function systemEndpoints(app) {
         await SystemSettings._updateSettings({
           multi_user_mode: true,
         });
+        await SystemSettings.markOnboardingComplete();
         await BrowserExtensionApiKey.migrateApiKeysToMultiUser(user.id);
         await AgentSkillWhitelist.clearSingleUserWhitelist();
         await updateENV(
@@ -796,6 +797,7 @@ function systemEndpoints(app) {
       }
 
       await SystemSettings._updateSettings({ multi_user_mode: true });
+      await SystemSettings.markOnboardingComplete();
 
       if (!process.env.JWT_SECRET) {
         await updateENV({ JWTSecret: v4() }, true);
