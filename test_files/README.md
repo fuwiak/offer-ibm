@@ -5,8 +5,9 @@
 правильно ли вырезаются позиции, единицы измерения и количества.
 
 Тест-раннер: `server/__tests__/utils/offerKp/goldenSet.test.js`.
-Он сам находит все папки-примеры внутри `test_files/` — новый пример не
-требует изменений в коде теста.
+Он сам находит все папки-примеры и отдельные `.txt` внутри `test_files/`.
+Примеры никогда не помечаются как `skipped`: отсутствие ожидаемого результата
+или фикстуры считается ошибкой теста.
 
 ## Что добавить, чтобы завести новый эталонный пример
 
@@ -60,6 +61,16 @@ test_files/
 ```bash
 yarn test:golden
 ```
+
+Obsługiwane są także dwa bezpośrednie warianty:
+
+- `<Name>_scraped.txt` w folderze — kolumny tabeli są ścisłym oczekiwanym
+  wynikiem ekstrakcji;
+- `test_files/<Name>.txt` wraz z sąsiednim
+  `test_files/<Name>.expected.csv`.
+
+Każdy folder musi mieć `.expected.csv` albo `_scraped.txt`. Brak któregoś z
+wymaganych elementów ma celowo zatrzymać CI.
 
 ## Что проверяется и что репортится
 

@@ -86,6 +86,25 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines[0]).toMatchObject({ quantity: 7.4, unit: "кг" });
   });
 
+  it("keeps specifications written after an inline quantity", () => {
+    const [line] = parseInquiryText(
+      "Винт с цилиндрической головкой --10шт DIN 912 -М8х14-10,9 цинк"
+    );
+
+    expect(line).toMatchObject({ quantity: 10, unit: "шт" });
+    expect(line.name).toMatch(/DIN 912.*[MМ]8x14.*цинк/i);
+  });
+
+  it("preserves decimal running meters from a generic quantity table", () => {
+    const [line] = parseInquiryText(
+      "Обозначение (Артикул)\tКоличество шт\n" +
+        "Уплотнитель неопрен с клеевым слоем 8х2 м.п.\t7.4"
+    );
+
+    expect(line).toMatchObject({ quantity: 7.4, unit: "м" });
+    expect(line.name).toMatch(/Уплотнитель.*м\.п\./i);
+  });
+
   it("parses Slozhnost_vysokaya_1 bolt table (20 rows, kg units, GOST)", () => {
     const text = fs.readFileSync(SLOZHNOST_FIXTURE, "utf8");
 
@@ -137,12 +156,12 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(chunks.length).toBeGreaterThanOrEqual(3);
 
     const lines = parseInquiryText(text);
-    expect(lines.some((l) => l.quantity === 4 && /ГОСТ 7805/i.test(l.name))).toBe(
-      true
-    );
-    expect(lines.some((l) => l.quantity === 75 && /DIN 7500/i.test(l.name))).toBe(
-      true
-    );
+    expect(
+      lines.some((l) => l.quantity === 4 && /ГОСТ 7805/i.test(l.name))
+    ).toBe(true);
+    expect(
+      lines.some((l) => l.quantity === 75 && /DIN 7500/i.test(l.name))
+    ).toBe(true);
     expect(lines.some((l) => l.quantity === 6 && /Гайка/i.test(l.name))).toBe(
       true
     );
