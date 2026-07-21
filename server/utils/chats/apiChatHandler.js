@@ -24,10 +24,46 @@ const {
   sanitizeFileName,
 } = require("../files");
 const { collectExternalContexts, dedupeSources } = require("./generation");
+const { shopDbEnrichEnabled } = require("../offerKp/enrich");
+const { resolveOfferKpImmediateReply } = require("../offerKp/immediateReply");
+const {
+  renderGroundedCatalogResponse,
+  sanitizeOfferKpHistory,
+} = require("../offerKp/groundedResponse");
 const {
   hasRestrictedContent,
   getRestrictedMessage,
 } = require("../restrictedContent");
+
+async function saveDeterministicApiReply({
+  workspace,
+  message,
+  textResponse,
+  sources = [],
+  attachments = [],
+  chatMode,
+  metrics,
+  thread,
+  sessionId,
+  user,
+}) {
+  const result = await WorkspaceChats.new({
+    workspaceId: workspace.id,
+    prompt: message,
+    response: {
+      text: textResponse,
+      sources,
+      attachments,
+      type: chatMode,
+      metrics,
+    },
+    threadId: thread?.id || null,
+    apiSessionId: sessionId,
+    include: false,
+    user,
+  });
+  return result?.chat?.id || null;
+}
 /**
  * @typedef ResponseObject
  * @property {string} id - uuid of response
@@ -230,6 +266,34 @@ async function chatSync({
       });
   }
 
+  const immediateReply = shopDbEnrichEnabled()
+    ? resolveOfferKpImmediateReply(message)
+    : null;
+  if (immediateReply) {
+    const metrics = { grounding: "deterministic_immediate" };
+    const chatId = await saveDeterministicApiReply({
+      workspace,
+      message,
+      textResponse: immediateReply,
+      attachments,
+      chatMode,
+      metrics,
+      thread,
+      sessionId,
+      user,
+    });
+    return {
+      id: uuid,
+      type: "textResponse",
+      sources: [],
+      close: true,
+      error: null,
+      chatId,
+      textResponse: immediateReply,
+      metrics,
+    };
+  }
+
   const LLMConnector = await getLLMProviderWithFallback({
     provider: workspace?.chatProvider,
     model: workspace?.chatModel,
@@ -394,6 +458,36 @@ async function chatSync({
   }
   sources = dedupeSources(sources);
 
+  const groundedCatalogResponse = renderGroundedCatalogResponse(
+    message,
+    llmCatalog.catalogBlocks || []
+  );
+  if (groundedCatalogResponse) {
+    const metrics = { grounding: "shopdb_direct" };
+    const chatId = await saveDeterministicApiReply({
+      workspace,
+      message,
+      textResponse: groundedCatalogResponse,
+      sources,
+      attachments,
+      chatMode,
+      metrics,
+      thread,
+      sessionId,
+      user,
+    });
+    return {
+      id: uuid,
+      type: "textResponse",
+      sources,
+      close: true,
+      error: null,
+      chatId,
+      textResponse: groundedCatalogResponse,
+      metrics,
+    };
+  }
+
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
   if (
@@ -440,10 +534,10 @@ async function chatSync({
       userPrompt: llmCatalog.userPrompt,
       contextTexts,
       sources,
-      chatHistory,
+      chatHistory: sanitizeOfferKpHistory(chatHistory),
       attachments,
     },
-    rawHistory
+    sanitizeOfferKpHistory(rawHistory)
   );
 
   // Send the text completion.
@@ -608,6 +702,34 @@ async function streamChat({
           error: false,
         });
       });
+  }
+
+  const immediateReply = shopDbEnrichEnabled()
+    ? resolveOfferKpImmediateReply(message)
+    : null;
+  if (immediateReply) {
+    const metrics = { grounding: "deterministic_immediate" };
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: immediateReply,
+      sources: [],
+      close: true,
+      error: null,
+      metrics,
+    });
+    await saveDeterministicApiReply({
+      workspace,
+      message,
+      textResponse: immediateReply,
+      attachments,
+      chatMode,
+      metrics,
+      thread,
+      sessionId,
+      user,
+    });
+    return;
   }
 
   const LLMConnector = await getLLMProviderWithFallback({
@@ -787,6 +909,36 @@ async function streamChat({
   }
   sources = dedupeSources(sources);
 
+  const groundedCatalogResponse = renderGroundedCatalogResponse(
+    message,
+    llmCatalog.catalogBlocks || []
+  );
+  if (groundedCatalogResponse) {
+    const metrics = { grounding: "shopdb_direct" };
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: groundedCatalogResponse,
+      sources,
+      close: true,
+      error: null,
+      metrics,
+    });
+    await saveDeterministicApiReply({
+      workspace,
+      message,
+      textResponse: groundedCatalogResponse,
+      sources,
+      attachments,
+      chatMode,
+      metrics,
+      thread,
+      sessionId,
+      user,
+    });
+    return;
+  }
+
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
   if (
@@ -833,10 +985,10 @@ async function streamChat({
       userPrompt: llmCatalog.userPrompt,
       contextTexts,
       sources,
-      chatHistory,
+      chatHistory: sanitizeOfferKpHistory(chatHistory),
       attachments,
     },
-    rawHistory
+    sanitizeOfferKpHistory(rawHistory)
   );
 
   // If streaming is not explicitly enabled for connector

@@ -8,6 +8,11 @@ const {
 } = require("../helpers/chat/responses");
 const { getShopDbContext, shopDbEnrichEnabled } = require("../offerKp/enrich");
 const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
+const { resolveOfferKpImmediateReply } = require("../offerKp/immediateReply");
+const {
+  renderGroundedCatalogResponse,
+  sanitizeOfferKpHistory,
+} = require("../offerKp/groundedResponse");
 const {
   getPublicChatHistory,
   appendPublicChatMessage,
@@ -34,19 +39,30 @@ async function streamOfferKpPublicChat(
     return;
   }
 
-  const LLMConnector = await getLLMProviderWithFallback({
-    provider: workspace.chatProvider,
-    model: workspace.chatModel,
-    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
-  });
-
-  const systemPrompt = await chatPrompt(workspace, null);
   const uuid = uuidv4();
+  const immediateReply = shopDbEnrichEnabled()
+    ? resolveOfferKpImmediateReply(message)
+    : null;
+  if (immediateReply) {
+    appendPublicChatMessage(sessionId, "user", message);
+    appendPublicChatMessage(sessionId, "assistant", immediateReply);
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: immediateReply,
+      sources: [],
+      close: true,
+      error: null,
+      metrics: { grounding: "deterministic_immediate" },
+    });
+    return;
+  }
 
-  const chatHistory =
+  const rawChatHistory =
     options?.chatHistory?.length > 0
       ? options.chatHistory
       : getPublicChatHistory(sessionId);
+  const chatHistory = sanitizeOfferKpHistory(rawChatHistory);
 
   let externalContexts = [];
   if (shopDbEnrichEnabled()) {
@@ -69,6 +85,33 @@ async function streamOfferKpPublicChat(
 
   const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
   const sources = llmCatalog.sources;
+  const groundedCatalogResponse = renderGroundedCatalogResponse(
+    message,
+    llmCatalog.catalogBlocks || []
+  );
+  if (groundedCatalogResponse) {
+    appendPublicChatMessage(sessionId, "user", message);
+    appendPublicChatMessage(sessionId, "assistant", groundedCatalogResponse);
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: groundedCatalogResponse,
+      sources,
+      close: true,
+      error: null,
+      metrics: { grounding: "shopdb_direct" },
+    });
+    return;
+  }
+
+  // Resolve the model only after deterministic fast paths. Greetings and
+  // direct catalog answers therefore pay neither model startup nor inference.
+  const LLMConnector = await getLLMProviderWithFallback({
+    provider: workspace.chatProvider,
+    model: workspace.chatModel,
+    log: (msg) => console.log(`\x1b[33m[OfferKP-LLM]\x1b[0m ${msg}`),
+  });
+  const systemPrompt = await chatPrompt(workspace, null);
 
   const messages = await LLMConnector.compressMessages(
     {
