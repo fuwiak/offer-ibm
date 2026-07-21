@@ -50,14 +50,17 @@ export default function OfferKpLayout({
           {children}
         </div>
         {enabled && (
-          <Suspense fallback={null}>
-            <UploadedPdfSidebar />
-          </Suspense>
-        )}
-        {enabled && (
-          <Suspense fallback={null}>
-            <DocumentPanel />
-          </Suspense>
+          <div
+            className="offerKp-compare-panes hidden lg:flex shrink-0 h-full min-w-0"
+            aria-label="Сравнение заявки и КП"
+          >
+            <Suspense fallback={null}>
+              <UploadedPdfSidebar />
+            </Suspense>
+            <Suspense fallback={null}>
+              <DocumentPanel />
+            </Suspense>
+          </div>
         )}
       </div>
       {enabled && <OfferKpSavHost />}

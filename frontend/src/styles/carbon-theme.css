@@ -1461,20 +1461,61 @@ html.carbon-ui .offerKp-hero-title {
   font-size: 13px;
 }
 
-/* ── Document panel (right) ── */
+/* ── Input ↔ output compare zone (Uploaded PDF | Documents) ── */
+.offerKp-compare-panes {
+  display: flex;
+  flex-shrink: 0;
+  height: 100%;
+  min-width: 0;
+  border-left: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-chat-input);
+}
+
+.offerKp-compare-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1.2;
+}
+
+.offerKp-compare-badge--in {
+  color: #0c7d69;
+  background: rgba(12, 125, 105, 0.12);
+  border: 1px solid rgba(12, 125, 105, 0.35);
+}
+
+.offerKp-compare-badge--out {
+  color: #1b2f5a;
+  background: rgba(27, 47, 90, 0.1);
+  border: 1px solid rgba(27, 47, 90, 0.28);
+}
+
+[data-theme="dark"] .offerKp-compare-badge--out {
+  color: #e2e8f0;
+  background: rgba(226, 232, 240, 0.08);
+  border-color: rgba(226, 232, 240, 0.2);
+}
+
+/* ── Document panel (right / output) ── */
 .offerKp-document-panel {
   background: var(--theme-bg-chat-input);
   border-left: 1px solid var(--theme-sidebar-border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 [data-theme="light"] .offerKp-sidebar-shell,
-[data-theme="light"] .offerKp-document-panel {
+[data-theme="light"] .offerKp-document-panel,
+[data-theme="light"] .offerKp-compare-panes {
   background: #f4f4f4;
 }
 
 [data-theme="dark"] .offerKp-sidebar-shell,
-[data-theme="dark"] .offerKp-document-panel {
+[data-theme="dark"] .offerKp-document-panel,
+[data-theme="dark"] .offerKp-compare-panes {
   background: #000000;
 }
 
@@ -1506,10 +1547,9 @@ html.carbon-ui .offerKp-hero-title {
   width: 2px;
 }
 
-/* ── Uploaded PDF comparison panel (between chat and document panel) ── */
+/* ── Uploaded PDF (input, left of Documents) ── */
 .offerKp-uploaded-pdf-panel {
   background: var(--theme-bg-chat-input);
-  border-left: 1px solid var(--theme-sidebar-border);
   border-right: 1px solid var(--theme-sidebar-border);
 }
 

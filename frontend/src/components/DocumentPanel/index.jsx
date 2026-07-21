@@ -48,8 +48,8 @@ function fileIcon(ext) {
 }
 
 /**
- * Thread files + inline source-PDF preview for side-by-side comparison
- * with «Сводка позиций» (draft table tab next to this «Диалог» tab).
+ * Thread files list. Source PDF for input↔output compare lives in UploadedPdfSidebar
+ * (left of Documents), not embedded here.
  */
 function ThreadFilesSection({
   workspaceSlug,
@@ -500,10 +500,28 @@ export default function DocumentPanel() {
     !!quoteDraft?.preview;
   const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
 
-  // Keep source PDF comparison panel open while editing the positions table.
+  // Keep source PDF open beside Documents for input ↔ output comparison.
   useEffect(() => {
-    if (showDraftTable) setUploadedPdfSidebarOpen(true);
-  }, [showDraftTable, setUploadedPdfSidebarOpen]);
+    if (
+      showDraftTable ||
+      showQuotePreview ||
+      showDocPreview ||
+      (documentPanelView === "pdf" && !!quotePdfUrl) ||
+      hasEditableQuoteLines
+    ) {
+      setUploadedPdfSidebarOpen(true);
+      setDocumentPanelOpen(true);
+    }
+  }, [
+    showDraftTable,
+    showQuotePreview,
+    showDocPreview,
+    documentPanelView,
+    quotePdfUrl,
+    hasEditableQuoteLines,
+    setUploadedPdfSidebarOpen,
+    setDocumentPanelOpen,
+  ]);
   /** Examples only on the home screen — never on /t/:threadSlug. */
   const showExamplePromptsPanel =
     isHome && !showAdminThreadContext && !hasActiveQuoteWorkspace;
@@ -762,9 +780,7 @@ export default function DocumentPanel() {
                 workspaceSlug={activeWorkspaceSlug}
                 threadSlug={activeThreadSlug}
                 onAttach={handleAttach}
-                embedPdfPreview={
-                  hasEditableQuoteLines || hasQuoteBuilderContent
-                }
+                embedPdfPreview={false}
               />
             ) : null}
           </div>
@@ -860,7 +876,7 @@ export default function DocumentPanel() {
 
   return (
     <aside
-      className={`offerKp-document-panel relative hidden lg:flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
+      className={`offerKp-document-panel relative flex flex-col shrink-0 h-full transition-[width] duration-300 ease-in-out ${
         documentPanelOpen ? "" : "w-12 items-center"
       }`}
       style={documentPanelOpen ? { width: panelWidth } : undefined}
@@ -879,7 +895,14 @@ export default function DocumentPanel() {
 
       {documentPanelOpen ? (
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-sidebar-border shrink-0 w-full">
-          <span className="offerKp-document-panel__eyebrow">{panelEyebrow()}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="offerKp-compare-badge offerKp-compare-badge--out">
+              {t("layout.compareOutput", { defaultValue: "Выход" })}
+            </span>
+            <span className="offerKp-document-panel__eyebrow truncate">
+              {panelEyebrow()}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setDocumentPanelOpen(false)}

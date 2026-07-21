@@ -18,20 +18,18 @@ function isPdfFile(file) {
   return !!file?.isPdf;
 }
 
-const PANEL_MIN_WIDTH = 240;
-const PANEL_DEFAULT_WIDTH = 360;
+const PANEL_MIN_WIDTH = 260;
+const PANEL_DEFAULT_WIDTH = 420;
 const PANEL_STEP = 80;
 const PANEL_WIDTH_STORAGE_KEY = "offerKp_uploaded_pdf_width";
 
 function clampPanelWidth(width) {
-  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 640);
+  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 560);
   return Math.min(maxWidth, Math.max(PANEL_MIN_WIDTH, Math.round(width)));
 }
 
 /**
- * Resizable sidebar with the uploaded source PDF for side-by-side comparison
- * with generated KP output in the right DocumentPanel.
- * Drag the left edge (chat ↔ PDF) or use header +/- width buttons.
+ * Source PDF pane — sits immediately left of Documents for input ↔ output compare.
  */
 export default function UploadedPdfSidebar() {
   const { t } = useTranslation("offerKp");
@@ -264,14 +262,14 @@ export default function UploadedPdfSidebar() {
     uploadedPdfSidebarOpen &&
     uploadedPdfPreview?.mode === "text" &&
     !!uploadedPdfPreview?.textPreview;
-  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 640);
+  const maxWidth = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 560);
   const canNarrow = panelWidth > PANEL_MIN_WIDTH;
   const canWiden = panelWidth < maxWidth;
 
   return (
     <aside
       ref={asideRef}
-      className={`offerKp-uploaded-pdf-panel relative hidden lg:flex flex-col shrink-0 h-full ${
+      className={`offerKp-uploaded-pdf-panel relative flex flex-col shrink-0 h-full ${
         isResizing ? "" : "transition-[width] duration-200 ease-out"
       } ${uploadedPdfSidebarOpen ? "" : "w-10 items-center"}`}
       style={uploadedPdfSidebarOpen ? { width: panelWidth } : undefined}
@@ -297,15 +295,25 @@ export default function UploadedPdfSidebar() {
 
       {uploadedPdfSidebarOpen ? (
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-theme-sidebar-border shrink-0 w-full gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="offerKp-compare-badge offerKp-compare-badge--in">
+              {t("layout.compareInput", { defaultValue: "Вход" })}
+            </span>
             <FilePdf
               size={14}
               weight="fill"
               className="shrink-0 text-[#da1e28]"
             />
-            <span className="offerKp-document-panel__eyebrow truncate">
-              {t("layout.uploadedPdfPanel", { defaultValue: "Uploaded PDF" })}
-            </span>
+            <div className="min-w-0">
+              <div className="offerKp-document-panel__eyebrow truncate">
+                {t("layout.uploadedPdfPanel", { defaultValue: "Uploaded PDF" })}
+              </div>
+              <div className="text-[10px] text-theme-text-secondary truncate">
+                {t("layout.uploadedPdfHint", {
+                  defaultValue: "Сверка с исходной заявкой",
+                })}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
             <button
