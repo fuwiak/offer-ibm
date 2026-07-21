@@ -7,12 +7,13 @@ import { downloadDocxMatchingPreview } from "@/utils/offerKp/quoteFileDownload";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { openQuoteEditor } from "@/utils/offerKp/openQuoteEditor";
 import { parseQuoteMarkdown } from "@/utils/offerKp/parseQuoteMarkdown";
+import QuotePreview from "@/components/OfferKp/QuotePreview";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
 /**
- * Renders an agent-generated document (markdown) as a paper-like preview.
- * Download regenerates DOCX from the same markdown (matches elia_front).
+ * Document tab preview — same paper layout as PDF / Превью КП when a quote
+ * draft exists; markdown fallback for legacy agent docs.
  */
 export default function DocPreviewPane({ docPreview, onClose }) {
   const { t } = useTranslation("offerKp");
@@ -24,9 +25,17 @@ export default function DocPreviewPane({ docPreview, onClose }) {
     setDocPreview,
   } = useOfferKp();
   const [downloading, setDownloading] = useState(false);
+
+  const hasQuotePaper =
+    (quoteDraft?.hardwareLines?.length ?? 0) > 0 ||
+    (quoteDraft?.preview?.lines?.length ?? 0) > 0 ||
+    !!quoteDraft?.preview;
+
   const canEdit = useMemo(
-    () => parseQuoteMarkdown(docPreview?.markdown || "").length > 0,
-    [docPreview?.markdown]
+    () =>
+      hasQuotePaper ||
+      parseQuoteMarkdown(docPreview?.markdown || "").length > 0,
+    [docPreview?.markdown, hasQuotePaper]
   );
   const html = useMemo(
     () => md.render(docPreview?.markdown || ""),
@@ -37,7 +46,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
     try {
       openQuoteEditor({
         markdown: docPreview?.markdown,
-        lines: quoteDraft?.hardwareLines,
+        lines: quoteDraft?.hardwareLines || quoteDraft?.preview?.lines,
         reference: quoteDraft?.reference,
         customer: quoteDraft?.customer,
         filename: docPreview?.filename,
@@ -59,6 +68,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
         filename: docPreview?.filename,
         storageFilename: docPreview?.storageFilename,
         previewMarkdown: docPreview?.markdown,
+        quoteDraft,
       });
       await downloadBlob(blob, filename || "document.docx");
     } catch (e) {
@@ -66,6 +76,24 @@ export default function DocPreviewPane({ docPreview, onClose }) {
     } finally {
       setDownloading(false);
     }
+  }
+
+  if (hasQuotePaper) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-2 right-2 z-10 text-theme-text-secondary hover:text-theme-text-primary p-1 rounded bg-theme-bg-secondary/90 border border-theme-sidebar-border"
+            title="Close preview"
+          >
+            <X size={14} />
+          </button>
+        )}
+        <QuotePreview />
+      </div>
+    );
   }
 
   return (
@@ -114,9 +142,12 @@ export default function DocPreviewPane({ docPreview, onClose }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#525659] p-3 min-h-0" translate="no">
+      <div
+        className="flex-1 overflow-y-auto bg-[#525659] p-3 min-h-0"
+        translate="no"
+      >
         <div
-          className="offerKp-doc-preview notranslate"
+          className="offerKp-doc-preview offerKp-quote-doc notranslate"
           translate="no"
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -144,7 +175,9 @@ export default function DocPreviewPane({ docPreview, onClose }) {
           ) : (
             <DownloadSimple size={14} weight="bold" />
           )}
-          {downloading ? "…" : t("layout.downloadDocx", { defaultValue: "Download DOCX" })}
+          {downloading
+            ? "…"
+            : t("layout.downloadDocx", { defaultValue: "Download DOCX" })}
         </button>
       </div>
     </div>

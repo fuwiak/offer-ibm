@@ -2841,34 +2841,37 @@ html.carbon-ui .offerKp-hero-title {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* ── Agent document markdown preview (artifact view) ── */
+/* ── Agent document markdown preview — match QuotePreview paper ── */
 .offerKp-doc-preview {
   background: #ffffff;
   color: #1b2f5a;
   width: 100%;
-  max-width: 640px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 30px 32px 36px;
+  padding: 28px 32px 36px;
   border-radius: 2px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.45;
+  box-sizing: border-box;
 }
 
 .offerKp-doc-preview h1 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #0c7d69;
   margin: 0 0 10px;
 }
 
 .offerKp-doc-preview h2 {
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 700;
-  color: #1b2f5a;
-  margin: 18px 0 6px;
-  border-bottom: 1px solid #e2e8e8;
-  padding-bottom: 3px;
+  color: #0c7d69;
+  margin: 18px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .offerKp-doc-preview h3 {
@@ -2880,11 +2883,12 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-doc-preview p {
   margin: 0 0 8px;
+  color: #475569;
 }
 
 .offerKp-doc-preview hr {
   border: none;
-  border-top: 1px solid #e2e8e8;
+  border-top: 2px solid #0c7d69;
   margin: 14px 0;
 }
 
@@ -2892,10 +2896,12 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-doc-preview ol {
   margin: 0 0 10px;
   padding-left: 20px;
+  color: #475569;
+  font-size: 11px;
 }
 
 .offerKp-doc-preview li {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .offerKp-doc-preview strong {
@@ -2916,36 +2922,41 @@ html.carbon-ui .offerKp-hero-title {
   width: 100%;
   border-collapse: collapse;
   margin: 8px 0 12px;
-  font-size: 11px;
+  font-size: 12px;
+  table-layout: fixed;
 }
 
 .offerKp-doc-preview th {
   background: #0c7d69;
   color: #ffffff;
-  text-align: left;
-  padding: 6px 8px;
+  font-size: 10px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  padding: 8px 10px;
+  text-align: left;
 }
 
 .offerKp-doc-preview td {
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e2e8e8;
+  color: #1b2f5a;
+  word-break: break-word;
 }
 
 .offerKp-doc-preview tr:nth-child(even) td {
-  background: #f6faf9;
+  background: #f1f8f7;
 }
 
 .offerKp-doc-preview a {
   color: #0c7d69;
-  text-decoration: underline;
 }
 
 .offerKp-doc-preview code {
-  background: #eef2f2;
-  padding: 1px 4px;
-  border-radius: 3px;
   font-size: 11px;
+  background: #f1f8f7;
+  padding: 1px 4px;
+  border-radius: 2px;
 }
 
 /* ── Rendered quotation document preview (artifact view) ── */

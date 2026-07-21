@@ -34,13 +34,44 @@ export async function downloadQuoteFileBlob({ storageFilename, filename }) {
 }
 
 /**
- * Download DOCX generated from the same markdown as the side-panel preview (elia pattern).
+ * Download DOCX matching the side-panel preview.
+ * Prefers structured quote draft (same layout as PDF / Превью КП).
  */
 export async function downloadDocxMatchingPreview({
   filename,
   storageFilename,
   previewMarkdown,
+  quoteDraft = null,
 }) {
+  const lines =
+    quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || null;
+  if (lines?.length) {
+    const shipping =
+      Number(quoteDraft.shipping ?? quoteDraft.preview?.shipping ?? 0) || 0;
+    const subtotal =
+      Number(quoteDraft.preview?.subtotal) ||
+      lines.reduce((s, l) => s + (Number(l.lineTotal) || 0), 0);
+    const result = await OfferKp.generateQuoteDocx({
+      reference: quoteDraft.reference,
+      customer: quoteDraft.customer || {},
+      lines,
+      shipping,
+      subtotal,
+      total: subtotal,
+      vatRate: quoteDraft.doc?.vatRate,
+      currency: undefined,
+      doc: quoteDraft.doc,
+      createdAt: quoteDraft.doc?.createdAt
+        ? new Date(quoteDraft.doc.createdAt)
+        : new Date(),
+    });
+    const blob = await downloadQuoteFileBlob({
+      storageFilename: result.storageFilename,
+      filename: result.filename,
+    });
+    return { blob, filename: result.filename || filename || "document.docx" };
+  }
+
   if (previewMarkdown?.trim()) {
     const result = await OfferKp.generateDocxFromMarkdown({
       markdown: previewMarkdown,

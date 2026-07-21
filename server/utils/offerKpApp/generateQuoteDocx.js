@@ -11,6 +11,7 @@ const {
   BorderStyle,
   AlignmentType,
   VerticalAlign,
+  ShadingType,
 } = require("docx");
 const {
   QUOTE_BRAND,
@@ -18,16 +19,17 @@ const {
   makeMoneyFormatter,
 } = require("./quoteBrand");
 
+/** Match QuotePreview / PDF commercial-offer look (navy + green accent). */
 const GREEN = "0C7D69";
-const GREEN_LIGHT = "E8F5F4";
+const GREEN_LIGHT = "F1F8F7";
 const NAVY = "1B2F5A";
 const GRAY = "475569";
 const WHITE = "FFFFFF";
-const BORDER = "D1DBDB";
+const BORDER = "E2E8E8";
 
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
-  return date.toLocaleDateString("en-GB", {
+  return date.toLocaleDateString("ru-RU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -56,7 +58,7 @@ function run(text, opts = {}) {
   return new TextRun({
     text: String(text ?? ""),
     font: "Calibri",
-    size: opts.size ?? 19, // half-points (≈9.5pt)
+    size: opts.size ?? 20,
     bold: opts.bold ?? false,
     color: opts.color ?? NAVY,
   });
@@ -76,11 +78,12 @@ function cell(children, opts = {}) {
     width: opts.width
       ? { size: opts.width, type: WidthType.PERCENTAGE }
       : undefined,
+    columnSpan: opts.columnSpan,
     shading: opts.fill
-      ? { fill: opts.fill, color: "auto", type: "clear" }
+      ? { fill: opts.fill, color: "auto", type: ShadingType.CLEAR }
       : undefined,
     verticalAlign: VerticalAlign.CENTER,
-    margins: { top: 60, bottom: 60, left: 90, right: 90 },
+    margins: { top: 70, bottom: 70, left: 100, right: 100 },
     borders: opts.borders ?? {
       top: { style: BorderStyle.SINGLE, size: 2, color: BORDER },
       bottom: { style: BorderStyle.SINGLE, size: 2, color: BORDER },
@@ -90,30 +93,50 @@ function cell(children, opts = {}) {
   });
 }
 
+function lineName(ql) {
+  return ql.name || ql.productName || ql.productId || "—";
+}
+
+function lineArticle(ql) {
+  return ql.article || ql.sku || "—";
+}
+
+function lineUnitNet(ql, vatRate) {
+  const qty = Number(ql.quantity) || 0;
+  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
+    return Number(ql.unitPriceNet);
+  }
+  if (ql.priceWithVat != null && Number.isFinite(Number(ql.priceWithVat))) {
+    return Number(ql.priceWithVat) / (1 + vatRate);
+  }
+  if (ql.unitPrice != null && Number.isFinite(Number(ql.unitPrice))) {
+    return Number(ql.unitPrice);
+  }
+  const total = Number(ql.lineTotal) || 0;
+  return qty > 0 ? total / qty : 0;
+}
+
+function lineNetTotal(ql, vatRate) {
+  if (ql.lineTotal != null && Number.isFinite(Number(ql.lineTotal))) {
+    return Number(ql.lineTotal);
+  }
+  const qty = Number(ql.quantity) || 0;
+  return qty * lineUnitNet(ql, vatRate);
+}
+
 /**
- * Generate a purolat.com quotation as an editable Word (.docx) file.
- *
- * @param {object} quoteData
- * @param {string} quoteData.reference
- * @param {object} quoteData.customer  { name, country, city, address }
- * @param {object} quoteData.contact   { name, email, phone }
- * @param {Array}  quoteData.lines     calculated quote lines
- * @param {number} quoteData.shipping
- * @param {number} quoteData.subtotal
- * @param {number} [quoteData.vatRate]
- * @param {string} [quoteData.currency]
- * @param {Date|string} quoteData.createdAt
- * @returns {Promise<{filename, storageFilename, filePath, fileSize}>}
+ * Generate a purolat.com quotation as Word (.docx) — same layout as
+ * QuotePreview / PDF: brand, parties, Позиция|Артикул|Кол-во|Цена/шт|Сумма, totals, terms.
  */
 async function generateQuoteDocx(quoteData) {
   const {
     reference = QUOTE_BRAND.defaultReference,
     customer = {},
-    contact = QUOTE_BRAND.defaultContact,
     lines = [],
     shipping = 0,
     subtotal = 0,
     createdAt = new Date(),
+    doc: docOverrides = {},
   } = quoteData;
 
   const localeDefaults = localeForCountry(customer.country);
@@ -122,14 +145,47 @@ async function generateQuoteDocx(quoteData) {
   const vatRate =
     typeof quoteData.vatRate === "number"
       ? quoteData.vatRate
-      : localeDefaults.vatRate;
+      : typeof docOverrides.vatRate === "number"
+        ? docOverrides.vatRate
+        : localeDefaults.vatRate;
   const money = makeMoneyFormatter(currency, locale);
 
-  const net = (Number(subtotal) || 0) + (Number(shipping) || 0);
+  const computedSubtotal =
+    Number(subtotal) ||
+    lines.reduce((sum, ql) => sum + lineNetTotal(ql, vatRate), 0);
+  const ship = Number(shipping) || 0;
+  const net = computedSubtotal + ship;
   const vat = net * vatRate;
   const grandTotal = net + vat;
 
-  // ── Header: brand + QUOTATION meta ─────────────────────────────────────
+  const brandCompany = docOverrides.brandCompany || QUOTE_BRAND.companyName;
+  const brandTagline = docOverrides.brandTagline || QUOTE_BRAND.tagline;
+  const brandWebsite = docOverrides.brandWebsite || QUOTE_BRAND.website;
+  const title = docOverrides.title || "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ";
+  const supplierCompany =
+    docOverrides.supplierCompany || QUOTE_BRAND.companyName;
+  const supplierAddress = docOverrides.supplierAddress || QUOTE_BRAND.address;
+  const supplierWebsite = docOverrides.supplierWebsite || QUOTE_BRAND.website;
+  const supplierEmail = docOverrides.supplierEmail || QUOTE_BRAND.email || "";
+  const supplierPhone = docOverrides.supplierPhone || QUOTE_BRAND.phone || "";
+  const positionsLabel =
+    docOverrides.positionsLabel ||
+    `ПОЗИЦИИ КАТАЛОГА ${QUOTE_BRAND.catalogLabel.toUpperCase()}`;
+  const termsLabel = docOverrides.termsLabel || "УСЛОВИЯ";
+  const signOff = docOverrides.signOff || "С уважением,";
+  const signCompany = docOverrides.signCompany || QUOTE_BRAND.companyName;
+  const validUntil = docOverrides.validUntil
+    ? new Date(docOverrides.validUntil)
+    : addDays(createdAt, 30);
+  const terms = (
+    docOverrides.terms || [
+      ...(QUOTE_BRAND.termsDocx || QUOTE_BRAND.terms),
+      `Цены в ${currency}; позиции из каталога ${QUOTE_BRAND.catalogLabel}.`,
+      QUOTE_BRAND.warrantyNoteDocx || QUOTE_BRAND.warrantyNote,
+    ]
+  ).map((t) => String(t).replace("{currency}", currency));
+
+  // ── Header: brand + title / meta (same as QuotePreview) ───────────────
   const headerTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: NO_BORDERS,
@@ -139,51 +195,45 @@ async function generateQuoteDocx(quoteData) {
           cell(
             [
               para(
-                run(QUOTE_BRAND.companyName, {
-                  bold: true,
-                  size: 30,
-                  color: GREEN,
-                }),
-                {
-                  after: 20,
-                }
+                run(brandCompany, { bold: true, size: 32, color: GREEN }),
+                { after: 20 }
               ),
-              para(run(QUOTE_BRAND.tagline, { size: 15, color: GRAY })),
-              para(run(QUOTE_BRAND.website, { size: 14, color: GRAY })),
+              para(run(brandTagline, { size: 16, color: GRAY })),
+              para(run(brandWebsite, { size: 15, color: GRAY })),
             ],
-            { width: 55, borders: NO_BORDERS }
+            { width: 52, borders: NO_BORDERS }
           ),
           cell(
             [
-              para(run("OFFER", { bold: true, size: 40, color: NAVY }), {
-                after: 20,
+              para(run(title, { bold: true, size: 28, color: NAVY }), {
+                after: 40,
                 alignment: AlignmentType.RIGHT,
               }),
-              para(run(`Quote No: ${reference}`, { size: 17, color: GRAY }), {
+              para(run(`№ ${reference}`, { size: 18, color: GRAY }), {
+                after: 10,
+                alignment: AlignmentType.RIGHT,
+              }),
+              para(run(`Дата: ${fmtDate(createdAt)}`, { size: 18, color: GRAY }), {
                 after: 10,
                 alignment: AlignmentType.RIGHT,
               }),
               para(
-                run(`Date: ${fmtDate(createdAt)}`, { size: 17, color: GRAY }),
-                { after: 10, alignment: AlignmentType.RIGHT }
-              ),
-              para(
-                run(`Valid until: ${fmtDate(addDays(createdAt, 30))}`, {
-                  size: 17,
+                run(`Действительно до: ${fmtDate(validUntil)}`, {
+                  size: 18,
                   color: GRAY,
                 }),
                 { alignment: AlignmentType.RIGHT }
               ),
             ],
-            { width: 45, borders: NO_BORDERS }
+            { width: 48, borders: NO_BORDERS }
           ),
         ],
       }),
     ],
   });
 
-  // ── FROM / TO ──────────────────────────────────────────────────────────
-  const fromTo = new Table({
+  // ── ПОСТАВЩИК / ПОКУПАТЕЛЬ ─────────────────────────────────────────────
+  const parties = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: NO_BORDERS,
     rows: [
@@ -191,32 +241,25 @@ async function generateQuoteDocx(quoteData) {
         children: [
           cell(
             [
-              para(run("FROM", { bold: true, size: 15, color: GREEN })),
-              para(run(QUOTE_BRAND.companyName, { bold: true, size: 19 })),
-              para(run(QUOTE_BRAND.address, { size: 17, color: GRAY })),
-              para(run(QUOTE_BRAND.website, { size: 17, color: GRAY })),
-              para(run(QUOTE_BRAND.email, { size: 17, color: GRAY })),
-              ...(QUOTE_BRAND.phone
-                ? [para(run(QUOTE_BRAND.phone, { size: 17, color: GRAY }))]
+              para(run("ПОСТАВЩИК", { bold: true, size: 15, color: GREEN })),
+              para(run(supplierCompany, { bold: true, size: 20 })),
+              para(run(supplierAddress, { size: 17, color: GRAY })),
+              para(run(supplierWebsite, { size: 17, color: GRAY })),
+              ...(supplierEmail
+                ? [para(run(supplierEmail, { size: 17, color: GRAY }))]
+                : []),
+              ...(supplierPhone
+                ? [para(run(supplierPhone, { size: 17, color: GRAY }))]
                 : []),
             ],
             { width: 50, borders: NO_BORDERS }
           ),
           cell(
             [
-              para(run("TO", { bold: true, size: 15, color: GREEN })),
-              para(run(customer.name || "—", { bold: true, size: 19 })),
-              ...(contact.name
-                ? [para(run(contact.name, { size: 17, color: GRAY }))]
-                : []),
-              ...[customer.address, customer.city, customer.country]
-                .filter(Boolean)
-                .map((l) => para(run(l, { size: 17, color: GRAY }))),
-              ...(contact.email
-                ? [para(run(contact.email, { size: 17, color: GRAY }))]
-                : []),
-              ...(contact.phone
-                ? [para(run(contact.phone, { size: 17, color: GRAY }))]
+              para(run("ПОКУПАТЕЛЬ", { bold: true, size: 15, color: GREEN })),
+              para(run(customer.name || "—", { bold: true, size: 20 })),
+              ...(customer.country
+                ? [para(run(customer.country, { size: 17, color: GRAY }))]
                 : []),
             ],
             { width: 50, borders: NO_BORDERS }
@@ -226,75 +269,68 @@ async function generateQuoteDocx(quoteData) {
     ],
   });
 
-  // ── ITEMS TABLE ──────────────────────────────────────────────────────
+  // ── Table: Позиция | Артикул | Кол-во | Цена/шт | Сумма ───────────────
   const headerFill = GREEN;
   const itemHeaderRow = new TableRow({
     tableHeader: true,
     children: [
-      cell(para(run("#", { bold: true, size: 16, color: WHITE })), {
-        width: 6,
-        fill: headerFill,
-        borders: NO_BORDERS,
-      }),
-      cell(para(run("DESCRIPTION", { bold: true, size: 16, color: WHITE })), {
+      cell(para(run("Позиция", { bold: true, size: 16, color: WHITE })), {
         width: 40,
         fill: headerFill,
         borders: NO_BORDERS,
       }),
-      cell(para(run("D × L (MM)", { bold: true, size: 16, color: WHITE })), {
-        width: 20,
-        fill: headerFill,
-        borders: NO_BORDERS,
-      }),
-      cell(para(run("QTY", { bold: true, size: 16, color: WHITE })), {
-        width: 10,
+      cell(para(run("Артикул", { bold: true, size: 16, color: WHITE })), {
+        width: 18,
         fill: headerFill,
         borders: NO_BORDERS,
       }),
       cell(
-        para(run("UNIT PRICE", { bold: true, size: 16, color: WHITE }), {
+        para(run("Кол-во", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
         { width: 12, fill: headerFill, borders: NO_BORDERS }
       ),
       cell(
-        para(run("TOTAL", { bold: true, size: 16, color: WHITE }), {
+        para(run("Цена/шт", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
-        { width: 12, fill: headerFill, borders: NO_BORDERS }
+        { width: 15, fill: headerFill, borders: NO_BORDERS }
+      ),
+      cell(
+        para(run("Сумма", { bold: true, size: 16, color: WHITE }), {
+          alignment: AlignmentType.RIGHT,
+        }),
+        { width: 15, fill: headerFill, borders: NO_BORDERS }
       ),
     ],
   });
 
   const itemRows = lines.map((ql, i) => {
-    const qty = ql.quantity || 1;
-    const unitPrice = qty > 0 ? (ql.lineTotal || 0) / qty : ql.lineTotal || 0;
+    const qty = Number(ql.quantity) || 0;
+    const unit = lineUnitNet(ql, vatRate);
+    const sum = lineNetTotal(ql, vatRate);
     const fill = i % 2 === 1 ? GREEN_LIGHT : WHITE;
     return new TableRow({
       children: [
-        cell(para(run(String(i + 1), { size: 17 })), { width: 6, fill }),
-        cell(para(run(ql.productName || ql.productId || "—", { size: 17 })), {
-          width: 40,
-          fill,
-        }),
+        cell(para(run(lineName(ql), { size: 18 })), { width: 40, fill }),
+        cell(para(run(lineArticle(ql), { size: 18 })), { width: 18, fill }),
         cell(
-          para(
-            run(`${ql.lengthMm || "—"} x ${ql.heightMm || "—"}`, { size: 17 })
-          ),
-          { width: 20, fill }
-        ),
-        cell(para(run(`${qty} pcs`, { size: 17 })), { width: 10, fill }),
-        cell(
-          para(run(money(unitPrice), { size: 17 }), {
+          para(run(String(qty), { size: 18 }), {
             alignment: AlignmentType.RIGHT,
           }),
           { width: 12, fill }
         ),
         cell(
-          para(run(money(ql.lineTotal), { bold: true, size: 17 }), {
+          para(run(money(unit), { size: 18 }), {
             alignment: AlignmentType.RIGHT,
           }),
-          { width: 12, fill }
+          { width: 15, fill }
+        ),
+        cell(
+          para(run(money(sum), { bold: true, size: 18 }), {
+            alignment: AlignmentType.RIGHT,
+          }),
+          { width: 15, fill }
         ),
       ],
     });
@@ -305,7 +341,6 @@ async function generateQuoteDocx(quoteData) {
     rows: [itemHeaderRow, ...itemRows],
   });
 
-  // ── TOTALS ─────────────────────────────────────────────────────────────
   function totalsRow(label, value, opts = {}) {
     return new TableRow({
       children: [
@@ -313,25 +348,23 @@ async function generateQuoteDocx(quoteData) {
           para(
             run(label, {
               bold: opts.bold,
-              size: 17,
+              size: opts.big ? 20 : 18,
               color: opts.color || GRAY,
             }),
-            {
-              alignment: AlignmentType.RIGHT,
-            }
+            { alignment: AlignmentType.RIGHT }
           ),
-          { width: 75, fill: opts.fill, borders: NO_BORDERS }
+          { width: 70, fill: opts.fill, borders: NO_BORDERS }
         ),
         cell(
           para(
             run(value, {
               bold: opts.bold,
-              size: opts.big ? 21 : 17,
+              size: opts.big ? 22 : 18,
               color: opts.color || NAVY,
             }),
             { alignment: AlignmentType.RIGHT }
           ),
-          { width: 25, fill: opts.fill, borders: NO_BORDERS }
+          { width: 30, fill: opts.fill, borders: NO_BORDERS }
         ),
       ],
     });
@@ -341,10 +374,10 @@ async function generateQuoteDocx(quoteData) {
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: NO_BORDERS,
     rows: [
-      totalsRow("Subtotal", money(Number(subtotal) || 0)),
-      totalsRow("Delivery", money(Number(shipping) || 0)),
-      totalsRow(`VAT (${Math.round(vatRate * 100)}%)`, money(vat)),
-      totalsRow("Total (incl. VAT)", money(grandTotal), {
+      totalsRow("Подытог", money(computedSubtotal)),
+      totalsRow("Доставка", money(ship)),
+      totalsRow(`НДС (${Math.round(vatRate * 100)}%)`, money(vat)),
+      totalsRow("Итого с НДС", money(grandTotal), {
         bold: true,
         big: true,
         color: WHITE,
@@ -353,111 +386,68 @@ async function generateQuoteDocx(quoteData) {
     ],
   });
 
-  // ── SPECIFICATIONS ───────────────────────────────────────────────────
-  const totalQty = lines.reduce((s, l) => s + (l.quantity || 1), 0);
-  const productNames = [
-    ...new Set(lines.map((l) => l.productName || l.productId).filter(Boolean)),
-  ].join(", ");
-  const dimsList = [
-    ...new Set(lines.map((l) => `${l.lengthMm} x ${l.heightMm}`)),
-  ].join(" · ");
-  const specs = [
-    ["Catalog", QUOTE_BRAND.catalogLabel],
-    ["Products", productNames || "—"],
-    ["Dimensions (D × L)", dimsList || "—"],
-    ["Quantity", `${totalQty} pcs`],
-    [
-      "Delivery",
-      customer.country ? `Delivery to ${customer.country}` : "To be confirmed",
-    ],
-  ];
-
-  const terms = [
-    ...(QUOTE_BRAND.termsDocx || QUOTE_BRAND.terms),
-    `Prices in ${currency}. Valid until the date above.`,
-    QUOTE_BRAND.warrantyNoteDocx || QUOTE_BRAND.warrantyNote,
-  ];
-
   function sectionHeading(text) {
     return new Paragraph({
-      spacing: { before: 220, after: 80 },
+      spacing: { before: 240, after: 100 },
       children: [run(text, { bold: true, size: 18, color: GREEN })],
     });
   }
 
-  const doc = new Document({
-    title: `Quotation ${reference}`,
-    creator: QUOTE_BRAND.companyName,
-    description: `purolat.com quotation ${reference}`,
+  const wordDoc = new Document({
+    title: `Коммерческое предложение ${reference}`,
+    creator: brandCompany,
+    description: `КП ${reference} · ${QUOTE_BRAND.catalogLabel}`,
     sections: [
       {
         properties: {
           page: {
-            margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 },
+            margin: { top: 720, bottom: 720, left: 720, right: 720 },
           },
         },
         children: [
           headerTable,
           new Paragraph({
-            spacing: { before: 120, after: 120 },
+            spacing: { before: 120, after: 160 },
             border: {
-              bottom: { style: BorderStyle.SINGLE, size: 12, color: GREEN },
+              bottom: { style: BorderStyle.SINGLE, size: 18, color: GREEN },
             },
             children: [],
           }),
-          fromTo,
-          sectionHeading("ITEMS"),
+          parties,
+          sectionHeading(positionsLabel),
           itemsTable,
-          new Paragraph({ spacing: { after: 120 }, children: [] }),
+          new Paragraph({ spacing: { after: 140 }, children: [] }),
           totalsTable,
-          sectionHeading("SPECIFICATIONS"),
-          ...specs.map(
-            ([k, v]) =>
-              new Paragraph({
-                spacing: { after: 40 },
-                children: [
-                  run(`${k}:  `, { bold: true, size: 17 }),
-                  run(v, { size: 17, color: GRAY }),
-                ],
-              })
-          ),
-          sectionHeading("TERMS & CONDITIONS"),
+          sectionHeading(termsLabel),
           ...terms.map(
             (t) =>
               new Paragraph({
-                spacing: { after: 40 },
+                spacing: { after: 50 },
                 bullet: { level: 0 },
-                children: [run(t, { size: 16, color: GRAY })],
+                children: [run(t, { size: 17, color: GRAY })],
               })
           ),
-          new Paragraph({ spacing: { before: 240 }, children: [] }),
-          para(run("Best regards,", { bold: true, size: 18 })),
-          para(
-            run(`${QUOTE_BRAND.companyName}`, {
-              bold: true,
-              size: 18,
-              color: GREEN,
-            })
-          ),
+          new Paragraph({ spacing: { before: 280 }, children: [] }),
+          para(run(signOff, { bold: true, size: 20 })),
+          para(run(signCompany, { bold: true, size: 18, color: GREEN })),
           new Paragraph({
-            spacing: { before: 200 },
+            spacing: { before: 160 },
             children: [
-              run(`${QUOTE_BRAND.companyName} — ${QUOTE_BRAND.website}`, {
+              run(`${brandCompany} — ${brandWebsite}`, {
                 size: 14,
                 color: GRAY,
               }),
             ],
           }),
-          para(run(QUOTE_BRAND.catalogLabel, { size: 13, color: GRAY })),
         ],
       },
     ],
   });
 
-  const buffer = await Packer.toBuffer(doc);
+  const buffer = await Packer.toBuffer(wordDoc);
   const friendlyName = customer.name
-    ? `Quotation_${customer.name.replace(/\s+/g, "_")}_${reference}.docx`
-    : `Quotation_${reference}.docx`;
+    ? `KP_${customer.name.replace(/\s+/g, "_")}_${reference}.docx`
+    : `KP_${reference}.docx`;
 
   const saved = await createFilesLib.saveGeneratedFile({
     fileType: "quote",
