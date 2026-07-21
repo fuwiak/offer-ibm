@@ -184,6 +184,8 @@ async function applyInquiryDraftToUserPrompt(userPrompt, options = {}) {
  * Прочие external context → system contextTexts.
  */
 function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
+  const { shouldRunShopEnrich } = require("./enrich");
+  const allowShopDbContext = shouldRunShopEnrich(userPrompt);
   const systemContextTexts = [];
   const sources = [];
   let catalogBlocks = [];
@@ -195,14 +197,21 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
     if (ext?.kind === "shopdb") {
       shopDbFlags = ext?.flags || null;
       inquiryDraft = ext?.inquiryDraft || inquiryDraft;
-      catalogBlocks = texts.filter(isCatalogBlock);
-      for (const t of texts) {
-        if (!isCatalogBlock(t)) systemContextTexts.push(t);
+      if (allowShopDbContext) {
+        catalogBlocks = texts.filter(isCatalogBlock);
+        for (const t of texts) {
+          if (!isCatalogBlock(t)) systemContextTexts.push(t);
+        }
       }
     } else {
       systemContextTexts.push(...texts);
     }
-    if (Array.isArray(ext?.sources)) sources.push(...ext.sources);
+    if (
+      Array.isArray(ext?.sources) &&
+      (ext?.kind !== "shopdb" || allowShopDbContext)
+    ) {
+      sources.push(...ext.sources);
+    }
   }
 
   let finalUserPrompt = String(userPrompt || "").trim();
@@ -216,7 +225,7 @@ function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
       blocks: catalogBlocks.length,
       userPromptLen: finalUserPrompt.length,
     });
-  } else if (shopDbFlags && !shopDbFlags.shopDbSkipped) {
+  } else if (allowShopDbContext && shopDbFlags && !shopDbFlags.shopDbSkipped) {
     shopDbLog.warn("catalog not injected", {
       shopDbDocCount: shopDbFlags.shopDbDocCount ?? 0,
       shopDbTimeout: !!shopDbFlags.shopDbTimeout,

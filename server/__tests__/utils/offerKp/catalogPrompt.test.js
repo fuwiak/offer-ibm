@@ -51,6 +51,22 @@ describe("catalogPrompt", () => {
     expect(result.sources).toHaveLength(1);
   });
 
+  it("drops supplied ShopDB context for a casual message", () => {
+    const result = applyExternalContextsForLlm("hello", [
+      {
+        kind: "shopdb",
+        contextTexts: [sampleBlock],
+        sources: [{ id: "1" }],
+        flags: { shopDbDocCount: 1 },
+      },
+    ]);
+
+    expect(result.userPrompt).toBe("hello");
+    expect(result.catalogInjected).toBe(false);
+    expect(result.contextTexts).toEqual([]);
+    expect(result.sources).toEqual([]);
+  });
+
   it("extracts catalog blocks from prior chat history", () => {
     const priorPrompt = mergeCatalogIntoUserPrompt("какая цена?", [
       sampleBlock,

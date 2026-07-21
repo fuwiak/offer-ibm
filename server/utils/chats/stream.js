@@ -40,6 +40,41 @@ async function streamChatWithWorkspace(
   const uuid = uuidv4();
   const commandMessage = await grepCommand(message, user);
 
+  // Small local models may repeat a catalog block from chat history even when
+  // ShopDB enrichment was correctly skipped. Keep casual OfferKP messages out
+  // of the LLM/agent path entirely so stale commercial data cannot leak into a
+  // greeting response.
+  const { shopDbEnrichEnabled } = require("../offerKp/enrich");
+  const { resolveOfferKpImmediateReply } = require("../offerKp/immediateReply");
+  const immediateReply = shopDbEnrichEnabled()
+    ? resolveOfferKpImmediateReply(commandMessage)
+    : null;
+  if (immediateReply) {
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: immediateReply,
+      sources: [],
+      attachments,
+      close: true,
+      error: null,
+    });
+    await WorkspaceChats.new({
+      workspaceId: workspace.id,
+      prompt: message,
+      response: {
+        text: immediateReply,
+        sources: [],
+        type: chatMode,
+        attachments,
+      },
+      threadId: thread?.id || null,
+      include: false,
+      user,
+    });
+    return;
+  }
+
   // Fetched early (before the quote-intent check below) because an attached
   // PDF inquiry — not just a matching phrase in the chat message — must be
   // able to switch the pipeline into ShopDB-only mode. See parsedTextHasQuoteSignals.
