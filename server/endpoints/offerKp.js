@@ -626,6 +626,16 @@ function offerKpEndpoints(app) {
           ? body.corrections
           : [body];
         const saved = await OfferKpCorrectionLog.logBatch(user.id, corrections);
+        try {
+          const {
+            recordOperatorCorrection,
+          } = require("../utils/offerKp/searchMetrics");
+          for (const c of corrections) {
+            recordOperatorCorrection(c);
+          }
+        } catch {
+          /* metrics must never fail the corrections API */
+        }
         response.status(200).json({ success: true, count: saved.length });
       } catch (e) {
         response.status(500).json({ error: e.message });

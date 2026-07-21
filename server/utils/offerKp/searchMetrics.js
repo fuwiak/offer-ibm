@@ -91,8 +91,32 @@ function recordSearchMetric(event) {
   }
 }
 
+/**
+ * Operator correction event — same JSONL stream, distinct `type` so
+ * calibration / fine-tune export can mine accepted vs overridden matches.
+ */
+function recordOperatorCorrection(event = {}) {
+  recordSearchMetric({
+    type: "operator_correction",
+    matchType: event.matchType || null,
+    productId: event.productId || null,
+    reviewReason: event.reviewReason || null,
+    field: event.field || null,
+    lineIndex: event.lineIndex ?? null,
+    threadId: event.threadSlug || event.threadId || null,
+    queryLen: String(event.inquiryRaw || "").length,
+    hasPrice: false,
+    candidateCount: 0,
+    source: "operator",
+    strategies: ["operator_correction"],
+    oldValue: event.oldValue != null ? String(event.oldValue).slice(0, 200) : null,
+    newValue: event.newValue != null ? String(event.newValue).slice(0, 200) : null,
+  });
+}
+
 module.exports = {
   recordSearchMetric,
+  recordOperatorCorrection,
   isMetricsEnabled: () => METRICS_ENABLED,
   METRICS_FILE,
 };

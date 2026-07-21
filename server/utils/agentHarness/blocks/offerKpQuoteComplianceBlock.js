@@ -148,6 +148,33 @@ class OfferKpQuoteComplianceBlock extends BaseBlock {
       });
     }
 
+    // Temporal grounding: re-read live ShopDB prices before export so a
+    // stale snapshot from earlier in the session cannot ship in DOCX/PDF.
+    if (inquiryDbDraft?.lines?.length) {
+      try {
+        const {
+          refreshDraftPricesFromShopDb,
+        } = require("../../offerKp/refreshDraftPrices");
+        const { fetchProductStocks } = require("../../offerKp/matchInquiryLines");
+        const refreshed = await refreshDraftPricesFromShopDb(
+          inquiryDbDraft,
+          fetchProductStocks
+        );
+        inquiryDbDraft = refreshed.draft;
+        harness.state.set("inquiryDbDraft", inquiryDbDraft);
+        if (refreshed.changed > 0) {
+          harnessLog("warn", "quoteCompliance.pricesRefreshed", {
+            refreshed: refreshed.refreshed,
+            changed: refreshed.changed,
+          });
+        }
+      } catch (error) {
+        harnessLog("warn", "quoteCompliance.priceRefreshFailed", {
+          error: error?.message || String(error),
+        });
+      }
+    }
+
     // Главный фикс: не доверяем таблице агента (18.50 на всё) — подмена из ShopDB draft.
     if (inquiryDbDraft?.lines?.length && params.payload) {
       const forced = buildQuoteMarkdownFromDraft(inquiryDbDraft);

@@ -355,15 +355,13 @@ function parseLlmProductIds(text) {
   const raw = String(text || "").trim();
   if (!raw) return [];
 
+  const { parseProductIdArray } = require("./llmJsonSchema");
   const jsonMatch = raw.match(/\[[\s\S]*?\]/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((v) => parseInt(v, 10))
-          .filter((id) => Number.isFinite(id) && id > 0);
-      }
+      const ids = parseProductIdArray(parsed);
+      if (ids.length) return ids;
     } catch {
       /* fall through */
     }
@@ -374,7 +372,38 @@ function parseLlmProductIds(text) {
     const id = parseInt(m[1], 10);
     if (Number.isFinite(id) && id > 0) ids.push(id);
   }
-  return [...new Set(ids)];
+  return parseProductIdArray(ids);
+}
+
+/** Fisher–Yates shuffle copy — reduces position bias in LLM candidate lists. */
+function shuffleCandidates(list = []) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * Map LLM-chosen ids back onto a closed candidate set (order = LLM order).
+ * Ids outside the set are dropped — model cannot invent products.
+ */
+function pickClosedCandidateProducts(candidates, ids) {
+  const byId = new Map(candidates.map((p) => [Number(p.id), p]));
+  const picked = [];
+  for (const id of ids) {
+    const product = byId.get(Number(id));
+    if (product) {
+      picked.push({
+        ...product,
+        _matchSources: [
+          ...new Set([...(product._matchSources || []), "llm_rank"]),
+        ],
+      });
+    }
+  }
+  return picked;
 }
 
 async function pickProductsWithLlm(
@@ -390,10 +419,11 @@ async function pickProductsWithLlm(
     model: workspace?.chatModel || null,
   });
 
-  const catalogLines = candidates
-    .slice(0, 40)
-    .map((p) => `${p.id}: ${p.name}`)
-    .join("\n");
+  // Shuffle before presenting to the model so sales-ranked position bias
+  // does not silently prefer the first catalog lines (see metamorphic
+  // candidate-order invariance tests).
+  const presented = shuffleCandidates(candidates).slice(0, 40);
+  const catalogLines = presented.map((p) => `${p.id}: ${p.name}`).join("\n");
 
   const fewShotExamples = await retrieveFewShotExamples(searchText);
   const fewShotBlock = formatFewShotBlock(fewShotExamples);
@@ -409,6 +439,7 @@ async function pickProductsWithLlm(
     knowledgeBlock,
     fewShotBlock,
     `Запрос: ${searchText}`,
+    `Кандидаты перечислены без гарантии правильности; порядок случайный — не предпочитай первые строки.`,
     `Каталог:\n${catalogLines}`,
   ]
     .filter(Boolean)
@@ -431,21 +462,7 @@ async function pickProductsWithLlm(
     });
     const ids = parseLlmProductIds(textResponse);
     if (!ids.length) return [];
-
-    const byId = new Map(candidates.map((p) => [p.id, p]));
-    const picked = [];
-    for (const id of ids) {
-      const product = byId.get(id);
-      if (product) {
-        picked.push({
-          ...product,
-          _matchSources: [
-            ...new Set([...(product._matchSources || []), "llm_rank"]),
-          ],
-        });
-      }
-    }
-    return picked;
+    return pickClosedCandidateProducts(candidates, ids);
   } catch (err) {
     shopDbLog.warn("LLM pick failed", { error: err?.message || String(err) });
     return [];
@@ -574,4 +591,7 @@ module.exports = {
   parseExtendedHardwareQuery,
   needsSearchAgentFallback,
   runShopDbSearchAgent,
+  parseLlmProductIds,
+  shuffleCandidates,
+  pickClosedCandidateProducts,
 };

@@ -217,6 +217,9 @@ export default function QuoteDraftTable() {
             newValue: String(newValue ?? ""),
             aiSuggestion: String(oldValue ?? ""),
             inquiryRaw: line?.inquiryRaw || line?.requestedName || "",
+            productId: line?.productId || null,
+            matchType: line?.matchType || null,
+            reviewReason: line?.reviewReason || line?.mismatchReason || null,
           },
         ]);
       } catch {

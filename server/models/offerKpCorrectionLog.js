@@ -54,6 +54,11 @@ const OfferKpCorrectionLog = {
       thread: r.threadSlug,
       quote: r.quoteReference,
       at: r.createdAt,
+      // Optional enrichments when the client sends them (stored only in
+      // metrics JSONL today; DB columns unchanged to avoid a migration).
+      productId: r.productId || null,
+      matchType: r.matchType || null,
+      reviewReason: r.reviewReason || null,
     }));
   },
 };

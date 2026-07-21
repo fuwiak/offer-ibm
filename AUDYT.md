@@ -584,3 +584,25 @@ Sources: [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-
 ### 12.8 OpenAI-паттерн vs OfferKP
 
 Лучший результат у OpenAI для такого продукта — не «лучший модель», а: **tool-grounded facts + closed-world candidates + structured decision + backend invariants + evals**. Это уже базовая архитектура OfferKP. Дожать: schema-constrained decoding, evals `false_exact_rate`/`wrong_price_rate`=0 в CI (начато), abstention states в UI, red-team на контрфактах (частично metamorphic).
+
+---
+
+## 13. Закрытие слабых мест P0/P1 (2026-07-21, дополнение 8)
+
+Ответ на ревью пробелов (Zod/provenance/requiresReview/PDF-isolation/correction log/disagreement/order invariance/temporal price/min-info). `groundedResponse.js` уже был в `c21f453` — здесь дожаты остальные дыры **без новой зависимости** (Joi уже в server).
+
+| Пробел | Что сделано | Файлы |
+|---|---|---|
+| Zod/схема LLM-JSON | Joi-валидация id-массивов и OCR-строк | `llmJsonSchema.js`, `searchAgent.parseLlmProductIds`, `offerKpVisionOcr.extractJsonArray` |
+| Provenance на строке | `matchSource`, `matchStrategies`, `retrievedAt`, `priceSnapshot`, `reviewReason`, `mismatchReason` на matchedLine | `matchInquiryLines.js` |
+| Причины requiresReview | структурированный `reviewReason` (не только comment) | `reviewReasons.js` |
+| PDF prompt-injection | маркеры `<<<UNTRUSTED_USER_DOCUMENT>>>` + промпт/guidelines | `stream.js`, `prompts.js`, `offerKpSourceVerificationBlock.js` |
+| Correction log | `recordOperatorCorrection` в JSONL + UI шлёт productId/matchType/reviewReason | `searchMetrics.js`, endpoint, `QuoteDraftTable.jsx` |
+| Lexical vs semantic disagreement | `detectRetrieverDisagreement` → блок auto-exact | `matchInquiryLines.js` |
+| Candidate-order invariance | shuffle перед LLM + тест closed-set | `searchAgent.js`, `weakSpotsGuards.test.js` |
+| Temporal price before export | `refreshDraftPricesFromShopDb` в compliance before DOCX/PDF | `refreshDraftPrices.js`, `offerKpQuoteComplianceBlock.js` |
+| Min-info / abstention | `assessInquiryCompleteness` до поиска + блок цены без размера | `inquiryCompleteness.js`, `matchInquiryLines.js` |
+
+**Не сделано (сознательно):** автокалибровка порогов по данным оператора — нужен накопленный correction stream (теперь пишется); schema migration для колонок productId в SQLite corrections — метаданные идут в metrics JSONL без миграции.
+
+Тесты: `weakSpotsGuards.test.js` + прежние golden/metamorphic/hallucination suites.

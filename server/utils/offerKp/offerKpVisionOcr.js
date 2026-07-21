@@ -83,7 +83,8 @@ function extractJsonArray(text) {
   if (start === -1 || end === -1 || end <= start) return null;
   try {
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    return Array.isArray(parsed) ? parsed : null;
+    const { parseOcrLinesArray } = require("./llmJsonSchema");
+    return parseOcrLinesArray(parsed);
   } catch {
     return null;
   }

@@ -15,6 +15,8 @@ const { resolveProductPrice } = require("./priceResolve");
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { recordSearchMetric } = require("./searchMetrics");
+const { assessInquiryCompleteness } = require("./inquiryCompleteness");
+const { resolveReviewReason } = require("./reviewReasons");
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -268,6 +270,88 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
     thread: inquiryLine.thread,
     alternatives: [],
     matchError: true,
+    reviewReason: "match_error",
+    mismatchReason: "match_error",
+    matchSource: "exception",
+    matchStrategies: [],
+    retrievedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Compare top-1 by lexical vs embedding scores when both are present.
+ * Disagreement → do not allow automatic exact (operator must confirm).
+ */
+function detectRetrieverDisagreement(candidates = []) {
+  const scored = candidates.filter(
+    (c) =>
+      Number.isFinite(c._nameSimilarity) ||
+      Number.isFinite(c._embeddingSimilarity)
+  );
+  if (scored.length < 2) return null;
+
+  const byLex = [...scored].sort(
+    (a, b) => (b._nameSimilarity || 0) - (a._nameSimilarity || 0)
+  );
+  const byEmb = [...scored].sort(
+    (a, b) => (b._embeddingSimilarity || 0) - (a._embeddingSimilarity || 0)
+  );
+  const lexTop = byLex[0];
+  const embTop = byEmb[0];
+  if (!lexTop || !embTop) return null;
+  if ((lexTop._nameSimilarity || 0) < 0.2) return null;
+  if ((embTop._embeddingSimilarity || 0) < 0.45) return null;
+  if (String(lexTop.id) === String(embTop.id)) return null;
+  return {
+    lexicalProductId: String(lexTop.id),
+    embeddingProductId: String(embTop.id),
+  };
+}
+
+function buildUnderspecifiedLine(inquiryLine, completeness) {
+  const quantity = Number(inquiryLine.quantity);
+  const missing = completeness.missing || [];
+  const retrievedAt = new Date().toISOString();
+  recordSearchMetric({
+    matchType: "none",
+    source: "underspecified",
+    strategies: ["min_info_policy"],
+    hasPrice: false,
+    candidateCount: 0,
+    queryLen: String(inquiryLine.raw || inquiryLine.name || "").length,
+    threadId: null,
+    failureReason: "underspecified",
+    missingAttributes: missing,
+  });
+  return {
+    inquiryRaw: inquiryLine.raw,
+    name: inquiryLine.name || inquiryLine.raw,
+    requestedName: inquiryLine.name || inquiryLine.raw,
+    article: "",
+    productId: "",
+    quantity: Number.isFinite(quantity) ? quantity : 1,
+    unit: inquiryLine.unit || "шт",
+    priceWithVat: 0,
+    unitPriceNet: 0,
+    lineTotal: 0,
+    weightKg: 0,
+    lineWeightKg: 0,
+    status: STATUS.NEEDS_REVIEW,
+    kpStatus: "Требуется проверка",
+    unitNeedsRecalc: true,
+    matchType: "none",
+    analogOf: null,
+    similarSuggestion: null,
+    comment: `Недостаточно данных для сопоставления (нет: ${missing.join(", ")}). Укажите размер/стандарт — цена не назначена.`,
+    thread: inquiryLine.thread,
+    alternatives: [],
+    reviewReason: "underspecified",
+    mismatchReason: "underspecified",
+    missingAttributes: missing,
+    matchSource: "min_info_policy",
+    matchStrategies: ["min_info_policy"],
+    retrievedAt,
+    allowPrice: false,
   };
 }
 
@@ -278,6 +362,17 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
 
   const searchText = inquiryLine.raw || inquiryLine.name;
+  const completeness = assessInquiryCompleteness(inquiryLine);
+  // Empty of catalog signals → abstain before any ShopDB round-trip.
+  if (
+    !completeness.ok &&
+    completeness.missing.includes("product_signal") &&
+    !completeness.hasSku
+  ) {
+    const line = buildUnderspecifiedLine(inquiryLine, completeness);
+    setCachedLineMatch(options.threadId, cacheRaw, line);
+    return line;
+  }
 
   // Golden-set override (test_files/*.expected.csv with matched_sku/match_type
   // columns filled in): an operator-confirmed answer for this exact line text
@@ -340,6 +435,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // Stock lookup is already batched, so validate the full retrieval window.
   // Truncating it to five could hide the cheapest valid positive-price analog.
   const candidates = products.slice(0, 8);
+  const retrieverDisagreement = detectRetrieverDisagreement(candidates);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   const alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
@@ -367,11 +463,23 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     };
   });
 
-  const best = pickBestInquiryAlternative(alternatives);
+  let best = pickBestInquiryAlternative(alternatives);
   // Только exact/analog дают цену и имя из каталога.
   // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
-  const accepted =
+  let accepted =
     best && (best.matchType === "exact" || best.matchType === "analog");
+  const underspecifiedSize =
+    !completeness.ok &&
+    (completeness.missing.includes("size") ||
+      completeness.missing.includes("length"));
+  // Minimum-info: never auto-exact/price when critical size/length is missing.
+  if (underspecifiedSize && accepted) {
+    accepted = false;
+  }
+  // Lexical vs embedding top-1 disagree → block automatic exact.
+  if (retrieverDisagreement && accepted && best.matchType === "exact") {
+    accepted = false;
+  }
   const isAnalog = accepted && best.matchType === "analog";
 
   // Не найден точный товар и аналог — подсказать ближайший похожий,
@@ -388,6 +496,14 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         sku: similar.sku,
         price: Number(similar.price) || 0,
         productUrl: similar.productUrl,
+      };
+    } else if (best && (underspecifiedSize || retrieverDisagreement)) {
+      similarSuggestion = {
+        productId: best.productId,
+        name: best.name,
+        sku: best.sku,
+        price: Number(best.price) || 0,
+        productUrl: best.productUrl,
       };
     }
   }
@@ -414,9 +530,15 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ? best.status
       : STATUS.OUT_OF_STOCK;
 
+  if (underspecifiedSize || retrieverDisagreement) {
+    status = STATUS.NEEDS_REVIEW;
+  }
+
   // Статус для таблицы КП (фиксированный словарь из регламента КП).
   let kpStatus;
-  if (!accepted) {
+  if (underspecifiedSize || retrieverDisagreement) {
+    kpStatus = "Требуется проверка";
+  } else if (!accepted) {
     kpStatus = "Нет в базе";
   } else if (!hasPrice) {
     kpStatus = "Цена по запросу";
@@ -436,12 +558,22 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (!accepted && override?.matchType === "none") {
     commentParts.push("Подтверждено golden set: соответствия в каталоге нет");
   }
+  if (underspecifiedSize) {
+    commentParts.push(
+      `Недостаточно данных (${completeness.missing.join(", ")}) — цена не назначена`
+    );
+  }
+  if (retrieverDisagreement) {
+    commentParts.push(
+      `Расхождение поиска: lexical=${retrieverDisagreement.lexicalProductId}, embedding=${retrieverDisagreement.embeddingProductId} — требуется подтверждение`
+    );
+  }
   if (isAnalog) {
     commentParts.push(
       `АНАЛОГ: вместо «${inquiryLine.name}» предложен «${best.name}»` +
         (best.analogOf ? ` (${best.analogOf})` : "")
     );
-  } else if (!accepted) {
+  } else if (!accepted && !underspecifiedSize) {
     commentParts.push("Точный товар отсутствует. Подходящий аналог не найден");
     if (best?.matchType === "spec_mismatch") {
       const labels = {
@@ -476,6 +608,23 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     commentParts.push(inquiryLine.specialRequirements);
   }
 
+  const retrievedAt = new Date().toISOString();
+  const displayMatchType = accepted
+    ? best.matchType
+    : underspecifiedSize
+      ? "none"
+      : best?.matchType || "none";
+  const reviewReason = resolveReviewReason({
+    accepted,
+    matchType: displayMatchType,
+    mismatchReason: best?.mismatchReason || null,
+    unitNeedsRecalc,
+    hasPrice,
+    retrieverDisagreement: !!retrieverDisagreement,
+    underspecified: underspecifiedSize,
+    goldenNone: !accepted && override?.matchType === "none",
+  });
+
   const matchedLine = {
     inquiryRaw: inquiryLine.raw,
     name: accepted ? best.name : inquiryLine.name,
@@ -492,32 +641,41 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     status,
     kpStatus,
     unitNeedsRecalc,
-    matchType: accepted ? best.matchType : best?.matchType || "none",
+    matchType: displayMatchType,
     analogOf: accepted ? best.analogOf || null : null,
     similarSuggestion,
     comment: commentParts.join("; "),
     thread: inquiryLine.thread,
     alternatives,
     productUrl: accepted ? best.productUrl : undefined,
-  };
-  recordSearchMetric({
-    matchType: matchedLine.matchType,
-    source:
+    // Provenance (persisted on the line, not only in metrics)
+    matchSource:
       best?.matchSource ||
       matchStrategies[matchStrategies.length - 1] ||
       "none",
+    matchStrategies,
+    mismatchReason: best?.mismatchReason || reviewReason || null,
+    reviewReason,
+    missingAttributes: underspecifiedSize ? completeness.missing : [],
+    retrieverDisagreement,
+    retrievedAt,
+    priceSnapshot: hasPrice ? unitPrice : null,
+    allowPrice: accepted && hasPrice,
+  };
+  recordSearchMetric({
+    matchType: matchedLine.matchType,
+    source: matchedLine.matchSource,
     strategies: matchStrategies,
     hasPrice: Number(matchedLine.unitPriceNet) > 0,
     candidateCount: candidates.length,
     queryLen: searchText.length,
     threadId: options.threadId || null,
-    // Error taxonomy: classifyProductMatch already computes *why* a line
-    // wasn't an exact match (size_unconfirmed, spec_mismatch + reason) — it
-    // just never reached the metrics log before, so "none"/"similar" rates
-    // were visible but never their root cause.
     failureReason: !accepted
-      ? best?.mismatchReason || best?.matchType || null
+      ? best?.mismatchReason || reviewReason || best?.matchType || null
       : null,
+    reviewReason,
+    retrieverDisagreement,
+    missingAttributes: matchedLine.missingAttributes,
   });
 
   setCachedLineMatch(options.threadId, cacheRaw, matchedLine);
@@ -684,4 +842,5 @@ module.exports = {
   resolveMatchConcurrency,
   calculateTotalWeightKg,
   buildDraftFromMatchedLines,
+  detectRetrieverDisagreement,
 };

@@ -310,7 +310,12 @@ async function streamChatWithWorkspace(
   parsedFiles.forEach((doc) => {
     const { pageContent, title, ...metadata } = doc;
     const docName = title || metadata?.source || "Прикреплённый документ";
-    const labeled = `=== ПРИКРЕПЛЁННЫЙ ДОКУМЕНТ: ${docName} ===\n${pageContent}\n=== КОНЕЦ ДОКУМЕНТА ===`;
+    // Explicit untrusted delimiters: model must treat body as DATA only
+    // (prompt-injection isolation — see AUDYT §12 / prompts.js).
+    const labeled =
+      `=== ПРИКРЕПЛЁННЫЙ ДОКУМЕНТ: ${docName} ===\n` +
+      `<<<UNTRUSTED_USER_DOCUMENT>>>\n${pageContent}\n<<<END_UNTRUSTED_USER_DOCUMENT>>>\n` +
+      `=== КОНЕЦ ДОКУМЕНТА ===`;
     contextTexts.push(labeled);
     sources.push({
       text:
