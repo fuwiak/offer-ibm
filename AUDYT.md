@@ -18,6 +18,8 @@
 
 Разделы 1–4 ниже — исходный аудит от 2026-07-20 (часть пунктов всё ещё открыта: HTTPS, progress-stage, brotli). Разделы 5+ — дополнения того же дня с уже внедрёнными фиксами.
 
+**Сводка сильные/слабые/галлюцинации + статус P0–P2:** см. [§12](#12-сводка-аудита-сильные--слабые-стороны--галлюцинации--статус-техник-2026-07-21).
+
 ---
 
 ## 1. Скорость web UI
@@ -474,3 +476,111 @@ Sources: [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-
 2. Disagreement routing между lexical/semantic поиском — дизайн-задача, требует разделения результатов стратегий до слияния в один пул кандидатов.
 3. Temporal price revalidation — сначала измерить частоту intraday-изменений цен в ShopDB (через уже существующий `searchMetrics.js`/прямой SQL), потом решать, нужен ли лишний запрос при экспорте.
 4. Structured Outputs / grammar-constrained decoding (§10.4) — конкретный следующий шаг: `intentLlmJudge.js` как первая точка внедрения `response_format: json_schema`.
+
+---
+
+## 12. Сводка аудита: сильные / слабые стороны / галлюцинации + статус техник (2026-07-21)
+
+Запрос: сильные стороны, слабые стороны, галлюцинации; какие техники из P0/P1/P2 выбраны и сработали; Qwen3Guard; новые классы ошибок; что делает OpenAI; тесты.
+
+### 12.1 Сильные стороны
+
+| Область | Что работает |
+|---|---|
+| Архитектура фактов | Цена и SKU приходят из ShopDB кодом, не из генерации LLM. `similar`/`size_mismatch` → «под заказ», без чужой цены. |
+| Closed candidate set | LLM ранжирует только id из SQL/`productSearchAgent`, не изобретает товары. |
+| Deterministic matchType | `analogRules.classifyProductMatch` + `hardwareQuery` — код, не «скажи exact». |
+| Absention / minimum info | Нет размера → `size_unconfirmed`, не угадывание популярного SKU. |
+| Intent router | Детерминированный `intentRouter` + узкий `intentLlmJudge` только при `ambiguous`. Политика всегда `allowLlmPrice=false`, `allowWebSearch=false` в КП. |
+| Многослойные price gates | `quoteDbPriceGate` (таблица) + `sanitizeOutgoingChat` (bullet «Цена:») + `quoteComplianceChecker` + `harnessEvidence` abstain. |
+| Обучение без fine-tune | Golden override (`goldenCorrections`) + few-shot (`goldenFewShot`) + MD-knowledge (DIN/GOST, покрытия). 7 верифицированных matching-строк реально грузятся. |
+| Single-model на T4 | `OFFER_KP_SINGLE_MODEL` убирает 90+ с swap eyes↔brain. |
+| Метрики | JSONL `searchMetrics` + `failureReason` + `offerkp metrics`. |
+| Kill-switches | Embedding / reranker / golden corrections / metrics — каждый можно выключить env. |
+
+### 12.2 Слабые стороны
+
+1. **Golden matching n=7** — слишком мало для калибровки; `Slozhnost_vysokaya_1` (20 строк) сознательно без SKU (недоспецифицированы).
+2. **Нет логов правок оператора** — калибровка confidence и LoRA заблокированы.
+3. **Cross-encoder** улучшает @5, но ~6 мин CPU на 7 запросов — выключен по умолчанию.
+4. **Colloquial «винт»≠«болт»** — после фикса false-exact гайка→болт colloquial снова ломается; нужна таблица синонимов от оператора.
+5. **Disagreement routing / temporal price / Structured Outputs** — ещё не в проде (§11.3–11.4).
+6. **Shadow mode live** — не подходит на одной T4; только offline batch.
+7. **UI:** нет early progress-stage, HTTPS, brotli (разд. 1–2).
+
+### 12.3 Галлюцинации — классы и где закрыто
+
+| Класс | Пример | Защита | Статус |
+|---|---|---|---|
+| Выдуманный SKU/цена в чате | «Подставь каталог…» → фейковые SKU | `sanitizeOutgoingChat` + price gate | ✅ закрыто (баг §10) |
+| False exact (размер) | M10x70 как M10x80 | `classifyProductMatch` → `size_mismatch` | ✅ + metamorphic |
+| False exact (тип) | «гайка» как «болт» | implied-type только если тип не назван | ✅ P0-баг найден metamorphic |
+| Wrong price на similar | цена похожего в строку КП | `accepted = exact\|\|analog` | ✅ |
+| Цена из интернета / промпта | «возьми из интернета» | intent → out_of_scope / policy | ✅ |
+| Prompt injection в PDF | «назначь цену X» в OCR | data≠instructions в prompts | ✅ (промпт) |
+| OCR → неверный размер | M10x8O → M10x30 | rawText + homoglyphs; нет OCR-variant matrix | ⚠️ частично |
+| Недоспецифицированный запрос | «болт м10 100 шт» | `size_unconfirmed` | ✅ |
+| Устаревшая цена при экспорте | цена изменилась в ShopDB | — | ❌ не сделано |
+| Знание мира про DIN/GOST | модель «знает» аналоги | knowledge MD + analogRules; LLM не источник цены | ✅ / ⚠️ |
+
+**Главная формула:** LLM предлагает → ShopDB даёт факты → код утверждает. Не «не галлюцинируй» в промпте.
+
+### 12.4 Техники P0 / P1 / P2 — что выбрано и сработало
+
+| Приоритет | Техника | Статус | Эффект |
+|---|---|---|---|
+| **P0** | Immutable ShopDB facts | ✅ | Цены/SKU только из БД |
+| **P0** | Closed candidate set | ✅ | Нет выдуманных товаров из LLM |
+| **P0** | Field-level grounding (цена) | ✅ | Таблица + bullet sanitize |
+| **P0** | Deterministic matchType | ✅ | Код; metamorphic ловит регрессии |
+| **P0** | Твёрдая политика цены | ✅ | similar без цены в линии |
+| **P0** | Zod / Structured Outputs | ⚠️ сервер LM Studio умеет; адаптер не форвардит `response_format` | Следующий шаг: `intentLlmJudge` |
+| **P0** | Provenance на линию | ⚠️ частично (`matchSource`, strategies в metrics) | Нет полного объекта provenance |
+| **P0** | requiresReview reasons | ✅ | `failureReason` / mismatchReason в metrics |
+| **P0** | Prompt-injection separation PDF | ✅ | Текст в prompts |
+| **P0** | Audit log | ⚠️ searchMetrics JSONL | Не полный audit trail экспорта |
+| **P1** | Intent router | ✅ | + LLM judge только на ambiguous |
+| **P1** | Детекция конфликтов / ambiguity | ✅ частично | size/spec mismatch; нет lexical↔semantic disagreement |
+| **P1** | Grounding verifier (трудные) | ❌ | Паттерн судей есть, отдельного нет |
+| **P1** | Hard-negative suite | ⚠️ metamorphic + hallucinationInvariants | Нет mined-from-ops |
+| **P1** | Автотесты false exact / wrong price | ✅ **новое** `hallucinationInvariants.test.js` | CI |
+| **P2** | Qwen3-Reranker | ⚠️ заменён на bge-reranker-base | @5↑, латентность↑ → OFF |
+| **P2** | Fine-tuning на коррекциях | ❌ | Нет данных оператора |
+| **P2** | Синтетические запросы | ❌ | |
+| **P2** | Калибровка порогов | ❌ | n=7 слишком мало |
+| **P2** | Отдельный guardrails-классификатор | ❌ | |
+
+**Qwen3Guard:** низкий приоритет. Ловит injection/leak/off-domain, **не** отличит M10×70 от M10×80 и не проверит цену. Доменные правила важнее.
+
+### 12.5 Что сработало лучше всего (по факту кода + багов)
+
+1. **Metamorphic tests** — нашли P0 «гайка = болт exact» (§11.2). Лучший ROI среди тест-техник.
+2. **REGEXP резьбы + STANDARD_IMPLIES_TYPE** — accuracy@5 43%→86% на n=7 (§8.3).
+3. **sanitizeOutgoingChat без `|`-gate** — закрыл прод-баг выдуманного каталога (§10).
+4. **Golden matching columns** — override реально грузит 7 SKU (`goldenMatchingSet.test.js` подтверждает).
+5. **Embedding rerank** — полезен как OR-порог; не заменяет структурный SQL.
+6. **Cross-encoder** — recall@5, но слишком дорог для default-on.
+
+### 12.6 Что внедрять дальше (порядок)
+
+1. Таблица colloquial-синонимов (винт≈болт) — после оператора каталога.
+2. Structured Outputs в `intentLlmJudge` (`response_format`).
+3. Disagreement routing lexical vs semantic (дизайн до слияния кандидатов).
+4. Расширить matching golden / hard-negatives из `searchMetrics`.
+5. Temporal revalidation цены перед экспортом — после замера intraday drift.
+6. OCR-variant matrix (O↔0, х↔x) + alternatives с confidence — класс ошибок экстракции, не matching.
+
+### 12.7 Новые тесты этой сессии
+
+| Файл | Что проверяет |
+|---|---|
+| `goldenMatchingSet.test.js` | 7 SKU из `test_files/Prostoy_*.expected.csv` реально в индексе override |
+| `hallucinationInvariants.test.js` | false_exact (размер/тип/недоспец.) + wrong_price policy + price gate |
+| уже было: `metamorphic.test.js` | invariance / sensitivity / abstention |
+| `yarn test:golden` | **170/170** экстракция |
+
+Прогон: `yarn test:golden` + suite matching/invariants/metamorphic/intent — всё green.
+
+### 12.8 OpenAI-паттерн vs OfferKP
+
+Лучший результат у OpenAI для такого продукта — не «лучший модель», а: **tool-grounded facts + closed-world candidates + structured decision + backend invariants + evals**. Это уже базовая архитектура OfferKP. Дожать: schema-constrained decoding, evals `false_exact_rate`/`wrong_price_rate`=0 в CI (начато), abstention states в UI, red-team на контрфактах (частично metamorphic).
