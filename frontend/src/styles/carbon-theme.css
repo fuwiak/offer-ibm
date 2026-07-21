@@ -1483,15 +1483,15 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-compare-badge--in {
-  color: #0c7d69;
-  background: rgba(12, 125, 105, 0.12);
-  border: 1px solid rgba(12, 125, 105, 0.35);
+  color: #333333;
+  background: #f0f0f0;
+  border: 1px solid #cccccc;
 }
 
 .offerKp-compare-badge--out {
-  color: #1b2f5a;
-  background: rgba(27, 47, 90, 0.1);
-  border: 1px solid rgba(27, 47, 90, 0.28);
+  color: #1a1a1a;
+  background: #f5f5f5;
+  border: 1px solid #dddddd;
 }
 
 [data-theme="dark"] .offerKp-compare-badge--out {
@@ -2844,7 +2844,7 @@ html.carbon-ui .offerKp-hero-title {
 /* ── Agent document markdown preview — match QuotePreview paper ── */
 .offerKp-doc-preview {
   background: #ffffff;
-  color: #1b2f5a;
+  color: #1a1a1a;
   width: 100%;
   max-width: 920px;
   margin: 0 auto;
@@ -2859,14 +2859,14 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-doc-preview h1 {
   font-size: 18px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   margin: 0 0 10px;
 }
 
 .offerKp-doc-preview h2 {
   font-size: 11px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   margin: 18px 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2877,18 +2877,18 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-doc-preview h3 {
   font-size: 13px;
   font-weight: 700;
-  color: #1b2f5a;
+  color: #1a1a1a;
   margin: 14px 0 4px;
 }
 
 .offerKp-doc-preview p {
   margin: 0 0 8px;
-  color: #475569;
+  color: #666666;
 }
 
 .offerKp-doc-preview hr {
   border: none;
-  border-top: 2px solid #0c7d69;
+  border-top: 2px solid #333333;
   margin: 14px 0;
 }
 
@@ -2896,7 +2896,7 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-doc-preview ol {
   margin: 0 0 10px;
   padding-left: 20px;
-  color: #475569;
+  color: #666666;
   font-size: 11px;
 }
 
@@ -2905,16 +2905,16 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-doc-preview strong {
-  color: #1b2f5a;
+  color: #1a1a1a;
   font-weight: 700;
 }
 
 .offerKp-doc-preview blockquote {
   margin: 8px 0;
   padding: 6px 12px;
-  border-left: 3px solid #0c7d69;
-  background: #f1f8f7;
-  color: #475569;
+  border-left: 3px solid #333333;
+  background: #f5f5f5;
+  color: #666666;
   font-size: 11px;
 }
 
@@ -2927,7 +2927,7 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-doc-preview th {
-  background: #0c7d69;
+  background: #333333;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
@@ -2939,22 +2939,22 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-doc-preview td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8e8;
-  color: #1b2f5a;
+  border-bottom: 1px solid #dddddd;
+  color: #1a1a1a;
   word-break: break-word;
 }
 
 .offerKp-doc-preview tr:nth-child(even) td {
-  background: #f1f8f7;
+  background: #f5f5f5;
 }
 
 .offerKp-doc-preview a {
-  color: #0c7d69;
+  color: #333333;
 }
 
 .offerKp-doc-preview code {
   font-size: 11px;
-  background: #f1f8f7;
+  background: #f5f5f5;
   padding: 1px 4px;
   border-radius: 2px;
 }
@@ -2962,7 +2962,7 @@ html.carbon-ui .offerKp-hero-title {
 /* ── Rendered quotation document preview (artifact view) ── */
 .offerKp-quote-doc {
   background: #ffffff;
-  color: #1b2f5a;
+  color: #1a1a1a;
   width: 100%;
   max-width: 920px;
   margin: 0 auto;
@@ -2989,13 +2989,13 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__brand {
   font-size: 16px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   letter-spacing: 0.2px;
 }
 
 .offerKp-quote-doc__brand-sub {
   font-size: 10px;
-  color: #475569;
+  color: #666666;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -3005,19 +3005,19 @@ html.carbon-ui .offerKp-hero-title {
   min-width: 0;
   text-align: right;
   font-size: 11px;
-  color: #475569;
+  color: #666666;
 }
 
 .offerKp-quote-doc__title {
   font-size: 20px;
   font-weight: 700;
-  color: #1b2f5a;
+  color: #1a1a1a;
   letter-spacing: 0.4px;
 }
 
 .offerKp-quote-doc__rule {
   height: 2px;
-  background: #0c7d69;
+  background: #333333;
   margin: 12px 0 16px;
 }
 
@@ -3025,7 +3025,7 @@ html.carbon-ui .offerKp-hero-title {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 28px;
-  color: #475569;
+  color: #666666;
 }
 
 .offerKp-quote-doc__buyer {
@@ -3041,9 +3041,9 @@ html.carbon-ui .offerKp-hero-title {
   width: 100%;
   display: block;
   border: none;
-  border-bottom: 1px dashed #94a3b8;
+  border-bottom: 1px dashed #999999;
   background: transparent;
-  color: #475569;
+  color: #666666;
   font: inherit;
   font-size: 12px;
   line-height: 1.4;
@@ -3055,37 +3055,37 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__edit-input:focus {
-  border-bottom-color: #0c7d69;
+  border-bottom-color: #333333;
 }
 
 .offerKp-quote-doc__edit-input--strong {
   font-weight: 700;
-  color: #1b2f5a;
+  color: #1a1a1a;
   font-size: 13px;
 }
 
 .offerKp-quote-doc__edit-input::placeholder {
-  color: #94a3b8;
+  color: #999999;
   font-weight: 400;
 }
 
 .offerKp-quote-doc__edit-input--brand {
   font-size: 17px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   letter-spacing: 0.2px;
   border-bottom-color: transparent;
 }
 
 .offerKp-quote-doc__edit-input--brand:hover,
 .offerKp-quote-doc__edit-input--brand:focus {
-  border-bottom-color: #94a3b8;
+  border-bottom-color: #999999;
 }
 
 .offerKp-quote-doc__edit-input--title {
   font-size: 16px;
   font-weight: 700;
-  color: #1b2f5a;
+  color: #1a1a1a;
   letter-spacing: 0.3px;
   text-align: right;
   border-bottom-color: transparent;
@@ -3095,12 +3095,12 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-input--title:hover,
 .offerKp-quote-doc__edit-input--title:focus {
-  border-bottom-color: #94a3b8;
+  border-bottom-color: #999999;
 }
 
 .offerKp-quote-doc__edit-input--muted {
   font-size: 10px;
-  color: #475569;
+  color: #666666;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   border-bottom-color: transparent;
@@ -3108,14 +3108,14 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-input--muted:hover,
 .offerKp-quote-doc__edit-input--muted:focus {
-  border-bottom-color: #94a3b8;
+  border-bottom-color: #999999;
 }
 
 .offerKp-quote-doc__edit-input--section {
   margin-top: 18px;
   font-size: 10px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom-color: transparent;
@@ -3123,7 +3123,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-input--section:hover,
 .offerKp-quote-doc__edit-input--section:focus {
-  border-bottom-color: #94a3b8;
+  border-bottom-color: #999999;
 }
 
 .offerKp-quote-doc__edit-input--date {
@@ -3141,7 +3141,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-row > span {
   white-space: nowrap;
-  color: #475569;
+  color: #666666;
   flex-shrink: 0;
 }
 
@@ -3163,7 +3163,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__cell-input:hover,
 .offerKp-quote-doc__cell-input:focus {
-  border-bottom-color: #0c7d69;
+  border-bottom-color: #333333;
 }
 
 .offerKp-quote-doc__cell-input--name {
@@ -3199,7 +3199,7 @@ html.carbon-ui .offerKp-hero-title {
   width: 8rem;
   min-width: 7rem;
   text-align: right;
-  color: #475569;
+  color: #666666;
   border-bottom-color: transparent;
   font-variant-numeric: tabular-nums;
   appearance: textfield;
@@ -3214,7 +3214,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__totals-input:hover,
 .offerKp-quote-doc__totals-input:focus {
-  border-bottom-color: #0c7d69;
+  border-bottom-color: #333333;
 }
 
 .offerKp-quote-doc__vat-edit {
@@ -3241,7 +3241,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__vat-input:hover,
 .offerKp-quote-doc__vat-input:focus {
-  border-bottom-color: #0c7d69;
+  border-bottom-color: #333333;
 }
 
 .offerKp-draft-customer__label {
@@ -3278,7 +3278,7 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__label {
   font-size: 10px;
   font-weight: 700;
-  color: #0c7d69;
+  color: #333333;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -3290,7 +3290,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__strong {
   font-weight: 700;
-  color: #1b2f5a;
+  color: #1a1a1a;
 }
 
 .offerKp-quote-doc__table {
@@ -3321,7 +3321,7 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__table thead th {
-  background: #0c7d69;
+  background: #333333;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
@@ -3339,15 +3339,15 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__table tbody td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8e8;
-  color: #1b2f5a;
+  border-bottom: 1px solid #dddddd;
+  color: #1a1a1a;
   vertical-align: top;
   overflow: visible;
   word-break: break-word;
 }
 
 .offerKp-quote-doc__table tbody tr:nth-child(even) td {
-  background: #f1f8f7;
+  background: #f5f5f5;
 }
 
 .offerKp-quote-doc__table td.strong {
@@ -3366,7 +3366,7 @@ html.carbon-ui .offerKp-hero-title {
   align-items: center;
   gap: 12px;
   padding: 4px 0;
-  color: #475569;
+  color: #666666;
 }
 
 .offerKp-quote-doc__totals > div > span:last-child {
@@ -3378,7 +3378,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__grand {
   margin-top: 4px;
-  background: #0c7d69;
+  background: #333333;
   color: #ffffff !important;
   font-weight: 700;
   font-size: 13px;
@@ -3393,7 +3393,7 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__terms {
   margin: 6px 0 0;
   padding-left: 16px;
-  color: #475569;
+  color: #666666;
   font-size: 11px;
 }
 

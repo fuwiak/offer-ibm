@@ -82,7 +82,7 @@ export default function PdfPreviewPane({ quotePdfUrl, onClose }) {
         src={quotePdfUrl?.url}
         title="PDF Preview"
         className="flex-1 w-full border-0 bg-white"
-        style={{ minHeight: 0 }}
+        style={{ minHeight: 0, background: "#ffffff" }}
       />
 
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 border-t border-theme-sidebar-border bg-theme-bg-secondary">

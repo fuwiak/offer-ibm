@@ -3,461 +3,383 @@ const createFilesLib = require("../agents/aibitat/plugins/create-files/lib");
 const { QUOTE_BRAND, localeForCountry } = require("./quoteBrand");
 const { toPdfSafeText } = require("./pdfText");
 
-const NAVY = rgb(0.08, 0.13, 0.28);
+/** Neutral B&W commercial offer — synced with QuotePreview / DOCX columns. */
+const BLACK = rgb(0.12, 0.12, 0.12);
+const GRAY = rgb(0.4, 0.4, 0.4);
+const MUTED = rgb(0.55, 0.55, 0.55);
+const LIGHT = rgb(0.96, 0.96, 0.96);
+const LINE = rgb(0.82, 0.82, 0.82);
 const WHITE = rgb(1, 1, 1);
-const DARK = rgb(0.08, 0.08, 0.08);
-const GRAY = rgb(0.45, 0.45, 0.45);
-const LIGHT_GRAY = rgb(0.94, 0.94, 0.94);
-const MID_GRAY = rgb(0.72, 0.72, 0.72);
-const NAVY_LIGHT = rgb(0.55, 0.62, 0.78);
-const AMBER = rgb(0.72, 0.38, 0.04);
-const AMBER_BG = rgb(1, 0.97, 0.9);
-const TABLE_HEADER_TEXT = rgb(0.82, 0.86, 0.93);
+const HEADER_BG = rgb(0.22, 0.22, 0.22);
 
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
-  return date.toLocaleDateString("fr-FR");
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function addDays(d, days) {
+  const date = new Date(d instanceof Date ? d.getTime() : new Date(d).getTime());
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function lineName(ql) {
+  return ql.name || ql.productName || ql.productId || "—";
+}
+
+function lineArticle(ql) {
+  return ql.article || ql.sku || "—";
+}
+
+function lineUnitNet(ql, vatRate) {
+  const qty = Number(ql.quantity) || 0;
+  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
+    return Number(ql.unitPriceNet);
+  }
+  if (ql.priceWithVat != null && Number.isFinite(Number(ql.priceWithVat))) {
+    return Number(ql.priceWithVat) / (1 + vatRate);
+  }
+  if (ql.unitPrice != null && Number.isFinite(Number(ql.unitPrice))) {
+    return Number(ql.unitPrice);
+  }
+  const total = Number(ql.lineTotal) || 0;
+  return qty > 0 ? total / qty : 0;
+}
+
+function lineNetTotal(ql, vatRate) {
+  if (ql.lineTotal != null && Number.isFinite(Number(ql.lineTotal))) {
+    return Number(ql.lineTotal);
+  }
+  const qty = Number(ql.quantity) || 0;
+  return qty * lineUnitNet(ql, vatRate);
 }
 
 /**
- * Generate a professional offer-kp quotation PDF.
- *
- * @param {object} quoteData
- * @param {string}  quoteData.reference
- * @param {object}  quoteData.customer   { name, country, city, productLine }
- * @param {object}  quoteData.contact    { name, email, phone }
- * @param {Array}   quoteData.lines      calculated quote lines from calculateQuote()
- * @param {number}  quoteData.shipping
- * @param {number}  quoteData.subtotal
- * @param {number}  quoteData.total
- * @param {Date|string} quoteData.createdAt
- * @returns {Promise<{filename: string, storageFilename: string, filePath: string, fileSize: number}>}
+ * Generate quotation PDF — same data/columns as Сводка / Превью КП / DOCX.
+ * Neutral white page (Helvetica cannot render Cyrillic → Latin labels).
  */
 async function generateQuotePdf(quoteData) {
   const {
     reference = QUOTE_BRAND.defaultReference,
     customer = {},
-    contact = QUOTE_BRAND.defaultContact,
     lines = [],
     shipping = 0,
     subtotal = 0,
     createdAt = new Date(),
+    doc: docOverrides = {},
   } = quoteData;
 
   const { currency, vatRate: localeVatRate } = localeForCountry(
     customer.country
   );
   const vatRate =
-    typeof quoteData.vatRate === "number" ? quoteData.vatRate : localeVatRate;
-  // PDF standard fonts (WinAnsi) — ASCII-only amounts + ISO currency code
+    typeof quoteData.vatRate === "number"
+      ? quoteData.vatRate
+      : typeof docOverrides.vatRate === "number"
+        ? docOverrides.vatRate
+        : localeVatRate;
   const fmtMoney = (num) => `${Number(num || 0).toFixed(2)} ${currency}`;
+
+  const computedSubtotal =
+    Number(subtotal) ||
+    lines.reduce((sum, ql) => sum + lineNetTotal(ql, vatRate), 0);
+  const ship = Number(shipping) || 0;
+  const net = computedSubtotal + ship;
+  const vat = net * vatRate;
+  const grandTotal = net + vat;
+
+  const brandCompany = toPdfSafeText(
+    docOverrides.brandCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+  );
+  const brandTagline = toPdfSafeText(
+    docOverrides.brandTagline || QUOTE_BRAND.taglineLatin
+  );
+  const brandWebsite = toPdfSafeText(
+    docOverrides.brandWebsite || QUOTE_BRAND.website
+  );
+  const title = toPdfSafeText(
+    docOverrides.title || "COMMERCIAL OFFER"
+  ).replace(/КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ/i, "COMMERCIAL OFFER");
+  const supplierCompany = toPdfSafeText(
+    docOverrides.supplierCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+  );
+  const supplierAddress = toPdfSafeText(
+    docOverrides.supplierAddress || QUOTE_BRAND.address
+  );
+  const supplierWebsite = toPdfSafeText(
+    docOverrides.supplierWebsite || QUOTE_BRAND.website
+  );
+  const supplierEmail = toPdfSafeText(
+    docOverrides.supplierEmail || QUOTE_BRAND.email || ""
+  );
+  const validUntil = docOverrides.validUntil
+    ? new Date(docOverrides.validUntil)
+    : addDays(createdAt, 30);
 
   const pdfDoc = await PDFDocument.create();
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const oblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-  // Helpers scoped per page
-  function makePage() {
-    const pg = pdfDoc.addPage([595.28, 841.89]);
-    const W = pg.getWidth();
-    const H = pg.getHeight();
-    const L = 38;
-    const R = W - 38;
-    const CW = R - L;
+  const pg = pdfDoc.addPage([595.28, 841.89]);
+  const W = pg.getWidth();
+  const H = pg.getHeight();
+  const L = 40;
+  const R = W - 40;
+  const CW = R - L;
 
-    function txt(
-      text,
-      x,
-      y,
-      { font = regular, size = 8.5, color = DARK, maxWidth } = {}
-    ) {
-      if (!text) return;
-      const str = toPdfSafeText(text);
-      if (maxWidth) {
-        // naive word-wrap
-        const words = str.split(" ");
-        let line = "";
-        let cy = y;
-        for (const w of words) {
-          const test = line ? `${line} ${w}` : w;
-          if (font.widthOfTextAtSize(test, size) > maxWidth && line) {
-            pg.drawText(line, { x, y: cy, size, font, color });
-            line = w;
-            cy -= size * 1.4;
-          } else {
-            line = test;
-          }
+  function txt(
+    text,
+    x,
+    y,
+    { font = regular, size = 9, color = BLACK, maxWidth } = {}
+  ) {
+    if (!text && text !== 0) return;
+    const str = toPdfSafeText(String(text));
+    if (maxWidth) {
+      const words = str.split(" ");
+      let line = "";
+      let cy = y;
+      for (const w of words) {
+        const test = line ? `${line} ${w}` : w;
+        if (font.widthOfTextAtSize(test, size) > maxWidth && line) {
+          pg.drawText(line, { x, y: cy, size, font, color });
+          line = w;
+          cy -= size * 1.35;
+        } else {
+          line = test;
         }
-        if (line) pg.drawText(line, { x, y: cy, size, font, color });
-      } else {
-        pg.drawText(str, { x, y, size, font, color });
       }
+      if (line) pg.drawText(line, { x, y: cy, size, font, color });
+      return;
     }
-
-    function rect(x, y, w, h, { color = NAVY } = {}) {
-      pg.drawRectangle({ x, y, width: w, height: h, color });
-    }
-
-    function line(x1, y1, x2, y2, { thickness = 0.5, color = MID_GRAY } = {}) {
-      pg.drawLine({
-        start: { x: x1, y: y1 },
-        end: { x: x2, y: y2 },
-        thickness,
-        color,
-      });
-    }
-
-    function rightAlign(text, rightX, y, opts = {}) {
-      const { font = regular, size = 8.5, color = DARK } = opts;
-      const w = font.widthOfTextAtSize(String(text), size);
-      txt(text, rightX - w, y, { font, size, color });
-    }
-
-    return { pg, W, H, L, R, CW, txt, rect, line, rightAlign };
+    pg.drawText(str, { x, y, size, font, color });
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // PAGE 1
-  // ═══════════════════════════════════════════════════════════════════
-  const { H, L, R, CW, txt, rect, line, rightAlign } = makePage();
-  let y = H - 28;
-
-  // Company info — top right
-  const companyX = R - 180;
-  txt(QUOTE_BRAND.companyNameLatin, companyX, y, {
-    font: bold,
-    size: 8,
-    color: DARK,
-  });
-  txt(QUOTE_BRAND.address, companyX, y - 11, { size: 7.5, color: GRAY });
-  txt(QUOTE_BRAND.website, companyX, y - 21, { size: 7.5, color: GRAY });
-  if (QUOTE_BRAND.email) {
-    txt(QUOTE_BRAND.email, companyX, y - 31, { size: 7.5, color: GRAY });
+  function rightAlign(text, rightX, y, opts = {}) {
+    const { font = regular, size = 9, color = BLACK } = opts;
+    const str = toPdfSafeText(String(text));
+    const w = font.widthOfTextAtSize(str, size);
+    txt(str, rightX - w, y, { font, size, color });
   }
 
-  txt("PUROLAT", L, y, { font: bold, size: 22, color: NAVY });
-  txt(QUOTE_BRAND.taglineLatin.toUpperCase(), L, y - 14, {
-    size: 6,
+  function hline(y, color = LINE, thickness = 0.6) {
+    pg.drawLine({
+      start: { x: L, y },
+      end: { x: R, y },
+      thickness,
+      color,
+    });
+  }
+
+  let y = H - 36;
+
+  // Header
+  txt(brandCompany, L, y, { font: bold, size: 14, color: BLACK });
+  rightAlign(title, R, y, { font: bold, size: 12, color: BLACK });
+  y -= 12;
+  txt(brandTagline, L, y, { size: 7.5, color: MUTED });
+  rightAlign(`No. ${reference}`, R, y, { size: 8.5, color: GRAY });
+  y -= 10;
+  txt(brandWebsite, L, y, { size: 7.5, color: MUTED });
+  rightAlign(`Date: ${fmtDate(createdAt)}`, R, y, { size: 8.5, color: GRAY });
+  y -= 10;
+  rightAlign(`Valid until: ${fmtDate(validUntil)}`, R, y, {
+    size: 8.5,
     color: GRAY,
   });
-  txt(QUOTE_BRAND.catalogLabel, L, y - 22, { size: 6, color: GRAY });
+  y -= 14;
+  hline(y, BLACK, 1);
+  y -= 18;
 
-  y -= 38;
-  line(L, y, R, y, { thickness: 0.8, color: NAVY });
-  y -= 2;
-
-  // ── QUOTATION banner ──────────────────────────────────────────────
-  const bannerH = 30;
-  rect(L, y - bannerH, CW, bannerH, { color: NAVY });
-  txt("COMMERCIAL OFFER", L + 14, y - 19, {
+  // Parties
+  const midX = L + CW / 2 + 12;
+  const partyY = y;
+  txt("SUPPLIER", L, y, { font: bold, size: 7.5, color: MUTED });
+  txt("CUSTOMER", midX, y, { font: bold, size: 7.5, color: MUTED });
+  y -= 12;
+  txt(supplierCompany, L, y, { font: bold, size: 10 });
+  txt(toPdfSafeText(customer.name || "—"), midX, y, {
     font: bold,
-    size: 14,
+    size: 10,
+  });
+  y -= 11;
+  txt(supplierAddress, L, y, { size: 8, color: GRAY });
+  if (customer.country) {
+    txt(toPdfSafeText(customer.country), midX, y, { size: 8, color: GRAY });
+  }
+  y -= 10;
+  txt(supplierWebsite, L, y, { size: 8, color: GRAY });
+  y -= 10;
+  if (supplierEmail) {
+    txt(supplierEmail, L, y, { size: 8, color: GRAY });
+    y -= 10;
+  }
+  y = Math.min(y, partyY - 48) - 8;
+  hline(y);
+  y -= 16;
+
+  // Section
+  txt(
+    toPdfSafeText(
+      docOverrides.positionsLabel ||
+        `CATALOG ITEMS · ${QUOTE_BRAND.catalogLabel}`
+    ),
+    L,
+    y,
+    { font: bold, size: 8, color: MUTED }
+  );
+  y -= 12;
+
+  // Table columns: Position | Article | Qty | Unit | Sum
+  const COL = {
+    name: L,
+    article: L + CW * 0.42,
+    qty: L + CW * 0.62,
+    unit: L + CW * 0.72,
+    sum: L + CW * 0.86,
+  };
+  const headerH = 16;
+  pg.drawRectangle({
+    x: L,
+    y: y - headerH,
+    width: CW,
+    height: headerH,
+    color: HEADER_BG,
+  });
+  const hy = y - 11;
+  txt("POSITION", COL.name + 4, hy, { font: bold, size: 7, color: WHITE });
+  txt("ARTICLE", COL.article + 2, hy, { font: bold, size: 7, color: WHITE });
+  rightAlign("QTY", COL.unit - 4, hy, { font: bold, size: 7, color: WHITE });
+  rightAlign("PRICE/PC", COL.sum - 4, hy, {
+    font: bold,
+    size: 7,
     color: WHITE,
   });
-  txt(
-    `${QUOTE_BRAND.catalogLabel} · ${QUOTE_BRAND.taglineLatin}`,
-    L + 14,
-    y - 27,
-    {
-      size: 7,
-      color: TABLE_HEADER_TEXT,
+  rightAlign("SUM", R - 4, hy, { font: bold, size: 7, color: WHITE });
+  y -= headerH;
+
+  for (let i = 0; i < lines.length; i++) {
+    const ql = lines[i];
+    const rowH = 15;
+    if (y - rowH < 72) {
+      // simple: stop adding if page full (rare for typical quotes)
+      break;
     }
-  );
-  y -= bannerH + 14;
-
-  // ── Customer + Quote Reference ────────────────────────────────────
-  const midX = L + CW / 2 + 15;
-  const sectionY = y;
-
-  // Left column — Customer
-  txt("CUSTOMER", L, y, { font: bold, size: 7.5, color: NAVY });
-  y -= 14;
-  txt(customer.name || "—", L, y, { font: bold, size: 10 });
-  y -= 13;
-  if (customer.city) {
-    txt(customer.city, L, y, { size: 8.5 });
-    y -= 11;
-  }
-  txt(customer.country || "", L, y, { size: 8.5 });
-  y -= 11;
-  if (customer.productLine) {
-    txt(customer.productLine, L, y, { font: oblique, size: 8, color: GRAY });
-    y -= 11;
-  }
-
-  // Right column — Quote reference
-  let ry = sectionY;
-  txt("QUOTE REFERENCE", midX, ry, { font: bold, size: 7.5, color: NAVY });
-  ry -= 4;
-  rightAlign(reference, R, ry, { font: bold, size: 13, color: NAVY });
-  ry -= 16;
-  txt(`Date: ${fmtDate(createdAt)}`, midX, ry, { size: 8.5 });
-  ry -= 12;
-  txt("Validity: 30 days", midX, ry, { size: 8.5 });
-  ry -= 12;
-  txt(
-    "Payment: 50% deposit, balance before shipment — Bank transfer",
-    midX,
-    ry,
-    {
-      size: 7.5,
-      color: GRAY,
-      maxWidth: R - midX - 5,
-    }
-  );
-  ry -= 22;
-  txt(`Contact: ${contact.name}`, midX, ry, { font: bold, size: 8 });
-  ry -= 12;
-  txt(contact.email, midX, ry, { size: 8, color: GRAY });
-  ry -= 12;
-  txt(`Tel: ${contact.phone}`, midX, ry, { size: 8, color: GRAY });
-
-  y = Math.min(y, ry) - 16;
-  line(L, y, R, y, { thickness: 0.8, color: NAVY });
-  y -= 14;
-
-  // ── Products ──────────────────────────────────────────────────────
-  // Group lines by product name
-  const groups = groupLinesByProduct(lines);
-
-  for (const group of groups) {
-    const { productName, composition, groupLines, totalQty } = group;
-
-    // Product header bar
-    rect(L, y - 22, CW, 22, { color: NAVY });
-    txt(productName, L + 10, y - 14, { font: bold, size: 9, color: WHITE });
-    if (composition) {
-      txt(composition, L + 10, y - 22 + 5, {
-        size: 7,
-        color: TABLE_HEADER_TEXT,
+    if (i % 2 === 1) {
+      pg.drawRectangle({
+        x: L,
+        y: y - rowH,
+        width: CW,
+        height: rowH,
+        color: LIGHT,
       });
     }
-    rightAlign(`${totalQty} units`, R - 6, y - 14, {
-      font: bold,
-      size: 9,
-      color: WHITE,
+    const qty = Number(ql.quantity) || 0;
+    const unit = lineUnitNet(ql, vatRate);
+    const sum = lineNetTotal(ql, vatRate);
+    const ry = y - 10;
+    txt(toPdfSafeText(lineName(ql)).slice(0, 42), COL.name + 4, ry, {
+      size: 8,
+      maxWidth: COL.article - COL.name - 8,
     });
-    y -= 22 + 1;
-
-    // Table header
-    rect(L, y - 14, CW, 14, { color: rgb(0.18, 0.24, 0.42) });
-    const COL = tableColumns(L, R);
-    txt("N°", COL.num + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
+    txt(toPdfSafeText(lineArticle(ql)).slice(0, 16), COL.article + 2, ry, {
+      size: 8,
     });
-    txt("PRODUCT", COL.product + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
+    rightAlign(String(qty), COL.unit - 4, ry, { size: 8 });
+    rightAlign(Number(unit) > 0 ? fmtMoney(unit) : "—", COL.sum - 4, ry, {
+      size: 8,
     });
-    txt("D × L (MM)", COL.dims + 2, y - 10, {
+    rightAlign(Number(sum) > 0 ? fmtMoney(sum) : "—", R - 4, ry, {
       font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
+      size: 8,
     });
-    txt("SPEC", COL.area + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
-    });
-    txt("QTY", COL.qty + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
-    });
-    txt("UNIT PRICE", COL.unitPrice + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
-    });
-    txt("TOTAL", COL.total + 2, y - 10, {
-      font: bold,
-      size: 7,
-      color: TABLE_HEADER_TEXT,
-    });
-    y -= 14;
-
-    // Table rows
-    let rowNum = 1;
-    for (const ql of groupLines) {
-      const rowH = 14;
-      const isEven = rowNum % 2 === 0;
-      if (isEven) rect(L, y - rowH, CW, rowH, { color: LIGHT_GRAY });
-
-      const qty = ql.quantity || 1;
-      const unitPrice =
-        ql.unitPrice ?? (qty > 0 ? (ql.lineTotal || 0) / qty : 0);
-      const dims = `${ql.lengthMm} × ${ql.heightMm}`;
-      const spec = ql.spec || "DIN/GOST";
-
-      txt(String(rowNum), COL.num + 4, y - 10, { size: 8 });
-      txt(ql.productName || productName, COL.product + 2, y - 10, { size: 8 });
-      txt(dims, COL.dims + 2, y - 10, { size: 8 });
-      txt(spec, COL.area + 2, y - 10, { size: 7 });
-      txt(String(qty), COL.qty + 2, y - 10, { size: 8 });
-      const hasPrice = Number(unitPrice) > 0;
-      rightAlign(
-        hasPrice ? fmtMoney(unitPrice) : "on request",
-        COL.total - 2,
-        y - 10,
-        {
-          size: 8,
-        }
-      );
-      rightAlign(hasPrice ? fmtMoney(ql.lineTotal) : "—", R - 4, y - 10, {
-        size: 8,
-      });
-      y -= rowH;
-      rowNum++;
-    }
-    y -= 8;
+    y -= rowH;
   }
 
-  // ── Totals ────────────────────────────────────────────────────────
-  const totalsX = R - 220;
-  const totalsW = 220;
-  line(L, y, R, y, { thickness: 0.5 });
-  y -= 4;
+  y -= 14;
+  hline(y);
+  y -= 14;
 
-  // Footnote annotations left
-  const footNoteLines = buildFootnotes(lines);
-  let fnY = y;
-  for (const fn of footNoteLines) {
-    txt(fn, L, fnY, { size: 7, color: GRAY });
-    fnY -= 10;
-  }
-
-  const taxableNet = (Number(subtotal) || 0) + (Number(shipping) || 0);
-  const vat = taxableNet * vatRate;
-  const grandTotal = taxableNet + vat;
-
-  // Subtotal row
-  txt("Subtotal excl. VAT", totalsX, y, { size: 8.5, color: GRAY });
-  rightAlign(fmtMoney(subtotal), R - 4, y, { font: bold, size: 8.5 });
-  y -= 13;
-
-  // Shipping row
-  const shippingLabel = customer.country
-    ? `Delivery to ${customer.country}`
-    : "Delivery";
-  txt(shippingLabel, totalsX, y, { size: 8.5, color: GRAY });
-  rightAlign(fmtMoney(shipping), R - 4, y, { size: 8.5 });
-  y -= 13;
-
+  // Totals
+  const totalsX = R - 200;
+  txt("Subtotal", totalsX, y, { size: 8.5, color: GRAY });
+  rightAlign(fmtMoney(computedSubtotal), R - 2, y, { size: 8.5 });
+  y -= 12;
+  txt("Delivery", totalsX, y, { size: 8.5, color: GRAY });
+  rightAlign(fmtMoney(ship), R - 2, y, { size: 8.5 });
+  y -= 12;
   txt(`VAT (${Math.round(vatRate * 100)}%)`, totalsX, y, {
     size: 8.5,
     color: GRAY,
   });
-  rightAlign(fmtMoney(vat), R - 4, y, { size: 8.5 });
-  y -= 6;
-
-  line(totalsX, y, R, y, { thickness: 0.5, color: NAVY });
+  rightAlign(fmtMoney(vat), R - 2, y, { size: 8.5 });
+  y -= 8;
+  hline(y);
   y -= 4;
-
-  // TOTAL row
-  rect(totalsX, y - 18, totalsW, 18, { color: NAVY });
-  txt("TOTAL incl. VAT", totalsX + 8, y - 12, {
+  pg.drawRectangle({
+    x: totalsX - 8,
+    y: y - 18,
+    width: R - totalsX + 8,
+    height: 18,
+    color: HEADER_BG,
+  });
+  txt("TOTAL incl. VAT", totalsX, y - 12, {
     font: bold,
     size: 9,
     color: WHITE,
   });
-  rightAlign(fmtMoney(grandTotal), R - 6, y - 12, {
+  rightAlign(fmtMoney(grandTotal), R - 4, y - 12, {
     font: bold,
-    size: 11,
+    size: 10,
     color: WHITE,
   });
-  y -= 28;
+  y -= 32;
 
-  // VAT note
+  // Terms
+  txt("TERMS", L, y, { font: bold, size: 8, color: MUTED });
+  y -= 11;
+  const terms = (
+    docOverrides.terms || [
+      "Payment and shipment — as agreed with purolat.com sales.",
+      "Offer valid 30 days from document date.",
+      `Prices in ${currency}; items from ${QUOTE_BRAND.catalogLabel} catalog.`,
+      toPdfSafeText(QUOTE_BRAND.warrantyNote),
+    ]
+  ).slice(0, 6);
+  for (const t of terms) {
+    txt(`• ${toPdfSafeText(String(t).replace("{currency}", currency))}`, L, y, {
+      size: 7.5,
+      color: GRAY,
+      maxWidth: CW,
+    });
+    y -= 11;
+  }
+
+  y -= 10;
   txt(
-    `VAT ${Math.round(vatRate * 100)}% included in the grand total. Payment terms: 50% deposit, 50% before shipment.`,
+    toPdfSafeText(docOverrides.signOff || "Best regards,"),
     L,
     y,
-    { size: 7.5, color: GRAY, maxWidth: totalsX - L - 10 }
+    { font: bold, size: 9 }
   );
-  y -= 24;
-
-  // ── Important notice ──────────────────────────────────────────────
-  const noticeH = 30;
-  rect(L, y - noticeH, CW, noticeH, { color: AMBER_BG });
-  pdfDoc.getPage(0).drawRectangle({
-    x: L,
-    y: y - noticeH,
-    width: CW,
-    height: noticeH,
-    borderColor: AMBER,
-    borderWidth: 1,
-    color: AMBER_BG,
-  });
-  txt("IMPORTANT:", L + 8, y - 12, { font: bold, size: 8, color: AMBER });
-  txt(
-    "Please carefully verify all dimensions and quantities in this document before confirming your order. Once the order is validated, the responsibility for dimensions and quantities lies with the customer.",
-    L + 8,
-    y - 22,
-    { size: 7, color: DARK, maxWidth: CW - 16 }
-  );
-  y -= noticeH + 12;
-
-  // ── Accepted & Approved ───────────────────────────────────────────
-  rect(L, y - 44, CW, 44, { color: NAVY });
-  const aaText = "ACCEPTED & APPROVED";
-  const aaW = bold.widthOfTextAtSize(aaText, 12);
-  txt(aaText, L + CW / 2 - aaW / 2, y - 18, {
-    font: bold,
-    size: 12,
-    color: WHITE,
-  });
-  const subAaText = "Read and approved — Order confirmed";
-  const subAaW = oblique.widthOfTextAtSize(subAaText, 8.5);
-  txt(subAaText, L + CW / 2 - subAaW / 2, y - 31, {
-    font: oblique,
-    size: 8.5,
-    color: TABLE_HEADER_TEXT,
-  });
-  txt(
-    "Signature and stamp",
-    L + CW / 2 - oblique.widthOfTextAtSize("Signature and stamp", 7.5) / 2,
-    y - 41,
-    {
-      font: oblique,
-      size: 7.5,
-      color: NAVY_LIGHT,
-    }
-  );
-  y -= 56;
-
-  // ── Terms & Conditions Extract ────────────────────────────────────
-  txt("General Terms & Conditions (Extract)", L, y, { font: bold, size: 8.5 });
   y -= 12;
-  const terms = QUOTE_BRAND.terms;
-  for (const t of terms) {
-    txt(t, L, y, { size: 7, color: GRAY, maxWidth: CW });
-    y -= 14;
-  }
-  y -= 4;
-
-  // ── Bottom footer bar ─────────────────────────────────────────────
-  rect(L, y - 20, CW, 20, { color: NAVY });
-  const footerText = QUOTE_BRAND.footerLine;
-  const ftW = regular.widthOfTextAtSize(footerText, 7.5);
-  txt(footerText, L + CW / 2 - ftW / 2, y - 13, {
-    size: 7.5,
-    color: TABLE_HEADER_TEXT,
-  });
   txt(
-    QUOTE_BRAND.website,
-    L + CW / 2 - regular.widthOfTextAtSize(QUOTE_BRAND.website, 6.5) / 2,
-    y - 21 + 4,
-    { size: 6.5, color: NAVY_LIGHT }
+    toPdfSafeText(
+      docOverrides.signCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+    ),
+    L,
+    y,
+    { size: 8.5, color: GRAY }
   );
 
   const pdfBytes = await pdfDoc.save();
   const friendlyName = customer.name
-    ? `Quotation_${toPdfSafeText(customer.name).replace(/\s+/g, "_")}_${reference}.pdf`
-    : `Quotation_${reference}.pdf`;
+    ? `KP_${toPdfSafeText(customer.name).replace(/\s+/g, "_")}_${reference}.pdf`
+    : `KP_${reference}.pdf`;
 
   const saved = await createFilesLib.saveGeneratedFile({
     fileType: "quote",
@@ -472,68 +394,6 @@ async function generateQuotePdf(quoteData) {
     filePath: saved.storagePath,
     fileSize: saved.fileSize,
   };
-}
-
-function tableColumns(L, R) {
-  const CW = R - L;
-  return {
-    num: L,
-    product: L + 22,
-    dims: L + CW * 0.3,
-    area: L + CW * 0.5,
-    qty: L + CW * 0.63,
-    unitPrice: L + CW * 0.73,
-    total: L + CW * 0.88,
-  };
-}
-
-function groupLinesByProduct(lines) {
-  const map = new Map();
-  for (const l of lines) {
-    const key = l.productName || l.productId || "Product";
-    if (!map.has(key)) {
-      map.set(key, {
-        productName: key,
-        composition: null,
-        groupLines: [],
-        groupTotal: 0,
-        totalQty: 0,
-      });
-    }
-    const g = map.get(key);
-    g.groupLines.push(l);
-    g.groupTotal += l.lineTotal || 0;
-    g.totalQty += l.quantity || 1;
-  }
-  return Array.from(map.values());
-}
-
-function buildFootnotes(lines) {
-  const fns = [];
-  const totalQty = lines.reduce((s, l) => s + (l.quantity || 1), 0);
-  const productNames = [
-    ...new Set(lines.map((l) => l.productName || l.productId)),
-  ].join(", ");
-  fns.push(
-    `Catalog: ${QUOTE_BRAND.catalogLabel} · ${totalQty} pcs · ${productNames}`
-  );
-  const analogCount = lines.filter((l) => l.matchType === "analog").length;
-  const notFoundCount = lines.filter(
-    (l) => !(Number(l.unitPrice) > 0) && !(Number(l.lineTotal) > 0)
-  ).length;
-  if (analogCount > 0) {
-    fns.push(
-      `ANALOG (${analogCount}): requested item not in catalog, equivalent offered — see SPEC column`
-    );
-  }
-  if (notFoundCount > 0) {
-    fns.push(
-      `NOT IN CATALOG (${notFoundCount}): no such product — price on request`
-    );
-  }
-  fns.push("Offer valid 30 days · Prices per catalog at quote date");
-  fns.push(QUOTE_BRAND.warrantyNote);
-  return fns;
 }
 
 module.exports = { generateQuotePdf };

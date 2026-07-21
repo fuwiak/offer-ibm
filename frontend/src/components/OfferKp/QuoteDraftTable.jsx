@@ -397,7 +397,10 @@ export default function QuoteDraftTable() {
         vatRate,
         currency,
         reviewConfirmed,
-        createdAt: new Date(),
+        createdAt: quoteDraft?.doc?.createdAt
+          ? new Date(quoteDraft.doc.createdAt)
+          : new Date(),
+        doc: quoteDraft?.doc,
       };
       let result;
       let url;
@@ -408,6 +411,8 @@ export default function QuoteDraftTable() {
         result = await OfferKp.generateQuoteXlsx(payload);
         url = OfferKp.quoteXlsxDownloadUrl(result.storageFilename);
       } else {
+        result = await OfferKp.generateQuoteDocx(payload);
+        url = OfferKp.quoteDocxDownloadUrl(result.storageFilename);
         const markdown = buildQuoteMarkdown({
           reference: payload.reference,
           customer: payload.customer,
@@ -418,11 +423,6 @@ export default function QuoteDraftTable() {
           vatRate,
           currency,
         });
-        result = await OfferKp.generateDocxFromMarkdown({
-          markdown,
-          filename: `KP-${payload.reference}.docx`,
-        });
-        url = OfferKp.quoteDocxDownloadUrl(result.storageFilename);
         setDocPreview({
           filename: result.filename,
           storageFilename: result.storageFilename,

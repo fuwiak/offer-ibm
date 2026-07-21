@@ -19,13 +19,14 @@ const {
   makeMoneyFormatter,
 } = require("./quoteBrand");
 
-/** Match QuotePreview / PDF commercial-offer look (navy + green accent). */
-const GREEN = "0C7D69";
-const GREEN_LIGHT = "F1F8F7";
-const NAVY = "1B2F5A";
-const GRAY = "475569";
+/** Neutral B&W — synced with QuotePreview / PDF. */
+const INK = "1A1A1A";
+const GRAY = "666666";
+const MUTED = "888888";
 const WHITE = "FFFFFF";
-const BORDER = "E2E8E8";
+const LIGHT = "F5F5F5";
+const BORDER = "DDDDDD";
+const HEADER_BG = "333333";
 
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
@@ -60,7 +61,7 @@ function run(text, opts = {}) {
     font: "Calibri",
     size: opts.size ?? 20,
     bold: opts.bold ?? false,
-    color: opts.color ?? NAVY,
+    color: opts.color ?? INK,
   });
 }
 
@@ -195,17 +196,17 @@ async function generateQuoteDocx(quoteData) {
           cell(
             [
               para(
-                run(brandCompany, { bold: true, size: 32, color: GREEN }),
+                run(brandCompany, { bold: true, size: 32, color: INK }),
                 { after: 20 }
               ),
-              para(run(brandTagline, { size: 16, color: GRAY })),
-              para(run(brandWebsite, { size: 15, color: GRAY })),
+              para(run(brandTagline, { size: 16, color: MUTED })),
+              para(run(brandWebsite, { size: 15, color: MUTED })),
             ],
             { width: 52, borders: NO_BORDERS }
           ),
           cell(
             [
-              para(run(title, { bold: true, size: 28, color: NAVY }), {
+              para(run(title, { bold: true, size: 28, color: INK }), {
                 after: 40,
                 alignment: AlignmentType.RIGHT,
               }),
@@ -241,7 +242,7 @@ async function generateQuoteDocx(quoteData) {
         children: [
           cell(
             [
-              para(run("ПОСТАВЩИК", { bold: true, size: 15, color: GREEN })),
+              para(run("ПОСТАВЩИК", { bold: true, size: 15, color: MUTED })),
               para(run(supplierCompany, { bold: true, size: 20 })),
               para(run(supplierAddress, { size: 17, color: GRAY })),
               para(run(supplierWebsite, { size: 17, color: GRAY })),
@@ -256,7 +257,7 @@ async function generateQuoteDocx(quoteData) {
           ),
           cell(
             [
-              para(run("ПОКУПАТЕЛЬ", { bold: true, size: 15, color: GREEN })),
+              para(run("ПОКУПАТЕЛЬ", { bold: true, size: 15, color: MUTED })),
               para(run(customer.name || "—", { bold: true, size: 20 })),
               ...(customer.country
                 ? [para(run(customer.country, { size: 17, color: GRAY }))]
@@ -270,7 +271,7 @@ async function generateQuoteDocx(quoteData) {
   });
 
   // ── Table: Позиция | Артикул | Кол-во | Цена/шт | Сумма ───────────────
-  const headerFill = GREEN;
+  const headerFill = HEADER_BG;
   const itemHeaderRow = new TableRow({
     tableHeader: true,
     children: [
@@ -309,7 +310,7 @@ async function generateQuoteDocx(quoteData) {
     const qty = Number(ql.quantity) || 0;
     const unit = lineUnitNet(ql, vatRate);
     const sum = lineNetTotal(ql, vatRate);
-    const fill = i % 2 === 1 ? GREEN_LIGHT : WHITE;
+    const fill = i % 2 === 1 ? LIGHT : WHITE;
     return new TableRow({
       children: [
         cell(para(run(lineName(ql), { size: 18 })), { width: 40, fill }),
@@ -360,7 +361,7 @@ async function generateQuoteDocx(quoteData) {
             run(value, {
               bold: opts.bold,
               size: opts.big ? 22 : 18,
-              color: opts.color || NAVY,
+              color: opts.color || INK,
             }),
             { alignment: AlignmentType.RIGHT }
           ),
@@ -381,7 +382,7 @@ async function generateQuoteDocx(quoteData) {
         bold: true,
         big: true,
         color: WHITE,
-        fill: GREEN,
+        fill: HEADER_BG,
       }),
     ],
   });
@@ -389,7 +390,7 @@ async function generateQuoteDocx(quoteData) {
   function sectionHeading(text) {
     return new Paragraph({
       spacing: { before: 240, after: 100 },
-      children: [run(text, { bold: true, size: 18, color: GREEN })],
+      children: [run(text, { bold: true, size: 18, color: MUTED })],
     });
   }
 
@@ -409,7 +410,7 @@ async function generateQuoteDocx(quoteData) {
           new Paragraph({
             spacing: { before: 120, after: 160 },
             border: {
-              bottom: { style: BorderStyle.SINGLE, size: 18, color: GREEN },
+              bottom: { style: BorderStyle.SINGLE, size: 12, color: INK },
             },
             children: [],
           }),
@@ -429,7 +430,7 @@ async function generateQuoteDocx(quoteData) {
           ),
           new Paragraph({ spacing: { before: 280 }, children: [] }),
           para(run(signOff, { bold: true, size: 20 })),
-          para(run(signCompany, { bold: true, size: 18, color: GREEN })),
+          para(run(signCompany, { bold: true, size: 18, color: INK })),
           new Paragraph({
             spacing: { before: 160 },
             children: [

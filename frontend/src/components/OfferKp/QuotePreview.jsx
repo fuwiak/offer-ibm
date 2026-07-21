@@ -100,7 +100,7 @@ function defaultDoc() {
  */
 export default function QuotePreview() {
   const { t } = useTranslation("offerKp");
-  const { quoteDraft, setQuoteDraft } = useOfferKp();
+  const { quoteDraft, setQuoteDraft, setQuotePdfUrl } = useOfferKp();
   const [busy, setBusy] = useState(null);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
@@ -306,6 +306,13 @@ export default function QuotePreview() {
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       saveAs(blob, result.filename);
+      if (kind === "pdf") {
+        const blobUrl = URL.createObjectURL(blob);
+        setQuotePdfUrl({
+          url: blobUrl,
+          filename: result.filename,
+        });
+      }
     } catch (e) {
       console.error("[QuotePreview] download error:", e);
       showToast("Не удалось скачать документ. Попробуйте ещё раз.", "error");
@@ -327,7 +334,7 @@ export default function QuotePreview() {
             type="button"
             onClick={() => download("pdf")}
             disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#0c7d69] hover:bg-[#0a6757] text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#333333] hover:bg-[#1a1a1a] text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy === "pdf" ? (
               <CircleNotch size={12} weight="bold" className="animate-spin" />
@@ -383,7 +390,7 @@ export default function QuotePreview() {
         </label>
       )}
 
-      <div className="flex-1 overflow-auto bg-[#525659] p-3" translate="no">
+      <div className="flex-1 overflow-auto bg-[#e8e8e8] p-3" translate="no">
         <div className="offerKp-quote-doc notranslate" translate="no">
           <div className="offerKp-quote-doc__head">
             <div>

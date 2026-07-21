@@ -84,7 +84,7 @@ export default function PdfJsViewer({ url, title = "PDF preview" }) {
       )}
       <div
         ref={containerRef}
-        className="offerKp-pdfjs-viewer__pages flex-1 overflow-auto min-h-0 bg-[#525659] p-2 flex flex-col items-center gap-3"
+        className="offerKp-pdfjs-viewer__pages flex-1 overflow-auto min-h-0 bg-[#e8e8e8] p-2 flex flex-col items-center gap-3"
       />
     </div>
   );

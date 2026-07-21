@@ -120,7 +120,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0c7d69] hover:bg-[#0a6757] text-white text-[11px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#333333] hover:bg-[#1a1a1a] text-white text-[11px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {downloading ? (
               <CircleNotch size={12} weight="bold" className="animate-spin" />
@@ -143,7 +143,7 @@ export default function DocPreviewPane({ docPreview, onClose }) {
       </div>
 
       <div
-        className="flex-1 overflow-y-auto bg-[#525659] p-3 min-h-0"
+        className="flex-1 overflow-y-auto bg-[#e8e8e8] p-3 min-h-0"
         translate="no"
       >
         <div
