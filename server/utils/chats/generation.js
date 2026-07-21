@@ -627,11 +627,18 @@ async function runGenerationPipeline({
   // ── Внешние ссылки ────────────────────────────────────────────────────────────
   finalText = appendExternalLinksSection(finalText, mergedSources);
 
-  // ── Явное уведомление, если релевантных источников не найдено ──────────────────
-  finalText += buildNoSourcesNotice(collectedExternalContexts);
-
-  // ── API status footer ─────────────────────────────────────────────────────────
-  finalText += buildApiStatusFooter(collectedExternalContexts, postProcessLog);
+  const { shouldRunShopEnrich } = require("../offerKp/enrich");
+  const catalogRelevant = shouldRunShopEnrich(message);
+  if (!shopDbEnrichEnabled() || catalogRelevant) {
+    // Notices and service status are useful only when the request actually
+    // asked for catalog data. Showing "MySQL: no data" on normal chat is both
+    // misleading and additional noise for the next model turn.
+    finalText += buildNoSourcesNotice(collectedExternalContexts);
+    finalText += buildApiStatusFooter(
+      collectedExternalContexts,
+      postProcessLog
+    );
+  }
 
   // ── Таблицы БД каталога (если enrich из MySQL) ────────────────────────────────
   const shopDbExt = collectedExternalContexts.find((c) => c.kind === "shopdb");

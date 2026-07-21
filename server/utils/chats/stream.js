@@ -104,7 +104,16 @@ async function streamChatWithWorkspace(
   // inquiry — otherwise a bare "here's the file" message with no recognized
   // trigger phrase silently falls through to vector search / web enrich,
   // reopening the hallucination path the ShopDB-only mandate exists to close.
-  const routedIntent = routeOfferKpMessage(commandMessage);
+  let routedIntent = routeOfferKpMessage(commandMessage);
+  let generalIntentJudgeAttempted = false;
+  if (
+    shopDbEnrichEnabled() &&
+    routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS
+  ) {
+    const { resolveOfferKpIntent } = require("../offerKp/intentLlmJudge");
+    generalIntentJudgeAttempted = true;
+    routedIntent = await resolveOfferKpIntent(commandMessage, { workspace });
+  }
   const attachmentOnlyPrompt =
     /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request)/iu.test(
       commandMessage
@@ -118,6 +127,8 @@ async function streamChatWithWorkspace(
 
   if (
     !quoteDocumentRequest &&
+    (!generalIntentJudgeAttempted ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.OUT_OF_SCOPE) &&
     [OFFER_KP_INTENTS.AMBIGUOUS, OFFER_KP_INTENTS.OUT_OF_SCOPE].includes(
       routedIntent.primaryIntent
     ) &&
@@ -434,6 +445,44 @@ async function streamChatWithWorkspace(
       ctx.kind === "shopdb" ? llmCatalog.catalogInjected : undefined,
   }));
 
+  const {
+    renderGroundedCatalogResponse,
+    sanitizeOfferKpHistory,
+  } = require("../offerKp/groundedResponse");
+  const groundedCatalogResponse = quoteDocumentRequest
+    ? null
+    : renderGroundedCatalogResponse(
+        updatedMessage,
+        llmCatalog.catalogBlocks || [],
+        routedIntent
+      );
+  if (groundedCatalogResponse) {
+    writeResponseChunk(response, {
+      uuid,
+      sources,
+      type: "textResponseChunk",
+      textResponse: groundedCatalogResponse,
+      close: true,
+      error: false,
+      metrics: { grounding: "shopdb_direct" },
+    });
+    await WorkspaceChats.new({
+      workspaceId: workspace.id,
+      prompt: message,
+      response: {
+        text: groundedCatalogResponse,
+        sources,
+        type: chatMode,
+        attachments,
+        metrics: { grounding: "shopdb_direct" },
+      },
+      threadId: thread?.id || null,
+      include: false,
+      user,
+    });
+    return;
+  }
+
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
   if (
@@ -471,15 +520,17 @@ async function streamChatWithWorkspace(
 
   // Compress & Assemble message to ensure prompt passes token limit with room for response
   // and build system messages based on inputs and history.
+  const safeChatHistory = sanitizeOfferKpHistory(chatHistory);
+  const safeRawHistory = sanitizeOfferKpHistory(rawHistory);
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt: await chatPrompt(workspace, user, { conversationMemory }),
       userPrompt: userPromptForLlm,
       contextTexts,
-      chatHistory,
+      chatHistory: safeChatHistory,
       attachments,
     },
-    rawHistory
+    safeRawHistory
   );
 
   // If streaming is not explicitly enabled for connector
@@ -544,7 +595,9 @@ async function streamChatWithWorkspace(
     // КП contains commercial numbers and table structure. A second LLM pass
     // must never rewrite it after the streamed answer has already been shown.
     skipStylePolish: Boolean(
-      quoteDocumentRequest || llmCatalog.catalogInjected
+      shopDbEnrichEnabled() ||
+        quoteDocumentRequest ||
+        llmCatalog.catalogInjected
     ),
   });
   completeText = orchestration.text;
