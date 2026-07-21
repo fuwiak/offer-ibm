@@ -92,4 +92,46 @@ describe("AgentHarness.sanitizeOutgoingChat", () => {
     const text = "Здравствуйте! Чем могу помочь?";
     expect(harness.sanitizeOutgoingChat(text)).toBe(text);
   });
+
+  /**
+   * Прод-баг: на мета-вопрос без вложенного PDF и без реального поиска
+   * модель ответила бюллет-списком «[Каталог · purolat.com] / Цена: … /
+   * Артикул / SKU: …» — тот же формат, что учит prompts.js, но с полностью
+   * выдуманными данными. Раньше проверка цен работала только для markdown
+   * таблиц (`text.includes("|")`), поэтому такой ответ проходил без правок.
+   */
+  it("абстинирует выдуманный bullet-блок каталога без markdown-таблицы", () => {
+    const harness = harnessWith({});
+    const fabricated = [
+      "[Каталог · purolat.com]",
+      "Товар: Штанга DIN 975 M36×2000 4.8 оцинк",
+      "Цена: 1250.00 RUB",
+      "Артикул / SKU: 975M362000Z",
+      "Категория: Штанги и профили",
+      "Ссылка: https://purolat.com/product/975M362000Z",
+    ].join("\n");
+
+    const out = harness.sanitizeOutgoingChat(fabricated);
+    expect(out).not.toContain("1250.00");
+    expect(out).not.toContain("975M362000Z");
+    expect(out).not.toContain("Штанга DIN 975");
+  });
+
+  it("пропускает bullet-ответ, если цена реально подставлена сервером", () => {
+    const catalogBlock =
+      "[Каталог · purolat.com] Штанга DIN 975 M36×2000 4.8 оцинк\n" +
+      "ID товара (shop_product.id): 1\nЦена: 1250.00 RUB\nСсылка: https://purolat.com/product/975M362000Z";
+    const harness = harnessWith({});
+    harness.aibitat._chats = [
+      { from: "USER", content: `${catalogBlock}\n\nкакая цена?` },
+    ];
+
+    const legitReply = [
+      "**Товар:** Штанга DIN 975 M36×2000 4.8 оцинк",
+      "**Цена:** 1250.00 RUB",
+      "**Ссылка:** https://purolat.com/product/975M362000Z",
+    ].join("\n");
+
+    expect(harness.sanitizeOutgoingChat(legitReply)).toBe(legitReply);
+  });
 });

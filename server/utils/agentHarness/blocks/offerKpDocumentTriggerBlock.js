@@ -13,6 +13,13 @@ const {
   hasPdfInquiryEvidence,
   ensurePdfInquiryEvidence,
 } = require("../../offerKp/harnessEvidence");
+const {
+  OFFER_KP_INTENTS,
+  routeOfferKpMessage,
+} = require("../../offerKp/intentRouter");
+const {
+  classifyAmbiguousIntentWithLlm,
+} = require("../../offerKp/intentLlmJudge");
 
 const QUOTE_FORBIDDEN_RETRIEVAL_TOOLS = new Set([
   "rag-memory",
@@ -46,14 +53,38 @@ class OfferKpDocumentTriggerBlock extends BaseBlock {
 
   async install(harness) {
     const prompt = this.#resolvePrompt(harness);
+    const pdfEvidence = await ensurePdfInquiryEvidence(harness);
+    let triggersDoc = isQuoteDocumentRequest(prompt);
+
+    // The deterministic router has an explicit "ambiguous" bucket for
+    // messages none of its rules matched confidently. Rather than silently
+    // falling back to a guess in either direction, ask a cheap LLM judge to
+    // break the tie — but only in that narrow, already-rare case, so this
+    // never adds latency to the confidently-classified majority of turns.
+    if (!triggersDoc && !pdfEvidence) {
+      const routed = routeOfferKpMessage(prompt);
+      if (routed.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS) {
+        const judged = await classifyAmbiguousIntentWithLlm(prompt, {
+          workspace: harness.ctx?.workspace,
+        });
+        harnessLog("info", "quoteDocument.ambiguousIntentJudge", {
+          judged,
+          prompt: prompt.slice(0, 120),
+        });
+        if (
+          judged === OFFER_KP_INTENTS.CREATE_QUOTE ||
+          judged === OFFER_KP_INTENTS.EDIT_QUOTE
+        ) {
+          triggersDoc = true;
+        }
+      }
+    }
+
     // A phrase match on the message text isn't the only valid trigger: an
     // attached PDF that already reads as a priced inquiry must also switch
     // the agent into ShopDB-only mode, otherwise a bare "here's the file"
     // message silently keeps rag-memory/web-scraping tools available.
-    if (
-      !isQuoteDocumentRequest(prompt) &&
-      !(await ensurePdfInquiryEvidence(harness))
-    ) {
+    if (!triggersDoc && !pdfEvidence) {
       return;
     }
 

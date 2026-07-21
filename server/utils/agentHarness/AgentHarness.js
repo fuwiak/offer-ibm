@@ -104,19 +104,54 @@ class AgentHarness {
    */
   sanitizeOutgoingChat(content) {
     const text = typeof content === "string" ? content : "";
-    if (!text.includes("|")) return content;
+    if (!text.trim()) return content;
 
     try {
       const {
         validateQuotePricesFromDb,
         sanitizeQuotePricesToShopDb,
+        collectAllowedPricesFromCatalog,
+        collectAllowedPricesFromDraft,
       } = require("../offerKp/quoteDbPriceGate");
       const {
         collectCatalogBlocksFromHarness,
       } = require("../offerKp/harnessEvidence");
+      const { parseAmount } = require("../offerKp/quoteCalculator");
+      const {
+        ABSTAIN_MESSAGE,
+      } = require("../../config/offerKp.harnessAntiHallucination");
 
       const draft = this.state.get("inquiryDbDraft") || null;
       const catalogBlocks = collectCatalogBlocksFromHarness(this);
+
+      // Bullet-style "**Цена:** … / **Артикул / SKU:** …" replies (the
+      // format prompts.js itself teaches the model) contain no "|" table
+      // syntax, so the markdown-table price gate below never inspects them —
+      // a model can freely narrate a whole fake "[Каталог · …]" block here.
+      // Cross-check every "Цена:"-labelled claim against prices that were
+      // actually injected server-side this turn, regardless of table syntax.
+      const claimedPrices = [...text.matchAll(/Цена\s*:\s*\**\s*([\d\s.,]+)/gi)]
+        .map((m) => parseAmount(String(m[1] || "").replace(/\s+/g, "")))
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .map((n) => Math.round(n * 100) / 100);
+      if (claimedPrices.length) {
+        const allowed = new Set([
+          ...collectAllowedPricesFromCatalog(catalogBlocks),
+          ...collectAllowedPricesFromDraft(draft),
+        ]);
+        const fabricated = claimedPrices.some(
+          (price) => ![...allowed].some((p) => Math.abs(p - price) <= 0.02)
+        );
+        if (fabricated) {
+          harnessLog("warn", "outgoingChat.fabricatedCatalogClaim", {
+            claimedPrices,
+            allowedCount: allowed.size,
+          });
+          return ABSTAIN_MESSAGE;
+        }
+      }
+
+      if (!text.includes("|")) return content;
 
       if (draft?.lines?.length) {
         const check = validateQuotePricesFromDb(text, { draft, catalogBlocks });

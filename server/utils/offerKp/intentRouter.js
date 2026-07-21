@@ -75,7 +75,7 @@ const DOCUMENT_QUESTION_PATTERNS = [
 
 const SYSTEM_HELP_PATTERNS = [
   /(?:что ты умеешь|как (?:загрузить|прикрепить|создать|сформировать)|как это работает)/iu,
-  /(?:почему|что значит).{0,45}(?:цена отсутствует|нет цены|требует проверки|нет в базе)/iu,
+  /(?:почему|что значит).{0,45}(?:цена отсутствует|нет цен\w*|требует проверки|нет в базе)/iu,
   /(?:откуда|как).{0,35}(?:система|offerkp).{0,30}(?:бер[её]т|получает).{0,20}цен/iu,
   /как\s+(?:выбрать|подтвердить).{0,30}(?:аналог|товар|позици)/iu,
   /какие.{0,25}(?:формат|тип).{0,20}файл.{0,20}(?:поддерж|можно)/iu,
@@ -87,8 +87,21 @@ const CASUAL_PATTERNS = [
   /^\d{1,4}$/u,
   /^(?:тест\s*){2,}$/iu,
   /^(?:работает ли чат|чат работает)[!?.\s]*$/iu,
-  /^(?:\.{2,}|[a-z]{3,8})$/iu,
 ];
+
+// A single bare word with no digits/punctuation is almost always a bot/
+// connectivity probe ("asdf", "xyz") rather than a real query — but matching
+// ANY 3-8 letter Latin word by default would misclassify a genuine short
+// product term in another language (e.g. Spanish "tornillo") as casual/test
+// chat. Only treat it as a probe when it carries no product signal at all;
+// language of the word is never a reason by itself to reject or downrank it.
+const BARE_PROBE_WORD_RE = /^(?:\.{2,}|[a-z]{3,8})$/iu;
+
+function isCasualOrTestMessage(text, hasProductSignal) {
+  if (CASUAL_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  if (hasProductSignal) return false;
+  return BARE_PROBE_WORD_RE.test(text);
+}
 
 const OUT_OF_SCOPE_PATTERNS = [
   /(?:какая|какой).{0,20}погод/iu,
@@ -196,7 +209,7 @@ function routeOfferKpMessage(input = "") {
     if (intent && !intents.includes(intent)) intents.push(intent);
   };
 
-  if (CASUAL_PATTERNS.some((pattern) => pattern.test(text))) {
+  if (isCasualOrTestMessage(text, hasProductSignal)) {
     addIntent(I.CASUAL_OR_TEST);
   } else if (
     /^(?:привет|здравствуй|добрый\s+(?:день|вечер)|hello|hi)(?:[\s,!?.]|$)/iu.test(
@@ -408,4 +421,5 @@ module.exports = {
   START_QUOTE_PROMPTS,
   normalizeIntentText,
   routeOfferKpMessage,
+  buildResult,
 };

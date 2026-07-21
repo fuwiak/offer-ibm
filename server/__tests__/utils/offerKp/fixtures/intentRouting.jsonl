@@ -183,3 +183,4 @@
 {"text":"удали вторую строку и покажи исходный текст из PDF","intent":"edit_quote","allowQuoteMutation":true,"alsoIntent":"document_question"}
 {"text":"сделай КП только по товарам, найденным в ShopDB","intent":"create_quote","allowExport":true,"allowShopDbSearch":true}
 {"text":"Почему в КП нет цен? Подставь каталог purolat.com и переделай DOCX с позициями и SKU","intent":"edit_quote","allowShopDbSearch":true,"allowQuoteMutation":true,"allowExport":true,"alsoIntent":"product_search"}
+{"text":"bolt","intent":"ambiguous"}
