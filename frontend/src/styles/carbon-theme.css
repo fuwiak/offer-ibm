@@ -2913,20 +2913,26 @@ html.carbon-ui .offerKp-hero-title {
   background: #ffffff;
   color: #1b2f5a;
   width: 100%;
-  max-width: 640px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 26px 28px 32px;
+  padding: 28px 32px 36px;
   border-radius: 2px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
+  box-sizing: border-box;
 }
 
 .offerKp-quote-doc__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
+}
+
+.offerKp-quote-doc__head > div:first-child {
+  flex: 1 1 48%;
+  min-width: 0;
 }
 
 .offerKp-quote-doc__brand {
@@ -2937,23 +2943,25 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__brand-sub {
-  font-size: 9px;
+  font-size: 10px;
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .offerKp-quote-doc__meta {
+  flex: 1 1 48%;
+  min-width: 0;
   text-align: right;
-  font-size: 10px;
+  font-size: 11px;
   color: #475569;
 }
 
 .offerKp-quote-doc__title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #1b2f5a;
-  letter-spacing: 1px;
+  letter-spacing: 0.4px;
 }
 
 .offerKp-quote-doc__rule {
@@ -2965,7 +2973,7 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__parties {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 28px;
   color: #475569;
 }
 
@@ -2990,6 +2998,9 @@ html.carbon-ui .offerKp-hero-title {
   line-height: 1.4;
   padding: 2px 0;
   outline: none;
+  box-sizing: border-box;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .offerKp-quote-doc__edit-input:focus {
@@ -3008,7 +3019,7 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__edit-input--brand {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #0c7d69;
   letter-spacing: 0.2px;
@@ -3021,12 +3032,14 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__edit-input--title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #1b2f5a;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.3px;
   text-align: right;
   border-bottom-color: transparent;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .offerKp-quote-doc__edit-input--title:hover,
@@ -3035,10 +3048,10 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__edit-input--muted {
-  font-size: 9px;
+  font-size: 10px;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   border-bottom-color: transparent;
 }
 
@@ -3049,11 +3062,11 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-input--section {
   margin-top: 18px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: #0c7d69;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   border-bottom-color: transparent;
 }
 
@@ -3063,7 +3076,8 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__edit-input--date {
-  max-width: 9.5rem;
+  max-width: 11rem;
+  min-width: 9.5rem;
 }
 
 .offerKp-quote-doc__edit-row {
@@ -3077,21 +3091,23 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__edit-row > span {
   white-space: nowrap;
   color: #475569;
+  flex-shrink: 0;
 }
 
 .offerKp-quote-doc__edit-row .offerKp-quote-doc__edit-input {
   width: auto;
-  min-width: 0;
-  flex: 1;
+  min-width: 7rem;
+  flex: 1 1 auto;
   text-align: right;
 }
 
 .offerKp-quote-doc__cell-input {
   border-bottom-color: transparent;
   color: inherit;
-  font-size: inherit;
+  font-size: 12px;
   padding: 0;
   min-width: 0;
+  width: 100%;
 }
 
 .offerKp-quote-doc__cell-input:hover,
@@ -3099,9 +3115,29 @@ html.carbon-ui .offerKp-hero-title {
   border-bottom-color: #0c7d69;
 }
 
+.offerKp-quote-doc__cell-input--name {
+  resize: vertical;
+  min-height: 2.6em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
 .offerKp-quote-doc__cell-input--num {
   text-align: right;
   width: 100%;
+  min-width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+  /* hide spinners so values are not clipped */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.offerKp-quote-doc__cell-input--num::-webkit-outer-spin-button,
+.offerKp-quote-doc__cell-input--num::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .offerKp-quote-doc__cell-input--strong {
@@ -3109,10 +3145,20 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__totals-input {
-  width: 6.5rem;
+  width: 8rem;
+  min-width: 7rem;
   text-align: right;
   color: #475569;
   border-bottom-color: transparent;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.offerKp-quote-doc__totals-input::-webkit-outer-spin-button,
+.offerKp-quote-doc__totals-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .offerKp-quote-doc__totals-input:hover,
@@ -3127,11 +3173,19 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__vat-input {
-  width: 2.5rem;
+  width: 3rem;
   text-align: center;
   border-bottom-color: transparent;
   color: inherit;
   padding: 0;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.offerKp-quote-doc__vat-input::-webkit-outer-spin-button,
+.offerKp-quote-doc__vat-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .offerKp-quote-doc__vat-input:hover,
@@ -3171,11 +3225,11 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: #0c7d69;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
 
@@ -3191,18 +3245,40 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 6px;
+  margin-top: 8px;
+  table-layout: fixed;
+}
+
+.offerKp-quote-doc__table col.offerKp-quote-doc__col-name {
+  width: 40%;
+}
+
+.offerKp-quote-doc__table col.offerKp-quote-doc__col-article {
+  width: 18%;
+}
+
+.offerKp-quote-doc__table col.offerKp-quote-doc__col-qty {
+  width: 12%;
+}
+
+.offerKp-quote-doc__table col.offerKp-quote-doc__col-price {
+  width: 15%;
+}
+
+.offerKp-quote-doc__table col.offerKp-quote-doc__col-sum {
+  width: 15%;
 }
 
 .offerKp-quote-doc__table thead th {
   background: #0c7d69;
   color: #ffffff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 6px 8px;
+  letter-spacing: 0.2px;
+  padding: 8px 10px;
   text-align: left;
+  white-space: nowrap;
 }
 
 .offerKp-quote-doc__table th.num,
@@ -3211,9 +3287,12 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__table tbody td {
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e2e8e8;
   color: #1b2f5a;
+  vertical-align: top;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .offerKp-quote-doc__table tbody tr:nth-child(even) td {
@@ -3225,16 +3304,25 @@ html.carbon-ui .offerKp-hero-title {
 }
 
 .offerKp-quote-doc__totals {
-  margin: 14px 0 0 auto;
-  width: 60%;
-  font-size: 10px;
+  margin: 16px 0 0 auto;
+  width: min(100%, 18rem);
+  font-size: 12px;
 }
 
 .offerKp-quote-doc__totals > div {
   display: flex;
   justify-content: space-between;
-  padding: 3px 0;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
   color: #475569;
+}
+
+.offerKp-quote-doc__totals > div > span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+  min-width: 7rem;
 }
 
 .offerKp-quote-doc__grand {
@@ -3242,8 +3330,8 @@ html.carbon-ui .offerKp-hero-title {
   background: #0c7d69;
   color: #ffffff !important;
   font-weight: 700;
-  font-size: 12px;
-  padding: 7px 10px !important;
+  font-size: 13px;
+  padding: 8px 12px !important;
   border-radius: 2px;
 }
 
@@ -3255,13 +3343,51 @@ html.carbon-ui .offerKp-hero-title {
   margin: 6px 0 0;
   padding-left: 16px;
   color: #475569;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .offerKp-quote-doc__terms li {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .offerKp-quote-doc__sign {
   margin-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .offerKp-quote-doc {
+    padding: 18px 14px 24px;
+    font-size: 11px;
+  }
+
+  .offerKp-quote-doc__parties {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .offerKp-quote-doc__table thead th {
+    font-size: 9px;
+    padding: 6px 6px;
+  }
+
+  .offerKp-quote-doc__table tbody td {
+    padding: 6px;
+  }
+
+  .offerKp-quote-doc__col-name {
+    width: 34%;
+  }
+
+  .offerKp-quote-doc__col-article {
+    width: 16%;
+  }
+
+  .offerKp-quote-doc__col-qty {
+    width: 14%;
+  }
+
+  .offerKp-quote-doc__col-price,
+  .offerKp-quote-doc__col-sum {
+    width: 18%;
+  }
 }

@@ -383,7 +383,7 @@ export default function QuotePreview() {
         </label>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-[#525659] p-3" translate="no">
+      <div className="flex-1 overflow-auto bg-[#525659] p-3" translate="no">
         <div className="offerKp-quote-doc notranslate" translate="no">
           <div className="offerKp-quote-doc__head">
             <div>
@@ -532,6 +532,13 @@ export default function QuotePreview() {
             className="offerKp-quote-doc__edit-input offerKp-quote-doc__edit-input--section"
           />
           <table className="offerKp-quote-doc__table">
+            <colgroup>
+              <col className="offerKp-quote-doc__col-name" />
+              <col className="offerKp-quote-doc__col-article" />
+              <col className="offerKp-quote-doc__col-qty" />
+              <col className="offerKp-quote-doc__col-price" />
+              <col className="offerKp-quote-doc__col-sum" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Позиция</th>
@@ -549,15 +556,15 @@ export default function QuotePreview() {
                 return (
                   <tr key={i}>
                     <td>
-                      <input
-                        type="text"
+                      <textarea
+                        rows={2}
                         value={
                           line.name || line.productName || line.productId || ""
                         }
                         onChange={(e) =>
                           handleLineField(i, "name", e.target.value)
                         }
-                        className="offerKp-quote-doc__edit-input offerKp-quote-doc__cell-input"
+                        className="offerKp-quote-doc__edit-input offerKp-quote-doc__cell-input offerKp-quote-doc__cell-input--name"
                       />
                     </td>
                     <td>
