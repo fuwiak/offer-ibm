@@ -2980,6 +2980,7 @@ html.carbon-ui .offerKp-hero-title {
 
 .offerKp-quote-doc__edit-input {
   width: 100%;
+  display: block;
   border: none;
   border-bottom: 1px dashed #94a3b8;
   background: transparent;
@@ -3004,6 +3005,138 @@ html.carbon-ui .offerKp-hero-title {
 .offerKp-quote-doc__edit-input::placeholder {
   color: #94a3b8;
   font-weight: 400;
+}
+
+.offerKp-quote-doc__edit-input--brand {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0c7d69;
+  letter-spacing: 0.2px;
+  border-bottom-color: transparent;
+}
+
+.offerKp-quote-doc__edit-input--brand:hover,
+.offerKp-quote-doc__edit-input--brand:focus {
+  border-bottom-color: #94a3b8;
+}
+
+.offerKp-quote-doc__edit-input--title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1b2f5a;
+  letter-spacing: 0.6px;
+  text-align: right;
+  border-bottom-color: transparent;
+}
+
+.offerKp-quote-doc__edit-input--title:hover,
+.offerKp-quote-doc__edit-input--title:focus {
+  border-bottom-color: #94a3b8;
+}
+
+.offerKp-quote-doc__edit-input--muted {
+  font-size: 9px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom-color: transparent;
+}
+
+.offerKp-quote-doc__edit-input--muted:hover,
+.offerKp-quote-doc__edit-input--muted:focus {
+  border-bottom-color: #94a3b8;
+}
+
+.offerKp-quote-doc__edit-input--section {
+  margin-top: 18px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #0c7d69;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-bottom-color: transparent;
+}
+
+.offerKp-quote-doc__edit-input--section:hover,
+.offerKp-quote-doc__edit-input--section:focus {
+  border-bottom-color: #94a3b8;
+}
+
+.offerKp-quote-doc__edit-input--date {
+  max-width: 9.5rem;
+}
+
+.offerKp-quote-doc__edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.offerKp-quote-doc__edit-row > span {
+  white-space: nowrap;
+  color: #475569;
+}
+
+.offerKp-quote-doc__edit-row .offerKp-quote-doc__edit-input {
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  text-align: right;
+}
+
+.offerKp-quote-doc__cell-input {
+  border-bottom-color: transparent;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+  min-width: 0;
+}
+
+.offerKp-quote-doc__cell-input:hover,
+.offerKp-quote-doc__cell-input:focus {
+  border-bottom-color: #0c7d69;
+}
+
+.offerKp-quote-doc__cell-input--num {
+  text-align: right;
+  width: 100%;
+}
+
+.offerKp-quote-doc__cell-input--strong {
+  font-weight: 700;
+}
+
+.offerKp-quote-doc__totals-input {
+  width: 6.5rem;
+  text-align: right;
+  color: #475569;
+  border-bottom-color: transparent;
+}
+
+.offerKp-quote-doc__totals-input:hover,
+.offerKp-quote-doc__totals-input:focus {
+  border-bottom-color: #0c7d69;
+}
+
+.offerKp-quote-doc__vat-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.offerKp-quote-doc__vat-input {
+  width: 2.5rem;
+  text-align: center;
+  border-bottom-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.offerKp-quote-doc__vat-input:hover,
+.offerKp-quote-doc__vat-input:focus {
+  border-bottom-color: #0c7d69;
 }
 
 .offerKp-draft-customer__label {

@@ -37,6 +37,7 @@ export function saveQuoteDraft(workspaceSlug, threadSlug, draft) {
       preview: draft.preview,
       shipping: draft.shipping,
       sourceFilename: draft.sourceFilename,
+      doc: draft.doc,
       updatedAt: Date.now(),
     })
   );
