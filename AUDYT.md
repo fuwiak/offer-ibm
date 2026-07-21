@@ -1,7 +1,22 @@
-# Аудит offer-ibm (2026-07-20)
+# Аудит offer-ibm (2026-07-20 → обновляется)
 
-Область: скорость web UI, качество UI/UX, качество генерации и агента (flow: загрузка PDF → сопоставление товаров в ShopDB → генерация КП).
-Метод: статический аудит кода (живой тест http://offer-ibm.ru/ требует расширения Claude in Chrome — сайт SPA, сам HTML пустой).
+Область: скорость web UI, качество UI/UX, качество генерации и агента (flow: upload PDF → matching ShopDB → генерация КП).
+Метод: статический аудит кода + прод-трассировки на Lainey.
+
+**Актуальный снимок продукта (2026-07-21 вечер):** см. [`claude.md`](./claude.md), [`README.md`](./README.md), [`DESIGN.md`](./DESIGN.md).
+
+Кратко, что уже не так, как в ранних разделах ниже:
+
+| Тема | Было в раннем аудите | Сейчас |
+|------|----------------------|--------|
+| LLM на T4 | Dual swap eyes↔brain (90+ с) | Одна `qwen/qwen3-vl-8b`, `OFFER_KP_SINGLE_MODEL` |
+| Intent | Эвристики разрозненно | `intentRouter` + `intentLlmJudge` + фикстуры `intentRouting.jsonl` |
+| Matching | В основном TF-IDF | + embedding rerank, REGEXP резьбы, тип из DIN, golden override/few-shot, knowledge MD |
+| Анти-галлюцинации | Гейты тулов + табличный price gate | + `sanitizeOutgoingChat` для bullet «Цена:» |
+| UI КП | Черновик частично read-only | Полная правка строк + **ПОКУПАТЕЛЬ** + PDF sidebar |
+| Метрики | Разовые measure-скрипты | Непрерывный JSONL + `offerkp metrics` |
+
+Разделы 1–4 ниже — исходный аудит от 2026-07-20 (часть пунктов всё ещё открыта: HTTPS, progress-stage, brotli). Разделы 5+ — дополнения того же дня с уже внедрёнными фиксами.
 
 ---
 

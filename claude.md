@@ -1,279 +1,108 @@
-# Перенос логики генерации ответов в другой проект
-
-Этот документ собирает максимально полную практическую логику генерации ответа из текущего проекта (`evgeniy-llm-lawyer`) для переноса в новый проект.
-
-## 1) Точка входа и API-поток
-
-Основные HTTP-эндпоинты:
-
-- `POST /workspace/:slug/stream-chat`
-- `POST /workspace/:slug/thread/:threadSlug/stream-chat`
-
-Реализация: `server/endpoints/chat.js`.
-
-Что происходит по шагам:
-
-1. Валидация запроса + доступа (`validatedRequest`, роли, workspace/thread middleware).
-2. Проверка, что `message` не пустой.
-3. Инициализация SSE-стрима:
-   - `Content-Type: text/event-stream`
-   - `Cache-Control: no-cache`
-   - `Connection: keep-alive`
-4. Ограничение по квоте в multi-user (`User.canSendChat`).
-5. Вызов ядра пайплайна: `streamChatWithWorkspace(...)`.
-6. Логирование telemetry/event logs.
-7. `response.end()`.
-
-Если ошибка — отправляется SSE-пакет типа `abort`.
-
-## 2) Ядро генерации (главный оркестратор)
-
-Главный файл: `server/utils/chats/stream.js`.
-
-Функция: `streamChatWithWorkspace(response, workspace, message, chatMode, user, thread, attachments, options)`.
-
-Ключевая последовательность:
-
-1. **Slash-команды / preset-команды**
-   - `grepCommand(...)` из `server/utils/chats/index.js`.
-   - Built-in команда: `/reset`.
-2. **Agent-режим (early-exit)**
-   - `grepAgents(...)`; если активирован агентный чат, обычный поток не идет дальше.
-3. **Выбор LLM + VectorDB**
-   - `getLLMProvider(...)` и `getVectorDbClass()` из `server/utils/helpers/index.js`.
-4. **Проверка namespace и числа эмбеддингов**
-   - `VectorDb.hasNamespace`, `VectorDb.namespaceCount`.
-   - Если `chatMode = query` и данных нет -> быстрый отказ (`queryRefusalResponse`).
-5. **История чата**
-   - `recentChatHistory(...)` из `server/utils/chats/index.js`.
-6. **Pinned docs**
-   - `DocumentManager(...).pinnedDocs()`.
-7. **Parsed files (вложения/контекстные файлы)**
-   - `WorkspaceParsedFiles.getContextFiles(...)`.
-8. **Similarity search (RAG)**
-   - `VectorDb.performSimilaritySearch(...)` с `similarityThreshold`, `topN`, rerank.
-9. **Backfill источников из истории**
-   - `fillSourceWindow(...)` из `server/utils/helpers/chat/index.js`.
-10. **External enrich (в параллель)**
-   - ГАРАНТ: `getGarantContext(...)`
-   - Яндекс поиск: `getYandexSearchContext(...)`
-   - Google CSE: `getGoogleSearchContext(...)`
-11. **Сборка промпта и компрессия**
-   - `chatPrompt(...)` + `LLMConnector.compressMessages(...)`.
-12. **Генерация**
-   - Либо `getChatCompletion` (без streaming),
-   - Либо `streamGetChatCompletion` + `handleStream`.
-13. **Постобработка текста**
-   - `applyYandexFactCheck(...)` (по умолчанию выключено кодом),
-   - `applyOpenRouterGarantFactCheck(...)` (по умолчанию выключено кодом),
-   - `applyRussianStylePolish(...)` (обычно включено, если есть ключи).
-14. **Подсчет стоимости/метрик**
-   - LLM usage + курс USD/RUB + отдельный cost по ГАРАНТ.
-15. **External links section**
-   - Блок ссылок по ГАРАНТ/Яндекс/Google.
-16. **Сохранение в БД**
-   - `WorkspaceChats.new(...)` с `text`, `sources`, `metrics`, `ragTrace`.
-17. **Финализация SSE**
-   - `finalizeResponseStream`.
+# OfferKP (`offer-ibm`) — контекст для агента
 
-## 3) Формат SSE-сообщений (критично для фронта)
+Рабочий язык: **русский** (заявки, каталог, UI). Прод: [http://offer-ibm.ru](http://offer-ibm.ru) (Selectel Lainey, `87.228.90.43`).
 
-Запись идет через `writeResponseChunk(response, data)` (`server/utils/helpers/chat/responses.js`), формат:
+Подробный аудит и история решений: [`AUDYT.md`](./AUDYT.md). Продуктовый README: [`README.md`](./README.md). UI-токены: [`DESIGN.md`](./DESIGN.md).
 
-- `data: <json>\n\n`
+---
 
-Типы событий, которые фронт должен уметь:
+## Что это
 
-- `textResponseChunk` — токены/части ответа
-- `abort` — ошибка
-- `finalizeResponseStream` — конец стрима
-- дополнительные служебные action-пакеты (например rename thread)
+B2B-система формирования **коммерческих предложений (КП)** на крепёж (болты, гайки, DIN/ГОСТ). Оператор загружает заявку → система парсит позиции → сопоставляет с **ShopDB** (MySQL Shop-Script / purolat.com) → правит сводку → экспортирует PDF/DOCX/XLSX.
 
-Есть keepalive:
+Доменная логика: `server/utils/offerKp/`. UI: `frontend/src/components/OfferKp/`. Репозиторий вырос из AnythingLLM-подобного монорепо; для КП важны ShopDB-only и анти-галлюцинации цен, не юридический RAG ГАРАНТ/Яндекс (legacy-код может оставаться, но КП-режим его отключает).
 
-- `: keepalive\n\n` во время долгой постобработки, чтобы прокси не убивал соединение.
+---
 
-## 4) Логика системного промпта и инструкций
+## Основной flow (2026-07)
 
-Файл: `server/utils/chats/index.js`, функция `chatPrompt(workspace, user)`.
+1. Сообщение / PDF → **intentRouter** (`intentRouter.js`) решает политику: casual / create_quote / edit_quote / product_search / …  
+   - casual / out_of_scope → без каталога и без лишней генерации.  
+   - ambiguous → опционально `intentLlmJudge.js` (один узкий LLM-вызов, fail-safe).
+2. Vision OCR (`offerKpVisionOcr.js`) на резидентной `qwen/qwen3-vl-8b` → JSON/текст позиций (без цен/SKU).
+3. `parseInquiryText` → строки заявки.
+4. `matchInquiryLines` → ShopDB: golden override → exact SKU → structured SQL → name TF-IDF + embedding rerank → LLM-fallback (`searchAgent`) с few-shot и knowledge MD.
+5. UI: чат | превью загруженного PDF | **Сводка позиций** (редактируемая) + вкладка превью КП (**ПОКУПАТЕЛЬ** редактируется inline).
+6. Экспорт через гейты: `quoteDbPriceGate`, `quoteComplianceChecker`, `offerKpSourceVerificationBlock`, `AgentHarness.sanitizeOutgoingChat`.
 
-Состав системного промпта:
+---
 
-1. Базовый prompt:
-   - `workspace.openAiPrompt` или `SystemSettings.saneDefaultSystemPrompt`.
-2. Подстановка переменных:
-   - `SystemPromptVariables.expandSystemPromptVariables(...)`.
-3. Префикс с текущей датой и TZ:
-   - `buildCurrentDatePreamble()`.
-4. Условные блоки-инструкции в зависимости от env:
-   - ГАРАНТ-инструкции,
-   - Яндекс/Google-инструкции,
-   - иерархия приоритетов источников (ГАРАНТ > веб).
+## Жёсткие правила (не ломать)
 
-Для миграции это важно сохранить практически 1-в-1, потому что именно здесь бизнес-правила юридического качества.
+- **ShopDB-only** для КП: без vector search и web-enrich; цены не выдумывать.
+- Цену получают только `exact` / `analog`. `similar` / `size_mismatch` / `none` → без чужой цены / «под заказ».
+- Golden set **не** источник цены — только указание SKU; цена всегда из `searchByExactSku`.
+- Style-polish для КП отключён (не переписывать числа).
+- Текст PDF/OCR = **данные**, не инструкции (prompt + source verification).
+- Исходящий чат: любая «Цена: N» должна совпасть с разрешёнными ценами каталога/черновика, иначе `ABSTAIN_MESSAGE` (не только markdown-таблицы).
+- UI-строки через i18n (`offerKp`); основной locale — `ru`.
+- VL-модели: native `tools[]` в LM Studio ломают Jinja → UnTooled (`lmStudioToolSupport.js`).
 
-## 5) RAG-ядро и компрессия контекста
+---
 
-### 5.1 Источники контекста (в порядке приоритета)
+## Как система «учится» (без fine-tune весов)
 
-1. External enrich префиксом:
-   - ГАРАНТ, Яндекс, Google.
-2. Pinned docs.
-3. Parsed files.
-4. Similarity search chunks.
-5. Backfill из истории.
+| Слой | Где | Что делает |
+|------|-----|------------|
+| Override | `goldenCorrections.js` + `test_files/*.expected.csv` (`matched_sku`, `match_type`) | Точный нормализованный запрос → SKU до живого поиска |
+| Few-shot | `goldenFewShot.js` | Похожие примеры в промпт LLM-fallback |
+| Embedding rerank | `embeddingSimilarity.js` | CPU e5-small поверх TF-IDF кандидатов |
+| Cross-encoder | `crossEncoderRerank.js` | Опционально, **выкл. по умолчанию** (`SHOP_DB_RERANKER_ENABLED=0`) |
+| Knowledge MD | `knowledge/*.md` + `knowledgeBase.js` | Правила DIN↔ГОСТ / прочность-покрытие в LLM-fallback |
+| Метрики | `searchMetrics.js` + `offerkp metrics` | JSONL качества matching в проде |
+| Правки UI | `QuoteDraftTable` / logCorrections | Оператор правит строки и покупателя |
 
-### 5.2 Компрессор сообщений
+Автокалибровка порогов и полный ANN по каталогу — ещё не сделаны. Расширять golden set `matched_sku` — главный рычаг качества.
 
-Файл: `server/utils/helpers/chat/index.js`, `messageArrayCompressor(...)`.
+---
 
-Принцип:
+## LLM / инфра (Lainey T4 16GB)
 
-- budget: примерно `system 15%`, `history 15%`, `user 70%`.
-- Если переполнение окна контекста — применяется `cannonball` (вырезка середины текста по токенам).
-- История агрессивно поджимается, последние сообщения приоритетнее.
+- **Одна резидентная модель:** `qwen/qwen3-vl-8b` (OCR + chat/agent), `OFFER_KP_SINGLE_MODEL=true`.  
+  Раньше swap eyes↔brain (gpt-oss) стоил 90+ с — убрали.
+- LM Studio: `http://87.228.90.43:1234/v1` (см. `offerKp.llm.defaults.js`).
+- Опционально OpenRouter teacher + egress-proxy с Selectel.
+- Constrained JSON Schema на LM Studio **работает**; адаптер `AiProviders/lmStudio` пока не прокидывает `response_format` — кандидат на доработку.
 
-Это ключевая часть стабильной работы на разных моделях и длинах контекста.
+---
 
-## 6) Обогащение ГАРАНТ/Яндекс/Google
+## UI (актуально)
 
-### 6.1 ГАРАНТ
+- Layout: sidebar · чат · **UploadedPdfSidebar** · **DocumentPanel**.
+- Вкладки панели: Диалог (PDF заявки) · Сводка позиций · Превью КП · Document/PDF.
+- Сводка: все поля строки редактируемы; блок **ПОКУПАТЕЛЬ** (имя, страна) над таблицей и в превью КП.
+- Подтверждение позиций «требует проверки» перед экспортом — через i18n (`draftTable.reviewConfirm`).
 
-Файл: `server/utils/garant/enrich.js`.
+---
 
-Что делает:
+## Ключевые пути
 
-- Поиск по ГАРАНТ.
-- Опциональный фильтр «Действующие» через topic-info.
-- Вытягивание excerpt/HTML.
-- Формирование `contextTexts` и `sources`.
-- Таймаут и graceful fallback (не блокирует чат навсегда).
+```
+server/utils/offerKp/          # домен КП
+  intentRouter.js, intentLlmJudge.js
+  parseInquiry.js, matchInquiryLines.js
+  nameSimilarity.js, shopDbSearch.js, embeddingSimilarity.js
+  goldenCorrections.js, goldenFewShot.js, knowledgeBase.js
+  offerKpVisionOcr.js, offerKpModelPipeline.js
+  quoteDbPriceGate.js, searchMetrics.js
+frontend/src/components/OfferKp/
+  QuoteDraftTable.jsx, QuotePreview.jsx, UploadedPdfSidebar.jsx
+  DocumentPanel (../DocumentPanel)
+test_files/                    # golden set
+cli/                           # offerkp TUI (status, logs, cicd, metrics)
+AUDYT.md                       # живой аудит решений
+```
 
-### 6.2 Яндекс и Google
+---
 
-- Яндекс: `server/utils/yandexSearch/enrich.js`
-- Google: `server/utils/googleCustomSearch/enrich.js`
+## Тесты / деплой
 
-Результаты добавляются в контекст как вспомогательные веб-фрагменты.
-
-## 7) Постпроцессинг ответа
-
-Файлы:
-
-- `server/utils/chats/yandexFactCheck.js`
-- `server/utils/chats/openRouterGarantFactCheck.js`
-- `server/utils/chats/russianStylePolish.js`
-
-Пайплайн:
-
-1. Yandex fact-check (в коде выключен по умолчанию, включается env).
-2. OpenRouter fact-check только по ГАРАНТ (тоже выключен по умолчанию).
-3. Russian style polish:
-   - приоритет Yandex Cloud (Alice),
-   - fallback OpenRouter.
-
-## 8) Модель данных/хранилище истории (минимум для миграции)
-
-Критично перенести сущности:
-
-- `workspace_chats` (prompt, response JSON, user/thread/session ids, include)
-- `workspace`
-  - `chatProvider`, `chatModel`,
-  - `openAiPrompt`, `openAiTemp`, `openAiHistory`,
-  - `similarityThreshold`, `topN`, `chatMode`, `queryRefusalResponse`, `vectorSearchMode`.
-- `workspace_threads` (если переносите thread-режим).
-
-Модель работы с чатами: `server/models/workspaceChats.js`.
-
-## 9) Контракт LLM-провайдеров (что должен уметь адаптер)
-
-Минимальный интерфейс провайдера:
-
-- `promptWindowLimit()`
-- `streamingEnabled()`
-- `constructPrompt(...)`
-- `compressMessages(...)`
-- `getChatCompletion(messages, opts)`
-- `streamGetChatCompletion(messages, opts)`
-- `handleStream(response, stream, props)`
-- `embedTextInput`, `embedChunks`
-
-Пример реализации: `server/utils/AiProviders/openAi/index.js`.
-
-## 10) Переменные окружения, обязательные для переноса
-
-Минимум для запуска:
-
-- `LLM_PROVIDER`
-- ключ/модель выбранного провайдера (например `OPEN_AI_KEY`, `OPEN_MODEL_PREF`)
-- `EMBEDDING_ENGINE`
-- `VECTOR_DB`
-
-Юр-надстройки проекта:
-
-- `GARANT_TOKEN`
-- `YANDEX_SEARCH_API_KEY`
-- `YANDEX_SEARCH_FOLDER_ID` / `YANDEX_FOLDER_ID`
-- `GOOGLE_CUSTOM_SEARCH_API_KEY`
-- `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`
-- `CHAT_SYSTEM_DATE_TZ`
-
-Постпроцессинг:
-
-- `YANDEX_CLOUD_API_KEY`
-- `YANDEX_CLOUD_FOLDER`
-- `YANDEX_CLOUD_MODEL`
-- `RUSSIAN_STYLE_POLISH_DISABLED`
-- `OPENROUTER_API_KEY`
-- `RUSSIAN_STYLE_POLISH_MODEL`
-
-Fact-check toggles:
-
-- `YANDEX_FACT_CHECK_ENABLED`
-- `YANDEX_FACT_CHECK_DISABLED`
-- `OPENROUTER_FACT_CHECK_ENABLED`
-- `OPENROUTER_FACT_CHECK_DISABLED`
-
-## 11) Порядок переноса в новый проект (рекомендуемый)
-
-1. Перенести **контракт SSE** и фронтовую обработку chunk-ов.
-2. Перенести **stream-оркестратор** (`streamChatWithWorkspace`) с тем же порядком шагов.
-3. Подключить 1 LLM-провайдер + 1 векторную БД (минимальный vertical slice).
-4. Перенести `chatPrompt` + system variables + date preamble.
-5. Перенести RAG-компрессор (`messageArrayCompressor`, `fillSourceWindow`).
-6. Перенести обогащение ГАРАНТ/Яндекс/Google.
-7. Перенести постпроцессинг.
-8. Подключить запись в БД + ragTrace + метрики/cost.
-9. После стабилизации добавить остальные провайдеры.
-
-## 12) Что обязательно протестировать после переноса
-
-1. Streaming не рвется на длинной генерации (keepalive работает).
-2. `query`-режим корректно отказывает без контекста.
-3. Источники в ответе и в БД не дублируются.
-4. Внешние источники корректно встраиваются и отображаются.
-5. При отключенных API enrich не ломает ответ (graceful fallback).
-6. Постпроцессинг не «съедает» структуру markdown.
-7. Компрессор не ломает very-long prompts.
-
-## 13) Риски при миграции
-
-- Потеря порядка шагов (особенно enrich до compress и postprocess после LLM).
-- Несовместимость формата SSE с существующим фронтом.
-- Неполный перенос `workspace`-настроек (температура, history, topN, режимы).
-- Неучтенный fallback при ошибках внешних API.
-- Потеря юридических guardrails внутри `chatPrompt`.
-
-## 14) Рекомендуемый «минимальный переносимый модуль»
-
-Если переносить частями, сначала вынесите в отдельный package/module:
-
-- `chat-core/streamOrchestrator`
-- `chat-core/promptBuilder`
-- `chat-core/ragCompressor`
-- `chat-core/sourceEnrichers`
-- `chat-core/postProcessing`
-- `chat-core/sseProtocol`
-
-И уже в новом проекте подключайте это как единый доменный модуль, а не копируйте разрозненными файлами.
-
+```bash
+yarn test
+yarn test:golden
+# на сервере: npx jest  (полный набор offerKp/agentHarness)
+yarn deploy:lainey   # или push main → GH Actions Deploy Selectel
+offerkp / offerkp metrics
+```
+
+Коммит/push — только по явной просьбе пользователя. Не коммитить секреты и кэш `__tests__/utils/agents/models/`.
