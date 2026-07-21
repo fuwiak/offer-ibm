@@ -546,6 +546,11 @@ const TRANSLATIONS = {
     validate: "Generate quote",
     downloadError: "Could not download the document. Please try again.",
     searchError: "Could not search products. Please try again.",
+    buyer: "BUYER",
+    customerName: "Buyer name",
+    customerCountry: "Delivery country",
+    customerNamePlaceholder: "Company or contact name",
+    customerCountryPlaceholder: "Country (e.g. Russia)",
   },
 };
 

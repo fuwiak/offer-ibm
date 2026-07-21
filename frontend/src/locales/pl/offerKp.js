@@ -524,6 +524,11 @@ const TRANSLATIONS = {
     validate: "Wygeneruj dokument",
     downloadError: "Nie udało się pobrać dokumentu. Spróbuj ponownie.",
     searchError: "Nie udało się wyszukać produktów. Spróbuj ponownie.",
+    buyer: "NABYWCA",
+    customerName: "Nazwa nabywcy",
+    customerCountry: "Kraj dostawy",
+    customerNamePlaceholder: "Nazwa firmy lub imię i nazwisko",
+    customerCountryPlaceholder: "Kraj (np. Rosja)",
   },
 };
 

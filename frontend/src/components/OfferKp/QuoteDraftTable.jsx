@@ -312,6 +312,16 @@ export default function QuoteDraftTable() {
     });
   };
 
+  const setCustomerField = (field, value) => {
+    setQuoteDraft((prev) => ({
+      ...prev,
+      customer: {
+        ...(prev.customer || {}),
+        [field]: value,
+      },
+    }));
+  };
+
   async function runSearch() {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
@@ -486,6 +496,46 @@ export default function QuoteDraftTable() {
             <Plus size={13} />
             {t("quote.addLine")}
           </button>
+        </div>
+      </div>
+
+      <div className="offerKp-draft-customer px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary">
+        <div className="offerKp-draft-customer__label">
+          {t("quote.buyer", { defaultValue: "ПОКУПАТЕЛЬ" })}
+        </div>
+        <div className="offerKp-draft-customer__fields">
+          <label className="offerKp-draft-customer__field min-w-0 flex-1">
+            <span className="sr-only">
+              {t("quote.customerName", {
+                defaultValue: "Название покупателя",
+              })}
+            </span>
+            <input
+              type="text"
+              value={quoteDraft?.customer?.name || ""}
+              onChange={(e) => setCustomerField("name", e.target.value)}
+              placeholder={t("quote.customerNamePlaceholder", {
+                defaultValue: "Название компании или ФИО",
+              })}
+              className="offerKp-draft-customer__input"
+            />
+          </label>
+          <label className="offerKp-draft-customer__field w-[9rem] shrink-0">
+            <span className="sr-only">
+              {t("quote.customerCountry", {
+                defaultValue: "Страна доставки",
+              })}
+            </span>
+            <input
+              type="text"
+              value={quoteDraft?.customer?.country || ""}
+              onChange={(e) => setCustomerField("country", e.target.value)}
+              placeholder={t("quote.customerCountryPlaceholder", {
+                defaultValue: "Страна",
+              })}
+              className="offerKp-draft-customer__input"
+            />
+          </label>
         </div>
       </div>
 

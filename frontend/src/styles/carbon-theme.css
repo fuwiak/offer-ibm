@@ -2969,6 +2969,74 @@ html.carbon-ui .offerKp-hero-title {
   color: #475569;
 }
 
+.offerKp-quote-doc__buyer {
+  min-width: 0;
+}
+
+.offerKp-quote-doc__edit-field {
+  display: block;
+  margin-top: 4px;
+}
+
+.offerKp-quote-doc__edit-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px dashed #94a3b8;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 0;
+  outline: none;
+}
+
+.offerKp-quote-doc__edit-input:focus {
+  border-bottom-color: #0c7d69;
+}
+
+.offerKp-quote-doc__edit-input--strong {
+  font-weight: 700;
+  color: #1b2f5a;
+  font-size: 13px;
+}
+
+.offerKp-quote-doc__edit-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.offerKp-draft-customer__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--theme-text-secondary);
+  margin-bottom: 4px;
+}
+
+.offerKp-draft-customer__fields {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.offerKp-draft-customer__input {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--theme-sidebar-border);
+  background: var(--theme-bg-chat-input);
+  color: var(--theme-text-primary);
+  outline: none;
+}
+
+.offerKp-draft-customer__input:focus {
+  border-color: var(--theme-button-primary);
+}
+
 .offerKp-quote-doc__label {
   font-size: 9px;
   font-weight: 700;

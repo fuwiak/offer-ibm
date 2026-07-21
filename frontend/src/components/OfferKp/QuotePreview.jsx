@@ -36,7 +36,7 @@ function lineNeedsReview(line = {}) {
  */
 export default function QuotePreview() {
   const { t } = useTranslation("offerKp");
-  const { quoteDraft } = useOfferKp();
+  const { quoteDraft, setQuoteDraft } = useOfferKp();
   const [busy, setBusy] = useState(null);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
@@ -69,6 +69,16 @@ export default function QuotePreview() {
     })
       .format(Number(n) || 0)
       .replace(/[\u202f\u00a0]/g, " ");
+
+  function setCustomerField(field, value) {
+    setQuoteDraft((prev) => ({
+      ...prev,
+      customer: {
+        ...(prev.customer || {}),
+        [field]: value,
+      },
+    }));
+  }
 
   const net = (Number(preview.subtotal) || 0) + (Number(preview.shipping) || 0);
   const vat = net * vatRate;
@@ -223,12 +233,42 @@ export default function QuotePreview() {
               {QUOTE_BRAND.email && <div>{QUOTE_BRAND.email}</div>}
               {QUOTE_BRAND.phone && <div>{QUOTE_BRAND.phone}</div>}
             </div>
-            <div>
-              <div className="offerKp-quote-doc__label">ПОКУПАТЕЛЬ</div>
-              <div className="offerKp-quote-doc__strong">
-                {customer.name || "—"}
+            <div className="offerKp-quote-doc__buyer">
+              <div className="offerKp-quote-doc__label">
+                {t("quote.buyer", { defaultValue: "ПОКУПАТЕЛЬ" })}
               </div>
-              {customer.country && <div>{customer.country}</div>}
+              <label className="offerKp-quote-doc__edit-field">
+                <span className="sr-only">
+                  {t("quote.customerName", {
+                    defaultValue: "Название покупателя",
+                  })}
+                </span>
+                <input
+                  type="text"
+                  value={customer.name || ""}
+                  onChange={(e) => setCustomerField("name", e.target.value)}
+                  placeholder={t("quote.customerNamePlaceholder", {
+                    defaultValue: "Название компании или ФИО",
+                  })}
+                  className="offerKp-quote-doc__edit-input offerKp-quote-doc__edit-input--strong"
+                />
+              </label>
+              <label className="offerKp-quote-doc__edit-field">
+                <span className="sr-only">
+                  {t("quote.customerCountry", {
+                    defaultValue: "Страна доставки",
+                  })}
+                </span>
+                <input
+                  type="text"
+                  value={customer.country || ""}
+                  onChange={(e) => setCustomerField("country", e.target.value)}
+                  placeholder={t("quote.customerCountryPlaceholder", {
+                    defaultValue: "Страна (напр. Россия)",
+                  })}
+                  className="offerKp-quote-doc__edit-input"
+                />
+              </label>
             </div>
           </div>
 

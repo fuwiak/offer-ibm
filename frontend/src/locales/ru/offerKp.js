@@ -550,6 +550,11 @@ const TRANSLATIONS = {
     validate: "Сформировать КП",
     downloadError: "Не удалось скачать документ. Попробуйте ещё раз.",
     searchError: "Не удалось выполнить поиск товаров. Попробуйте ещё раз.",
+    buyer: "ПОКУПАТЕЛЬ",
+    customerName: "Название покупателя",
+    customerCountry: "Страна доставки",
+    customerNamePlaceholder: "Название компании или ФИО",
+    customerCountryPlaceholder: "Страна (напр. Россия)",
   },
 };
 
