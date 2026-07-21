@@ -67,6 +67,14 @@ describe("quoteIntentJudge", () => {
       ).toBe(true);
     });
 
+    it("recognizes regeneration of a priced DOCX as quote work", () => {
+      expect(
+        detectQuoteCreationIntentSync([
+          "Почему в КП нет цен? Подставь каталог purolat.com и переделай DOCX с позициями и SKU",
+        ])
+      ).toBe(true);
+    });
+
     it("does not approve a quote containing a forbidden price instruction", () => {
       expect(
         detectQuoteCreationIntentSync(["Создай КП на гайки, цену придумай сам"])

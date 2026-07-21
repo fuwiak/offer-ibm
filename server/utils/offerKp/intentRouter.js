@@ -54,6 +54,7 @@ const UNSAFE_PATTERNS = [
 
 const EDIT_QUOTE_PATTERNS = [
   /(?:замени|измени|поменяй|удали|добавь).{0,50}(?:позиц|строк|товар|болт|гайк|шайб|винт)/iu,
+  /(?:переделай|обнови|пересобери|перегенерируй).{0,50}(?:кп|docx|pdf|word|документ|файл)/iu,
   /(?:добавь|вставь).{0,35}\d+\s*(?:шт|штук|кг|уп(?:аковок)?).{0,25}(?:^|[^\p{L}\p{N}])кп(?:$|[^\p{L}\p{N}])/iu,
   /(?:поставь|укажи|измени).{0,45}(?:количеств|\d+\s*(?:шт|кг|уп))/iu,
   /(?:выбери|подставь).{0,30}(?:перв|втор|трет).{0,20}(?:аналог|вариант)/iu,
@@ -230,6 +231,9 @@ function routeOfferKpMessage(input = "") {
     ) ||
     /что\s+есть\s+вместо.{0,50}(?:товар|болт|гайк|шайб|винт|din|гост|iso)/iu.test(
       text
+    ) ||
+    /(?:подставь|подтяни|обнови|добавь).{0,45}(?:каталог|purolat|shopdb|цен|sku|артикул)/iu.test(
+      text
     );
 
   if (explicitQuote) addIntent(I.CREATE_QUOTE);
@@ -282,7 +286,11 @@ function routeOfferKpMessage(input = "") {
 
   // Search is the first executable step in compound requests such as
   // "найди ... и добавь ..."; the edit action remains a secondary intent.
-  if (productSearch && editIntent) {
+  const quoteRegeneration =
+    editIntent &&
+    (/(?:переделай|обнови|пересобери|перегенерируй)/iu.test(text) ||
+      /(?:docx|pdf|word|документ|файл)/iu.test(text));
+  if (productSearch && editIntent && !quoteRegeneration) {
     return buildResult({
       primaryIntent: I.PRODUCT_SEARCH,
       intents,
@@ -298,7 +306,8 @@ function routeOfferKpMessage(input = "") {
       primaryIntent: I.EDIT_QUOTE,
       intents,
       confidence: 0.97,
-      signals: { productSignalCount },
+      signals: { productSignalCount, quoteRegeneration },
+      policyOverrides: quoteRegeneration ? { allowExport: true } : {},
     });
   }
 

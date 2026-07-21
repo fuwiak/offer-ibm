@@ -189,16 +189,6 @@ function collectPriorHardwareContext(history, maxMessages = 5) {
   return parts.join("\n");
 }
 
-function collectPriorCatalogSearchContext(history, maxBlocks = 6) {
-  const { extractCatalogBlocksFromChatHistory } = require("./catalogPrompt");
-  const blocks = extractCatalogBlocksFromChatHistory(history, maxBlocks);
-  if (!blocks.length) return "";
-  return blocks
-    .map((block) => block.replace(/^\[Каталог[^\]]*\]\s*/i, "").trim())
-    .filter(Boolean)
-    .join("\n");
-}
-
 /**
  * Текст для поиска: текущее сообщение + контекст из истории (цена, артикул, КП).
  */
@@ -217,7 +207,6 @@ function buildProductSearchText(message, options = {}) {
   }
   const history = options.chatHistory || options.history || [];
   const skuCodes = extractSkuCodes(text);
-  const catalogContext = collectPriorCatalogSearchContext(history);
 
   const needsHistory =
     isPriceOnlyQuery(String(message || "").trim()) ||
@@ -231,12 +220,9 @@ function buildProductSearchText(message, options = {}) {
 
   if (needsHistory) {
     const prior = collectPriorHardwareContext(history);
-    const mergedPrior = [catalogContext, prior].filter(Boolean).join("\n");
-    if (mergedPrior && mergedPrior !== text) {
-      text = `${mergedPrior}\n${text}`;
+    if (prior && prior !== text) {
+      text = `${prior}\n${text}`;
     }
-  } else if (catalogContext && !text.includes(catalogContext.slice(0, 48))) {
-    text = `${catalogContext}\n${text}`;
   }
 
   return text;

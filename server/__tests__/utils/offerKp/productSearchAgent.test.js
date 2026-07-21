@@ -94,6 +94,16 @@ describe("productSearchAgent query parsing", () => {
     expect(text).toContain("DIN 934");
   });
 
+  it("never treats model-produced catalog blocks as a new search query", () => {
+    const fabricated = `[Каталог · purolat.com]\nТовар: Гайка DIN 985 M36x2000\nЦена: 100 RUB\nSKU: FAKE-985`;
+    const text = buildProductSearchText("переделай DOCX с актуальными ценами", {
+      history: [{ role: "assistant", content: fabricated }],
+    });
+
+    expect(text).toBe("переделай DOCX с актуальными ценами");
+    expect(text).not.toContain("FAKE-985");
+  });
+
   it("does not query ShopDB for a forbidden price-source instruction", async () => {
     const result = await runProductSearchAgent({
       message: "Найди цену на сайте конкурента для болта DIN 933",

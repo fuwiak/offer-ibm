@@ -91,14 +91,43 @@ async function streamChatWithWorkspace(
   const {
     parsedTextHasQuoteSignals,
   } = require("../offerKp/quotePdfModelRouter");
+  const {
+    OFFER_KP_INTENTS,
+    routeOfferKpMessage,
+  } = require("../offerKp/intentRouter");
+  const {
+    detectQuoteCreationIntentWithLlm,
+    mightNeedLlmQuoteJudge,
+  } = require("../offerKp/quoteIntentJudge");
   // Trigger ShopDB-only mode either when the message text asks for a КП/oferta
   // directly, or when an attached/pinned file already looks like a priced
   // inquiry — otherwise a bare "here's the file" message with no recognized
   // trigger phrase silently falls through to vector search / web enrich,
   // reopening the hallucination path the ShopDB-only mandate exists to close.
-  const quoteDocumentRequest =
-    isQuoteDocumentRequest(commandMessage) ||
-    parsedTextHasQuoteSignals(parsedFileTexts.join("\n"));
+  const routedIntent = routeOfferKpMessage(commandMessage);
+  const attachmentOnlyPrompt =
+    /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request)/iu.test(
+      commandMessage
+    );
+  const attachmentQuoteRequest =
+    parsedTextHasQuoteSignals(parsedFileTexts.join("\n")) &&
+    (attachmentOnlyPrompt ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS);
+  let quoteDocumentRequest =
+    isQuoteDocumentRequest(commandMessage) || attachmentQuoteRequest;
+
+  if (
+    !quoteDocumentRequest &&
+    [OFFER_KP_INTENTS.AMBIGUOUS, OFFER_KP_INTENTS.OUT_OF_SCOPE].includes(
+      routedIntent.primaryIntent
+    ) &&
+    mightNeedLlmQuoteJudge([commandMessage])
+  ) {
+    quoteDocumentRequest = await detectQuoteCreationIntentWithLlm({
+      userMessages: [commandMessage],
+      workspace,
+    });
+  }
   const updatedMessage = quoteDocumentRequest
     ? String(commandMessage)
         .replace(/^@agent\s*:?\s*/i, "")

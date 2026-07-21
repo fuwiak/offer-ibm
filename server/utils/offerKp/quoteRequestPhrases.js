@@ -59,6 +59,12 @@ function isQuoteDocumentRequest(message = "") {
   }
 
   if (routed.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE) return true;
+  if (
+    routed.primaryIntent === OFFER_KP_INTENTS.EDIT_QUOTE &&
+    /(?:кп|docx|pdf|word|документ|файл)/iu.test(text)
+  ) {
+    return true;
+  }
 
   return false;
 }

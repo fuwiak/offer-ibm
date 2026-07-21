@@ -13,7 +13,7 @@ const QUOTE_FILE_SKILLS = new Set([
 const QUOTE_INTENT_LLM_PROMPT = `Ты классификатор намерений для OfferKP (каталог purolat.com).
 Определи, хочет ли пользователь сформировать коммерческое предложение (КП, оферту, ofertę, commercial proposal, quote document) или связанный файл Word/PDF с таблицей позиций и цен.
 Ответь ТОЛЬКО одним словом: yes или no.
-yes — если пользователь просит КП/оферту/документ с ценами по заявке или подтверждает создание такого докута.
+yes — если пользователь просит создать, обновить или переделать КП/оферту/DOCX/PDF с позициями и ценами либо подтверждает такое действие.
 no — если речь о другом документе (отчёт, презентация, письмо, резюме и т.п.) или намерение неясно.`;
 
 function quoteIntentLlmJudgeEnabled() {
@@ -76,6 +76,12 @@ function detectQuoteCreationIntentSync(userMessages = []) {
     return false;
   }
   if (routedLast.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE) return true;
+  if (
+    routedLast.primaryIntent === OFFER_KP_INTENTS.EDIT_QUOTE &&
+    /(?:кп|docx|pdf|word|документ|файл)/iu.test(last)
+  ) {
+    return true;
+  }
 
   if (wantsFileCreation(combined)) return true;
   if (isOfferFollowUp(last) && combined.length >= 12) return true;
@@ -191,5 +197,6 @@ module.exports = {
   detectQuoteCreationIntentWithLlm,
   shouldAutoApproveQuoteFileSkill,
   quoteIntentLlmJudgeEnabled,
+  mightNeedLlmQuoteJudge,
   parseYesNo,
 };
