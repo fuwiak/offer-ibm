@@ -352,6 +352,8 @@ export default function DocumentPanel() {
   const [userMemoryNotes, setUserMemoryNotes] = useState("");
   const [instructions, setInstructions] = useState("");
   const [contextWidgetOpen, setContextWidgetOpen] = useState(false);
+  /** User explicitly opened «Диалог» — do not auto-steal focus to Documents. */
+  const preferDialogTabRef = useRef(false);
 
   const PANEL_MIN_WIDTH = 280;
   const PANEL_WIDTH_STORAGE_KEY = "offerKp_doc_panel_width";
@@ -490,7 +492,12 @@ export default function DocumentPanel() {
     showDraftTable ||
     showPdfPreview ||
     showQuotePreview ||
-    showDocPreview;
+    showDocPreview ||
+    // Keep the Documents panel (not the Диалог widget) while content exists
+    // but the tab has not been switched yet.
+    hasEditableQuoteLines ||
+    hasQuoteBuilderContent ||
+    !!quoteDraft?.preview;
   const hasQuotePanel = hasActiveQuoteWorkspace || hasQuoteFiles;
 
   // Keep source PDF comparison panel open while editing the positions table.
@@ -530,28 +537,49 @@ export default function DocumentPanel() {
   }, [hasQuoteFiles, setDocumentPanelOpen]);
 
   useEffect(() => {
-    if (!hasActiveQuoteWorkspace || showThreadContextPanel) return;
-    if (documentPanelView === "pdf" && showPdfPreview) return;
-    if (documentPanelView === "doc" && showDocPreview) return;
+    preferDialogTabRef.current = false;
+  }, [activeThreadSlug, activeWorkspaceSlug]);
+
+  useEffect(() => {
+    if (preferDialogTabRef.current) return;
     if (documentPanelView !== "docs") return;
-    if (showDocPreview) setDocumentPanelView("doc");
-    else if (showDraftTable) setDocumentPanelView("draftTable");
-    else if (showQuoteBuilder) setDocumentPanelView("builder");
-    else if (showPdfPreview) setDocumentPanelView("pdf");
+    // Prefer Documents (draft / preview / PDF) over Диалог when quote content exists.
+    if (docPreview?.markdown) setDocumentPanelView("doc");
+    else if (hasEditableQuoteLines || isMatchingInProgress)
+      setDocumentPanelView("draftTable");
+    else if (quoteDraft?.preview) setDocumentPanelView("quotePreview");
+    else if (quotePdfUrl) setDocumentPanelView("pdf");
+    else if (hasQuoteBuilderContent) setDocumentPanelView("builder");
   }, [
-    hasActiveQuoteWorkspace,
-    showThreadContextPanel,
     documentPanelView,
-    showQuoteBuilder,
-    showPdfPreview,
-    showDocPreview,
+    docPreview?.markdown,
+    hasEditableQuoteLines,
+    isMatchingInProgress,
+    quoteDraft?.preview,
+    quotePdfUrl,
+    hasQuoteBuilderContent,
     setDocumentPanelView,
   ]);
 
   function panelEyebrow() {
     if (showExamplePromptsPanel) return t("home.examplePrompts.panelLabel");
-    if (hasFilePreview) return t("layout.documentPanel");
+    if (
+      hasFilePreview ||
+      hasActiveQuoteWorkspace ||
+      hasQuoteFiles ||
+      hasEditableQuoteLines ||
+      hasQuoteBuilderContent
+    ) {
+      return t("layout.documentPanel");
+    }
     return t("layout.conversationContext");
+  }
+
+  function preferredCloseView() {
+    if (hasEditableQuoteLines || isMatchingInProgress) return "draftTable";
+    if (quoteDraft?.preview) return "quotePreview";
+    if (hasQuoteBuilderContent) return "builder";
+    return "docs";
   }
 
   const panelBody = (
@@ -567,28 +595,13 @@ export default function DocumentPanel() {
 
       {hasActiveQuoteWorkspace && (
         <div className="flex flex-wrap border-b border-theme-sidebar-border shrink-0">
-          {showThreadContextPanel && (
-            <button
-              type="button"
-              onClick={() => setDocumentPanelView("docs")}
-              className={`offerKp-doc-tab ${documentPanelView === "docs" ? "offerKp-doc-tab--active" : ""}`}
-            >
-              {t("layout.conversationContext")}
-            </button>
-          )}
-          {showQuoteBuilder && (
-            <button
-              type="button"
-              onClick={() => setDocumentPanelView("builder")}
-              className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
-            >
-              {t("layout.tabQuote")}
-            </button>
-          )}
           {hasEditableQuoteLines && (
             <button
               type="button"
-              onClick={() => setDocumentPanelView("draftTable")}
+              onClick={() => {
+                preferDialogTabRef.current = false;
+                setDocumentPanelView("draftTable");
+              }}
               className={`offerKp-doc-tab ${documentPanelView === "draftTable" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.tabCrossSection")}
@@ -597,7 +610,10 @@ export default function DocumentPanel() {
           {quoteDraft?.preview && (
             <button
               type="button"
-              onClick={() => setDocumentPanelView("quotePreview")}
+              onClick={() => {
+                preferDialogTabRef.current = false;
+                setDocumentPanelView("quotePreview");
+              }}
               className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "quotePreview" ? "offerKp-doc-tab--active" : ""}`}
             >
               {t("layout.tabPreview", { defaultValue: "Preview" })}
@@ -606,7 +622,10 @@ export default function DocumentPanel() {
           {showDocPreview && (
             <button
               type="button"
-              onClick={() => setDocumentPanelView("doc")}
+              onClick={() => {
+                preferDialogTabRef.current = false;
+                setDocumentPanelView("doc");
+              }}
               className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "doc" ? "offerKp-doc-tab--active" : ""}`}
             >
               <FileDoc size={13} weight="fill" />
@@ -616,11 +635,38 @@ export default function DocumentPanel() {
           {quotePdfUrl && (
             <button
               type="button"
-              onClick={() => setDocumentPanelView("pdf")}
+              onClick={() => {
+                preferDialogTabRef.current = false;
+                setDocumentPanelView("pdf");
+              }}
               className={`offerKp-doc-tab flex items-center gap-1 ${documentPanelView === "pdf" ? "offerKp-doc-tab--active" : ""}`}
             >
               <FilePdf size={13} weight="fill" />
               PDF
+            </button>
+          )}
+          {showQuoteBuilder && (
+            <button
+              type="button"
+              onClick={() => {
+                preferDialogTabRef.current = false;
+                setDocumentPanelView("builder");
+              }}
+              className={`offerKp-doc-tab ${documentPanelView === "builder" ? "offerKp-doc-tab--active" : ""}`}
+            >
+              {t("layout.tabQuote")}
+            </button>
+          )}
+          {showThreadContextPanel && (
+            <button
+              type="button"
+              onClick={() => {
+                preferDialogTabRef.current = true;
+                setDocumentPanelView("docs");
+              }}
+              className={`offerKp-doc-tab ${documentPanelView === "docs" ? "offerKp-doc-tab--active" : ""}`}
+            >
+              {t("layout.conversationContext")}
             </button>
           )}
         </div>
@@ -632,13 +678,7 @@ export default function DocumentPanel() {
             docPreview={docPreview}
             onClose={() => {
               setDocPreview(null);
-              setDocumentPanelView(
-                showAdminThreadContext
-                  ? "docs"
-                  : quoteDraft?.reference
-                    ? "builder"
-                    : "docs"
-              );
+              setDocumentPanelView(preferredCloseView());
             }}
           />
         ) : showPdfPreview && documentPanelView === "pdf" ? (
@@ -646,13 +686,7 @@ export default function DocumentPanel() {
             quotePdfUrl={quotePdfUrl}
             onClose={() => {
               setQuotePdfUrl(null);
-              setDocumentPanelView(
-                showAdminThreadContext
-                  ? "docs"
-                  : quoteDraft?.reference
-                    ? "draftTable"
-                    : "docs"
-              );
+              setDocumentPanelView(preferredCloseView());
             }}
           />
         ) : showDraftTable ? (

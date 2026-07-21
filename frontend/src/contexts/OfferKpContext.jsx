@@ -176,8 +176,15 @@ export function OfferKpProvider({
       if (prevWs && prevThread) {
         saveQuoteDraft(prevWs, prevThread, quoteDraftRef.current);
       }
+      let nextView = "docs";
       if (workspaceSlug && threadSlug) {
-        setQuoteDraft(loadQuoteDraft(workspaceSlug, threadSlug));
+        const draft = loadQuoteDraft(workspaceSlug, threadSlug);
+        setQuoteDraft(draft);
+        const hasLines =
+          (draft?.hardwareLines?.length ?? 0) > 0 ||
+          (draft?.preview?.lines?.length ?? 0) > 0;
+        if (hasLines) nextView = "draftTable";
+        else if (draft?.preview) nextView = "quotePreview";
       } else {
         setQuoteDraft(INITIAL_QUOTE_DRAFT);
       }
@@ -188,7 +195,7 @@ export function OfferKpProvider({
         setUploadedPdfPreview(null);
         setQuotePdfUrl(null);
         setDocPreview(null);
-        setDocumentPanelView("docs");
+        setDocumentPanelView(nextView);
         setMatchProgress(null);
         // Optimistic empty until ChatContainer reports loaded history.
         setActiveChatEmpty(true);
