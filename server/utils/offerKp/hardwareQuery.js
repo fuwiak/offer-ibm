@@ -143,10 +143,20 @@ function parseHardwareQuery(message) {
   for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
     if (roots.some((r) => lower.includes(r))) productTypes.push(type);
   }
-  for (const num of dinNumbers) {
-    const impliedType = STANDARD_IMPLIES_TYPE[num];
-    if (impliedType && !productTypes.includes(impliedType)) {
-      productTypes.push(impliedType);
+  // Only fill in the DIN-implied type when the customer named no product
+  // type at all ("DIN 933 M10x80" with nothing else) — that's an aid to
+  // search recall with zero downstream risk. Union-ing it in on TOP of an
+  // explicitly stated type (metamorphic test caught this: "гайка DIN 933
+  // M10x80" against a real DIN 933 bolt) let requestedSpecsMatch/
+  // productTypeMatches pass on an "OR" basis, so a customer asking for a nut
+  // could get quoted a bolt as an "exact" match — a wrong-category result is
+  // worse than the narrower recall this was meant to fix.
+  if (!productTypes.length) {
+    for (const num of dinNumbers) {
+      const impliedType = STANDARD_IMPLIES_TYPE[num];
+      if (impliedType && !productTypes.includes(impliedType)) {
+        productTypes.push(impliedType);
+      }
     }
   }
 

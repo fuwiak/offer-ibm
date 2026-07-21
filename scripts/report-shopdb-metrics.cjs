@@ -92,6 +92,7 @@ function main() {
 
   const byMatchType = {};
   const byStrategy = {};
+  const byFailureReason = {};
   let withPrice = 0;
   let candidateSum = 0;
   let errorCount = 0;
@@ -104,11 +105,25 @@ function main() {
     for (const s of e.strategies || []) {
       byStrategy[s] = (byStrategy[s] || 0) + 1;
     }
+    if (e.failureReason) {
+      byFailureReason[e.failureReason] = (byFailureReason[e.failureReason] || 0) + 1;
+    }
   }
 
   console.log("=== По matchType ===");
   for (const [type, count] of Object.entries(byMatchType).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${type.padEnd(16)} ${String(count).padStart(5)}  (${pct(count, events.length)})`);
+  }
+
+  // Error taxonomy: WHY a line wasn't an exact/analog match, not just that it
+  // wasn't — e.g. size_unconfirmed vs spec_mismatch:coating need different
+  // operator action (add a dimension vs pick a different product family).
+  const failureTotal = Object.values(byFailureReason).reduce((a, b) => a + b, 0);
+  if (failureTotal) {
+    console.log("\n=== Причины непопадания в exact/analog (error taxonomy) ===");
+    for (const [reason, count] of Object.entries(byFailureReason).sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${reason.padEnd(20)} ${String(count).padStart(5)}  (${pct(count, failureTotal)} от непопаданий)`);
+    }
   }
 
   console.log("\n=== По стратегии поиска (событие может задеть несколько) ===");

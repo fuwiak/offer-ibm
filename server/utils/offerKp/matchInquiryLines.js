@@ -511,6 +511,13 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     candidateCount: candidates.length,
     queryLen: searchText.length,
     threadId: options.threadId || null,
+    // Error taxonomy: classifyProductMatch already computes *why* a line
+    // wasn't an exact match (size_unconfirmed, spec_mismatch + reason) — it
+    // just never reached the metrics log before, so "none"/"similar" rates
+    // were visible but never their root cause.
+    failureReason: !accepted
+      ? best?.mismatchReason || best?.matchType || null
+      : null,
   });
 
   setCachedLineMatch(options.threadId, cacheRaw, matchedLine);
