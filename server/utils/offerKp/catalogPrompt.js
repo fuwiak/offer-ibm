@@ -183,9 +183,15 @@ async function applyInquiryDraftToUserPrompt(userPrompt, options = {}) {
  * Каталог → user prompt (единственное место для цен).
  * Прочие external context → system contextTexts.
  */
-function applyExternalContextsForLlm(userPrompt, externalContexts = []) {
+function applyExternalContextsForLlm(
+  userPrompt,
+  externalContexts = [],
+  options = {}
+) {
   const { shouldRunShopEnrich } = require("./enrich");
-  const allowShopDbContext = shouldRunShopEnrich(userPrompt);
+  const allowShopDbContext = shouldRunShopEnrich(userPrompt, {
+    resolvedIntent: options.resolvedIntent || null,
+  });
   const systemContextTexts = [];
   const sources = [];
   let catalogBlocks = [];

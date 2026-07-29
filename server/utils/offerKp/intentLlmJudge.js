@@ -21,6 +21,7 @@ const JUDGE_CATEGORIES = [
   OFFER_KP_INTENTS.CREATE_QUOTE,
   OFFER_KP_INTENTS.EDIT_QUOTE,
   OFFER_KP_INTENTS.DOCUMENT_QUESTION,
+  OFFER_KP_INTENTS.DATA_QUESTION,
   OFFER_KP_INTENTS.SYSTEM_HELP,
   OFFER_KP_INTENTS.CASUAL_OR_TEST,
   OFFER_KP_INTENTS.OUT_OF_SCOPE,
@@ -33,6 +34,7 @@ product_search — просьба найти/подобрать/сравнить
 create_quote — просьба сформировать новое коммерческое предложение (КП)
 edit_quote — просьба изменить/дополнить/пересобрать уже обсуждаемое КП
 document_question — вопрос о содержимом прикреплённого файла или уже сформированного КП, без запроса на изменение
+data_question — вопрос об агрегатах/структуре каталога ShopDB (сколько товаров, категории, дубликаты SKU, min/max цены)
 system_help — вопрос о возможностях самого ассистента
 casual_or_test — приветствие, проверка связи, сообщение не по теме крепежа
 out_of_scope — вопрос вне тематики крепежа/КП (погода, история стандартов и т.п.)

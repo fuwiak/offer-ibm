@@ -190,3 +190,14 @@
 {"text":"обнови количество во второй строке КП на 10","intent":"edit_quote","allowQuoteMutation":true}
 {"text":"исправь покупателя в уже готовом КП","intent":"edit_quote","allowQuoteMutation":true}
 {"text":"покажи сводку позиций в КП","intent":"document_question","allowQuoteMutation":false}
+{"text":"Сколько товаров в каталоге?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Какие категории есть в базе?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Какой товар самый дорогой?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Есть ли дубликаты SKU?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Сколько строк в ShopDB без цены?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Расскажи о данных каталога","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"What products are in the catalog?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Ile produktów jest w katalogu?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"Какие покрытия встречаются у болтов?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
+{"text":"что сейчас в КП?","intent":"document_question","allowQuoteMutation":false}
+{"text":"какая сумма в черновике?","intent":"document_question","allowQuoteMutation":false}

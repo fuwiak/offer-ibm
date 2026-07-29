@@ -260,6 +260,7 @@ async function streamChatWithWorkspace(
     chatHistory: rawHistory,
     parsedFileTexts,
     threadId: thread?.id || null,
+    resolvedIntent: routedIntent,
     onProgress: (payload = {}) => {
       writeResponseChunk(response, {
         uuid,
@@ -400,7 +401,8 @@ async function streamChatWithWorkspace(
   } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(
     updatedMessage,
-    externalContexts
+    externalContexts,
+    { resolvedIntent: routedIntent }
   );
   const userPromptWithDraft = await applyInquiryDraftToUserPrompt(
     llmCatalog.userPrompt,
@@ -454,6 +456,51 @@ async function streamChatWithWorkspace(
     renderGroundedCatalogResponse,
     sanitizeOfferKpHistory,
   } = require("../offerKp/groundedResponse");
+
+  // Deterministic ShopDB aggregates (AUDYT data_question) — no LLM.
+  if (
+    !quoteDocumentRequest &&
+    routedIntent.primaryIntent === OFFER_KP_INTENTS.DATA_QUESTION
+  ) {
+    const { executeDataQuestion } = require("../offerKp/dataQueryPlans");
+    const dataAnswer = await executeDataQuestion(updatedMessage).catch(
+      () => null
+    );
+    if (dataAnswer?.text) {
+      writeResponseChunk(response, {
+        uuid,
+        sources,
+        type: "textResponseChunk",
+        textResponse: dataAnswer.text,
+        close: true,
+        error: false,
+        metrics: {
+          grounding: "shopdb_data_plan",
+          planId: dataAnswer.planId,
+          mode: dataAnswer.mode,
+        },
+      });
+      await WorkspaceChats.new({
+        workspaceId: workspace.id,
+        prompt: message,
+        response: {
+          text: dataAnswer.text,
+          sources,
+          type: chatMode,
+          attachments,
+          metrics: {
+            grounding: "shopdb_data_plan",
+            planId: dataAnswer.planId,
+          },
+        },
+        threadId: thread?.id || null,
+        include: false,
+        user,
+      });
+      return;
+    }
+  }
+
   const groundedCatalogResponse = quoteDocumentRequest
     ? null
     : renderGroundedCatalogResponse(

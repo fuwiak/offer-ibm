@@ -157,6 +157,7 @@ async function collectExternalContexts({
   parsedFileTexts = null,
   onProgress = null,
   threadId = null,
+  resolvedIntent = null,
 }) {
   const shopEnabledFn = await loadOptional(
     "../offerKp/enrich",
@@ -173,6 +174,7 @@ async function collectExternalContexts({
         parsedFileTexts,
         onProgress,
         threadId,
+        resolvedIntent,
       });
       return [
         {

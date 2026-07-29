@@ -20,8 +20,13 @@ const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
 const { stripMessengerExportNoise } = require("./parseInquiry");
 
+const {
+  DETERMINISTIC_MATCH_PROFILE,
+  matchEnrichmentEnabled: matchEnrichmentEnabledFromProfile,
+} = require("./matching/algorithmProfile");
+
 function matchEnrichmentEnabled() {
-  return process.env.OFFER_KP_MATCH_ENRICHMENT !== "0";
+  return matchEnrichmentEnabledFromProfile();
 }
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
@@ -746,6 +751,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     reviewReason,
     retrieverDisagreement,
     missingAttributes: matchedLine.missingAttributes,
+    algorithmProfile: DETERMINISTIC_MATCH_PROFILE.id,
   });
 
   setCachedLineMatch(options.threadId, cacheRaw, matchedLine);

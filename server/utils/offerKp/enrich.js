@@ -67,7 +67,19 @@ function shouldRunShopEnrich(message, options = {}) {
     .join("\n");
   if (!combined) return false;
 
-  const routed = routeOfferKpMessage(String(message || "").trim());
+  // Prefer immutable IntentDecision from upstream (AUDYT split-brain fix).
+  const routed =
+    options.resolvedIntent && options.resolvedIntent.primaryIntent
+      ? options.resolvedIntent
+      : routeOfferKpMessage(String(message || "").trim());
+
+  if (routed.primaryIntent === OFFER_KP_INTENTS.DATA_QUESTION) {
+    return true;
+  }
+  if (routed.policy?.allowShopDbSearch) {
+    return true;
+  }
+
   const blockedIntents = new Set([
     OFFER_KP_INTENTS.CASUAL_OR_TEST,
     OFFER_KP_INTENTS.SYSTEM_HELP,
@@ -94,7 +106,6 @@ function shouldRunShopEnrich(message, options = {}) {
   if (isCatalogListingRequest(String(message || "").trim())) return true;
   if (isOfferFollowUp(String(message || "").trim())) return true;
   if (parsedTexts.length && isOfferFollowUp(combined)) return true;
-  if (routed.policy.allowShopDbSearch) return true;
   if (/извлек|pdf|коммерческ|\bкп\b|оферт/i.test(combined)) return true;
 
   return false;

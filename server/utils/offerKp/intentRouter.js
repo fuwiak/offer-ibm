@@ -15,6 +15,7 @@ const OFFER_KP_INTENTS = Object.freeze({
   CREATE_QUOTE: "create_quote",
   EDIT_QUOTE: "edit_quote",
   DOCUMENT_QUESTION: "document_question",
+  DATA_QUESTION: "data_question",
   SYSTEM_HELP: "system_help",
   CASUAL_OR_TEST: "casual_or_test",
   UNSAFE_OR_FORBIDDEN: "unsafe_or_forbidden",
@@ -92,6 +93,26 @@ const SYSTEM_HELP_PATTERNS = [
   /какие.{0,25}(?:формат|тип).{0,20}файл.{0,20}(?:поддерж|можно)/iu,
 ];
 
+/** Aggregate / schema questions about ShopDB (not a product SKU lookup). */
+const DATA_QUESTION_PATTERNS = [
+  /(?:сколько|какое\s+количество|ile|how\s+many).{0,40}(?:товар|продукт|позиц|product|sku|артикул|строк).{0,40}(?:каталог|баз|shopdb|purolat|catalog)/iu,
+  /(?:сколько|какое\s+количество).{0,40}(?:строк|запис).{0,30}(?:каталог|shopdb|баз)/iu,
+  /(?:какие|список|what|jakie).{0,35}(?:категор|categor).{0,40}(?:баз|каталог|есть|list)?/iu,
+  /(?:категор).{0,40}(?:есть|в\s+баз|в\s+каталог)/iu,
+  /(?:самый|наиболее|most).{0,25}(?:дорог|дешев|expensive|cheap).{0,40}(?:товар|позиц|product|в\s+каталог|в\s+баз)?/iu,
+  /(?:какой|какая).{0,25}(?:товар|позиц|product).{0,35}(?:самый\s+)?(?:дорог|дешев|expensive)/iu,
+  /(?:есть\s+ли|есть\s+ли\s+ли).{0,25}(?:дубликат|повтор).{0,25}(?:sku|артикул)/iu,
+  /(?:дубликат\w*|duplicate).{0,30}(?:sku|артикул)/iu,
+  /(?:сколько|есть\s+ли).{0,40}(?:без\s+цен|без\s+цены|нулев\w*\s+цен)/iu,
+  /(?:без\s+цен|без\s+цены).{0,40}(?:sku|артикул|строк|shopdb|каталог|баз)/iu,
+  /(?:расскажи|опиши|overview).{0,40}(?:о\s+)?(?:данн|каталог|shopdb|баз)/iu,
+  /what\s+products\s+are\s+in\s+the\s+catalog/iu,
+  /ile\s+produkt/iu,
+  /(?:средн|мин|макс|min|max|avg|диапазон).{0,30}цен.{0,30}(?:каталог|баз|shopdb|sku)?/iu,
+  /(?:какие|какое).{0,30}(?:покрыт|прочн|класс).{0,40}(?:у\s+болт|в\s+каталог|встреча)/iu,
+  /(?:сколько|какие|какая).{0,40}(?:позиц|строк).{0,40}(?:есть\s+в\s+баз|в\s+каталог|в\s+shopdb|сматч)/iu,
+];
+
 const CASUAL_PATTERNS = [
   /^(?:привет|здравствуй(?:те)?|добрый (?:день|вечер)|hello|hi|how are you|ты работаешь|проверка|тест|ау|бобик жив|скажи банан)[!?.\s]*$/iu,
   /^(?:скажи|повтори|say)\s+(?!.*(?:цен|стоим|болт|гайк|шайб|винт|креп[её]ж|кп|sku|артикул|din|гост|каталог|purolat))[\p{L}\p{N}._-]{1,40}[!?.\s]*$/iu,
@@ -163,6 +184,7 @@ function defaultPolicy(primaryIntent, intents = []) {
     I.PRODUCT_INQUIRY,
     I.PRODUCT_SEARCH,
     I.CREATE_QUOTE,
+    I.DATA_QUESTION,
   ]);
   return {
     allowShopDbSearch: [...catalogIntents].some((intent) =>
@@ -171,12 +193,18 @@ function defaultPolicy(primaryIntent, intents = []) {
     allowQuoteMutation: [I.PRODUCT_INQUIRY, I.CREATE_QUOTE, I.EDIT_QUOTE].some(
       (intent) => allIntents.has(intent)
     ),
-    allowCatalogPriceUse: [...catalogIntents].some((intent) =>
-      allIntents.has(intent)
+    allowCatalogPriceUse: [I.PRODUCT_INQUIRY, I.PRODUCT_SEARCH, I.CREATE_QUOTE].some(
+      (intent) => allIntents.has(intent)
     ),
     allowExport: primaryIntent === I.CREATE_QUOTE,
     allowWebSearch: false,
     allowLlmPrice: false,
+    answerMode:
+      primaryIntent === I.DATA_QUESTION
+        ? "aggregate"
+        : primaryIntent === I.DOCUMENT_QUESTION
+          ? "document"
+          : "default",
   };
 }
 
@@ -262,6 +290,9 @@ function routeOfferKpMessage(input = "") {
   const documentIntent = DOCUMENT_QUESTION_PATTERNS.some((pattern) =>
     pattern.test(text)
   );
+  const dataQuestionIntent = DATA_QUESTION_PATTERNS.some((pattern) =>
+    pattern.test(text)
+  );
   const systemHelpIntent = SYSTEM_HELP_PATTERNS.some((pattern) =>
     pattern.test(text)
   );
@@ -282,6 +313,7 @@ function routeOfferKpMessage(input = "") {
   if (explicitQuote) addIntent(I.CREATE_QUOTE);
   if (editIntent) addIntent(I.EDIT_QUOTE);
   if (documentIntent) addIntent(I.DOCUMENT_QUESTION);
+  if (dataQuestionIntent) addIntent(I.DATA_QUESTION);
   if (systemHelpIntent) addIntent(I.SYSTEM_HELP);
   if (productSearch) addIntent(I.PRODUCT_SEARCH);
 
@@ -317,7 +349,7 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
-  if (outOfScopeIntent) {
+  if (outOfScopeIntent && !dataQuestionIntent) {
     if (hasProductSignal) addIntent(I.PRODUCT_SEARCH);
     return buildResult({
       primaryIntent: I.OUT_OF_SCOPE,
@@ -368,8 +400,28 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
+  // Catalog aggregates / ShopDB schema questions — deterministic query plans.
+  // Prefer over PDF document_question when both fire (e.g. «позиции в базе»).
+  // Explicit product_search ("найди/подбери …") wins over aggregates.
+  if (dataQuestionIntent && !editIntent && !explicitQuote && !productSearch) {
+    return buildResult({
+      primaryIntent: I.DATA_QUESTION,
+      intents,
+      confidence: 0.96,
+      signals: { productSignalCount, dataQuestion: true },
+      policyOverrides: {
+        allowShopDbSearch: true,
+        allowQuoteMutation: false,
+        allowCatalogPriceUse: false,
+        allowExport: false,
+        answerMode: "aggregate",
+      },
+    });
+  }
+
   // A document question stays non-mutating even when it also asks whether a
   // quote can be created; the quote intent is retained for the next turn.
+  // Questions about КП/черновик must pass (not out_of_scope) — LLM/draft path.
   if (documentIntent) {
     return buildResult({
       primaryIntent: I.DOCUMENT_QUESTION,
@@ -381,6 +433,7 @@ function routeOfferKpMessage(input = "") {
         allowQuoteMutation: false,
         allowCatalogPriceUse: false,
         allowExport: false,
+        answerMode: "document",
       },
     });
   }

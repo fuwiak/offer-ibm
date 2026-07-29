@@ -65,10 +65,14 @@ async function streamOfferKpPublicChat(
   const chatHistory = sanitizeOfferKpHistory(rawChatHistory);
 
   let externalContexts = [];
+  let resolvedIntent = null;
   if (shopDbEnrichEnabled()) {
+    const { routeOfferKpMessage } = require("../offerKp/intentRouter");
+    resolvedIntent = routeOfferKpMessage(message);
     const catalog = await getShopDbContext(message, {
       maxDocs: 5,
       chatHistory,
+      resolvedIntent,
     }).catch((err) => {
       console.warn("[ShopDB] public chat enrich failed:", err?.message || err);
       return { contextTexts: [], sources: [], flags: { shopDbError: true } };
@@ -78,16 +82,42 @@ async function streamOfferKpPublicChat(
         kind: "shopdb",
         contextTexts: catalog.contextTexts || [],
         sources: catalog.sources || [],
-        flags: catalog.flags,
+        flags: catalog.flags || {},
+        inquiryDraft: catalog.inquiryDraft || null,
       },
     ];
+
+    if (resolvedIntent.primaryIntent === "data_question") {
+      const { executeDataQuestion } = require("../offerKp/dataQueryPlans");
+      const dataAnswer = await executeDataQuestion(message).catch(() => null);
+      if (dataAnswer?.text) {
+        appendPublicChatMessage(sessionId, "user", message);
+        appendPublicChatMessage(sessionId, "assistant", dataAnswer.text);
+        writeResponseChunk(response, {
+          id: uuid,
+          type: "textResponse",
+          textResponse: dataAnswer.text,
+          sources: catalog.sources || [],
+          close: true,
+          error: null,
+          metrics: {
+            grounding: "shopdb_data_plan",
+            planId: dataAnswer.planId,
+          },
+        });
+        return;
+      }
+    }
   }
 
-  const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  const llmCatalog = applyExternalContextsForLlm(message, externalContexts, {
+    resolvedIntent,
+  });
   const sources = llmCatalog.sources;
   const groundedCatalogResponse = renderGroundedCatalogResponse(
     message,
-    llmCatalog.catalogBlocks || []
+    llmCatalog.catalogBlocks || [],
+    resolvedIntent
   );
   if (groundedCatalogResponse) {
     appendPublicChatMessage(sessionId, "user", message);
