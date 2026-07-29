@@ -310,10 +310,31 @@ function buildInquiryCatalogExcerpt(
 
 /**
  * Построчный поиск в ShopDB по позициям из PDF/заявки (matchInquiry + аналоги).
+ * Не запускается для product_search / compare Q&A без файла — иначе «Сравни DIN…»
+ * превращается в черновик КП.
  */
 async function enrichInquiryLinesFromPdf(message, options = {}) {
   const parsedFileTexts = (options.parsedFileTexts || []).filter(Boolean);
-  const combined = [parsedFileTexts.join("\n\n"), String(message || "").trim()]
+  const intent = options.resolvedIntent?.primaryIntent || null;
+  const text = String(message || "").trim();
+  const compareOrSearchOnly =
+    !parsedFileTexts.length &&
+    (intent === OFFER_KP_INTENTS.PRODUCT_SEARCH ||
+      intent === OFFER_KP_INTENTS.DATA_QUESTION ||
+      (/(?:^|\s)(?:сравни|сверь|сравните|porównaj|compare)\b/iu.test(text) &&
+        !/(?:кол-?во|количеств|\d+\s*(?:шт|штук|кг))/iu.test(text)));
+
+  if (compareOrSearchOnly) {
+    return {
+      contextTexts: [],
+      sources: [],
+      productIds: new Set(),
+      strategies: [],
+      inquiryDraft: null,
+    };
+  }
+
+  const combined = [parsedFileTexts.join("\n\n"), text]
     .filter(Boolean)
     .join("\n\n");
   const lines = parseInquiryText(combined);

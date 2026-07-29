@@ -50,7 +50,14 @@ function renderGroundedCatalogResponse(
     return "В каталоге purolat.com не найдено подтверждённых совпадений. Уточните стандарт, размер, материал или SKU.";
   }
 
-  return `${blocks.join("\n\n")}\n\nИсточник: каталог purolat.com (MySQL).`;
+  const isCompare = /(?:сравни|сверь|сравните|porównaj|compare)\b/iu.test(
+    String(message || "")
+  );
+  const preface = isCompare
+    ? "Сравнение по каталогу purolat.com (ShopDB), без формирования КП:\n\n"
+    : "";
+
+  return `${preface}${blocks.join("\n\n")}\n\nИсточник: каталог purolat.com (MySQL).`;
 }
 
 module.exports = {

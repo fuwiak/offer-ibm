@@ -178,4 +178,14 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines.some((l) => /Рым-болт/i.test(l.raw))).toBe(true);
     expect(lines.every((l) => !/Здравствуйте/i.test(l.raw))).toBe(true);
   });
+
+  it("does not treat DIN codes as quantity on compare questions", () => {
+    const { parseQuantity } = require("../../../utils/offerKp/parseInquiry");
+    expect(parseQuantity("Сравни болты DIN 931 и DIN 933 М10х50")).toBe(1);
+    const lines = parseInquiryText("Сравни болты DIN 931 и DIN 933 М10х50");
+    expect(lines[0].quantity).toBe(1);
+    expect(lines[0].dinNumbers).toEqual(
+      expect.arrayContaining(["931", "933"])
+    );
+  });
 });

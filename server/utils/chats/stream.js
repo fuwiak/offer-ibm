@@ -679,11 +679,19 @@ async function streamChatWithWorkspace(
     });
   }
 
-  // КП: карточки файлов после текста ответа (кнопки Preview / Download в чате).
-  // Для явного запроса КП генерация обязательна даже при нуле совпадений ShopDB:
-  // строки без цены сохраняются как «Нет в базе» / «по запросу».
+  // КП-файлы только при явном запросе КП / create_quote / RFQ-draft.
+  // product_search («Сравни DIN…») даёт каталог в ответе, но не генерирует КП.
   let quoteOutputs = [];
-  if (llmCatalog.catalogInjected || quoteDocumentRequest) {
+  const shouldEmitQuoteArtifacts =
+    quoteDocumentRequest ||
+    routedIntent.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+    (llmCatalog.inquiryDraft?.lines?.length > 0 &&
+      [
+        OFFER_KP_INTENTS.PRODUCT_INQUIRY,
+        OFFER_KP_INTENTS.CREATE_QUOTE,
+        OFFER_KP_INTENTS.EDIT_QUOTE,
+      ].includes(routedIntent.primaryIntent));
+  if (shouldEmitQuoteArtifacts) {
     try {
       const {
         emitAutoQuoteArtifacts,

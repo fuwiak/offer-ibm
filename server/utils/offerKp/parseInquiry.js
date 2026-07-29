@@ -352,6 +352,36 @@ function normalizeInquiryQuantity(value, unit) {
   return Number(quantity.toFixed(3));
 }
 
+function isStructuralCatalogNumber(token, raw) {
+  const t = String(token || "").trim();
+  const text = String(raw || "");
+  if (!t || !text) return false;
+  // DIN / ГОСТ / ISO code — never a quantity.
+  if (
+    new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])(?:din|гост|gost|iso)\\s*[-№]?\\s*${t}(?:$|[^\\p{L}\\p{N}])`,
+      "iu"
+    ).test(text)
+  ) {
+    return true;
+  }
+  // Thread diameter or length in MxL / DxL (Latin/Cyrillic M and x).
+  if (
+    new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])[mм]\\s*${t}\\s*[xх×]`,
+      "iu"
+    ).test(text) ||
+    new RegExp(`[xх×]\\s*${t}(?:$|[^\\p{L}\\p{N}])`, "iu").test(text) ||
+    new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${t}\\s*[xх×]\\s*\\d`,
+      "iu"
+    ).test(text)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function parseQuantity(text) {
   const raw = String(text || "");
   const unit = parseInquiryUnit(raw);
@@ -363,6 +393,7 @@ function parseQuantity(text) {
   if (withUnit) {
     const qtyStr = withUnit[1];
     const qty = parseFloat(String(qtyStr).replace(",", "."));
+    // Explicit unit (10 кг / 200 шт) wins over DIN/MxL digit collision.
     return normalizeInquiryQuantity(qty, unit);
   }
 
@@ -381,10 +412,13 @@ function parseQuantity(text) {
     }
   }
 
+  // Never treat DIN/GOST/thread digits as quantity. If nothing else remains,
+  // default to 1 (catalog compare / underspecified RFQ lines).
   const numbers = [...raw.matchAll(/\b(\d+(?:[.,]\d+)?)\b/g)].map((m) => m[1]);
   for (let i = numbers.length - 1; i >= 0; i--) {
     const token = numbers[i];
     if (isLikelyPriceToken(token)) continue;
+    if (isStructuralCatalogNumber(token, raw)) continue;
     const n = parseFloat(token.replace(",", "."));
     if (Number.isFinite(n) && n > 0) {
       return normalizeInquiryQuantity(n, unit);
