@@ -23,6 +23,15 @@ const WorkspaceChats = {
           include,
         },
       });
+      // Bump thread activity so "last conversation" follows real chat, not stale KP.
+      if (threadId) {
+        await prisma.workspace_threads
+          .update({
+            where: { id: Number(threadId) },
+            data: { lastUpdatedAt: new Date() },
+          })
+          .catch(() => null);
+      }
       return { chat, message: null };
     } catch (error) {
       console.error(error.message);

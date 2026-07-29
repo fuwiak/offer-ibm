@@ -6,8 +6,9 @@ import { openWorkspaceHistory } from "@/utils/offerKp/lastWorkspaceThread";
  * Switch to another workspace and reopen its last conversation history.
  * @param {import('react-router-dom').NavigateFunction} navigate
  * @param {{ slug: string, name: string }} workspace
+ * @param {{ currentThreadSlug?: string|null, pathname?: string }} [options]
  */
-export async function switchToWorkspace(navigate, workspace) {
+export async function switchToWorkspace(navigate, workspace, options = {}) {
   if (!workspace?.slug) return;
 
   localStorage.setItem(
@@ -15,7 +16,7 @@ export async function switchToWorkspace(navigate, workspace) {
     JSON.stringify({ slug: workspace.slug, name: workspace.name })
   );
 
-  await openWorkspaceHistory(navigate, workspace);
+  await openWorkspaceHistory(navigate, workspace, options);
 }
 
 /**

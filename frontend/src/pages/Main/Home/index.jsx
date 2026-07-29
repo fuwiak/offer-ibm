@@ -280,6 +280,11 @@ function HomeContent({ workspace, setWorkspace }) {
         })
       );
 
+      const { rememberWorkspaceThread } = await import(
+        "@/utils/offerKp/lastWorkspaceThread"
+      );
+      rememberWorkspaceThread(targetWorkspace.slug, thread.slug);
+
       if (offerKpMode) {
         submitDraftFromHome(navigate, targetWorkspace.slug, thread.slug, {
           message,
@@ -352,6 +357,7 @@ function HomeContent({ workspace, setWorkspace }) {
     const { openWorkspaceHistory } = await import(
       "@/utils/offerKp/lastWorkspaceThread"
     );
+    // From Home there is no open thread in the URL — resolve newest/remembered.
     await openWorkspaceHistory(navigate, ws);
   }
 

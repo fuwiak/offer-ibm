@@ -1,57 +1,38 @@
 import paths from "@/utils/paths";
 import Workspace from "@/models/workspace";
 import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
-import { safeJsonParse } from "@/utils/request";
-import { openThread } from "@/utils/offerKp/conversationNav";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
+import {
+  LAST_THREAD_BY_WORKSPACE,
+  rememberWorkspaceThread,
+  getRememberedThreadSlug,
+  getRememberedThreadAt,
+  pickNewestThread,
+  resolveThreadSlugFromList,
+} from "@/utils/offerKp/lastWorkspaceThreadCore";
 
-/** Per-workspace last opened thread slug. */
-export const LAST_THREAD_BY_WORKSPACE = "offerKp_last_thread_by_workspace";
-
-/**
- * @param {string} workspaceSlug
- * @param {string} threadSlug
- */
-export function rememberWorkspaceThread(workspaceSlug, threadSlug) {
-  if (!workspaceSlug || !threadSlug) return;
-  const map =
-    safeJsonParse(localStorage.getItem(LAST_THREAD_BY_WORKSPACE)) || {};
-  map[workspaceSlug] = { threadSlug, at: Date.now() };
-  localStorage.setItem(LAST_THREAD_BY_WORKSPACE, JSON.stringify(map));
-}
-
-/**
- * @param {string} workspaceSlug
- * @returns {string|null}
- */
-export function getRememberedThreadSlug(workspaceSlug) {
-  if (!workspaceSlug) return null;
-  const map =
-    safeJsonParse(localStorage.getItem(LAST_THREAD_BY_WORKSPACE)) || {};
-  const entry = map[workspaceSlug];
-  return entry?.threadSlug || null;
-}
+export {
+  LAST_THREAD_BY_WORKSPACE,
+  rememberWorkspaceThread,
+  getRememberedThreadSlug,
+  getRememberedThreadAt,
+  pickNewestThread,
+  resolveThreadSlugFromList,
+};
 
 /**
- * Prefer remembered thread if it still exists; else most recently updated.
+ * Prefer remembered thread if still valid and not superseded by a newer one
+ * created after the remember timestamp (covers Home-submit race).
  * @param {string} workspaceSlug
  * @returns {Promise<string|null>}
  */
 export async function resolveWorkspaceThreadSlug(workspaceSlug) {
   if (!workspaceSlug) return null;
   const remembered = getRememberedThreadSlug(workspaceSlug);
+  const rememberedAt = getRememberedThreadAt(workspaceSlug);
   const { threads } = await Workspace.threads.all(workspaceSlug);
   const list = Array.isArray(threads) ? threads : [];
-  if (!list.length) return null;
-  if (remembered && list.some((t) => t.slug === remembered)) {
-    return remembered;
-  }
-  const sorted = [...list].sort(
-    (a, b) =>
-      new Date(b.lastUpdatedAt || 0).getTime() -
-      new Date(a.lastUpdatedAt || 0).getTime()
-  );
-  return sorted[0]?.slug || null;
+  return resolveThreadSlugFromList(list, remembered, rememberedAt);
 }
 
 /**
@@ -59,7 +40,7 @@ export async function resolveWorkspaceThreadSlug(workspaceSlug) {
  * when no threads exist. Does NOT use ?new= (that wipes the conversation).
  * @param {import('react-router-dom').NavigateFunction} navigate
  * @param {{ slug: string, name?: string }} workspace
- * @param {{ pathname?: string }} [options]
+ * @param {{ pathname?: string, currentThreadSlug?: string|null }} [options]
  */
 export async function openWorkspaceHistory(navigate, workspace, options = {}) {
   if (!workspace?.slug || typeof navigate !== "function") return null;
@@ -69,6 +50,24 @@ export async function openWorkspaceHistory(navigate, workspace, options = {}) {
     JSON.stringify({ slug: workspace.slug, name: workspace.name })
   );
 
+  // Lazy import avoids pulling ChatContainer into unit tests of remember helpers.
+  const { openThread } = await import("@/utils/offerKp/conversationNav");
+
+  const current = options.currentThreadSlug || null;
+  if (current) {
+    const { threads } = await Workspace.threads.all(workspace.slug);
+    const list = Array.isArray(threads) ? threads : [];
+    if (list.some((t) => t.slug === current)) {
+      threadNavLog("nav:open-workspace-history-current", {
+        workspaceSlug: workspace.slug,
+        threadSlug: current,
+      });
+      rememberWorkspaceThread(workspace.slug, current);
+      openThread(navigate, workspace.slug, current, options);
+      return current;
+    }
+  }
+
   const threadSlug = await resolveWorkspaceThreadSlug(workspace.slug);
   threadNavLog("nav:open-workspace-history", {
     workspaceSlug: workspace.slug,
@@ -76,6 +75,7 @@ export async function openWorkspaceHistory(navigate, workspace, options = {}) {
   });
 
   if (threadSlug) {
+    rememberWorkspaceThread(workspace.slug, threadSlug);
     openThread(navigate, workspace.slug, threadSlug, options);
     return threadSlug;
   }

@@ -25,7 +25,7 @@ export default function CurrentWorkspaceIndicator({
 }) {
   const { t } = useTranslation("offerKp");
   const navigate = useNavigate();
-  const { slug: routeSlug } = useParams();
+  const { slug: routeSlug, threadSlug: routeThreadSlug = null } = useParams();
   const { activeWorkspaceSlug } = useOfferKp();
   const { role } = useOfferKpRole();
   const slug =
@@ -108,17 +108,23 @@ export default function CurrentWorkspaceIndicator({
       onWorkspaceSelect(ws);
       return;
     }
-    // Same or other space: reopen last conversation (not a wiped start screen).
-    switchToWorkspace(navigate, ws);
+    // Same space: keep the open thread. Other space: reopen its last chat.
+    switchToWorkspace(navigate, ws, {
+      currentThreadSlug: ws.slug === slug ? routeThreadSlug : null,
+    });
   }
 
   function handleNameClick() {
     if (!switchable) return;
     if (slug) {
-      switchToWorkspace(navigate, {
-        slug,
-        name: displayName,
-      });
+      switchToWorkspace(
+        navigate,
+        {
+          slug,
+          name: displayName,
+        },
+        { currentThreadSlug: routeThreadSlug }
+      );
       return;
     }
     setOpen((v) => !v);

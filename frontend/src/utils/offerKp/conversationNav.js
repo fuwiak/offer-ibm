@@ -62,6 +62,8 @@ export function submitDraftFromHome(
   draft = {}
 ) {
   if (!workspaceSlug || !threadSlug) return;
+  // Remember before navigate so workspace-name click cannot reopen a stale KP thread.
+  rememberWorkspaceThread(workspaceSlug, threadSlug);
   const target = paths.offerKp.thread(workspaceSlug, threadSlug);
   threadNavLog("nav:submit-draft", {
     workspaceSlug,
