@@ -485,6 +485,16 @@ const TRANSLATIONS = {
       "Edit any field: name, SKU, qty, unit, price, total, weight, status, comment.",
     reviewConfirm:
       "{{count}} line(s) need review. I confirm manual checks before export.",
+    teachAll: "Teach model",
+    teachAllTitle:
+      "Save confirmed lines into matching memory (override + embeddings / LLM few-shot)",
+    teachLine: "Teach",
+    teachLineTitle: "Teach matching (override + embeddings)",
+    teachSuccess:
+      "Taught {{count}}. Matching memory: {{total}} examples.",
+    teachEmpty:
+      "Nothing to teach: need inquiry text and SKU.",
+    teachError: "Could not save learning example.",
   },
   modelLoad: {
     title: "Switching model",

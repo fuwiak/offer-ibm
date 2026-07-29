@@ -163,6 +163,17 @@ function reloadGoldenCorrections() {
  * @returns {{sourceName:string, sku:string|null, matchedName:string|null, matchType:string, sourceFile:string}|null}
  */
 function findGoldenCorrection(candidateTexts = []) {
+  // Runtime operator teaches win over static CSV — freshest confirmed truth.
+  try {
+    const {
+      findOperatorLearning,
+    } = require("./operatorLearning");
+    const taught = findOperatorLearning(candidateTexts);
+    if (taught) return taught;
+  } catch {
+    /* optional module / tests without storage */
+  }
+
   const map = getIndex();
   if (!map.size) return null;
   for (const text of candidateTexts) {
@@ -175,9 +186,22 @@ function findGoldenCorrection(candidateTexts = []) {
 
 /** All positive (exact/analog) corrections — source data for few-shot examples. */
 function listMatchExamples() {
-  return [...getIndex().values()].filter(
-    (row) => row.matchType !== "none" && row.sku
-  );
+  const byKey = new Map();
+  for (const row of getIndex().values()) {
+    if (row.matchType === "none" || !row.sku) continue;
+    byKey.set(normalizeKey(row.sourceName), row);
+  }
+  try {
+    const {
+      listOperatorLearningExamples,
+    } = require("./operatorLearning");
+    for (const row of listOperatorLearningExamples()) {
+      byKey.set(normalizeKey(row.sourceName), row);
+    }
+  } catch {
+    /* optional */
+  }
+  return [...byKey.values()];
 }
 
 module.exports = {

@@ -463,6 +463,16 @@ const TRANSLATIONS = {
       "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena, suma, waga, status, komentarz.",
     reviewConfirm:
       "{{count}} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę przed eksportem.",
+    teachAll: "Do nauki",
+    teachAllTitle:
+      "Zapisz potwierdzone pozycje do pamięci matchingu (override + embeddingi / few-shot dla LLM)",
+    teachLine: "Do nauki",
+    teachLineTitle: "Do nauki modelu (override + embeddingi)",
+    teachSuccess:
+      "Do nauki: {{count}}. Pamięć matchingu: {{total}} przykładów.",
+    teachEmpty:
+      "Brak wierszy do nauki: potrzebny tekst zapytania i indeks (SKU).",
+    teachError: "Nie udało się zapisać przykładu do nauki.",
   },
   modelLoad: {
     title: "Zmiana modelu",

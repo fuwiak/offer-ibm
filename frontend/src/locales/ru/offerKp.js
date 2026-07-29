@@ -491,6 +491,16 @@ const TRANSLATIONS = {
       "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена, сумма, вес, статус, комментарий.",
     reviewConfirm:
       "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
+    teachAll: "В обучение",
+    teachAllTitle:
+      "Сохранить подтверждённые позиции в память matching (override + embeddings / few-shot для LLM)",
+    teachLine: "В обучение",
+    teachLineTitle: "В обучение модели (override + embeddings)",
+    teachSuccess:
+      "В обучение: {{count}}. Память matching: {{total}} примеров.",
+    teachEmpty:
+      "Нет строк для обучения: нужны текст заявки и артикул (SKU).",
+    teachError: "Не удалось сохранить пример для обучения.",
   },
   modelLoad: {
     title: "Смена модели",

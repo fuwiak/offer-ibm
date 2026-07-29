@@ -101,6 +101,21 @@ const OfferKp = {
     });
   },
 
+  /**
+   * Promote confirmed draft lines into runtime matching memory
+   * (override + embedding few-shot for LLM fallback).
+   */
+  async teachExamples(examples, extras = {}) {
+    return offerKpFetch(`${API_BASE}/offerKp/learn`, {
+      method: "POST",
+      body: JSON.stringify({ examples, ...extras }),
+    });
+  },
+
+  async learnStats() {
+    return offerKpFetch(`${API_BASE}/offerKp/learn/stats`);
+  },
+
   async listQuotes() {
     return offerKpFetch(`${API_BASE}/offerKp/quotes`);
   },

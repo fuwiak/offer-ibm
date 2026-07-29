@@ -8,6 +8,7 @@ import {
   FileXls,
   FileDoc,
   CircleNotch,
+  Brain,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import OfferKp from "@/models/offerKp";
@@ -117,6 +118,7 @@ export default function QuoteDraftTable() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [teaching, setTeaching] = useState(false);
 
   const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
   const { vatRate, currency } = localeForCountry(quoteDraft?.customer?.country);
@@ -371,6 +373,85 @@ export default function QuoteDraftTable() {
     setSearchResults([]);
   }
 
+  function buildTeachPayload(line, index) {
+    const sku = String(line.article || line.sku || "").trim();
+    const sourceName = String(
+      line.inquiryRaw || line.requestedName || line.name || line.productName || ""
+    ).trim();
+    if (!sourceName) return null;
+    const status = String(line.status || "");
+    let matchType = line.matchType;
+    if (!matchType || !["exact", "analog", "none"].includes(matchType)) {
+      if (/аналог|analog/i.test(status)) matchType = "analog";
+      else if (!sku) matchType = "none";
+      else matchType = "exact";
+    }
+    if (!sku && matchType !== "none") return null;
+    return {
+      sourceName,
+      inquiryRaw: line.inquiryRaw || sourceName,
+      sku,
+      article: sku,
+      matchedName: line.name || line.productName || null,
+      name: line.name || line.productName || null,
+      matchType,
+      status,
+      productId: line.productId || null,
+      lineIndex: index,
+      threadSlug: activeThreadSlug,
+      quoteReference: quoteDraft?.reference || null,
+    };
+  }
+
+  async function teachLines(indices = null) {
+    if (teaching) return;
+    const targets =
+      indices == null
+        ? lines.map((line, i) => ({ line, i }))
+        : indices.map((i) => ({ line: lines[i], i }));
+    const examples = targets
+      .map(({ line, i }) => buildTeachPayload(line, i))
+      .filter(Boolean);
+    if (!examples.length) {
+      showToast(
+        t("draftTable.teachEmpty", {
+          defaultValue:
+            "Нет строк для обучения: нужны текст заявки и артикул (SKU).",
+        }),
+        "warning"
+      );
+      return;
+    }
+    setTeaching(true);
+    try {
+      const result = await OfferKp.teachExamples(examples, {
+        threadSlug: activeThreadSlug,
+      });
+      if (!result?.success && !result?.taught) {
+        throw new Error(result?.error || "teach failed");
+      }
+      showToast(
+        t("draftTable.teachSuccess", {
+          count: result.taught,
+          total: result.total ?? result.stats?.total,
+          defaultValue:
+            "В обучение: {{count}}. Память matching: {{total}} примеров.",
+        }),
+        "success"
+      );
+    } catch (e) {
+      console.error("[QuoteDraftTable] teach:", e);
+      showToast(
+        t("draftTable.teachError", {
+          defaultValue: "Не удалось сохранить пример для обучения.",
+        }),
+        "error"
+      );
+    } finally {
+      setTeaching(false);
+    }
+  }
+
   function selectAlternative(lineIndex, alt) {
     const line = lines[lineIndex];
     handleFieldChange(lineIndex, "name", alt.name, line);
@@ -483,6 +564,23 @@ export default function QuoteDraftTable() {
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => teachLines()}
+            disabled={teaching}
+            title={t("draftTable.teachAllTitle", {
+              defaultValue:
+                "Сохранить подтверждённые позиции в память matching (override + embeddings / few-shot)",
+            })}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover disabled:opacity-60"
+          >
+            {teaching ? (
+              <CircleNotch size={13} className="animate-spin" />
+            ) : (
+              <Brain size={13} weight="fill" />
+            )}
+            {t("draftTable.teachAll", { defaultValue: "В обучение" })}
+          </button>
           <button
             type="button"
             onClick={() => setSearchOpen((v) => !v)}
@@ -768,14 +866,31 @@ export default function QuoteDraftTable() {
                   />
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    onClick={() => removeLine(i)}
-                    className="text-theme-text-secondary hover:text-red-500 p-0.5"
-                    aria-label="Remove"
-                  >
-                    <Trash size={14} />
-                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => teachLines([i])}
+                      disabled={teaching}
+                      title={t("draftTable.teachLineTitle", {
+                        defaultValue:
+                          "В обучение модели (override + embeddings)",
+                      })}
+                      className="text-theme-text-secondary hover:text-primary-button p-0.5 disabled:opacity-60"
+                      aria-label={t("draftTable.teachLine", {
+                        defaultValue: "В обучение",
+                      })}
+                    >
+                      <Brain size={14} weight="fill" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeLine(i)}
+                      className="text-theme-text-secondary hover:text-red-500 p-0.5"
+                      aria-label="Remove"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

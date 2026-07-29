@@ -665,6 +665,79 @@ function offerKpEndpoints(app) {
   );
 
   /**
+   * POST /offerKp/learn
+   * Promote operator-confirmed lines into runtime learning
+   * (exact override + few-shot / embedding retrieval for LLM fallback).
+   */
+  app.post(
+    "/offerKp/learn",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const user = response.locals.offerKpUser;
+        const body = reqBody(request);
+        const examples = Array.isArray(body.examples)
+          ? body.examples
+          : Array.isArray(body.lines)
+            ? body.lines
+            : [body];
+        const {
+          teachExamples,
+          getOperatorLearningStats,
+        } = require("../utils/offerKp/operatorLearning");
+        const result = await teachExamples(examples, {
+          userId: user?.id ?? null,
+          warmEmbeddings: body.warmEmbeddings !== false,
+        });
+        try {
+          const {
+            recordOperatorCorrection,
+          } = require("../utils/offerKp/searchMetrics");
+          for (const ex of result.examples || []) {
+            recordOperatorCorrection({
+              field: "teach",
+              inquiryRaw: ex.sourceName,
+              productId: null,
+              matchType: ex.matchType,
+              oldValue: null,
+              newValue: ex.sku,
+              threadSlug: body.threadSlug || null,
+            });
+          }
+        } catch {
+          /* metrics must never fail learn API */
+        }
+        response.status(200).json({
+          ...result,
+          stats: getOperatorLearningStats(),
+        });
+      } catch (e) {
+        console.error("[offerKp] learn:", e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * GET /offerKp/learn/stats
+   * Count of runtime operator-taught examples.
+   */
+  app.get(
+    "/offerKp/learn/stats",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (_request, response) => {
+      try {
+        const {
+          getOperatorLearningStats,
+        } = require("../utils/offerKp/operatorLearning");
+        response.status(200).json(getOperatorLearningStats());
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
    * POST /offerKp/quotes/xlsx
    * Экспорт КП в XLSX для 1С.
    */
