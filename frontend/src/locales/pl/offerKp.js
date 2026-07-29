@@ -380,6 +380,7 @@ const TRANSLATIONS = {
     conversationContext: "Rozmowa",
     currentSpace: "Bieżąca przestrzeń",
     switchSpace: "Przełącz przestrzeń",
+    openLastConversation: "Otwórz ostatnią rozmowę",
     otherSpaces: "Twoje przestrzenie",
     loadingSpaces: "Ładowanie przestrzeni…",
     memory: "Pamięć",

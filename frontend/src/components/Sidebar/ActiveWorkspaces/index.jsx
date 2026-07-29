@@ -14,6 +14,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import showToast from "@/utils/toast";
 import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
 import { safeJsonParse } from "@/utils/request";
+import { openWorkspaceHistory } from "@/utils/offerKp/lastWorkspaceThread";
 
 export default function ActiveWorkspaces() {
   const navigate = useNavigate();
@@ -120,6 +121,10 @@ export default function ActiveWorkspaces() {
                         <Link
                           to={paths.workspace.chat(workspace.slug)}
                           aria-current={isActive ? "page" : ""}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openWorkspaceHistory(navigate, workspace);
+                          }}
                           className={`
                             transition-all duration-[200ms]
                             flex flex-grow w-[75%] gap-x-2 py-[6px] pl-[4px] pr-[6px] rounded-[4px] text-white justify-start items-center

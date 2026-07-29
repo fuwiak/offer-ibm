@@ -5,6 +5,7 @@ import { LAST_VISITED_WORKSPACE } from "@/utils/constants";
 import { SAVE_LLM_SELECTOR_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/action";
 import { threadHistoryKey } from "@/utils/offerKp/conversationNav";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
+import { rememberWorkspaceThread } from "@/utils/offerKp/lastWorkspaceThread";
 
 /**
  * Loads workspace + chat history for the current URL thread.
@@ -76,6 +77,9 @@ export default function useWorkspaceThreadChat() {
         LAST_VISITED_WORKSPACE,
         JSON.stringify({ slug: ws.slug, name: ws.name })
       );
+      if (threadSlug) {
+        rememberWorkspaceThread(ws.slug, threadSlug);
+      }
     }
 
     load();

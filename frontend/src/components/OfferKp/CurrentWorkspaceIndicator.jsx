@@ -103,16 +103,25 @@ export default function CurrentWorkspaceIndicator({
         : [];
 
   function handleSelect(ws) {
-    if (ws.slug === slug) {
-      setOpen(false);
-      return;
-    }
     setOpen(false);
     if (typeof onWorkspaceSelect === "function") {
       onWorkspaceSelect(ws);
       return;
     }
+    // Same or other space: reopen last conversation (not a wiped start screen).
     switchToWorkspace(navigate, ws);
+  }
+
+  function handleNameClick() {
+    if (!switchable) return;
+    if (slug) {
+      switchToWorkspace(navigate, {
+        slug,
+        name: displayName,
+      });
+      return;
+    }
+    setOpen((v) => !v);
   }
 
   const menuPlacementClass =
@@ -173,10 +182,10 @@ export default function CurrentWorkspaceIndicator({
         <button
           type="button"
           className={`offerKp-space-indicator offerKp-space-indicator--compact offerKp-space-switcher__trigger${open ? " offerKp-space-switcher__trigger--open" : ""}`}
-          title={`${t("layout.currentSpace")}: ${displayName}`}
+          title={`${t("layout.openLastConversation")}: ${displayName}`}
           aria-expanded={open}
           aria-haspopup="listbox"
-          onClick={() => switchable && setOpen((v) => !v)}
+          onClick={handleNameClick}
           disabled={!switchable}
         >
           <span
@@ -191,6 +200,10 @@ export default function CurrentWorkspaceIndicator({
               size={12}
               weight="bold"
               className={`offerKp-space-switcher__caret${open ? " offerKp-space-switcher__caret--open" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((v) => !v);
+              }}
             />
           )}
         </button>
@@ -226,8 +239,8 @@ export default function CurrentWorkspaceIndicator({
           className={`offerKp-space-indicator__body offerKp-space-switcher__trigger${open ? " offerKp-space-switcher__trigger--open" : ""}`}
           aria-expanded={open}
           aria-haspopup="listbox"
-          aria-label={t("layout.switchSpace")}
-          onClick={() => switchable && setOpen((v) => !v)}
+          aria-label={t("layout.openLastConversation")}
+          onClick={handleNameClick}
           disabled={!switchable}
         >
           <span
@@ -244,6 +257,10 @@ export default function CurrentWorkspaceIndicator({
               size={14}
               weight="bold"
               className={`offerKp-space-switcher__caret${open ? " offerKp-space-switcher__caret--open" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((v) => !v);
+              }}
             />
           )}
         </button>

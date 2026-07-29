@@ -405,6 +405,7 @@ const TRANSLATIONS = {
     conversationContext: "Диалог",
     currentSpace: "Текущее пространство",
     switchSpace: "Сменить пространство",
+    openLastConversation: "Открыть последний диалог",
     otherSpaces: "Ваши пространства",
     loadingSpaces: "Загрузка пространств…",
     memory: "Память",

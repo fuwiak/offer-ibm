@@ -348,24 +348,11 @@ function HomeContent({ workspace, setWorkspace }) {
   }
 
   async function handlePromptWorkspaceSelect(ws) {
-    if (!ws?.slug || ws.slug === workspace?.slug) return;
-
-    localStorage.setItem(
-      LAST_VISITED_WORKSPACE,
-      JSON.stringify({ slug: ws.slug, name: ws.name })
+    if (!ws?.slug) return;
+    const { openWorkspaceHistory } = await import(
+      "@/utils/offerKp/lastWorkspaceThread"
     );
-
-    const [suggestedMessages, { showAgentCommand }] = await Promise.all([
-      Workspace.getSuggestedMessages(ws.slug),
-      Workspace.agentCommandAvailable(ws.slug),
-    ]);
-
-    setWorkspace({ ...ws, suggestedMessages, showAgentCommand });
-    window.dispatchEvent(
-      new CustomEvent(PROMPT_INPUT_EVENT, {
-        detail: { messageContent: "", writeMode: "replace" },
-      })
-    );
+    await openWorkspaceHistory(navigate, ws);
   }
 
   const showOfferKpHome = offerKpMode || pathname === "/";

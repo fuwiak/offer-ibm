@@ -9,7 +9,6 @@ import OfferKpLayout from "@/layouts/OfferKpLayout";
 import OfferKpProfileShell from "@/components/OfferKp/OfferKpProfileShell";
 import { shouldUseOfferKpLayout as shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
 import { useLocation, useNavigate } from "react-router-dom";
-import paths from "@/utils/paths";
 import useWorkspaceThreadChat from "@/hooks/useWorkspaceThreadChat";
 import { threadNavLog } from "@/utils/offerKp/threadNavLogger";
 
@@ -78,18 +77,32 @@ export function ShowWorkspaceChat() {
 
   useEffect(() => {
     if (!offerKpMode || !isWorkspaceRoot) return;
-    if (loading || history === null) return;
-    if (history.length > 0) return;
-    threadNavLog("page:redirect-home-empty-workspace", { slug, pathname });
-    navigate(paths.home(), { replace: true });
+    if (loading) return;
+
+    let cancelled = false;
+    (async () => {
+      const { openWorkspaceHistory } = await import(
+        "@/utils/offerKp/lastWorkspaceThread"
+      );
+      if (cancelled || !slug) return;
+      threadNavLog("page:workspace-root-open-history", { slug, pathname });
+      await openWorkspaceHistory(navigate, {
+        slug,
+        name: workspace?.name,
+      }, { pathname });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     offerKpMode,
     isWorkspaceRoot,
     loading,
-    history,
     navigate,
     slug,
     pathname,
+    workspace?.name,
   ]);
 
   const chat = (

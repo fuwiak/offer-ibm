@@ -403,6 +403,7 @@ const TRANSLATIONS = {
     conversationContext: "Conversation",
     currentSpace: "Current space",
     switchSpace: "Switch space",
+    openLastConversation: "Open last conversation",
     otherSpaces: "Your spaces",
     loadingSpaces: "Loading spaces…",
     memory: "Memory",

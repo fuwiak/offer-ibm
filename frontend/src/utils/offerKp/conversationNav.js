@@ -9,6 +9,7 @@ import {
 } from "@/utils/offerKp/threadNavLogger";
 import { PROMPT_INPUT_EVENT } from "@/components/WorkspaceChat/ChatContainer/PromptInput";
 import { buildDraftNavigateState } from "@/utils/offerKp/conversationNavCore";
+import { rememberWorkspaceThread } from "@/utils/offerKp/lastWorkspaceThread";
 
 export {
   threadHistoryKey,
@@ -100,6 +101,7 @@ export async function createThreadAndOpen(navigate, workspaceSlug = null) {
       LAST_VISITED_WORKSPACE,
       JSON.stringify({ slug: ws.slug, name: ws.name })
     );
+    rememberWorkspaceThread(ws.slug, thread.slug);
 
     const target = paths.offerKp.thread(ws.slug, thread.slug);
     threadNavLog("nav:new-thread", {
