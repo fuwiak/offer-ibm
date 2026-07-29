@@ -30,7 +30,10 @@ const {
   resolveOfferKpChatSampling,
   compareByDeterministicTieBreak,
 } = require("./deterministicSampling");
-const { RESPONSE_FORMATS, parseProductSelectionPayload } = require("./llmJsonSchema");
+const {
+  RESPONSE_FORMATS,
+  parseProductSelectionPayload,
+} = require("./llmJsonSchema");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
