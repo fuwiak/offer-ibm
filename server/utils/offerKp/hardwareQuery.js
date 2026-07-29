@@ -121,7 +121,11 @@ function classifyMetricPair(sizeStr, secondStr, productTypes = []) {
   const hasDecimal = /[.,]/.test(String(secondStr));
 
   // Fine pitch: M50x1,5 / M10x1.25 / M8x1 (second typically ≤ 6).
-  if (hasDecimal || (isNut && second <= 6) || (!isNut && !isWasher && size >= 8 && second <= 6 && second < size / 3)) {
+  if (
+    hasDecimal ||
+    (isNut && second <= 6) ||
+    (!isNut && !isWasher && size >= 8 && second <= 6 && second < size / 3)
+  ) {
     return {
       kind: "pitch",
       size: sizeStr,
@@ -220,7 +224,10 @@ function parseHardwareQuery(message) {
     }
   }
 
-  const { thread, pitch, diameter } = parseMetricSpecs(normalized, productTypes);
+  const { thread, pitch, diameter } = parseMetricSpecs(
+    normalized,
+    productTypes
+  );
 
   let strengthClass = null;
   const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);

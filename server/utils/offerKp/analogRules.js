@@ -131,10 +131,7 @@ function diameterMatches(nameNorm, diameter) {
 function pitchMatches(nameNorm, diameter, pitch) {
   if (!pitch || !diameter) return true;
   const p = String(pitch).replace(".", "[.,]");
-  return new RegExp(
-    `\\bm\\s*${diameter}\\s*x\\s*${p}\\b`,
-    "i"
-  ).test(nameNorm);
+  return new RegExp(`\\bm\\s*${diameter}\\s*x\\s*${p}\\b`, "i").test(nameNorm);
 }
 
 function extractPinDimensions(text) {
@@ -189,7 +186,11 @@ function pinMatchesExact(nameNorm, pin) {
 // does carry a specific size, we simply can't tell whether it's the right
 // one, so it has to be flagged for review rather than accepted as exact.
 // Washers/nuts with diameter-only in the query are OK when diameter matches.
-function productNameHasUnverifiableDimension(nameNorm, rule, queryParsed = null) {
+function productNameHasUnverifiableDimension(
+  nameNorm,
+  rule,
+  queryParsed = null
+) {
   if (rule?.matchRule === "pin_dimensions") {
     return Boolean(extractPinDimensions(nameNorm));
   }
@@ -300,7 +301,10 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
 
   if (parsed.diameter) {
     if (!diameterMatches(nameNorm, parsed.diameter)) return { ok: false };
-    if (parsed.pitch && !pitchMatches(nameNorm, parsed.diameter, parsed.pitch)) {
+    if (
+      parsed.pitch &&
+      !pitchMatches(nameNorm, parsed.diameter, parsed.pitch)
+    ) {
       // Soft: diameter matches but pitch differs / missing — still allow
       // exact on diameter for nuts when catalog omits pitch in the name.
       const nameHasPitch = /\bm\s*\d+\s*x\s*\d+(?:[.,]\d+)?\b/i.test(nameNorm);
@@ -421,7 +425,9 @@ function classifyProductMatch(requestText, product) {
     !thread &&
     parsed.diameter &&
     !diameterMatches(nameNorm, parsed.diameter) &&
-    (nameNorm.includes(`m `) || /\bm\d/.test(nameNorm) || /\bd\s*\d/.test(nameNorm))
+    (nameNorm.includes(`m `) ||
+      /\bm\d/.test(nameNorm) ||
+      /\bd\s*\d/.test(nameNorm))
   ) {
     return {
       matchType: "size_mismatch",
