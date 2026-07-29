@@ -37,6 +37,7 @@ B2B-система формирования **коммерческих пред�
 - Исходящий чат: любая «Цена: N» должна совпасть с разрешёнными ценами каталога/черновика, иначе `ABSTAIN_MESSAGE` (не только markdown-таблицы).
 - UI-строки через i18n (`offerKp`); основной locale — `ru`.
 - VL-модели: native `tools[]` в LM Studio ломают Jinja → UnTooled (`lmStudioToolSupport.js`).
+- **LLM advisory, не authoritative:** продукт / SKU / цена / qty / match_type — только deterministic scorer + ShopDB. Sampling: `deterministicSampling.js` (`temperature:0`, `top_p:1`, `seed:20260730`). `OFFER_KP_STRICT_DETERMINISM=true` (default) выключает LLM ranking и intent/quote judges.
 
 ---
 
