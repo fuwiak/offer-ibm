@@ -399,9 +399,13 @@ async function runProductSearchAgent({
   const analogIntent = detectAnalogIntent(
     `${String(message || "")}\n${searchText}`
   );
-  if (parsed.dinNumbers?.length) {
-    parsed.dinNumbers = expandDinNumbersWithEquivalents(parsed.dinNumbers);
-  }
+  // Keep requested standards for primary SQL structured search. Expanding
+  // DIN↔GOST here OR-pollutes results (DIN 933 line that also lists GOST 7798
+  // pulled in DIN 931 candidates and wrong cheapest "exact").
+  const requestedDinNumbers = [...(parsed.dinNumbers || [])];
+  const expandedDinNumbers =
+    expandDinNumbersWithEquivalents(requestedDinNumbers);
+  parsed.dinNumbers = requestedDinNumbers;
   const terms = extractSearchTerms(searchText);
   const searchTerms =
     terms.length > 0 ? terms : [String(searchText).trim().slice(0, 120)];
@@ -490,17 +494,17 @@ async function runProductSearchAgent({
       dinNumbers: [
         ...new Set([
           ...(parseExtendedHardwareQuery(searchText).standardNumbers || []),
-          ...(parsed.dinNumbers || []),
+          ...expandedDinNumbers,
         ]),
       ],
     };
-    agentParsed.dinNumbers = expandDinNumbersWithEquivalents(
-      agentParsed.dinNumbers
-    );
     const forceAnalogWiden = analogIntent;
     if (
       forceAnalogWiden ||
-      needsSearchAgentFallback(products, searchText, agentParsed)
+      needsSearchAgentFallback(products, searchText, {
+        ...agentParsed,
+        dinNumbers: expandedDinNumbers,
+      })
     ) {
       const agentResult = await runShopDbSearchAgent({
         searchText,

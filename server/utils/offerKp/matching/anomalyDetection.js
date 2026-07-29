@@ -10,12 +10,15 @@ const { extractStandardNumbers } = require("../analogRules");
 const { getStandardMeta, listGraphNodes } = require("./standardGraph");
 
 const KNOWN_DIAMETERS = new Set(
-  [3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 27, 30, 36].map(String)
+  [
+    3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 27, 30, 33, 36, 39, 42, 45,
+    48, 52, 56, 60,
+  ].map(String)
 );
 
 /**
  * @param {string} queryText
- * @param {{candidates?: object[], embeddingTop?: number}} [ctx]
+ * @param {{candidates?: object[], embeddingTop?: number|null}} [ctx]
  */
 function detectAnomaly(queryText, ctx = {}) {
   const text = String(queryText || "").trim();
@@ -28,7 +31,8 @@ function detectAnomaly(queryText, ctx = {}) {
   // Random keyboard / nonsense density.
   const letters = (text.match(/\p{L}/gu) || []).length;
   const digits = (text.match(/\p{N}/gu) || []).length;
-  const other = text.length - letters - digits - (text.match(/\s/g) || []).length;
+  const other =
+    text.length - letters - digits - (text.match(/\s/g) || []).length;
   if (text.length >= 12 && other / text.length > 0.45) {
     reasons.push("high_noise_chars");
   }
@@ -38,14 +42,23 @@ function detectAnomaly(queryText, ctx = {}) {
     if (!getStandardMeta(s) && !listGraphNodes().includes(String(s))) {
       // Unknown standard number — not necessarily bad (catalog may have it),
       // but combined with no type/size → OOD-ish.
-      if (!(parsed.productTypes || []).length && !parsed.thread) {
+      if (
+        !(parsed.productTypes || []).length &&
+        !parsed.thread &&
+        !parsed.diameter
+      ) {
         reasons.push("unknown_standard");
       }
     }
   }
 
-  if (parsed.thread?.size && !KNOWN_DIAMETERS.has(String(parsed.thread.size))) {
-    reasons.push("unusual_diameter");
+  const diameter = parsed.thread?.size || parsed.diameter;
+  if (diameter && !KNOWN_DIAMETERS.has(String(diameter))) {
+    // Only flag truly exotic sizes; large washers/nuts (M39–M60) are normal.
+    const n = Number(diameter);
+    if (!Number.isFinite(n) || n < 2 || n > 100) {
+      reasons.push("unusual_diameter");
+    }
   }
 
   // Bizarre dimension combo (e.g. M3x500).
@@ -64,8 +77,18 @@ function detectAnomaly(queryText, ctx = {}) {
     (text.match(/\p{Script=Cyrillic}/gu) || []).length > 20;
   if (langShift) reasons.push("mixed_script_noise");
 
-  if (
+  // Only use embedding distance when at least one candidate actually has an
+  // embedding score. Structured SQL hits often have none — treating missing
+  // scores as 0 falsely marked every catalog match as OOD and zeroed prices.
+  const embeddingScores = (ctx.candidates || [])
+    .map((p) => Number(p._embeddingSimilarity))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (embeddingScores.length > 0) {
+    const embTop = Math.max(...embeddingScores);
+    if (embTop < 0.25) reasons.push("embedding_far_from_catalog");
+  } else if (
     Number.isFinite(ctx.embeddingTop) &&
+    ctx.embeddingTop > 0 &&
     ctx.embeddingTop < 0.25 &&
     (ctx.candidates || []).length > 0
   ) {

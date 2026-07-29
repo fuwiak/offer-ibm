@@ -116,7 +116,14 @@ const OUT_OF_SCOPE_PATTERNS = [
 ];
 
 function normalizeIntentText(text = "") {
-  return String(text || "")
+  let t = String(text || "");
+  try {
+    const { stripMessengerExportNoise } = require("./parseInquiry");
+    t = stripMessengerExportNoise(t);
+  } catch {
+    // parseInquiry may not be available in isolated tests — keep raw.
+  }
+  return t
     .replace(/^@agent\s*:?\s*/i, "")
     .replace(/[ё]/gi, (ch) => (ch === "Ё" ? "Е" : "е"))
     .replace(/(\d)\s*[х×*]\s*(\d)/gi, "$1x$2")

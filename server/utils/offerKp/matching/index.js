@@ -74,10 +74,12 @@ function decideMatchGates(input = {}) {
 
   const anomaly = detectAnomaly(queryText, {
     candidates: products,
-    embeddingTop: Math.max(
-      0,
-      ...products.map((p) => Number(p._embeddingSimilarity) || 0)
-    ),
+    embeddingTop: (() => {
+      const scores = products
+        .map((p) => Number(p._embeddingSimilarity))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      return scores.length ? Math.max(...scores) : null;
+    })(),
   });
   const expert = resolveExpert(queryText);
 
@@ -88,13 +90,23 @@ function decideMatchGates(input = {}) {
     rankedForMargin.find((a) => a && best && a.productId !== best.productId) ||
     null;
 
+  const hardOod = (anomaly.reasons || []).some((r) =>
+    [
+      "repeated_char_spam",
+      "high_noise_chars",
+      "line_too_short",
+      "mixed_script_noise",
+    ].includes(r)
+  );
+
   const selective = selectivePredict({
     best,
     runnerUp,
     expertConfig: expert.config,
     retrieverDisagreement: !!input.retrieverDisagreement,
     underspecified: !!input.underspecified,
-    outOfDistribution: anomaly.outOfDistribution,
+    // Soft OOD (e.g. missing embeddings) must NOT block ShopDB exact prices.
+    outOfDistribution: hardOod,
   });
 
   const conformal = conformalCandidateSet(rankedForMargin, {
@@ -127,8 +139,10 @@ function decideMatchGates(input = {}) {
     acceptedMatchType = "none";
   }
 
-  // OOD alone also rejects exact automation.
-  if (anomaly.outOfDistribution && best?.matchType === "exact") {
+  if (
+    hardOod &&
+    (best?.matchType === "exact" || best?.matchType === "analog")
+  ) {
     gateRejected = true;
     gateReason = gateReason || "out_of_distribution";
     acceptedMatchType = "none";

@@ -236,6 +236,15 @@ describe("anomalyDetection", () => {
     const a = detectAnomaly("Болт DIN 933 M10x80 оцинк 8.8");
     expect(a.allowAutomaticMatch).toBe(true);
   });
+
+  it("does not treat missing embedding scores as far-from-catalog", () => {
+    const a = detectAnomaly("Шайба DIN 433 M 6 оцинк", {
+      candidates: [{ id: 1, name: "Шайба DIN 433 M 6" }, { id: 2 }],
+      embeddingTop: 0,
+    });
+    expect(a.reasons).not.toContain("embedding_far_from_catalog");
+    expect(a.outOfDistribution).toBe(false);
+  });
 });
 
 describe("activeLearning + experts + weak supervision", () => {

@@ -18,6 +18,7 @@ const { recordSearchMetric } = require("./searchMetrics");
 const { assessInquiryCompleteness } = require("./inquiryCompleteness");
 const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
+const { stripMessengerExportNoise } = require("./parseInquiry");
 
 function matchEnrichmentEnabled() {
   return process.env.OFFER_KP_MATCH_ENRICHMENT !== "0";
@@ -366,8 +367,14 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (cached)
     return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
 
-  const searchText = inquiryLine.raw || inquiryLine.name;
-  const completeness = assessInquiryCompleteness(inquiryLine);
+  const searchText = stripMessengerExportNoise(
+    inquiryLine.raw || inquiryLine.name
+  );
+  const completeness = assessInquiryCompleteness({
+    ...inquiryLine,
+    raw: searchText,
+    name: searchText,
+  });
   // Empty of catalog signals → abstain before any ShopDB round-trip.
   if (
     !completeness.ok &&
@@ -571,17 +578,14 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     status = STATUS.NEEDS_REVIEW;
   }
   if (matchGates?.gateRejected || matchGates?.anomaly?.outOfDistribution) {
-    status = STATUS.NEEDS_REVIEW;
+    // Soft anomaly metadata stays on the line, but only hard gate rejection
+    // forces NEEDS_REVIEW (missing embeddings must not wipe SQL prices).
+    if (matchGates?.gateRejected) status = STATUS.NEEDS_REVIEW;
   }
 
   // Статус для таблицы КП (фиксированный словарь из регламента КП).
   let kpStatus;
-  if (
-    underspecifiedSize ||
-    retrieverDisagreement ||
-    matchGates?.gateRejected ||
-    matchGates?.anomaly?.outOfDistribution
-  ) {
+  if (underspecifiedSize || retrieverDisagreement || matchGates?.gateRejected) {
     kpStatus = "Требуется проверка";
   } else if (!accepted) {
     kpStatus = "Нет в базе";

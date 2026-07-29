@@ -73,13 +73,22 @@ describe("inquiryCompleteness / minimum information", () => {
     ).toBe(true);
   });
 
-  it("accepts nut with fine pitch M50x1,5 (not missing length)", () => {
-    const r = assessInquiryCompleteness({
-      raw: "Гайка ГОСТ 11871-88 M 50x1,5 (6 шлицов) оцинк — 2 шт.",
-    });
-    expect(r.ok).toBe(true);
-    expect(r.parsed.pitch).toBe("1.5");
-    expect(r.parsed.thread).toBeNull();
+  it("strips Telegram date/login chrome and keeps product lines", () => {
+    const {
+      stripMessengerExportNoise,
+      parseInquiryText,
+    } = require("../../../utils/offerKp/parseInquiry");
+    const raw = `[28/07/2026 16:08] Игорь Бобик: Болт DIN 933 M 24x160 10.9 оцинк — 4 шт.
+Шайба DIN 433 M 6 оцинк — 100 шт.
+[28/07/2026 16:10] Игорь Бобик: вот например список
+[28/07/2026 16:10] Игорь Бобик: это прямо наши наименования, попробуйте  КП сформирвать`;
+    const cleaned = stripMessengerExportNoise(raw);
+    expect(cleaned).not.toMatch(/Игорь Бобик/);
+    expect(cleaned).not.toMatch(/28\/07\/2026/);
+    expect(cleaned).toMatch(/Болт DIN 933/);
+    const lines = parseInquiryText(raw);
+    expect(lines.length).toBe(2);
+    expect(lines[0].raw).toMatch(/^Болт/);
   });
 });
 

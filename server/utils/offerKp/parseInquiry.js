@@ -130,12 +130,45 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
 }
 
 /**
+ * Strip Telegram / WhatsApp / chat-export chrome:
+ *   "[28/07/2026 16:08] Игорь Бобик: Болт DIN 933..."
+ * Keep the product text after the speaker prefix.
+ */
+const MESSENGER_HEADER_RE =
+  /^\s*(?:\[\s*)?\d{1,2}[/./-]\d{1,2}[/./-]\d{2,4}(?:[,\s]+|\s+)\d{1,2}:\d{2}(?::\d{2})?\s*\]?\s*[-–—]?\s*[^:\n]{1,80}:\s*/u;
+
+const MESSENGER_ONLY_CHAT_RE =
+  /^(?:вот\s+например\s+список|это\s+прямо\s+наши\s+наименования|попробуйте\s+кп|сформир\w*\s+кп)\b/i;
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function stripMessengerExportNoise(text) {
+  return String(text || "")
+    .split(/\n+/)
+    .map((line) => {
+      let t = String(line || "").trim();
+      if (!t) return "";
+      t = t.replace(MESSENGER_HEADER_RE, "").trim();
+      if (!t) return "";
+      if (MESSENGER_ONLY_CHAT_RE.test(t) && !HARDWARE_LINE_RE.test(t)) {
+        return "";
+      }
+      return t;
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+/**
  * Нормализация типичных OCR-ошибок в заявках на крепёж.
  * @param {string} text
  * @returns {string}
  */
 function normalizeOcrInquiryText(text) {
-  let t = String(text || "");
+  let t = stripMessengerExportNoise(text);
   t = t
     .replace(/\u00a0/g, " ")
     .replace(/[×хХ]/g, "x")
@@ -350,7 +383,7 @@ function extractSpecialRequirements(text) {
 }
 
 function parseInquiryText(text) {
-  const raw = String(text || "").trim();
+  const raw = normalizeOcrInquiryText(String(text || "").trim());
   if (!raw) return [];
 
   const chunks = splitInquiryChunks(raw);
@@ -370,6 +403,7 @@ module.exports = {
   normalizeInquiryQuantity,
   usesNonPieceUnit,
   normalizeOcrInquiryText,
+  stripMessengerExportNoise,
   splitInquiryChunks,
   isInquiryMetaLine,
 };
