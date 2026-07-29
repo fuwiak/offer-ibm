@@ -15,6 +15,7 @@ const { resolveProductPrice } = require("./priceResolve");
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { recordSearchMetric } = require("./searchMetrics");
+const { withLineEvidence, MATCH_RULES_VERSION } = require("./matchEvidence");
 const { assessInquiryCompleteness } = require("./inquiryCompleteness");
 const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
@@ -270,7 +271,7 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
     queryLen: String(inquiryLine.raw || "").length,
     threadId: null,
   });
-  return {
+  return withLineEvidence({
     inquiryRaw: inquiryLine.raw,
     name: inquiryLine.name || inquiryLine.raw,
     requestedName: inquiryLine.name || inquiryLine.raw,
@@ -299,7 +300,8 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
     matchSource: "exception",
     matchStrategies: [],
     retrievedAt: new Date().toISOString(),
-  };
+    allowPrice: false,
+  });
 }
 
 /**
@@ -351,7 +353,7 @@ function buildUnderspecifiedLine(inquiryLine, completeness) {
     failureReason: "underspecified",
     missingAttributes: missing,
   });
-  return {
+  return withLineEvidence({
     inquiryRaw: inquiryLine.raw,
     name: inquiryLine.name || inquiryLine.raw,
     requestedName: inquiryLine.name || inquiryLine.raw,
@@ -380,7 +382,7 @@ function buildUnderspecifiedLine(inquiryLine, completeness) {
     matchStrategies: ["min_info_policy"],
     retrievedAt,
     allowPrice: false,
-  };
+  });
 }
 
 async function matchInquiryLine(inquiryLine, options = {}) {
@@ -754,25 +756,32 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     selective: matchGates?.selective || null,
     blocking: enrichmentMeta?.blocking || null,
   };
+  const evidenced = withLineEvidence(matchedLine, {
+    requestId: options.requestId || null,
+  });
   recordSearchMetric({
-    matchType: matchedLine.matchType,
-    source: matchedLine.matchSource,
+    matchType: evidenced.matchType,
+    source: evidenced.matchSource,
     strategies: matchStrategies,
-    hasPrice: Number(matchedLine.unitPriceNet) > 0,
+    hasPrice: Number(evidenced.unitPriceNet) > 0,
     candidateCount: candidates.length,
     queryLen: searchText.length,
     threadId: options.threadId || null,
+    requestId: options.requestId || null,
+    productId: evidenced.productId || null,
     failureReason: !accepted
       ? best?.mismatchReason || reviewReason || best?.matchType || null
       : null,
     reviewReason,
     retrieverDisagreement,
-    missingAttributes: matchedLine.missingAttributes,
+    missingAttributes: evidenced.missingAttributes,
     algorithmProfile: DETERMINISTIC_MATCH_PROFILE.id,
+    rulesVersion: MATCH_RULES_VERSION,
+    evidence: evidenced.evidence,
   });
 
-  setCachedLineMatch(options.threadId, cacheRaw, matchedLine);
-  return matchedLine;
+  setCachedLineMatch(options.threadId, cacheRaw, evidenced);
+  return evidenced;
 }
 
 function estimateWeightKg(inquiryLine, productName) {
@@ -842,6 +851,7 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
       try {
         const result = await matchInquiryLine(line, {
           ...options,
+          requestId: options.requestId || null,
           parsedFileTexts: options.parsedFileTexts || null,
         });
         partialLines[index] = result;

@@ -114,6 +114,21 @@ async function streamChatWithWorkspace(
     generalIntentJudgeAttempted = true;
     routedIntent = await resolveOfferKpIntent(commandMessage, { workspace });
   }
+  const {
+    createRequestTrace,
+    setTraceIntent,
+    markStage,
+    finalizeTrace,
+    summarizeTrace,
+  } = require("../offerKp/requestTrace");
+  const requestTrace = createRequestTrace({
+    channel: "workspace",
+    requestId: uuid,
+  });
+  setTraceIntent(requestTrace, routedIntent);
+  markStage(requestTrace, "INTENT", "ok", {
+    intent: routedIntent.primaryIntent,
+  });
   const attachmentOnlyPrompt =
     /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request)/iu.test(
       commandMessage
@@ -695,6 +710,7 @@ async function streamChatWithWorkspace(
       ].includes(routedIntent.primaryIntent));
   if (shouldEmitQuoteArtifacts) {
     try {
+      markStage(requestTrace, "EXPORT", "start");
       const {
         emitAutoQuoteArtifacts,
       } = require("../offerKp/autoQuoteArtifacts");
@@ -714,10 +730,23 @@ async function streamChatWithWorkspace(
       if (quoteArtifacts?.outputs?.length) {
         quoteOutputs = quoteArtifacts.outputs;
       }
+      markStage(requestTrace, "EXPORT", quoteOutputs.length ? "ok" : "skip");
     } catch (e) {
+      markStage(requestTrace, "EXPORT", "fail", {
+        error: e?.message || String(e),
+      });
       console.error("[offerKp] auto quote artifacts:", e?.message || e);
     }
   }
+
+  finalizeTrace(requestTrace, {
+    status: "ok",
+    quoteOutputs: quoteOutputs.length,
+  });
+  metrics = {
+    ...metrics,
+    offerKpTrace: summarizeTrace(requestTrace),
+  };
 
   if (completeText?.length > 0) {
     const { chat } = await WorkspaceChats.new({

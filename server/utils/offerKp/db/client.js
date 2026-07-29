@@ -1,7 +1,27 @@
 const mysql = require("mysql2/promise");
 const { getCachedQuery, setCachedQuery, clearShopDbCache } = require("./cache");
+const {
+  resilientCall,
+  getCircuitBreaker,
+} = require("../connectors/resilientCall");
 
 let pool = null;
+const shopDbCircuit = getCircuitBreaker("shopdb", {
+  failureThreshold: 5,
+  cooldownMs: 30_000,
+});
+
+function shopDbQueryTimeoutMs() {
+  const n = parseInt(process.env.SHOP_DB_QUERY_TIMEOUT_MS, 10);
+  if (Number.isFinite(n) && n >= 1000) return Math.min(n, 120000);
+  return 20_000;
+}
+
+function shopDbQueryRetries() {
+  const n = parseInt(process.env.SHOP_DB_QUERY_RETRIES, 10);
+  if (Number.isFinite(n) && n >= 0) return Math.min(n, 5);
+  return 1;
+}
 
 function resetPool() {
   if (pool) {
@@ -136,8 +156,28 @@ async function query(sql, params = []) {
     return cached;
   }
 
-  const p = getPool();
-  const [rows] = await p.execute(sql, params);
+  const rows = await resilientCall(
+    async () => {
+      const p = getPool();
+      const [result] = await p.execute(sql, params);
+      return result;
+    },
+    {
+      name: "shopdb.query",
+      timeoutMs: shopDbQueryTimeoutMs(),
+      retries: shopDbQueryRetries(),
+      backoffMs: 150,
+      circuit: shopDbCircuit,
+      onLog: (event) => {
+        if (event.event === "ok" || event.event === "circuit_open") return;
+        try {
+          require("../shopDbLog").warn("MySQL query resilient", event);
+        } catch {
+          /* ignore */
+        }
+      },
+    }
+  );
   setCachedQuery(sql, params, rows);
   return rows;
 }

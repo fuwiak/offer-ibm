@@ -12,6 +12,8 @@ const { generateDocxFromMarkdown } = require("../offerKpApp/docxFromMarkdown");
 const { QUOTE_BRAND, localeForCountry } = require("../offerKpApp/quoteBrand");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
 const { parseInquiryText } = require("./parseInquiry");
+const { assertExportGuards, stripIllegalPrices } = require("./exportGuards");
+const { attachDraftEvidence } = require("./matchEvidence");
 
 function parseCatalogBlock(block = "") {
   const text = String(block || "").trim();
@@ -407,6 +409,26 @@ async function emitAutoQuoteArtifacts({
 
   const products = (catalogBlocks || []).map(parseCatalogBlock).filter(Boolean);
   if (!draft?.lines?.length && !products.length) return false;
+
+  // Soft-strip illegal prices before export; hard-fail on N-line / invented SKU.
+  if (draft?.lines?.length) {
+    draft = {
+      ...draft,
+      lines: attachDraftEvidence(stripIllegalPrices(draft.lines)),
+    };
+    const guard = assertExportGuards({
+      sourceLines: inquiryLines,
+      quoteLines: draft.lines,
+      draft,
+    });
+    if (!guard.ok) {
+      console.error(
+        "[offerKp] exportGuards blocked quote artifacts:",
+        guard.violations.map((v) => v.id).join(", ")
+      );
+      return false;
+    }
+  }
 
   const meta = parseQuoteMeta(message);
   const lines = draft?.lines?.length
