@@ -7,7 +7,7 @@ const { parseHardwareQuery } = require("./hardwareQuery");
 
 const LINE_SPLIT_RE = /\n+|;\s*(?=\d)|(?<=\d)\s*[,;]\s*(?=\D)/;
 const HARDWARE_LINE_RE =
-  /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bm\s*\d+\b|\bd\s*\d+\b|\bштанг|\bболт\s+m|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк|\bвинт|\bшайб|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
+  /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bm\s*\d+\b|\bd\s*\d+\b|\bштанг|\bшпильк|\bрым|\bболт\s+m|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк|\bвинт|\bшайб|\bштифт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
 const INQUIRY_SKIP_LINE_RE =
   /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац)/i;
 const INQUIRY_UNIT_RE =
@@ -187,6 +187,73 @@ function normalizeOcrInquiryText(text) {
 }
 
 /**
+ * Explode a packed RFQ line that lists many products inline:
+ * "Шайба 24 DIN 127 1шт Шпилька М24… 1шт Штифт 14х32…"
+ * → separate chunks per product type.
+ * @param {string} line
+ * @returns {string[]}
+ */
+function explodePackedHardwareLine(line) {
+  const raw = String(line || "").trim();
+  if (!raw) return [];
+
+  // Strip leading politeness / supply-request preface before first product.
+  // Avoid \\b — JS word boundaries are ASCII-only and break on Cyrillic.
+  const prefaceStripped = raw
+    .replace(
+      /^[\s\S]{0,160}?(?=(?:^|[^\p{L}\p{N}])(?:гайк|шайб|шпильк|штифт|рым|болт|винт|анкер|саморез))/iu,
+      ""
+    )
+    .replace(/^[^\p{L}\p{N}]+/u, "")
+    .trim();
+  const working = prefaceStripped || raw;
+
+  // Рым-болт: keep the compound token (avoid splitting as bare «болт»).
+  const typeHits = [
+    ...working.matchAll(
+      /(?:^|[^\p{L}\p{N}])(?=(рым[-\s]?болт\w*|гайк\w*|шайб\w*|шпильк\w*|штифт\w*|(?<!рым[-\s])болт\w*|винт\w*|анкер\w*))/giu
+    ),
+  ];
+  // Adjust match index to the product token itself (after the separator).
+  const starts = typeHits
+    .map((hit) => {
+      const sep = hit[0];
+      const idx = hit.index ?? 0;
+      return sep &&
+        sep.length &&
+        !/^(гайк|шайб|шпильк|штифт|рым|болт|винт|анкер)/iu.test(sep)
+        ? idx + sep.length
+        : idx;
+    })
+    .filter((n) => Number.isFinite(n));
+
+  const qtyHits = [
+    ...working.matchAll(
+      /\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|кг|kg)(?=\s|$|[.,;])/gi
+    ),
+  ];
+  // Require multiple quantities — otherwise "Болт … с гайкой 30 кг" would
+  // falsely split on the accessory «гайкой».
+  if (starts.length < 2 || qtyHits.length < 2) {
+    return [prefaceStripped && prefaceStripped !== raw ? working : raw];
+  }
+
+  const uniqStarts = [...new Set(starts)].sort((a, b) => a - b);
+  if (uniqStarts.length < 2) {
+    return [working];
+  }
+
+  const parts = [];
+  for (let i = 0; i < uniqStarts.length; i++) {
+    const from = uniqStarts[i];
+    const to = i + 1 < uniqStarts.length ? uniqStarts[i + 1] : working.length;
+    const chunk = working.slice(from, to).trim();
+    if (chunk.length >= 5) parts.push(chunk);
+  }
+  return parts.length ? parts : [working];
+}
+
+/**
  * Извлекает строки позиций из табличного/OCR-текста PDF.
  * @param {string} text
  * @returns {string[]}
@@ -197,13 +264,13 @@ function splitInquiryChunks(text) {
 
   const tableCtx = detectInquiryTableContext(normalized);
   const chunks = [];
-  const seen = new Set();
 
   function pushChunk(raw) {
-    const line = String(raw || "").trim();
-    if (line.length < 5 || seen.has(line)) return;
-    seen.add(line);
-    chunks.push(line);
+    for (const piece of explodePackedHardwareLine(raw)) {
+      const line = String(piece || "").trim();
+      if (line.length < 5) continue;
+      chunks.push(line);
+    }
   }
 
   for (const line of normalized.split(/\n+/)) {
@@ -248,7 +315,8 @@ function splitInquiryChunks(text) {
   return normalized
     .split(LINE_SPLIT_RE)
     .map((s) => s.trim())
-    .filter((s) => s.length >= 5);
+    .filter((s) => s.length >= 5)
+    .flatMap((s) => explodePackedHardwareLine(s));
 }
 
 function parseInquiryUnit(text) {
@@ -404,6 +472,7 @@ module.exports = {
   usesNonPieceUnit,
   normalizeOcrInquiryText,
   stripMessengerExportNoise,
+  explodePackedHardwareLine,
   splitInquiryChunks,
   isInquiryMetaLine,
 };

@@ -166,4 +166,16 @@ describe("parseInquiry PDF/OCR extraction", () => {
       true
     );
   });
+
+  it("explodes packed supply RFQ into separate product lines", () => {
+    const text =
+      "Здравствуйте, просьба направить предложение на поставку: Гайка М24-6Н ГОСТ 8918-69 1шт\n" +
+      "Шайба 24 DIN 127 1шт Шпилька М24-6g DIN 975 1шт Штифт 14х32 DIN 6325 8шт Рым-болт DIN 580 - М12 2шт";
+    const lines = parseInquiryText(text);
+    expect(lines.length).toBeGreaterThanOrEqual(5);
+    expect(lines[0].raw).toMatch(/^Гайка/i);
+    expect(lines.some((l) => /Шпилька/i.test(l.raw))).toBe(true);
+    expect(lines.some((l) => /Рым-болт/i.test(l.raw))).toBe(true);
+    expect(lines.every((l) => !/Здравствуйте/i.test(l.raw))).toBe(true);
+  });
 });

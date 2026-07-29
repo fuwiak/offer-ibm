@@ -53,13 +53,17 @@ const UNSAFE_PATTERNS = [
 ];
 
 const EDIT_QUOTE_PATTERNS = [
-  /(?:замени|измени|поменяй|удали|добавь).{0,50}(?:позиц|строк|товар|болт|гайк|шайб|винт)/iu,
-  /(?:переделай|обнови|пересобери|перегенерируй).{0,50}(?:кп|docx|pdf|word|документ|файл)/iu,
+  /(?:замени|измени|поменяй|удали|добавь).{0,50}(?:позиц|строк|товар|болт|гайк|шайб|винт|штифт|шпильк)/iu,
+  /(?:переделай|обнови|пересобери|перегенерируй).{0,50}(?:кп|docx|pdf|word|документ|файл|черновик|сводк|предложен)/iu,
   /(?:добавь|вставь).{0,35}\d+\s*(?:шт|штук|кг|уп(?:аковок)?).{0,25}(?:^|[^\p{L}\p{N}])кп(?:$|[^\p{L}\p{N}])/iu,
-  /(?:поставь|укажи|измени).{0,45}(?:количеств|\d+\s*(?:шт|кг|уп))/iu,
+  /(?:поставь|укажи|измени|проставь|исправь|поправь|скорректируй).{0,45}(?:количеств|\d+\s*(?:шт|кг|уп)|цен|покупател|страну)/iu,
   /(?:выбери|подставь).{0,30}(?:перв|втор|трет).{0,20}(?:аналог|вариант)/iu,
   /(?:единиц[ауы]?\s+измерения|ед\.?\s*изм).{0,20}(?:шт|кг|м|уп)/iu,
   /(?:отметь|подтверди).{0,35}(?:позиц|строк).{0,30}(?:провер|согласован)/iu,
+  /(?:исправь|поправь|замени|удали|убери|обнови).{0,40}(?:в\s+кп|в\s+черновик|в\s+документ|в\s+файл|в\s+таблиц|в\s+сводк|в\s+предложен)/iu,
+  /(?:поставь|проставь|смени|переименуй).{0,35}(?:покупател|назван|количеств|цен).{0,40}(?:в\s+кп|в\s+черновик|в\s+строк|в\s+предложен)?/iu,
+  /(?:удали|убери).{0,30}(?:строк|позиц).{0,25}(?:из\s+кп|из\s+черновик|из\s+таблиц|из\s+предложен)/iu,
+  /(?:обнови|пересобери|перегенерируй).{0,30}(?:уже\s+)?(?:готов|сгенер|создан).{0,20}(?:кп|файл|документ|pdf|docx)/iu,
 ];
 
 const DOCUMENT_QUESTION_PATTERNS = [
@@ -71,6 +75,13 @@ const DOCUMENT_QUESTION_PATTERNS = [
   /(?:сравни|сверь).{0,35}(?:сводк|позиц|таблиц).{0,35}(?:исходн|оригинал|pdf)/iu,
   /(?:есть ли|имеется ли).{0,20}(?:в pdf|в документ|в файл)/iu,
   /(?:почему|как).{0,25}ocr.{0,40}(?:прочитал|распознал|извл[её]к)/iu,
+  // Questions about already-generated KP / draft summary (not mutation).
+  /(?:что|сколько|какие|какая|какой|где).{0,40}(?:в|по|из).{0,15}(?:кп|черновик|сводк|таблиц|предложен)/iu,
+  /(?:какая|сколько|какой).{0,30}(?:цена|сумм|итого|позиц|строк).{0,35}(?:в\s+кп|в\s+черновик|в\s+сводк|по\s+строк|в\s+таблиц|в\s+предложен)/iu,
+  /(?:покажи|выведи|напомни).{0,25}(?:сводк|черновик|содержим).{0,25}(?:кп|предложен)?/iu,
+  /(?:покажи|выведи).{0,25}(?:позиц|таблиц).{0,25}(?:кп|черновик|предложен|сводк)/iu,
+  /(?:объясни|расскажи|уточни|почему).{0,45}(?:строк|позиц|матч|статус|почем).{0,35}(?:в\s+кп|в\s+черновик|в\s+таблиц|в\s+сводк)/iu,
+  /(?:что\s+у\s+нас\s+в|что\s+сейчас\s+в).{0,15}(?:кп|черновик|сводк|предложен)/iu,
 ];
 
 const SYSTEM_HELP_PATTERNS = [
@@ -82,7 +93,7 @@ const SYSTEM_HELP_PATTERNS = [
 ];
 
 const CASUAL_PATTERNS = [
-  /^(?:привет|здравствуй|добрый (?:день|вечер)|hello|hi|how are you|ты работаешь|проверка|тест|ау|бобик жив|скажи банан)[!?.\s]*$/iu,
+  /^(?:привет|здравствуй(?:те)?|добрый (?:день|вечер)|hello|hi|how are you|ты работаешь|проверка|тест|ау|бобик жив|скажи банан)[!?.\s]*$/iu,
   /^(?:скажи|повтори|say)\s+(?!.*(?:цен|стоим|болт|гайк|шайб|винт|креп[её]ж|кп|sku|артикул|din|гост|каталог|purolat))[\p{L}\p{N}._-]{1,40}[!?.\s]*$/iu,
   /^\d{1,4}$/u,
   /^(?:тест\s*){2,}$/iu,
@@ -219,10 +230,12 @@ function routeOfferKpMessage(input = "") {
   if (isCasualOrTestMessage(text, hasProductSignal)) {
     addIntent(I.CASUAL_OR_TEST);
   } else if (
-    /^(?:привет|здравствуй|добрый\s+(?:день|вечер)|hello|hi)(?:[\s,!?.]|$)/iu.test(
+    /^(?:привет|здравствуй(?:те)?|добрый\s+(?:день|вечер)|hello|hi)(?:[\s,!?.]|$)/iu.test(
       text
     )
   ) {
+    // Greeting prefix is a secondary dialog signal; primary stays quote/search
+    // when the body carries products or an explicit KP request.
     addIntent(I.CASUAL_OR_TEST);
   }
 
@@ -234,6 +247,15 @@ function routeOfferKpMessage(input = "") {
       text
     ) ||
     /сделай.{0,25}документ.{0,40}(?:текущ|этим|данн).{0,20}(?:позиц|товар|черновик)/iu.test(
+      text
+    ) ||
+    /(?:просьб\w+|просим|прошу|просьба).{0,50}(?:направить|выслать|подготовить|сформировать|прислать|направьте).{0,50}(?:предложен|кп|оферт|коммерческ)/iu.test(
+      text
+    ) ||
+    /(?:предложен\w+\s+на\s+поставку|коммерческ\w+\s+предложен|оферт\w+\s+на\s+поставку)/iu.test(
+      text
+    ) ||
+    /направьте?\s+(?:пожалуйста\s+)?(?:кп|предложен|оферт|коммерческ)/iu.test(
       text
     );
   const editIntent = EDIT_QUOTE_PATTERNS.some((pattern) => pattern.test(text));
@@ -307,11 +329,25 @@ function routeOfferKpMessage(input = "") {
 
   // Search is the first executable step in compound requests such as
   // "найди ... и добавь ..."; the edit action remains a secondary intent.
+  // But edits that clearly target an existing KP/draft stay EDIT_QUOTE.
   const quoteRegeneration =
     editIntent &&
     (/(?:переделай|обнови|пересобери|перегенерируй)/iu.test(text) ||
       /(?:docx|pdf|word|документ|файл)/iu.test(text));
-  if (productSearch && editIntent && !quoteRegeneration) {
+  const editTargetsExistingQuote =
+    editIntent &&
+    /(?:кп|черновик|сводк|строк|позиц|предложен|таблиц|покупател)/iu.test(text);
+  const compoundSearchThenAdd =
+    productSearch &&
+    editIntent &&
+    /(?:найди|подбери|покажи|ищу|есть ли)/iu.test(text) &&
+    /добавь/iu.test(text);
+  if (
+    productSearch &&
+    editIntent &&
+    !quoteRegeneration &&
+    (!editTargetsExistingQuote || compoundSearchThenAdd)
+  ) {
     return buildResult({
       primaryIntent: I.PRODUCT_SEARCH,
       intents,
@@ -358,6 +394,11 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
+  const hasQuantity =
+    /(?:^|[^\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:шт|штук|кг|м|уп|упак|pack|pcs?)(?:$|[^\p{L}\p{N}])/iu.test(
+      text
+    );
+
   if (explicitQuote) {
     const exportDenied = /(?:не|ничего не)\s+экспортируй|без\s+экспорта/iu.test(
       text
@@ -368,6 +409,8 @@ function routeOfferKpMessage(input = "") {
       confidence: 0.98,
       signals: {
         productSignalCount,
+        hasQuantity,
+        supplyRequest: hasProductSignal,
         quoteExport: /pdf|docx|word|выгруз|экспорт/iu.test(text),
       },
       policyOverrides: exportDenied ? { allowExport: false } : {},
@@ -383,10 +426,6 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
-  const hasQuantity =
-    /(?:^|[^\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:шт|штук|кг|м|уп|упак|pack|pcs?)(?:$|[^\p{L}\p{N}])/iu.test(
-      text
-    );
   if (productSignalCount >= 2) {
     return buildResult({
       primaryIntent: I.PRODUCT_INQUIRY,

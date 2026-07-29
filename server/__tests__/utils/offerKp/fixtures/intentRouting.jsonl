@@ -184,3 +184,9 @@
 {"text":"сделай КП только по товарам, найденным в ShopDB","intent":"create_quote","allowExport":true,"allowShopDbSearch":true}
 {"text":"Почему в КП нет цен? Подставь каталог purolat.com и переделай DOCX с позициями и SKU","intent":"edit_quote","allowShopDbSearch":true,"allowQuoteMutation":true,"allowExport":true,"alsoIntent":"product_search"}
 {"text":"bolt","intent":"ambiguous"}
+{"text":"Здравствуйте, просьба направить предложение на поставку: Гайка М24 1шт","intent":"create_quote","allowExport":true,"allowShopDbSearch":true,"alsoIntent":"casual_or_test"}
+{"text":"сколько позиций в КП?","intent":"document_question","allowQuoteMutation":false}
+{"text":"какая цена у третьей строки в черновике?","intent":"document_question","allowQuoteMutation":false}
+{"text":"обнови количество во второй строке КП на 10","intent":"edit_quote","allowQuoteMutation":true}
+{"text":"исправь покупателя в уже готовом КП","intent":"edit_quote","allowQuoteMutation":true}
+{"text":"покажи сводку позиций в КП","intent":"document_question","allowQuoteMutation":false}
