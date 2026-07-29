@@ -53,6 +53,27 @@ const ANALOG_RULES = [
     matchRule: "thread_coating_strength",
     label: "DIN 912 → ГОСТ 11738",
   },
+  {
+    din: "433",
+    analogs: ["10450"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 433 → ГОСТ 10450-78",
+  },
+  {
+    din: "125",
+    analogs: ["11371"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 125 → ГОСТ 11371-78",
+  },
+  {
+    din: "7985",
+    analogs: ["17473"],
+    productType: "винт",
+    matchRule: "thread_coating_strength",
+    label: "DIN 7985 → ГОСТ 17473-80",
+  },
 ];
 
 const STATUS = {
@@ -85,10 +106,35 @@ function extractStandardNumbers(text) {
 }
 
 function extractThread(text) {
-  const norm = normalizeForMatch(text);
-  const m = norm.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i);
-  if (!m) return null;
-  return { size: m[1], length: m[2] };
+  return parseHardwareQuery(text).thread;
+}
+
+function extractDiameter(text) {
+  const parsed = parseHardwareQuery(text);
+  return parsed.diameter || parsed.thread?.size || null;
+}
+
+function extractPitch(text) {
+  return parseHardwareQuery(text).pitch || null;
+}
+
+function diameterMatches(nameNorm, diameter) {
+  if (!diameter) return true;
+  const d = String(diameter).replace(".", "[.,]");
+  // Do not require \b after digits: "m50x1.5" has no word-boundary between 50 and x.
+  return new RegExp(
+    `(?:\\bm\\s*${d}(?![0-9])|\\bd\\s*${d}(?![0-9]))`,
+    "i"
+  ).test(nameNorm);
+}
+
+function pitchMatches(nameNorm, diameter, pitch) {
+  if (!pitch || !diameter) return true;
+  const p = String(pitch).replace(".", "[.,]");
+  return new RegExp(
+    `\\bm\\s*${diameter}\\s*x\\s*${p}\\b`,
+    "i"
+  ).test(nameNorm);
 }
 
 function extractPinDimensions(text) {
@@ -142,10 +188,17 @@ function pinMatchesExact(nameNorm, pin) {
 // must NOT be read as "size confirmed": if the candidate product's own name
 // does carry a specific size, we simply can't tell whether it's the right
 // one, so it has to be flagged for review rather than accepted as exact.
-function productNameHasUnverifiableDimension(nameNorm, rule) {
+// Washers/nuts with diameter-only in the query are OK when diameter matches.
+function productNameHasUnverifiableDimension(nameNorm, rule, queryParsed = null) {
   if (rule?.matchRule === "pin_dimensions") {
     return Boolean(extractPinDimensions(nameNorm));
   }
+  if (rule?.matchRule === "diameter_coating") {
+    // Query has diameter → verifiable; product M-size without query diameter → unverifiable.
+    if (queryParsed?.diameter) return false;
+    return Boolean(extractDiameter(nameNorm));
+  }
+  if (queryParsed?.thread || queryParsed?.diameter) return false;
   return Boolean(extractThread(nameNorm));
 }
 
@@ -225,11 +278,48 @@ function expandDinNumbersWithEquivalents(dinNumbers = []) {
   return [...out];
 }
 
+/**
+ * Size/dimension gate for a candidate name against the parsed inquiry.
+ * @returns {{ ok: boolean, unconfirmed?: boolean }}
+ */
+function sizeSpecsOk(nameNorm, parsed, rule, pin) {
+  const thread = parsed.thread;
+  if (rule?.matchRule === "pin_dimensions") {
+    if (pin) {
+      return { ok: pinMatchesExact(nameNorm, pin) };
+    }
+    if (productNameHasUnverifiableDimension(nameNorm, rule, parsed)) {
+      return { ok: false, unconfirmed: true };
+    }
+    return { ok: true };
+  }
+
+  if (thread) {
+    return { ok: threadMatchesExact(nameNorm, thread) };
+  }
+
+  if (parsed.diameter) {
+    if (!diameterMatches(nameNorm, parsed.diameter)) return { ok: false };
+    if (parsed.pitch && !pitchMatches(nameNorm, parsed.diameter, parsed.pitch)) {
+      // Soft: diameter matches but pitch differs / missing — still allow
+      // exact on diameter for nuts when catalog omits pitch in the name.
+      const nameHasPitch = /\bm\s*\d+\s*x\s*\d+(?:[.,]\d+)?\b/i.test(nameNorm);
+      if (nameHasPitch) return { ok: false };
+    }
+    return { ok: true };
+  }
+
+  if (productNameHasUnverifiableDimension(nameNorm, rule, parsed)) {
+    return { ok: false, unconfirmed: true };
+  }
+  return { ok: true };
+}
+
 function classifyProductMatch(requestText, product) {
   const nameNorm = normalizeForMatch(product.name || "");
   const parsed = parseHardwareQuery(requestText);
   const requestedStandards = extractStandardNumbers(requestText);
-  const thread = extractThread(requestText);
+  const thread = parsed.thread;
   const pin = extractPinDimensions(requestText);
   const stockCount = Number(product.stockCount ?? product.count ?? 0);
   // кг/упак — коммерческий флаг, НЕ отменяет точный подбор DIN/M×L
@@ -259,20 +349,8 @@ function classifyProductMatch(requestText, product) {
     const rule = ruleInfo?.rule;
 
     if (nameContainsStandard(nameNorm, std)) {
-      if (rule?.matchRule === "pin_dimensions") {
-        if (pin) {
-          if (!pinMatchesExact(nameNorm, pin)) continue;
-        } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
-          return {
-            matchType: "size_unconfirmed",
-            status: STATUS.NEEDS_REVIEW,
-            analogOf: null,
-            mismatchReason: "size_unconfirmed",
-          };
-        }
-      } else if (thread) {
-        if (!threadMatchesExact(nameNorm, thread)) continue;
-      } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+      const size = sizeSpecsOk(nameNorm, parsed, rule, pin);
+      if (size.unconfirmed) {
         return {
           matchType: "size_unconfirmed",
           status: STATUS.NEEDS_REVIEW,
@@ -280,6 +358,7 @@ function classifyProductMatch(requestText, product) {
           mismatchReason: "size_unconfirmed",
         };
       }
+      if (!size.ok) continue;
       const specs = requestedSpecsMatch(nameNorm, parsed, rule);
       if (!specs.ok) {
         return {
@@ -297,20 +376,8 @@ function classifyProductMatch(requestText, product) {
       if (alt === std) continue;
       if (!nameContainsStandard(nameNorm, alt)) continue;
 
-      if (rule?.matchRule === "pin_dimensions") {
-        if (pin) {
-          if (!pinMatchesExact(nameNorm, pin)) continue;
-        } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
-          return {
-            matchType: "size_unconfirmed",
-            status: STATUS.NEEDS_REVIEW,
-            analogOf: null,
-            mismatchReason: "size_unconfirmed",
-          };
-        }
-      } else if (thread) {
-        if (!threadMatchesExact(nameNorm, thread)) continue;
-      } else if (productNameHasUnverifiableDimension(nameNorm, rule)) {
+      const size = sizeSpecsOk(nameNorm, parsed, rule, pin);
+      if (size.unconfirmed) {
         return {
           matchType: "size_unconfirmed",
           status: STATUS.NEEDS_REVIEW,
@@ -318,6 +385,7 @@ function classifyProductMatch(requestText, product) {
           mismatchReason: "size_unconfirmed",
         };
       }
+      if (!size.ok) continue;
 
       const specs = requestedSpecsMatch(nameNorm, parsed, rule);
       if (!specs.ok) {
@@ -347,6 +415,19 @@ function classifyProductMatch(requestText, product) {
         analogOf: null,
       };
     }
+  }
+
+  if (
+    !thread &&
+    parsed.diameter &&
+    !diameterMatches(nameNorm, parsed.diameter) &&
+    (nameNorm.includes(`m `) || /\bm\d/.test(nameNorm) || /\bd\s*\d/.test(nameNorm))
+  ) {
+    return {
+      matchType: "size_mismatch",
+      status: STATUS.ON_ORDER,
+      analogOf: null,
+    };
   }
 
   if (matchedExact) {
@@ -432,6 +513,8 @@ module.exports = {
   STATUS,
   extractStandardNumbers,
   extractThread,
+  extractDiameter,
+  extractPitch,
   extractPinDimensions,
   productNameHasUnverifiableDimension,
   classifyProductMatch,
@@ -442,5 +525,7 @@ module.exports = {
   expandDinNumbersWithEquivalents,
   threadMatchesExact,
   pinMatchesExact,
+  diameterMatches,
+  pitchMatches,
   requestedSpecsMatch,
 };

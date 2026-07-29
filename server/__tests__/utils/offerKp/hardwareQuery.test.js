@@ -29,4 +29,27 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
       "болт",
     ]);
   });
+
+  it("parses washer diameter-only and d-form", () => {
+    expect(parseHardwareQuery("Шайба DIN 433 M 6 оцинк").diameter).toBe("6");
+    expect(parseHardwareQuery("Шайба DIN 433 M 6 оцинк").thread).toBeNull();
+    expect(parseHardwareQuery("Шайба ГОСТ 11872-89 d 45 оцинк").diameter).toBe(
+      "45"
+    );
+  });
+
+  it("parses nut fine pitch M50x1,5 as pitch not length", () => {
+    const p = parseHardwareQuery(
+      "Гайка ГОСТ 11871-88 M 50x1,5 (6 шлицов) оцинк"
+    );
+    expect(p.diameter).toBe("50");
+    expect(p.pitch).toBe("1.5");
+    expect(p.thread).toBeNull();
+  });
+
+  it("keeps bolt MxL as thread length", () => {
+    const p = parseHardwareQuery("Болт DIN 933 M 24x160 10.9 оцинк");
+    expect(p.thread).toEqual({ size: "24", length: "160" });
+    expect(p.pitch).toBeNull();
+  });
 });

@@ -60,12 +60,26 @@ describe("inquiryCompleteness / minimum information", () => {
     expect(r.missing).toEqual([]);
   });
 
-  it("accepts SKU-only line", () => {
+  it("accepts washer with diameter-only (M6 / d45)", () => {
+    expect(
+      assessInquiryCompleteness({
+        raw: "Шайба DIN 433 M 6 оцинк / ГОСТ 10450-78 — 100 шт.",
+      }).ok
+    ).toBe(true);
+    expect(
+      assessInquiryCompleteness({
+        raw: "Шайба ГОСТ 11872-89 d 45 оцинк — 10 шт.",
+      }).ok
+    ).toBe(true);
+  });
+
+  it("accepts nut with fine pitch M50x1,5 (not missing length)", () => {
     const r = assessInquiryCompleteness({
-      raw: "Арт. 011144100100097 — 100 шт",
+      raw: "Гайка ГОСТ 11871-88 M 50x1,5 (6 шлицов) оцинк — 2 шт.",
     });
     expect(r.ok).toBe(true);
-    expect(r.hasSku).toBe(true);
+    expect(r.parsed.pitch).toBe("1.5");
+    expect(r.parsed.thread).toBeNull();
   });
 });
 

@@ -87,12 +87,86 @@ const STANDARD_IMPLIES_TYPE = {
   "11738": "винт",
   "934": "гайка",
   "5915": "гайка",
+  "433": "шайба",
+  "10450": "шайба",
+  "125": "шайба",
+  "11371": "шайба",
+  "7985": "винт",
+  "17473": "винт",
+  "11871": "гайка",
+  "11872": "шайба",
 };
 
 function normalizeForMatch(text) {
+  // Fine pitch first (M50x1,5 / M50x1.5), then integer MxL — otherwise
+  // "M 50x1,5" collapses to "m50x1" and the pitch fraction is lost.
+  // Negative lookahead: do not re-match "m50x1" inside already-normalized "m50x1.5".
   return foldHomoglyphs(
-    normalizeSearchText(text).replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
+    normalizeSearchText(text)
+      .replace(/\bm\s*(\d+)\s*x\s*(\d+)[.,](\d+)/gi, " m$1x$2.$3 ")
+      .replace(/\bm\s*(\d+)\s*x\s*(\d+)(?!\.\d)/gi, " m$1x$2 ")
   );
+}
+
+/**
+ * Decide whether MxN is diameter×length or diameter×pitch.
+ * Nuts: almost always pitch. Decimal second value: always pitch.
+ * Small second vs large diameter (M24x2, M10x1): pitch.
+ */
+function classifyMetricPair(sizeStr, secondStr, productTypes = []) {
+  const size = Number(sizeStr);
+  const second = Number(String(secondStr).replace(",", "."));
+  const isNut = productTypes.includes("гайка");
+  const isWasher = productTypes.includes("шайба");
+  const hasDecimal = /[.,]/.test(String(secondStr));
+
+  // Fine pitch: M50x1,5 / M10x1.25 / M8x1 (second typically ≤ 6).
+  if (hasDecimal || (isNut && second <= 6) || (!isNut && !isWasher && size >= 8 && second <= 6 && second < size / 3)) {
+    return {
+      kind: "pitch",
+      size: sizeStr,
+      pitch: String(secondStr).replace(",", "."),
+    };
+  }
+  // Washers rarely use MxL; keep diameter only.
+  if (isWasher) {
+    return { kind: "diameter", size: sizeStr };
+  }
+  return { kind: "thread", size: sizeStr, length: String(Math.trunc(second)) };
+}
+
+function parseMetricSpecs(normalized, productTypes = []) {
+  let thread = null;
+  let pitch = null;
+  let diameter = null;
+
+  const pitchDec = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+\.\d+)\b/i);
+  if (pitchDec) {
+    diameter = pitchDec[1];
+    pitch = pitchDec[2];
+  } else {
+    const pair = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i);
+    if (pair) {
+      const classified = classifyMetricPair(pair[1], pair[2], productTypes);
+      diameter = classified.size;
+      if (classified.kind === "thread") {
+        thread = { size: classified.size, length: classified.length };
+      } else if (classified.kind === "pitch") {
+        pitch = classified.pitch;
+      }
+    }
+  }
+
+  if (!diameter) {
+    const mOnly = normalized.match(/\bm\s*(\d+)\b/i);
+    if (mOnly) diameter = mOnly[1];
+  }
+  if (!diameter) {
+    const dForm = normalized.match(/\bd\s*(\d+(?:\.\d+)?)\b/i);
+    if (dForm) diameter = dForm[1].replace(",", ".");
+  }
+
+  return { thread, pitch, diameter };
 }
 
 function parseHardwareQuery(message) {
@@ -125,20 +199,6 @@ function parseHardwareQuery(message) {
     };
   }
 
-  let thread = null;
-  const threadMatch =
-    normalized.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i) ||
-    lower.match(/\bm\s*(\d+)\s*[x×]\s*(\d+)/i);
-  if (threadMatch) {
-    thread = { size: threadMatch[1], length: threadMatch[2] };
-  }
-
-  let strengthClass = null;
-  const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
-  if (strengthMatch) strengthClass = strengthMatch[1];
-
-  const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;
-
   const productTypes = [];
   for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
     if (roots.some((r) => lower.includes(r))) productTypes.push(type);
@@ -160,9 +220,19 @@ function parseHardwareQuery(message) {
     }
   }
 
+  const { thread, pitch, diameter } = parseMetricSpecs(normalized, productTypes);
+
+  let strengthClass = null;
+  const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
+  if (strengthMatch) strengthClass = strengthMatch[1];
+
+  const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;
+
   return {
     dinNumbers,
     thread,
+    pitch,
+    diameter,
     dimensions,
     strengthClass,
     coating,
@@ -188,6 +258,13 @@ function extractSearchTerms(message) {
   if (parsed.thread) {
     phrases.push(`m ${parsed.thread.size}x${parsed.thread.length}`);
     phrases.push(`m${parsed.thread.size}x${parsed.thread.length}`);
+  } else if (parsed.diameter) {
+    phrases.push(`m ${parsed.diameter}`);
+    phrases.push(`m${parsed.diameter}`);
+    if (parsed.pitch) {
+      phrases.push(`m${parsed.diameter}x${parsed.pitch}`);
+      phrases.push(`m ${parsed.diameter}x${parsed.pitch}`);
+    }
   }
   if (parsed.dimensions) {
     const { a, b, c } = parsed.dimensions;
@@ -261,6 +338,21 @@ function scoreProduct(product, parsed, terms) {
     if (nameMatchesThread(nameNorm, parsed.thread)) score += 50;
     else if (nameNorm.includes(`m ${parsed.thread.size}`)) score += 15;
     else score -= 20;
+  } else if (parsed.diameter) {
+    const diamRe = new RegExp(
+      `(?:\\bm\\s*${parsed.diameter}(?![0-9])|\\bd\\s*${parsed.diameter}(?![0-9]))`,
+      "i"
+    );
+    if (diamRe.test(nameNorm)) score += 40;
+    else score -= 15;
+    if (parsed.pitch) {
+      const pitchEsc = String(parsed.pitch).replace(".", "[.,]");
+      const pitchRe = new RegExp(
+        `\\bm\\s*${parsed.diameter}\\s*x\\s*${pitchEsc}\\b`,
+        "i"
+      );
+      if (pitchRe.test(nameNorm)) score += 25;
+    }
   }
 
   if (parsed.dimensions) {
@@ -307,6 +399,8 @@ module.exports = {
   PRODUCT_TYPE_ROOTS,
   normalizeForMatch,
   parseHardwareQuery,
+  parseMetricSpecs,
+  classifyMetricPair,
   extractSearchTerms,
   scoreProduct,
   rankProducts,

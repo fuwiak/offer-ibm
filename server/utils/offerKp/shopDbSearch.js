@@ -59,6 +59,7 @@ async function searchByStructuredQuery(parsed, limit) {
     !parsed.dinNumbers.length &&
     !parsed.productTypes.length &&
     !parsed.thread &&
+    !parsed.diameter &&
     !parsed.dimensions
   ) {
     return [];
@@ -92,6 +93,18 @@ async function searchByStructuredQuery(parsed, limit) {
     // are digit-only captures from hardwareQuery.js, safe to interpolate.
     conditions.push(`p.${P.name} REGEXP ?`);
     params.push(`M[[:space:]]*${size}x[[:space:]]*${length}([^0-9]|$)`);
+  } else if (parsed.diameter && parsed.pitch) {
+    const pitch = String(parsed.pitch).replace(".", "[.,]");
+    conditions.push(`p.${P.name} REGEXP ?`);
+    params.push(
+      `M[[:space:]]*${parsed.diameter}x[[:space:]]*${pitch}([^0-9]|$)`
+    );
+  } else if (parsed.diameter) {
+    // Washers / diameter-only: "M 6", "M6", "d 45".
+    conditions.push(`p.${P.name} REGEXP ?`);
+    params.push(
+      `(M[[:space:]]*${parsed.diameter}([^0-9x]|$)|d[[:space:]]*${parsed.diameter}([^0-9]|$))`
+    );
   }
 
   if (parsed.dimensions) {

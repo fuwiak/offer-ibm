@@ -21,14 +21,14 @@ const { getAllowedAnalogs } = require("./standardGraph");
  */
 function buildBlockKeys(queryText) {
   const parsed = parseHardwareQuery(queryText);
-  const thread = extractThread(queryText) || parsed.thread;
+  const thread = parsed.thread;
   const standards = [
     ...new Set(
       (extractStandardNumbers(queryText) || []).flatMap((s) => getAllowedAnalogs(s))
     ),
   ];
   const productTypes = parsed.productTypes || [];
-  const diameter = thread?.size || null;
+  const diameter = thread?.size || parsed.diameter || null;
   const length = thread?.length || null;
 
   const keys = [];
@@ -63,7 +63,7 @@ function candidateBlockKeys(product = {}) {
     }
   }
   const keys = [];
-  const diameter = thread?.size || null;
+  const diameter = thread?.size || parsed.diameter || null;
   const length = thread?.length || null;
   const typeList = types.length ? types : ["*"];
   for (const t of typeList) {
