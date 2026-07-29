@@ -66,8 +66,18 @@ async function searchByStructuredQuery(parsed, limit) {
   }
 
   if (parsed.dinNumbers.length) {
-    const dinParts = parsed.dinNumbers.map(() => `p.${P.name} LIKE ?`);
-    params.push(...parsed.dinNumbers.map((d) => `%${d}%`));
+    const dinParts = [];
+    for (const d of parsed.dinNumbers) {
+      // Short DIN codes (DIN 1, DIN 7) must not LIKE "%1%" — that matches
+      // almost every catalog row. Anchor to the DIN token instead.
+      if (String(d).length <= 2) {
+        dinParts.push(`p.${P.name} REGEXP ?`);
+        params.push(`DIN[[:space:]]*${d}([^0-9]|$)`);
+      } else {
+        dinParts.push(`p.${P.name} LIKE ?`);
+        params.push(`%${d}%`);
+      }
+    }
     conditions.push(`(${dinParts.join(" OR ")})`);
   }
 
@@ -109,15 +119,17 @@ async function searchByStructuredQuery(parsed, limit) {
 
   if (parsed.dimensions) {
     const { a, b, c } = parsed.dimensions;
-    const dimPatterns = [
-      c ? `%${a}x${b}x${c}%` : null,
-      c ? `%${a} x ${b} x ${c}%` : null,
-      `%${a}x${b}%`,
-      `%${a} x ${b}%`,
-    ].filter(Boolean);
-    const dimParts = dimPatterns.map(() => `p.${P.name} LIKE ?`);
-    params.push(...dimPatterns);
-    conditions.push(`(${dimParts.join(" OR ")})`);
+    // Catalog pins use space-padded sizes: "6x 30", "8x 40", "10x 80".
+    // Fixed LIKE "%6x30%" misses those — use flexible whitespace REGEXP.
+    if (c) {
+      conditions.push(`p.${P.name} REGEXP ?`);
+      params.push(
+        `${a}[[:space:]]*x[[:space:]]*${b}[[:space:]]*x[[:space:]]*${c}([^0-9]|$)`
+      );
+    } else {
+      conditions.push(`p.${P.name} REGEXP ?`);
+      params.push(`${a}[[:space:]]*x[[:space:]]*${b}([^0-9]|$)`);
+    }
   }
 
   const sql = `

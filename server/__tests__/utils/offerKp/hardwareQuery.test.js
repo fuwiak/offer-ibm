@@ -52,4 +52,19 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(p.thread).toEqual({ size: "24", length: "160" });
     expect(p.pitch).toBeNull();
   });
+
+  it("parses single-digit DIN 1 and pin DxL dimensions", () => {
+    const p = parseHardwareQuery("штифт DIN 1 4х50 ГОСТ 3129-70 исп.2");
+    expect(p.dinNumbers).toEqual(expect.arrayContaining(["1", "3129"]));
+    expect(p.dimensions).toEqual({ a: "4", b: "50", c: null });
+    expect(p.productTypes).toContain("штифт");
+  });
+
+  it("parses DIN 7978 pin with space-padded size 6x 30", () => {
+    const p = parseHardwareQuery(
+      "Штифт DIN 7978 6x 30 / ГОСТ 9464-79 исп. 1 (25)"
+    );
+    expect(p.dinNumbers).toEqual(expect.arrayContaining(["7978", "9464"]));
+    expect(p.dimensions).toEqual({ a: "6", b: "30", c: null });
+  });
 });

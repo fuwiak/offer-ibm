@@ -10,8 +10,14 @@ const { parseHardwareQuery } = require("./hardwareQuery");
 const SKU_RE =
   /(?:арт\.?|art\.?|sku)\s*[:№#-]?\s*([0-9]{6,})|\b([0-9]{9,})\b/i;
 
-/** Product types that need MxL (length), not just diameter. */
-const LENGTH_REQUIRED_TYPES = new Set(["болт", "винт", "анкер", "штифт"]);
+/** Product types that need diameter×length (thread or pin dimensions). */
+const LENGTH_REQUIRED_TYPES = new Set([
+  "болт",
+  "винт",
+  "анкер",
+  "штифт",
+  "шпилька",
+]);
 
 /**
  * @param {{ raw?: string, name?: string, thread?: object|null }} inquiryLine
@@ -28,8 +34,14 @@ function assessInquiryCompleteness(inquiryLine = {}) {
   const skuMatch = text.match(SKU_RE);
   const hasSku = !!(skuMatch && (skuMatch[1] || skuMatch[2]));
   const hasThread = !!(parsed.thread || inquiryLine.thread);
-  const hasDiameter = !!(parsed.diameter || parsed.dimensions);
-  const hasSize = hasThread || hasDiameter;
+  // Pin / bar stock "6x30", "14x32" — both diameter and length.
+  const hasPinDims = !!(
+    parsed.dimensions &&
+    parsed.dimensions.a &&
+    parsed.dimensions.b
+  );
+  const hasDiameter = !!(parsed.diameter || hasPinDims);
+  const hasSize = hasThread || hasDiameter || hasPinDims;
   const hasStandard = !!(parsed.dinNumbers || []).length;
   const hasType = !!(parsed.productTypes || []).length;
 
@@ -41,7 +53,9 @@ function assessInquiryCompleteness(inquiryLine = {}) {
   const looksLikeFastener =
     hasType ||
     hasStandard ||
-    /\b(болт|гайк|винт|шайб|анкер|bolt|nut|screw|washer)\b/i.test(text);
+    /\b(болт|гайк|винт|шайб|анкер|штифт|шпильк|рым|bolt|nut|screw|washer|pin)\b/i.test(
+      text
+    );
 
   if (looksLikeFastener && !hasSize) {
     missing.push("size");
@@ -52,17 +66,18 @@ function assessInquiryCompleteness(inquiryLine = {}) {
     missing.push("product_signal");
   }
 
-  // Bolts/screws/anchors: diameter alone (M10 without length) is underspecified.
-  // Nuts/washers: diameter (M6 / d45) is enough.
+  // Bolts/screws/pins: diameter alone (M10 / bare number) without length is
+  // underspecified. Pin DxL dimensions (6x30) already include length.
   const needsLength =
     (parsed.productTypes || []).some((t) => LENGTH_REQUIRED_TYPES.has(t)) ||
     (!hasType &&
-      /\b(болт|винт|анкер|штифт|bolt|screw|anchor|pin)\b/i.test(text));
+      /\b(болт|винт|анкер|штифт|шпильк|bolt|screw|anchor|pin)\b/i.test(text));
 
   if (
     looksLikeFastener &&
     needsLength &&
     !hasThread &&
+    !hasPinDims &&
     hasDiameter &&
     !parsed.pitch
   ) {

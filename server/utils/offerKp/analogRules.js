@@ -74,6 +74,20 @@ const ANALOG_RULES = [
     matchRule: "thread_coating_strength",
     label: "DIN 7985 → ГОСТ 17473-80",
   },
+  {
+    din: "7978",
+    analogs: ["9464"],
+    productType: "штифт",
+    matchRule: "pin_dimensions",
+    label: "DIN 7978 → ГОСТ 9464-79",
+  },
+  {
+    din: "1",
+    analogs: ["3129"],
+    productType: "штифт",
+    matchRule: "pin_dimensions",
+    label: "DIN 1 → ГОСТ 3129-70",
+  },
 ];
 
 const STATUS = {
@@ -85,7 +99,7 @@ const STATUS = {
 };
 
 const GOST_STANDARD_RE = /(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi;
-const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{3,5})\b/gi;
+const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{1,5})\b/gi;
 
 function extractStandardNumbers(text) {
   const raw = String(text || "");

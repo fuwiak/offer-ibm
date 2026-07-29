@@ -73,6 +73,19 @@ describe("inquiryCompleteness / minimum information", () => {
     ).toBe(true);
   });
 
+  it("accepts pin DxL dimensions (no M-prefix) as complete size+length", () => {
+    expect(
+      assessInquiryCompleteness({
+        raw: "Штифт DIN 7978 6x 30 / ГОСТ 9464-79 исп. 1 (25) кол-во 20шт",
+      }).ok
+    ).toBe(true);
+    expect(
+      assessInquiryCompleteness({
+        raw: "штифт DIN 1 4х50 ГОСТ 3129-70 исп.2 кол-во 100шт.",
+      }).ok
+    ).toBe(true);
+  });
+
   it("strips Telegram date/login chrome and keeps product lines", () => {
     const {
       stripMessengerExportNoise,

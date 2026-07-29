@@ -100,6 +100,10 @@ const STANDARD_IMPLIES_TYPE = {
   "975": "шпилька",
   "6325": "штифт",
   "7": "штифт",
+  "1": "штифт",
+  "7978": "штифт",
+  "9464": "штифт",
+  "3129": "штифт",
   "127": "шайба",
   "580": "рым-болт",
   "4751": "рым-болт",
@@ -188,7 +192,7 @@ function parseHardwareQuery(message) {
   const normalized = normalizeForMatch(raw);
 
   const dinNumbers = [];
-  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,5})\b/gi)) {
+  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{1,5})\b/gi)) {
     if (!dinNumbers.includes(m[1])) dinNumbers.push(m[1]);
   }
   for (const m of raw.matchAll(/(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi)) {
