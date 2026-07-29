@@ -188,4 +188,31 @@ describe("parseInquiry PDF/OCR extraction", () => {
       expect.arrayContaining(["931", "933"])
     );
   });
+
+  it("extracts ISO/ИСО standards and merges bare qty lines", () => {
+    const text = [
+      "Винт M6х20 ГОСТ Р ИСО 1207-2013 — 500 шт",
+      "Гайка шестигранная нормальная самостопорящаяся М24-5 ГОСТ ISO 7040-2014",
+      "28200",
+      "Гайка шестигранная высокая самостопорящаяся М16-8-АЗР ГОСТ ISO 7042",
+      "71200",
+    ].join("\n");
+    const lines = parseInquiryText(text);
+    expect(lines).toHaveLength(3);
+    expect(lines[0].dinNumbers).toContain("1207");
+    expect(lines[0].quantity).toBe(500);
+    expect(lines[1].dinNumbers).toContain("7040");
+    expect(lines[1].quantity).toBe(28200);
+    expect(lines[2].dinNumbers).toContain("7042");
+    expect(lines[2].quantity).toBe(71200);
+  });
+
+  it("does not treat ISO year or M24-5 class digits as quantity", () => {
+    const { parseQuantity } = require("../../../utils/offerKp/parseInquiry");
+    expect(
+      parseQuantity(
+        "Гайка шестигранная нормальная самостопорящаяся М24-5 ГОСТ ISO 7040-2014"
+      )
+    ).toBe(1);
+  });
 });

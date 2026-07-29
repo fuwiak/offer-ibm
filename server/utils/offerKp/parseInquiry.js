@@ -307,6 +307,12 @@ function splitInquiryChunks(text) {
 
     if (lineHasHardwareSignals(trimmed)) {
       pushChunk(trimmed);
+      continue;
+    }
+
+    // Bare quantity on its own line (Excel/Word export after product name).
+    if (/^\d{2,7}(?:[.,]\d+)?$/.test(trimmed) && chunks.length > 0) {
+      chunks.push(trimmed);
     }
   }
 
@@ -356,10 +362,37 @@ function isStructuralCatalogNumber(token, raw) {
   const t = String(token || "").trim();
   const text = String(raw || "");
   if (!t || !text) return false;
-  // DIN / ГОСТ / ISO code — never a quantity.
+  // DIN / ГОСТ / ISO / ИСО code — never a quantity.
   if (
     new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])(?:din|гост|gost|iso)\\s*[-№]?\\s*${t}(?:$|[^\\p{L}\\p{N}])`,
+      `(?:^|[^\\p{L}\\p{N}])(?:din|гост|gost|iso|исо)\\s*[-№]?\\s*${t}(?:$|[^\\p{L}\\p{N}])`,
+      "iu"
+    ).test(text)
+  ) {
+    return true;
+  }
+  // Year suffix on standard: ISO 7040-2014 / ГОСТ 24296-93.
+  if (
+    /^\d{4}$/.test(t) &&
+    new RegExp(
+      `(?:din|гост|gost|iso|исо)\\s*\\d{3,5}\\s*[-–—]\\s*${t}\\b`,
+      "iu"
+    ).test(text)
+  ) {
+    return true;
+  }
+  // Nut/bolt size class: М24-5 / М16-8 — diameter before dash is not qty.
+  if (
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])[mм]\\s*${t}\\s*[-–—]\\s*\\d`, "iu").test(
+      text
+    )
+  ) {
+    return true;
+  }
+  // Nut property class / strength tail: М24-5, М16-8-АЗР (not quantity).
+  if (
+    new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])[mм]\\s*\\d+(?:[.,]\\d+)?\\s*[-–—]\\s*${t}(?:$|[^\\p{L}\\p{N}])`,
       "iu"
     ).test(text)
   ) {
@@ -367,15 +400,9 @@ function isStructuralCatalogNumber(token, raw) {
   }
   // Thread diameter or length in MxL / DxL (Latin/Cyrillic M and x).
   if (
-    new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])[mм]\\s*${t}\\s*[xх×]`,
-      "iu"
-    ).test(text) ||
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])[mм]\\s*${t}\\s*[xх×]`, "iu").test(text) ||
     new RegExp(`[xх×]\\s*${t}(?:$|[^\\p{L}\\p{N}])`, "iu").test(text) ||
-    new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])${t}\\s*[xх×]\\s*\\d`,
-      "iu"
-    ).test(text)
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])${t}\\s*[xх×]\\s*\\d`, "iu").test(text)
   ) {
     return true;
   }
@@ -494,7 +521,28 @@ function parseInquiryText(text) {
     return single ? [single] : [];
   }
 
-  return chunks.map(parseInquiryLine).filter(Boolean);
+  // Merge bare qty lines onto previous position:
+  //   Гайка … ГОСТ ISO 7040-2014
+  //   28200
+  const merged = [];
+  for (const chunk of chunks) {
+    const bareQty = String(chunk || "")
+      .trim()
+      .match(/^(\d{2,7})$/);
+    if (bareQty && merged.length) {
+      const prev = merged[merged.length - 1];
+      const n = Number(bareQty[1]);
+      // Prefer dedicated qty line over year/class digits misread as qty.
+      if (Number.isFinite(n) && n > 0) {
+        prev.quantity = normalizeInquiryQuantity(n, prev.unit || "шт");
+        prev.raw = `${prev.raw} ${bareQty[1]}`.trim();
+      }
+      continue;
+    }
+    const line = parseInquiryLine(chunk);
+    if (line) merged.push(line);
+  }
+  return merged;
 }
 
 module.exports = {

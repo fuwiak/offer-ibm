@@ -7,7 +7,11 @@
 const { getLLMProviderWithFallback } = require("../helpers");
 const shopDbLog = require("./shopDbLog");
 const { OFFER_KP_DB_SEARCH_AGENT_PROMPT } = require("./prompts");
-const { expandSearchTerms } = require("./textNormalize");
+const {
+  expandSearchTerms,
+  foldHomoglyphs,
+  normalizeSearchText,
+} = require("./textNormalize");
 const { searchByNameSimilarity } = require("./nameSimilarity");
 const {
   retrieveFewShotExamples,
@@ -19,6 +23,10 @@ const {
 } = require("./knowledgeBase");
 const { detectAnalogIntent } = require("./analogRules");
 const { query } = require("./db/client");
+const {
+  resilientCall,
+  getCircuitBreaker,
+} = require("./connectors/resilientCall");
 const {
   TABLES,
   PRODUCT_COLUMNS: P,
@@ -90,12 +98,11 @@ function shopDbSearchAgentLlmEnabled() {
 }
 
 function normalizeForMatch(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/×/g, "x")
-    .replace(/\s+/g, " ")
-    .replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
-    .trim();
+  return foldHomoglyphs(
+    normalizeSearchText(text)
+      .replace(/×/g, "x")
+      .replace(/\bm\s*(\d+)\s*x\s*(\d+)/gi, " m$1x$2 ")
+  );
 }
 
 function sqlLimit(limit) {
@@ -108,16 +115,28 @@ function parseExtendedHardwareQuery(message) {
   const normalized = normalizeForMatch(raw);
 
   const standardNumbers = [];
+  const pushStd = (n) => {
+    const v = String(n || "").trim();
+    if (v && !standardNumbers.includes(v)) standardNumbers.push(v);
+  };
   for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,5})\b/gi)) {
-    if (!standardNumbers.includes(m[1])) standardNumbers.push(m[1]);
+    pushStd(m[1]);
   }
-  for (const m of raw.matchAll(/(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi)) {
-    const g = m[1];
-    if (!standardNumbers.includes(g)) standardNumbers.push(g);
+  for (const m of raw.matchAll(
+    /(?:gost|гост)\s*(?:р(?:ф)?\s+)?(?!исо\b|iso\b)[- ]?\s*(\d{4,5})/gi
+  )) {
+    pushStd(m[1]);
+  }
+  for (const m of raw.matchAll(
+    /(?:(?:gost|гост)\s*(?:р(?:ф)?\s*)?)?(?:исо|iso)\s*[- ]?\s*(\d{3,5})\b/gi
+  )) {
+    pushStd(m[1]);
+  }
+  for (const m of raw.matchAll(/(?:исо|iso)\s*[- ]?\s*(\d{3,5})\s*[-–—]/gi)) {
+    pushStd(m[1]);
   }
   for (const m of raw.matchAll(/\b(\d{4,5})\s*[-–]\s*\d{2}\b/g)) {
-    const g = m[1];
-    if (!standardNumbers.includes(g)) standardNumbers.push(g);
+    pushStd(m[1]);
   }
 
   let thread = null;
@@ -293,7 +312,22 @@ function mapSearchRows(rows, matchSource) {
 }
 
 async function searchByFuzzyRegex(searchText, parsed, limit) {
-  const terms = extractFuzzyTerms(searchText, parsed);
+  // Prefer structured signals — long free-text OR-chains (винт + many words)
+  // scan the whole catalog and stall multi-line matching on line 2+.
+  let terms = extractFuzzyTerms(searchText, parsed);
+  if (parsed?.standardNumbers?.length || parsed?.thread) {
+    const prioritized = terms.filter(
+      (t) =>
+        (parsed.standardNumbers || []).includes(t) ||
+        /^m\s*\d/i.test(t) ||
+        /^\d+x\d+$/i.test(t) ||
+        Object.values(EXT_PRODUCT_TYPE_ROOTS).some((roots) => roots[0] === t)
+    );
+    if (prioritized.length) terms = prioritized.slice(0, 6);
+    else terms = terms.slice(0, 6);
+  } else {
+    terms = terms.slice(0, 5);
+  }
   if (!terms.length && !parsed?.thread) return [];
 
   const params = [];
@@ -334,8 +368,32 @@ async function searchByFuzzyRegex(searchText, parsed, limit) {
     LIMIT ${sqlLimit(limit)}
   `;
 
-  const rows = await query(sql, params);
-  return mapSearchRows(rows, "fuzzy_regex");
+  const timeoutMs = Math.min(
+    12000,
+    Math.max(2000, parseInt(process.env.SHOP_DB_FUZZY_TIMEOUT_MS, 10) || 8000)
+  );
+  try {
+    const rows = await resilientCall(() => query(sql, params), {
+      name: "shopdb.fuzzy_regex",
+      timeoutMs,
+      retries: 0,
+      circuit: getCircuitBreaker("shopdb.fuzzy", {
+        failureThreshold: 4,
+        cooldownMs: 20_000,
+      }),
+      fallback: async () => [],
+      onLog: (event) => {
+        if (event.event === "ok") return;
+        shopDbLog.warn("fuzzy_regex resilient", event);
+      },
+    });
+    return mapSearchRows(rows || [], "fuzzy_regex");
+  } catch (err) {
+    shopDbLog.warn("fuzzy_regex failed", {
+      error: err?.message || String(err),
+    });
+    return [];
+  }
 }
 
 async function fetchLlmCandidatePool(searchText, parsed, limit) {

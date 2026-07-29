@@ -67,4 +67,25 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(p.dinNumbers).toEqual(expect.arrayContaining(["7978", "9464"]));
     expect(p.dimensions).toEqual({ a: "6", b: "30", c: null });
   });
+
+  it("extracts ISO / ГОСТ Р ИСО numbers into dinNumbers", () => {
+    expect(
+      parseHardwareQuery("Винт M6x20 ГОСТ Р ИСО 1207-2013").dinNumbers
+    ).toContain("1207");
+    expect(
+      parseHardwareQuery("Гайка М24 ГОСТ ISO 7040-2014").dinNumbers
+    ).toContain("7040");
+    expect(
+      parseHardwareQuery(
+        "Винт ГОСТ Р ИСО 10642-M5x16-12.9"
+      ).dinNumbers
+    ).toContain("10642");
+  });
+
+  it("parses decimal metric diameter M2,5x10", () => {
+    const p = parseHardwareQuery("Винт ИСО 7045 М2,5 х 10 – 4.8");
+    expect(p.dinNumbers).toContain("7045");
+    expect(p.thread).toEqual({ size: "2.5", length: "10" });
+    expect(p.productTypes).toEqual(["винт"]);
+  });
 });

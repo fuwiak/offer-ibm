@@ -157,23 +157,39 @@ function parseMetricSpecs(normalized, productTypes = []) {
   let pitch = null;
   let diameter = null;
 
-  const pitchDec = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+\.\d+)\b/i);
-  if (pitchDec) {
-    diameter = pitchDec[1];
-    pitch = pitchDec[2];
+  // Decimal diameter first: M2,5x8 / M1.6x6 (RFQ often uses comma).
+  const decimalThread = normalized.match(
+    /\bm\s*(\d+[.,]\d+)\s*x\s*(\d+(?:[.,]\d+)?)\b/i
+  );
+  if (decimalThread) {
+    diameter = decimalThread[1].replace(",", ".");
+    thread = {
+      size: diameter,
+      length: String(decimalThread[2]).replace(",", "."),
+    };
   } else {
-    const pair = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i);
-    if (pair) {
-      const classified = classifyMetricPair(pair[1], pair[2], productTypes);
-      diameter = classified.size;
-      if (classified.kind === "thread") {
-        thread = { size: classified.size, length: classified.length };
-      } else if (classified.kind === "pitch") {
-        pitch = classified.pitch;
+    const pitchDec = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+\.\d+)\b/i);
+    if (pitchDec) {
+      diameter = pitchDec[1];
+      pitch = pitchDec[2];
+    } else {
+      const pair = normalized.match(/\bm\s*(\d+)\s*x\s*(\d+)\b/i);
+      if (pair) {
+        const classified = classifyMetricPair(pair[1], pair[2], productTypes);
+        diameter = classified.size;
+        if (classified.kind === "thread") {
+          thread = { size: classified.size, length: classified.length };
+        } else if (classified.kind === "pitch") {
+          pitch = classified.pitch;
+        }
       }
     }
   }
 
+  if (!diameter) {
+    const mDec = normalized.match(/\bm\s*(\d+[.,]\d+)\b/i);
+    if (mDec) diameter = mDec[1].replace(",", ".");
+  }
   if (!diameter) {
     const mOnly = normalized.match(/\bm\s*(\d+)\b/i);
     if (mOnly) diameter = mOnly[1];
@@ -192,16 +208,31 @@ function parseHardwareQuery(message) {
   const normalized = normalizeForMatch(raw);
 
   const dinNumbers = [];
+  const pushStd = (n) => {
+    const v = String(n || "").trim();
+    if (v && !dinNumbers.includes(v)) dinNumbers.push(v);
+  };
   for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{1,5})\b/gi)) {
-    if (!dinNumbers.includes(m[1])) dinNumbers.push(m[1]);
+    pushStd(m[1]);
   }
-  for (const m of raw.matchAll(/(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi)) {
-    const g = m[1];
-    if (!dinNumbers.includes(g)) dinNumbers.push(g);
+  // ГОСТ 7805 / ГОСТ Р 7805 — but not «ГОСТ Р ИСО 1207» (handled below).
+  for (const m of raw.matchAll(
+    /(?:gost|гост)\s*(?:р(?:ф)?\s+)?(?!исо\b|iso\b)[- ]?\s*(\d{4,5})/gi
+  )) {
+    pushStd(m[1]);
+  }
+  // ISO / ИСО / ГОСТ Р ИСО / ГОСТ ISO — RFQ often has only ISO, no DIN.
+  for (const m of raw.matchAll(
+    /(?:(?:gost|гост)\s*(?:р(?:ф)?\s*)?)?(?:исо|iso)\s*[- ]?\s*(\d{3,5})\b/gi
+  )) {
+    pushStd(m[1]);
+  }
+  // Glued form: ИСО 10642-M5x16 / ISO7045
+  for (const m of raw.matchAll(/(?:исо|iso)\s*[- ]?\s*(\d{3,5})\s*[-–—]/gi)) {
+    pushStd(m[1]);
   }
   for (const m of raw.matchAll(/\b(\d{4,5})\s*[-–]\s*\d{2}\b/g)) {
-    const g = m[1];
-    if (!dinNumbers.includes(g)) dinNumbers.push(g);
+    pushStd(m[1]);
   }
 
   let dimensions = null;
@@ -218,7 +249,17 @@ function parseHardwareQuery(message) {
 
   const productTypes = [];
   for (const [type, roots] of Object.entries(PRODUCT_TYPE_ROOTS)) {
-    if (roots.some((r) => lower.includes(r))) productTypes.push(type);
+    if (
+      roots.some((r) => {
+        // Avoid false «круг» inside «скругленной головкой».
+        if (r === "круг") {
+          return /(?:^|[^\p{L}])круг(?:[^\p{L}]|$)/iu.test(lower);
+        }
+        return lower.includes(r);
+      })
+    ) {
+      productTypes.push(type);
+    }
   }
   // Only fill in the DIN-implied type when the customer named no product
   // type at all ("DIN 933 M10x80" with nothing else) — that's an aid to
