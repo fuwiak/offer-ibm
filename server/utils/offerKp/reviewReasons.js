@@ -17,6 +17,10 @@ const REVIEW_REASONS = Object.freeze({
   RETRIEVER_DISAGREEMENT: "retriever_disagreement",
   MATCH_ERROR: "match_error",
   GOLDEN_NONE: "golden_none",
+  OUT_OF_DISTRIBUTION: "out_of_distribution",
+  LOW_CONFIDENCE: "low_confidence",
+  HARD_CONSTRAINT: "hard_constraint",
+  SELECTIVE_REJECT: "selective_reject",
 });
 
 /**
@@ -38,6 +42,14 @@ function resolveReviewReason(input = {}) {
   if (input.goldenNone) return REVIEW_REASONS.GOLDEN_NONE;
   if (input.underspecified) return REVIEW_REASONS.UNDERSPECIFIED;
   if (input.retrieverDisagreement) return REVIEW_REASONS.RETRIEVER_DISAGREEMENT;
+  if (input.outOfDistribution) return REVIEW_REASONS.OUT_OF_DISTRIBUTION;
+  if (input.hardConstraint) return REVIEW_REASONS.HARD_CONSTRAINT;
+  if (input.selectiveReject) {
+    if (input.gateReason === "low_ltr_margin" || input.gateReason === "low_bayes") {
+      return REVIEW_REASONS.LOW_CONFIDENCE;
+    }
+    return REVIEW_REASONS.SELECTIVE_REJECT;
+  }
   if (input.unitNeedsRecalc) return REVIEW_REASONS.UNIT_RECALC;
 
   const mismatch = input.mismatchReason || null;

@@ -48,6 +48,7 @@ B2B-система формирования **коммерческих пред�
 | Few-shot | `goldenFewShot.js` | Похожие примеры в промпт LLM-fallback |
 | Embedding rerank | `embeddingSimilarity.js` | CPU e5-small поверх TF-IDF кандидатов |
 | Cross-encoder | `crossEncoderRerank.js` | Опционально, **выкл. по умолчанию** (`SHOP_DB_RERANKER_ENABLED=0`) |
+| Matching stack | `matching/` | Blocking → constraints → LTR features → Bayes → selective/cost gates → conformal set → anomaly → active learning (`OFFER_KP_MATCH_ENRICHMENT=0` отключает) |
 | Knowledge MD | `knowledge/*.md` + `knowledgeBase.js` | Правила DIN↔ГОСТ / прочность-покрытие в LLM-fallback |
 | Метрики | `searchMetrics.js` + `offerkp metrics` | JSONL качества matching в проде |
 | Правки UI | `QuoteDraftTable` / logCorrections | Оператор правит строки и покупателя |
@@ -81,6 +82,7 @@ B2B-система формирования **коммерческих пред�
 server/utils/offerKp/          # домен КП
   intentRouter.js, intentLlmJudge.js
   parseInquiry.js, matchInquiryLines.js
+  matching/                    # ER+constraints+LTR+selective+AL (CPU)
   nameSimilarity.js, shopDbSearch.js, embeddingSimilarity.js
   goldenCorrections.js, goldenFewShot.js, knowledgeBase.js
   offerKpVisionOcr.js, offerKpModelPipeline.js
@@ -92,6 +94,7 @@ test_files/                    # golden set
 cli/                           # offerkp TUI (status, logs, cicd, metrics)
 AUDYT.md                       # живой аудит решений
 ```
+
 
 ---
 

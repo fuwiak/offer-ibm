@@ -17,6 +17,11 @@ const { findGoldenCorrection } = require("./goldenCorrections");
 const { recordSearchMetric } = require("./searchMetrics");
 const { assessInquiryCompleteness } = require("./inquiryCompleteness");
 const { resolveReviewReason } = require("./reviewReasons");
+const { enrichAlternatives, decideMatchGates } = require("./matching");
+
+function matchEnrichmentEnabled() {
+  return process.env.OFFER_KP_MATCH_ENRICHMENT !== "0";
+}
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
@@ -437,7 +442,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const candidates = products.slice(0, 8);
   const retrieverDisagreement = detectRetrieverDisagreement(candidates);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
-  const alternatives = candidates.map((product) => {
+  let alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
     const classification = classifyProductMatch(searchText, {
       ...product,
@@ -463,15 +468,28 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     };
   });
 
+  const underspecifiedSize =
+    !completeness.ok &&
+    (completeness.missing.includes("size") ||
+      completeness.missing.includes("length"));
+
+  let enrichmentMeta = null;
+  if (matchEnrichmentEnabled() && alternatives.length) {
+    const enriched = enrichAlternatives({
+      queryText: searchText,
+      alternatives,
+      products: candidates,
+      matchStrategies,
+    });
+    alternatives = enriched.alternatives;
+    enrichmentMeta = { blocking: enriched.blocking };
+  }
+
   let best = pickBestInquiryAlternative(alternatives);
   // Только exact/analog дают цену и имя из каталога.
   // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
   let accepted =
     best && (best.matchType === "exact" || best.matchType === "analog");
-  const underspecifiedSize =
-    !completeness.ok &&
-    (completeness.missing.includes("size") ||
-      completeness.missing.includes("length"));
   // Minimum-info: never auto-exact/price when critical size/length is missing.
   if (underspecifiedSize && accepted) {
     accepted = false;
@@ -479,6 +497,25 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // Lexical vs embedding top-1 disagree → block automatic exact.
   if (retrieverDisagreement && accepted && best.matchType === "exact") {
     accepted = false;
+  }
+
+  let matchGates = null;
+  if (matchEnrichmentEnabled() && alternatives.length) {
+    matchGates = decideMatchGates({
+      queryText: searchText,
+      alternatives,
+      products: candidates,
+      best,
+      retrieverDisagreement,
+      underspecified: underspecifiedSize,
+      lineTotal: (Number(best?.price) || 0) * (inquiryLine.quantity || 1),
+    });
+    if (enrichmentMeta) enrichmentMeta = { ...enrichmentMeta, ...matchGates };
+    else enrichmentMeta = matchGates;
+
+    if (matchGates.gateRejected && accepted) {
+      accepted = false;
+    }
   }
   const isAnalog = accepted && best.matchType === "analog";
 
@@ -533,10 +570,18 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (underspecifiedSize || retrieverDisagreement) {
     status = STATUS.NEEDS_REVIEW;
   }
+  if (matchGates?.gateRejected || matchGates?.anomaly?.outOfDistribution) {
+    status = STATUS.NEEDS_REVIEW;
+  }
 
   // Статус для таблицы КП (фиксированный словарь из регламента КП).
   let kpStatus;
-  if (underspecifiedSize || retrieverDisagreement) {
+  if (
+    underspecifiedSize ||
+    retrieverDisagreement ||
+    matchGates?.gateRejected ||
+    matchGates?.anomaly?.outOfDistribution
+  ) {
     kpStatus = "Требуется проверка";
   } else if (!accepted) {
     kpStatus = "Нет в базе";
@@ -566,6 +611,16 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (retrieverDisagreement) {
     commentParts.push(
       `Расхождение поиска: lexical=${retrieverDisagreement.lexicalProductId}, embedding=${retrieverDisagreement.embeddingProductId} — требуется подтверждение`
+    );
+  }
+  if (matchGates?.anomaly?.outOfDistribution) {
+    commentParts.push(
+      `Аномалия ввода (${(matchGates.anomaly.reasons || []).join(", ")}) — автосопоставление отключено`
+    );
+  }
+  if (matchGates?.gateRejected && matchGates.gateReason) {
+    commentParts.push(
+      `Селективный отказ (${matchGates.gateReason}) — требуется подтверждение оператора`
     );
   }
   if (isAnalog) {
@@ -623,6 +678,10 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     retrieverDisagreement: !!retrieverDisagreement,
     underspecified: underspecifiedSize,
     goldenNone: !accepted && override?.matchType === "none",
+    outOfDistribution: !!matchGates?.anomaly?.outOfDistribution,
+    hardConstraint: (best?.constraintViolations || []).length > 0 && !accepted,
+    selectiveReject: !!matchGates?.gateRejected && !accepted,
+    gateReason: matchGates?.gateReason || null,
   });
 
   const matchedLine = {
@@ -661,6 +720,13 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     retrievedAt,
     priceSnapshot: hasPrice ? unitPrice : null,
     allowPrice: accepted && hasPrice,
+    // Matching enrichment (constraints / LTR / selective / conformal / AL)
+    anomaly: matchGates?.anomaly || null,
+    conformalSet: matchGates?.conformal || null,
+    activeLearning: matchGates?.activeLearning || null,
+    matchExpert: matchGates?.expert?.id || null,
+    selective: matchGates?.selective || null,
+    blocking: enrichmentMeta?.blocking || null,
   };
   recordSearchMetric({
     matchType: matchedLine.matchType,
