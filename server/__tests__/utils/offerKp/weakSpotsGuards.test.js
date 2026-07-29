@@ -194,11 +194,19 @@ describe("closed candidate set + order invariance", () => {
     );
   });
 
-  it("shuffleCandidates returns a permutation of the same ids", () => {
-    const list = [1, 2, 3, 4, 5].map((id) => ({ id }));
-    const shuffled = shuffleCandidates(list);
-    expect(shuffled.map((p) => p.id).sort()).toEqual([1, 2, 3, 4, 5]);
-    expect(shuffled).not.toBe(list);
+  it("shuffleCandidates returns a stable deterministic order", () => {
+    const list = [
+      { id: 5, _score: 0.1 },
+      { id: 2, _score: 0.9 },
+      { id: 3, _score: 0.9 },
+      { id: 1, _score: 0.5 },
+      { id: 4, _score: 0.1 },
+    ];
+    const a = shuffleCandidates(list);
+    const b = shuffleCandidates(list);
+    expect(a.map((p) => p.id)).toEqual([2, 3, 1, 4, 5]);
+    expect(b.map((p) => p.id)).toEqual(a.map((p) => p.id));
+    expect(a).not.toBe(list);
   });
 });
 

@@ -158,7 +158,7 @@ async function searchByProductFields(terms, limit) {
     LEFT JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
     WHERE p.${P.status} = 1 AND (${clause})
-    ORDER BY p.${P.totalSales} DESC
+    ORDER BY p.${P.totalSales} DESC, p.${P.id} ASC
     LIMIT ${sqlLimit(limit)}
   `;
   const rows = await query(sql, params);
@@ -179,7 +179,7 @@ async function searchBySku(terms, limit) {
     LEFT JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
     WHERE p.${P.status} = 1 AND (${clause})
-    ORDER BY p.${P.totalSales} DESC
+    ORDER BY p.${P.totalSales} DESC, p.${P.id} ASC
     LIMIT ${sqlLimit(limit)}
   `;
   const rows = await query(sql, params);
@@ -199,7 +199,7 @@ async function searchByCategory(terms, limit) {
     INNER JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
     WHERE p.${P.status} = 1 AND (${clause})
-    ORDER BY p.${P.totalSales} DESC
+    ORDER BY p.${P.totalSales} DESC, p.${P.id} ASC
     LIMIT ${sqlLimit(limit)}
   `;
   const rows = await query(sql, params);
@@ -217,7 +217,7 @@ async function searchBySearchIndex(terms, limit) {
     LEFT JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
     WHERE p.${P.status} = 1 AND (${clause})
-    ORDER BY si.weight DESC, p.${P.totalSales} DESC
+    ORDER BY si.weight DESC, p.${P.totalSales} DESC, p.${P.id} ASC
     LIMIT ${sqlLimit(limit)}
   `;
   const rows = await query(sql, params);

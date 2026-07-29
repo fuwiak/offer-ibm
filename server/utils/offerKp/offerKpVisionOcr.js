@@ -14,6 +14,13 @@ const {
   resolvePipelineVisionModel,
   ensurePipelineModelLoaded,
 } = require("./offerKpModelPipeline");
+const {
+  OFFER_KP_DETERMINISTIC_SAMPLING,
+} = require("./deterministicSampling");
+const {
+  RESPONSE_FORMATS,
+  parseOcrLinesPayload,
+} = require("./llmJsonSchema");
 
 /** Legacy plain-text OCR (fallback when JSON parse fails). */
 const VISION_OCR_PROMPT = `Извлеки весь текст с изображения заявки/спецификации.
@@ -27,14 +34,16 @@ const VISION_OCR_PROMPT = `Извлеки весь текст с изображ�
  */
 const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на крепёж. Извлеки ВСЕ позиции с изображения.
 
-Верни ТОЛЬКО компактный JSON-массив (без markdown и рассуждений):
-[["полное наименование",количество_или_null,"шт|кг|м|уп|…"]]
+Верни ТОЛЬКО JSON-объект (без markdown и рассуждений):
+{"lines":[{"source_page":1,"source_row":1,"name_verbatim":"полное наименование","quantity":100,"unit":"шт","confidence":0.97}]}
+
+Допускается также legacy-массив [["наименование",qty,"шт"], ...] если schema недоступна.
 
 Правила:
 - Наименование перепиши дословно целиком: DIN/ГОСТ/размер/покрытие.
 - Количество — только колонка количества; НЕ путай с ценой и размером.
 - Не выдумывай цены, SKU, остатки и ссылки — их нет в твоей роли.
-- Если таблица пуста — верни [].`;
+- Если таблица пуста — верни {"lines":[]}.`;
 
 function lmStudioChatUrl() {
   const base =
@@ -78,13 +87,25 @@ function extractJsonArray(text) {
     .replace(/```json\s*/gi, "")
     .replace(/```/g, "")
     .trim();
+
+  const objStart = cleaned.indexOf("{");
+  const objEnd = cleaned.lastIndexOf("}");
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      const parsed = JSON.parse(cleaned.slice(objStart, objEnd + 1));
+      const lines = parseOcrLinesPayload(parsed);
+      if (lines) return lines;
+    } catch {
+      /* fall through to legacy array */
+    }
+  }
+
   const start = cleaned.indexOf("[");
   const end = cleaned.lastIndexOf("]");
   if (start === -1 || end === -1 || end <= start) return null;
   try {
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    const { parseOcrLinesArray } = require("./llmJsonSchema");
-    return parseOcrLinesArray(parsed);
+    return parseOcrLinesPayload(parsed);
   } catch {
     return null;
   }
@@ -111,7 +132,11 @@ function inquiryTextFromOcrJsonLines(lines = []) {
         return `${index + 1}. ${name}${qtyPart}`;
       }
       const name = String(
-        row.name || row.title || row.наименование || ""
+        row.name_verbatim ||
+          row.name ||
+          row.title ||
+          row.наименование ||
+          ""
       ).trim();
       if (!name) return "";
       const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
@@ -152,46 +177,67 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
   const base64 = imageBuffer.toString("base64");
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
-  const prompt =
-    opts.json !== false ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
+  const useJson = opts.json !== false;
+  const prompt = useJson ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
+
+  const body = {
+    model: resolvedModel,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/png;base64,${base64}`,
+              detail: "high",
+            },
+          },
+        ],
+      },
+    ],
+    temperature: OFFER_KP_DETERMINISTIC_SAMPLING.temperature,
+    top_p: OFFER_KP_DETERMINISTIC_SAMPLING.top_p,
+    seed: OFFER_KP_DETERMINISTIC_SAMPLING.seed,
+    max_tokens: 4096,
+  };
+  if (useJson) {
+    body.response_format = RESPONSE_FORMATS.ocrLines;
+  }
 
   const response = await fetch(endpoint.url, {
     method: "POST",
     headers: endpoint.headers,
-    body: JSON.stringify({
-      model: resolvedModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/png;base64,${base64}`,
-                detail: "high",
-              },
-            },
-          ],
-        },
-      ],
-      temperature: 0,
-      max_tokens: 4096,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(240_000),
   });
 
-  const body = await response.json().catch(() => ({}));
+  const responseBody = await response.json().catch(() => ({}));
   if (!response.ok) {
+    // Constrained schema may be unsupported — retry once without response_format.
+    if (useJson && body.response_format) {
+      delete body.response_format;
+      const retry = await fetch(endpoint.url, {
+        method: "POST",
+        headers: endpoint.headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(240_000),
+      });
+      const retryBody = await retry.json().catch(() => ({}));
+      if (retry.ok) {
+        return String(retryBody?.choices?.[0]?.message?.content || "").trim();
+      }
+    }
     const detail =
-      body?.error?.message ||
-      body?.message ||
+      responseBody?.error?.message ||
+      responseBody?.message ||
       response.statusText ||
       "Vision OCR failed";
     throw new Error(String(detail));
   }
 
-  return String(body?.choices?.[0]?.message?.content || "").trim();
+  return String(responseBody?.choices?.[0]?.message?.content || "").trim();
 }
 
 /**
@@ -241,6 +287,11 @@ async function visionOcrPdf(pdfPath, opts = {}) {
     let raw = await visionOcrImageBuffer(buffer, modelId, { json: true });
     let normalized = normalizeVisionOcrResponse(raw);
 
+    // Prefer a second constrained JSON call over free-text fallback.
+    if (normalized.format !== "json" || !normalized.text) {
+      raw = await visionOcrImageBuffer(buffer, modelId, { json: true });
+      normalized = normalizeVisionOcrResponse(raw);
+    }
     if (normalized.format !== "json" || !normalized.text) {
       raw = await visionOcrImageBuffer(buffer, modelId, { json: false });
       normalized = normalizeVisionOcrResponse(raw);

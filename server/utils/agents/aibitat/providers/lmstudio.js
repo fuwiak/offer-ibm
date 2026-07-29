@@ -18,6 +18,10 @@ const {
   isLmStudioModelLoadError,
   pickLoadedLmStudioFallback,
 } = require("../../../offerKpApp/lmStudioModels");
+const {
+  resolveOfferKpChatSampling,
+  samplingToCompletionParams,
+} = require("../../../offerKp/deterministicSampling");
 
 /**
  * The agent provider for the LMStudio.
@@ -130,11 +134,13 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
 
   async #handleFunctionCallChat({ messages = [] }) {
     await LMStudioLLM.cacheContextWindows();
+    const sampling = samplingToCompletionParams(resolveOfferKpChatSampling());
     return await this.#callWithLoadedFallback(async () =>
       this.client.chat.completions
         .create({
           model: this.model,
           messages,
+          ...sampling,
         })
         .then((result) => {
           if (!result.hasOwnProperty("choices"))
@@ -148,11 +154,13 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
 
   async #handleFunctionCallStream({ messages = [] }) {
     await LMStudioLLM.cacheContextWindows();
+    const sampling = samplingToCompletionParams(resolveOfferKpChatSampling());
     return await this.#callWithLoadedFallback(async () =>
       this.client.chat.completions.create({
         model: this.model,
         stream: true,
         messages,
+        ...sampling,
       })
     );
   }
@@ -183,7 +191,10 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
           messages,
           functions,
           eventHandler,
-          { provider: this }
+          {
+            provider: this,
+            sampling: resolveOfferKpChatSampling(),
+          }
         )
       );
     } catch (error) {
@@ -230,7 +241,10 @@ class LMStudioProvider extends InheritMultiple([Provider, UnTooled]) {
           messages,
           functions,
           this.getCost.bind(this),
-          { provider: this }
+          {
+            provider: this,
+            sampling: resolveOfferKpChatSampling(),
+          }
         )
       );
 

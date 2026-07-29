@@ -100,5 +100,10 @@ describe("quoteIntentJudge", () => {
       expect(parseYesNo("no")).toBe(false);
       expect(parseYesNo("да, нужно КП")).toBe(true);
     });
+
+    it("parses constrained JSON approved flag", () => {
+      expect(parseYesNo('{"approved": true}')).toBe(true);
+      expect(parseYesNo('{"approved": false}')).toBe(false);
+    });
   });
 });

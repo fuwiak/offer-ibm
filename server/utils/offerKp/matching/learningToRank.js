@@ -72,7 +72,11 @@ function rankWithLtr(queryText, alternatives = [], productsById = new Map()) {
       t === "exact" ? 0 : t === "analog" ? 1 : t === "similar" ? 2 : 3;
     const tr = typeRank(a.matchType) - typeRank(b.matchType);
     if (tr !== 0) return tr;
-    return b._ltrScore - a._ltrScore || a._index - b._index;
+    return (
+      b._ltrScore - a._ltrScore ||
+      Number(a.id || a.productId || 0) - Number(b.id || b.productId || 0) ||
+      a._index - b._index
+    );
   });
   return scored;
 }

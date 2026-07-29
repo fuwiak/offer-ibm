@@ -7,9 +7,12 @@ const {
   isOfferKpOcrOnlyModel,
 } = require("../../config/offerKp.models");
 const { coerceToLocalModel } = require("./resolveLlmProvider");
+const {
+  OFFER_KP_DETERMINISTIC_SAMPLING,
+} = require("../offerKp/deterministicSampling");
 
 /**
- * Migrates all workspaces to LM Studio + local model ids.
+ * Migrates all workspaces to LM Studio + local model ids + temp=0.
  */
 async function normalizeOfferKpWorkspaceLlms() {
   const defaultModel = coerceToLocalModel(
@@ -26,6 +29,7 @@ async function normalizeOfferKpWorkspaceLlms() {
       agentProvider: true,
       chatModel: true,
       agentModel: true,
+      openAiTemp: true,
     },
   });
 
@@ -36,6 +40,8 @@ async function normalizeOfferKpWorkspaceLlms() {
         "true"
     ).toLowerCase() !== "false";
 
+  const targetTemp = OFFER_KP_DETERMINISTIC_SAMPLING.temperature;
+
   for (const ws of workspaces) {
     const chatModel = singleModel
       ? defaultModel
@@ -43,6 +49,9 @@ async function normalizeOfferKpWorkspaceLlms() {
     const agentModel = singleModel
       ? defaultModel
       : coerceToLocalModel(ws.agentModel || ws.chatModel || defaultModel);
+
+    const tempNeedsFix =
+      ws.openAiTemp == null || Number(ws.openAiTemp) !== targetTemp;
 
     const needsFix =
       ws.chatProvider !== "lmstudio" ||
@@ -56,7 +65,8 @@ async function normalizeOfferKpWorkspaceLlms() {
       isOfferKpOcrOnlyModel(ws.chatModel) ||
       isOfferKpOcrOnlyModel(ws.agentModel) ||
       ws.chatProvider === "ollama" ||
-      ws.agentProvider === "ollama";
+      ws.agentProvider === "ollama" ||
+      tempNeedsFix;
 
     if (!needsFix) continue;
 
@@ -67,10 +77,11 @@ async function normalizeOfferKpWorkspaceLlms() {
         agentProvider: "lmstudio",
         chatModel,
         agentModel,
+        openAiTemp: targetTemp,
       },
     });
     console.log(
-      `[OFFER_KP-LLM] workspace ${ws.slug} → lmstudio / ${chatModel}`
+      `[OFFER_KP-LLM] workspace ${ws.slug} → lmstudio / ${chatModel} / temp=${targetTemp}`
     );
   }
 }

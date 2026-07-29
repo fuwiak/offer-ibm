@@ -119,10 +119,19 @@ function pickBestInquiryAlternative(alternatives = []) {
     const byPrice = [...candidates].sort((a, b) => {
       const aPrice = positivePrice(a.price);
       const bPrice = positivePrice(b.price);
-      if (!aPrice && !bPrice) return 0;
+      if (!aPrice && !bPrice) {
+        return (
+          String(a.sku || "").localeCompare(String(b.sku || "")) ||
+          Number(a.id || 0) - Number(b.id || 0)
+        );
+      }
       if (!aPrice) return 1;
       if (!bPrice) return -1;
-      return aPrice - bPrice;
+      if (aPrice !== bPrice) return aPrice - bPrice;
+      return (
+        String(a.sku || "").localeCompare(String(b.sku || "")) ||
+        Number(a.id || 0) - Number(b.id || 0)
+      );
     });
     return (
       pickCheaperAmongSimilar(byPrice, {
@@ -170,7 +179,9 @@ function pickBestPricedSku(skus = []) {
     [...candidates].sort((a, b) => {
       const priceDelta = skuPositivePrice(a) - skuPositivePrice(b);
       if (priceDelta) return priceDelta;
-      return (Number(b.count) || 0) - (Number(a.count) || 0);
+      const countDelta = (Number(b.count) || 0) - (Number(a.count) || 0);
+      if (countDelta) return countDelta;
+      return String(a.sku || "").localeCompare(String(b.sku || ""));
     })[0];
 
   const pricedInStock = rows.filter(
@@ -187,7 +198,9 @@ function pickBestPricedSku(skus = []) {
   if (priced.length) return cheapest(priced);
 
   return [...rows].sort(
-    (a, b) => (Number(b.count) || 0) - (Number(a.count) || 0)
+    (a, b) =>
+      (Number(b.count) || 0) - (Number(a.count) || 0) ||
+      String(a.sku || "").localeCompare(String(b.sku || ""))
   )[0];
 }
 
@@ -208,7 +221,7 @@ async function fetchProductStocks(productIds = []) {
             ${S.name} AS sku_name, price, compare_price, count, available
      FROM ${TABLES.productSkus}
      WHERE ${S.productId} IN (${placeholders})
-     ORDER BY ${S.productId}, count DESC`,
+     ORDER BY ${S.productId}, count DESC, ${S.sku} ASC`,
     ids
   );
 
@@ -302,10 +315,14 @@ function detectRetrieverDisagreement(candidates = []) {
   if (scored.length < 2) return null;
 
   const byLex = [...scored].sort(
-    (a, b) => (b._nameSimilarity || 0) - (a._nameSimilarity || 0)
+    (a, b) =>
+      (b._nameSimilarity || 0) - (a._nameSimilarity || 0) ||
+      Number(a.id || 0) - Number(b.id || 0)
   );
   const byEmb = [...scored].sort(
-    (a, b) => (b._embeddingSimilarity || 0) - (a._embeddingSimilarity || 0)
+    (a, b) =>
+      (b._embeddingSimilarity || 0) - (a._embeddingSimilarity || 0) ||
+      Number(a.id || 0) - Number(b.id || 0)
   );
   const lexTop = byLex[0];
   const embTop = byEmb[0];

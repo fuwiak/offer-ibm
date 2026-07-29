@@ -7,6 +7,10 @@ const {
   LLMPerformanceMonitor,
 } = require("../../helpers/chat/LLMPerformanceMonitor");
 const { OpenAI: OpenAIApi } = require("openai");
+const {
+  OFFER_KP_DETERMINISTIC_SAMPLING,
+  samplingToCompletionParams,
+} = require("../../offerKp/deterministicSampling");
 
 //  hybrid of openAi LLM chat completion for LMStudio
 class LMStudioLLM {
@@ -34,7 +38,8 @@ class LMStudioLLM {
     if (!this.model) throw new Error("LMStudio must have a valid model set.");
 
     this.embedder = embedder ?? new NativeEmbedder();
-    this.defaultTemp = 0.7;
+    // OfferKP: creative sampling is unsafe for prices/SKU — default deterministic.
+    this.defaultTemp = OFFER_KP_DETERMINISTIC_SAMPLING.temperature;
 
     // Lazy load the limits to avoid blocking the main thread on cacheContextWindows
     this.limits = null;
@@ -219,17 +224,47 @@ class LMStudioLLM {
     ];
   }
 
-  async getChatCompletion(messages = null, { temperature = 0.7 }) {
+  /**
+   * @param {Array|null} messages
+   * @param {{
+   *   temperature?: number,
+   *   top_p?: number,
+   *   seed?: number,
+   *   response_format?: object,
+   *   max_tokens?: number,
+   *   stop?: string|string[],
+   * }} [opts]
+   */
+  async getChatCompletion(
+    messages = null,
+    {
+      temperature = OFFER_KP_DETERMINISTIC_SAMPLING.temperature,
+      top_p = OFFER_KP_DETERMINISTIC_SAMPLING.top_p,
+      seed = OFFER_KP_DETERMINISTIC_SAMPLING.seed,
+      response_format,
+      max_tokens,
+      stop,
+    } = {}
+  ) {
     if (!this.model)
       throw new Error(
         `LMStudio chat: ${this.model} is not valid or defined model for chat completion!`
       );
 
+    const sampling = samplingToCompletionParams({
+      temperature,
+      top_p,
+      seed,
+      response_format,
+      max_tokens,
+      stop,
+    });
+
     const result = await LLMPerformanceMonitor.measureAsyncFunction(
       this.lmstudio.chat.completions.create({
         model: this.model,
         messages,
-        temperature,
+        ...sampling,
       })
     );
 
@@ -255,18 +290,48 @@ class LMStudioLLM {
     };
   }
 
-  async streamGetChatCompletion(messages = null, { temperature = 0.7 }) {
+  /**
+   * @param {Array|null} messages
+   * @param {{
+   *   temperature?: number,
+   *   top_p?: number,
+   *   seed?: number,
+   *   response_format?: object,
+   *   max_tokens?: number,
+   *   stop?: string|string[],
+   * }} [opts]
+   */
+  async streamGetChatCompletion(
+    messages = null,
+    {
+      temperature = OFFER_KP_DETERMINISTIC_SAMPLING.temperature,
+      top_p = OFFER_KP_DETERMINISTIC_SAMPLING.top_p,
+      seed = OFFER_KP_DETERMINISTIC_SAMPLING.seed,
+      response_format,
+      max_tokens,
+      stop,
+    } = {}
+  ) {
     if (!this.model)
       throw new Error(
         `LMStudio chat: ${this.model} is not valid or defined model for chat completion!`
       );
+
+    const sampling = samplingToCompletionParams({
+      temperature,
+      top_p,
+      seed,
+      response_format,
+      max_tokens,
+      stop,
+    });
 
     const measuredStreamRequest = await LLMPerformanceMonitor.measureStream({
       func: this.lmstudio.chat.completions.create({
         model: this.model,
         stream: true,
         messages,
-        temperature,
+        ...sampling,
       }),
       messages,
       runPromptTokenCalculation: true,

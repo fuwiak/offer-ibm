@@ -20,6 +20,10 @@ const {
   dbStatus,
 } = require("./explorer");
 const { TABLES } = require("./schema");
+const {
+  resolveOfferKpChatSampling,
+} = require("../deterministicSampling");
+const { RESPONSE_FORMATS } = require("../llmJsonSchema");
 
 // Сколько таблиц максимум описываем в промпте схемы.
 const MAX_SCHEMA_TABLES = 14;
@@ -132,9 +136,12 @@ async function generateSql(LLMConnector, schemaText, question) {
       content: `Схема базы:\n${schemaText}\n\nВопрос: ${question}`,
     },
   ];
-  const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-    temperature: 0,
-  });
+  const { textResponse } = await LLMConnector.getChatCompletion(
+    messages,
+    resolveOfferKpChatSampling({
+      response_format: RESPONSE_FORMATS.askSql,
+    })
+  );
   const parsed = extractJsonObject(textResponse);
   if (parsed && typeof parsed.sql === "string") {
     return { sql: parsed.sql.trim(), rationale: parsed.rationale || null };
@@ -168,9 +175,10 @@ async function generateAnswer(LLMConnector, question, sql, result) {
         }):\n${dataBlock}`,
     },
   ];
-  const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-    temperature: 0.2,
-  });
+  const { textResponse } = await LLMConnector.getChatCompletion(
+    messages,
+    resolveOfferKpChatSampling()
+  );
   return String(textResponse || "").trim();
 }
 

@@ -3,6 +3,11 @@ const { isOfferFollowUp } = require("./productSearchAgent");
 const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
+const {
+  offerKpStrictDeterminismEnabled,
+  resolveOfferKpChatSampling,
+} = require("./deterministicSampling");
+const { RESPONSE_FORMATS } = require("./llmJsonSchema");
 
 const QUOTE_FILE_SKILLS = new Set([
   "create-docx-file",
@@ -12,11 +17,12 @@ const QUOTE_FILE_SKILLS = new Set([
 
 const QUOTE_INTENT_LLM_PROMPT = `Ты классификатор намерений для OfferKP (каталог purolat.com).
 Определи, хочет ли пользователь сформировать коммерческое предложение (КП, оферту, ofertę, commercial proposal, quote document) или связанный файл Word/PDF с таблицей позиций и цен.
-Ответь ТОЛЬКО одним словом: yes или no.
-yes — если пользователь просит создать, обновить или переделать КП/оферту/DOCX/PDF с позициями и ценами либо подтверждает такое действие.
-no — если речь о другом документе (отчёт, презентация, письмо, резюме и т.п.) или намерение неясно.`;
+Ответь ТОЛЬКО JSON {"approved": true} или {"approved": false}.
+approved=true — если пользователь просит создать, обновить или переделать КП/оферту/DOCX/PDF с позициями и ценами либо подтверждает такое действие.
+approved=false — если речь о другом документе (отчёт, презентация, письмо, резюме и т.п.) или намерение неясно.`;
 
 function quoteIntentLlmJudgeEnabled() {
+  if (offerKpStrictDeterminismEnabled()) return false;
   if (process.env.OFFER_KP_QUOTE_INTENT_LLM_JUDGE === "false") return false;
   return true;
 }
@@ -109,9 +115,21 @@ function mightNeedLlmQuoteJudge(userMessages = []) {
 }
 
 function parseYesNo(text) {
-  const t = String(text || "")
-    .trim()
-    .toLowerCase();
+  const raw = String(text || "").trim();
+  if (!raw) return false;
+
+  const objStart = raw.indexOf("{");
+  const objEnd = raw.lastIndexOf("}");
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      const parsed = JSON.parse(raw.slice(objStart, objEnd + 1));
+      if (typeof parsed?.approved === "boolean") return parsed.approved;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const t = raw.toLowerCase();
   if (/^(yes|да|tak|true|1)(?:\b|[,\s!?.]|$)/.test(t)) return true;
   if (/^(no|нет|false|0)(?:\b|[,\s!?.]|$)/.test(t)) return false;
   return /\byes\b|\bда\b|\btak\b/.test(t) && !/\bno\b|\bнет\b/.test(t);
@@ -154,9 +172,12 @@ async function detectQuoteCreationIntentWithLlm({
   ];
 
   try {
-    const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-      temperature: 0,
-    });
+    const { textResponse } = await LLMConnector.getChatCompletion(
+      messages,
+      resolveOfferKpChatSampling({
+        response_format: RESPONSE_FORMATS.quoteIntent,
+      })
+    );
     const approved = parseYesNo(textResponse);
     offerKpLog("info", "Quote intent LLM judge", {
       approved,

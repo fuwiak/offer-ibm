@@ -5,6 +5,10 @@
  * itself could not classify confidently (`ambiguous`, confidence 0.55).
  * Confident router categories never pay for this — it only fires on the
  * rare tie-break case, keeping it cheap on the shared GPU.
+ *
+ * Under OFFER_KP_STRICT_DETERMINISM the judge is skipped: ambiguous stays
+ * ambiguous so the UI can ask a clarifying question instead of letting the
+ * LLM authoritatively pick an intent.
  */
 
 const {
@@ -14,6 +18,11 @@ const {
 } = require("./intentRouter");
 const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
+const {
+  offerKpStrictDeterminismEnabled,
+  resolveOfferKpChatSampling,
+} = require("./deterministicSampling");
+const { RESPONSE_FORMATS } = require("./llmJsonSchema");
 
 const JUDGE_CATEGORIES = [
   OFFER_KP_INTENTS.PRODUCT_INQUIRY,
@@ -28,7 +37,7 @@ const JUDGE_CATEGORIES = [
 ];
 
 const INTENT_JUDGE_PROMPT = `Ты классификатор намерений для OfferKP — ассистента по каталогу крепежа purolat.com.
-Детерминированный маршрутизатор не смог уверенно определить категорию сообщения. Выбери ОДНУ наиболее вероятную категорию из списка и ответь ТОЛЬКО её кодом, без пояснений и знаков препинания:
+Детерминированный маршрутизатор не смог уверенно определить категорию сообщения. Выбери ОДНУ наиболее вероятную категорию из списка и ответь ТОЛЬКО JSON {"category":"<код>"} без пояснений:
 product_inquiry — конкретный запрос с параметрами товара (DIN/ГОСТ, размер, количество)
 product_search — просьба найти/подобрать/сравнить товар или аналог
 create_quote — просьба сформировать новое коммерческое предложение (КП)
@@ -41,13 +50,29 @@ out_of_scope — вопрос вне тематики крепежа/КП (по�
 Сообщение может быть на любом языке — язык сам по себе не признак категории. Если сомневаешься — выбери out_of_scope.`;
 
 function intentLlmJudgeEnabled() {
+  if (offerKpStrictDeterminismEnabled()) return false;
   return process.env.OFFER_KP_INTENT_LLM_JUDGE !== "false";
 }
 
 function parseIntentAnswer(text) {
-  const t = String(text || "")
-    .trim()
-    .toLowerCase();
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+
+  const objStart = raw.indexOf("{");
+  const objEnd = raw.lastIndexOf("}");
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      const parsed = JSON.parse(raw.slice(objStart, objEnd + 1));
+      const category = String(parsed?.category || "")
+        .trim()
+        .toLowerCase();
+      if (JUDGE_CATEGORIES.includes(category)) return category;
+    } catch {
+      /* fall through to legacy plain-text parse */
+    }
+  }
+
+  const t = raw.toLowerCase();
   return JUDGE_CATEGORIES.find((c) => t === c || t.startsWith(c)) || null;
 }
 
@@ -70,9 +95,12 @@ async function classifyAmbiguousIntentWithLlm(text, { workspace = null } = {}) {
       { role: "system", content: INTENT_JUDGE_PROMPT },
       { role: "user", content: trimmed.slice(0, 600) },
     ];
-    const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-      temperature: 0,
-    });
+    const { textResponse } = await LLMConnector.getChatCompletion(
+      messages,
+      resolveOfferKpChatSampling({
+        response_format: RESPONSE_FORMATS.intentCategory,
+      })
+    );
     const category = parseIntentAnswer(textResponse);
     offerKpLog("info", "Ambiguous intent LLM judge", {
       category,

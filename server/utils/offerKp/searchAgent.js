@@ -25,6 +25,12 @@ const {
   CATEGORY_COLUMNS: C,
   SKU_COLUMNS: S,
 } = require("./db/schema");
+const {
+  offerKpStrictDeterminismEnabled,
+  resolveOfferKpChatSampling,
+  compareByDeterministicTieBreak,
+} = require("./deterministicSampling");
+const { RESPONSE_FORMATS, parseProductSelectionPayload } = require("./llmJsonSchema");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -72,6 +78,8 @@ function shopDbSearchAgentEnabled() {
 }
 
 function shopDbSearchAgentLlmEnabled() {
+  // Strict determinism: LLM may not pick product/SKU — deterministic scorer only.
+  if (offerKpStrictDeterminismEnabled()) return false;
   const flag = (process.env.SHOP_DB_SEARCH_AGENT_LLM || "0")
     .trim()
     .toLowerCase();
@@ -355,12 +363,24 @@ function parseLlmProductIds(text) {
   const raw = String(text || "").trim();
   if (!raw) return [];
 
-  const { parseProductIdArray } = require("./llmJsonSchema");
+  // Prefer full JSON object from constrained decoding: {"product_ids":[...]}
+  const objStart = raw.indexOf("{");
+  const objEnd = raw.lastIndexOf("}");
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      const parsed = JSON.parse(raw.slice(objStart, objEnd + 1));
+      const ids = parseProductSelectionPayload(parsed);
+      if (ids.length) return ids;
+    } catch {
+      /* fall through */
+    }
+  }
+
   const jsonMatch = raw.match(/\[[\s\S]*?\]/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
-      const ids = parseProductIdArray(parsed);
+      const ids = parseProductSelectionPayload(parsed);
       if (ids.length) return ids;
     } catch {
       /* fall through */
@@ -372,17 +392,20 @@ function parseLlmProductIds(text) {
     const id = parseInt(m[1], 10);
     if (Number.isFinite(id) && id > 0) ids.push(id);
   }
-  return parseProductIdArray(ids);
+  return parseProductSelectionPayload(ids);
 }
 
-/** Fisher–Yates shuffle copy — reduces position bias in LLM candidate lists. */
+/**
+ * Stable candidate order for LLM presentation (no Math.random).
+ * Score desc → id asc so identical inputs always see the same list.
+ */
+function orderCandidatesDeterministically(list = []) {
+  return [...list].sort((a, b) => compareByDeterministicTieBreak(a, b));
+}
+
+/** @deprecated Use orderCandidatesDeterministically — kept for test imports. */
 function shuffleCandidates(list = []) {
-  const arr = [...list];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+  return orderCandidatesDeterministically(list);
 }
 
 /**
@@ -400,6 +423,8 @@ function pickClosedCandidateProducts(candidates, ids) {
         _matchSources: [
           ...new Set([...(product._matchSources || []), "llm_rank"]),
         ],
+        // Advisory vote only — final pick stays with deterministic scorer.
+        _llmVote: true,
       });
     }
   }
@@ -419,10 +444,7 @@ async function pickProductsWithLlm(
     model: workspace?.chatModel || null,
   });
 
-  // Shuffle before presenting to the model so sales-ranked position bias
-  // does not silently prefer the first catalog lines (see metamorphic
-  // candidate-order invariance tests).
-  const presented = shuffleCandidates(candidates).slice(0, 40);
+  const presented = orderCandidatesDeterministically(candidates).slice(0, 40);
   const catalogLines = presented.map((p) => `${p.id}: ${p.name}`).join("\n");
 
   const fewShotExamples = await retrieveFewShotExamples(searchText);
@@ -439,8 +461,9 @@ async function pickProductsWithLlm(
     knowledgeBlock,
     fewShotBlock,
     `Запрос: ${searchText}`,
-    `Кандидаты перечислены без гарантии правильности; порядок случайный — не предпочитай первые строки.`,
+    `Кандидаты отсортированы детерминированно (score → id); не предпочитай строку только из‑за позиции.`,
     `Каталог:\n${catalogLines}`,
+    `Ответь JSON: {"product_ids":[<id>,...]} — только id из списка выше.`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -457,9 +480,12 @@ async function pickProductsWithLlm(
   ];
 
   try {
-    const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-      temperature: 0,
-    });
+    const { textResponse } = await LLMConnector.getChatCompletion(
+      messages,
+      resolveOfferKpChatSampling({
+        response_format: RESPONSE_FORMATS.productSelection,
+      })
+    );
     const ids = parseLlmProductIds(textResponse);
     if (!ids.length) return [];
     return pickClosedCandidateProducts(candidates, ids);
@@ -500,7 +526,12 @@ function rankAgentProducts(products, searchText, parsed) {
       score: scoreFuzzyProduct(p, parsed, searchText),
       index,
     }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(a.p?.id || 0) - Number(b.p?.id || 0) ||
+        a.index - b.index
+    )
     .map((s) => s.p);
 }
 
@@ -593,5 +624,6 @@ module.exports = {
   runShopDbSearchAgent,
   parseLlmProductIds,
   shuffleCandidates,
+  orderCandidatesDeterministically,
   pickClosedCandidateProducts,
 };

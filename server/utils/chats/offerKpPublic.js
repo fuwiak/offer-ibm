@@ -156,9 +156,13 @@ async function streamOfferKpPublicChat(
   appendPublicChatMessage(sessionId, "user", message);
 
   try {
+    const {
+      resolveOfferKpChatSampling,
+    } = require("../offerKp/deterministicSampling");
+    const sampling = resolveOfferKpChatSampling();
     if (LLMConnector.streamingEnabled() !== true) {
       const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-        temperature: workspace.openAiTemp ?? LLMConnector.defaultTemp,
+        ...sampling,
       });
       if (textResponse) {
         appendPublicChatMessage(sessionId, "assistant", textResponse);
@@ -175,7 +179,7 @@ async function streamOfferKpPublicChat(
     }
 
     const stream = await LLMConnector.streamGetChatCompletion(messages, {
-      temperature: workspace.openAiTemp ?? LLMConnector.defaultTemp,
+      ...sampling,
     });
     const assistantText = await handleDefaultStreamResponseV2(
       response,

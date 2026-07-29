@@ -210,7 +210,7 @@ async function tooledStream(
   eventHandler = null,
   options = {}
 ) {
-  const { provider, ...formatOptions } = options;
+  const { provider, sampling = {}, ...formatOptions } = options;
   const startedAt = Date.now();
   let stage = "prepare_request";
   let chunkCount = 0;
@@ -239,6 +239,7 @@ async function tooledStream(
       stream_options: { include_usage: true },
       messages: formattedMessages,
       ...(tools.length > 0 ? { tools } : {}),
+      ...sampling,
     });
     stage = "receive_stream";
 
@@ -381,7 +382,7 @@ async function tooledComplete(
   getCostFn = () => 0,
   options = {}
 ) {
-  const { provider, ...formatOptions } = options;
+  const { provider, sampling = {}, ...formatOptions } = options;
 
   // Auto-reset usage if provider is passed
   if (provider?.resetUsage) {
@@ -398,6 +399,7 @@ async function tooledComplete(
     stream: false,
     messages: formattedMessages,
     ...(tools.length > 0 ? { tools } : {}),
+    ...sampling,
   });
 
   const completion = response.choices[0].message;

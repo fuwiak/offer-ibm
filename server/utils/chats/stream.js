@@ -591,9 +591,10 @@ async function streamChatWithWorkspace(
     console.log(
       `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
     );
+    const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
     const { textResponse, metrics: performanceMetrics } =
       await LLMConnector.getChatCompletion(messages, {
-        temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
+        ...resolveOfferKpChatSampling(),
         user: user,
       });
 
@@ -616,8 +617,9 @@ async function streamChatWithWorkspace(
       metrics,
     });
   } else {
+    const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
     const stream = await LLMConnector.streamGetChatCompletion(messages, {
-      temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
+      ...resolveOfferKpChatSampling(),
       user: user,
     });
     completeText = await LLMConnector.handleStream(response, stream, {

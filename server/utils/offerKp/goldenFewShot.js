@@ -58,7 +58,14 @@ async function retrieveFewShotExamples(searchText) {
         score: similarities.get(goldenCandidateId(ex, i)) || 0,
       }))
       .filter((row) => row.score >= MIN_SIMILARITY)
-      .sort((a, b) => b.score - a.score)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          String(a.ex.sourceName || "").localeCompare(
+            String(b.ex.sourceName || "")
+          ) ||
+          String(a.ex.sku || "").localeCompare(String(b.ex.sku || ""))
+      )
       .slice(0, MAX_EXAMPLES)
       .map((row) => row.ex);
   } catch (error) {

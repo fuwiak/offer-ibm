@@ -13,11 +13,20 @@ const { OFFER_KP_INTENTS } = require("../../../utils/offerKp/intentRouter");
 
 describe("intentLlmJudge", () => {
   const ORIGINAL_ENV = process.env.OFFER_KP_INTENT_LLM_JUDGE;
+  const ORIGINAL_STRICT = process.env.OFFER_KP_STRICT_DETERMINISM;
+
+  beforeEach(() => {
+    // Judge tests need relaxed mode — strict disables LLM judges by design.
+    process.env.OFFER_KP_STRICT_DETERMINISM = "false";
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
     if (ORIGINAL_ENV === undefined) delete process.env.OFFER_KP_INTENT_LLM_JUDGE;
     else process.env.OFFER_KP_INTENT_LLM_JUDGE = ORIGINAL_ENV;
+    if (ORIGINAL_STRICT === undefined)
+      delete process.env.OFFER_KP_STRICT_DETERMINISM;
+    else process.env.OFFER_KP_STRICT_DETERMINISM = ORIGINAL_STRICT;
   });
 
   function mockAnswer(textResponse) {
@@ -30,6 +39,12 @@ describe("intentLlmJudge", () => {
     it("accepts an exact category code", () => {
       expect(parseIntentAnswer("create_quote")).toBe(
         OFFER_KP_INTENTS.CREATE_QUOTE
+      );
+    });
+
+    it("accepts constrained JSON category", () => {
+      expect(parseIntentAnswer('{"category":"product_search"}')).toBe(
+        OFFER_KP_INTENTS.PRODUCT_SEARCH
       );
     });
 
@@ -65,6 +80,14 @@ describe("intentLlmJudge", () => {
       expect(getLLMProviderWithFallback).not.toHaveBeenCalled();
     });
 
+    it("returns null under strict determinism", async () => {
+      process.env.OFFER_KP_STRICT_DETERMINISM = "true";
+      mockAnswer("create_quote");
+      const result = await classifyAmbiguousIntentWithLlm("кп");
+      expect(result).toBeNull();
+      expect(getLLMProviderWithFallback).not.toHaveBeenCalled();
+    });
+
     it("returns null for an empty message without calling the provider", async () => {
       const result = await classifyAmbiguousIntentWithLlm("   ");
       expect(result).toBeNull();
@@ -92,9 +115,18 @@ describe("intentLlmJudge", () => {
       const result = await resolveOfferKpIntent("кп");
       expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.AMBIGUOUS);
     });
+
+    it("keeps ambiguous under strict determinism (no LLM judge)", async () => {
+      process.env.OFFER_KP_STRICT_DETERMINISM = "true";
+      mockAnswer("create_quote");
+      const result = await resolveOfferKpIntent("кп");
+      expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.AMBIGUOUS);
+      expect(getLLMProviderWithFallback).not.toHaveBeenCalled();
+    });
   });
 
-  it("is enabled by default", () => {
+  it("is enabled when strict determinism is off", () => {
+    process.env.OFFER_KP_STRICT_DETERMINISM = "false";
     expect(intentLlmJudgeEnabled()).toBe(true);
   });
 });
