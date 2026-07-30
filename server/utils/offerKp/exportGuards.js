@@ -40,11 +40,13 @@ function assertExportGuards(input = {}) {
     const productId = line.productId ? String(line.productId) : "";
 
     if (unitPrice > 0 && !PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType)) {
-      violations.push({
-        id: "price_without_eligible_match",
-        message: `line[${i}] price=${unitPrice} but matchType=${matchType}`,
-        severity: "error",
-      });
+      if (!line.operatorPriceOverride) {
+        violations.push({
+          id: "price_without_eligible_match",
+          message: `line[${i}] price=${unitPrice} but matchType=${matchType}`,
+          severity: "error",
+        });
+      }
     }
 
     if (unitPrice > 0 && line.allowPrice === false) {

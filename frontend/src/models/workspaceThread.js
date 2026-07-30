@@ -93,7 +93,8 @@ const WorkspaceThread = {
     message,
     handleChat,
     attachments = [],
-    conversationMemory = null
+    conversationMemory = null,
+    quoteDraft = null
   ) {
     const ctrl = new AbortController();
 
@@ -116,6 +117,7 @@ const WorkspaceThread = {
           conversationMemory,
           // Jawny język interfejsu — serwer wybiera źródło prawne (pl → ELI API).
           language: i18n?.language || null,
+          quoteDraft: quoteDraft || null,
         }),
         headers: baseHeaders(),
         signal: ctrl.signal,

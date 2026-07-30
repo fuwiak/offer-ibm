@@ -130,6 +130,7 @@ const Workspace = {
     chatHandler,
     attachments = [],
     conversationMemory = null,
+    quoteDraft = null,
   }) {
     if (!!threadSlug)
       return this.threads.streamChat(
@@ -137,14 +138,16 @@ const Workspace = {
         prompt,
         chatHandler,
         attachments,
-        conversationMemory
+        conversationMemory,
+        quoteDraft
       );
     return this.streamChat(
       { slug: workspaceSlug },
       prompt,
       chatHandler,
       attachments,
-      conversationMemory
+      conversationMemory,
+      quoteDraft
     );
   },
   streamChat: async function (
@@ -152,7 +155,8 @@ const Workspace = {
     message,
     handleChat,
     attachments = [],
-    conversationMemory = null
+    conversationMemory = null,
+    quoteDraft = null
   ) {
     const ctrl = new AbortController();
 
@@ -173,6 +177,7 @@ const Workspace = {
         conversationMemory,
         // Jawny język interfejsu — serwer wybiera źródło prawne (pl → ELI API).
         language: i18n?.language || null,
+        quoteDraft: quoteDraft || null,
       }),
       headers: baseHeaders(),
       signal: ctrl.signal,

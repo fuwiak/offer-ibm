@@ -37,8 +37,113 @@ async function streamChatWithWorkspace(
   // o wyborze źródła prawnego (pl → ELI API, inne → ГАРАНТ) niezależnie od
   // automatycznej detekcji języka treści wiadomości.
   const language = options?.language || null;
+  const clientQuoteDraft = options?.quoteDraft || null;
   const uuid = uuidv4();
   const commandMessage = await grepCommand(message, user);
+
+  // Operator chat edits against the live UI draft (price/qty/customer/remove).
+  // Must run before ShopDB rematch so free-form commands update Сводка, not rebuild it.
+  try {
+    const {
+      looksLikeDraftEdit,
+      applyDraftChatEdits,
+    } = require("../offerKp/draftChatEdit");
+    const draftLines =
+      clientQuoteDraft?.hardwareLines || clientQuoteDraft?.preview?.lines || [];
+    if (
+      Array.isArray(draftLines) &&
+      draftLines.length > 0 &&
+      looksLikeDraftEdit(commandMessage)
+    ) {
+      const vatRate =
+        Number(clientQuoteDraft?.vatRate ?? clientQuoteDraft?.preview?.vatRate) ||
+        0.2;
+      const editResult = applyDraftChatEdits({
+        message: commandMessage,
+        quoteDraft: clientQuoteDraft,
+        vatRate,
+      });
+      if (editResult.ok && editResult.quoteDraft) {
+        writeResponseChunk(response, {
+          uuid,
+          type: "offerKpQuotePanel",
+          content: {
+            documentPanelView: "draftTable",
+            progressStage: "matched",
+            matchedCount: editResult.quoteDraft.hardwareLines?.length || 0,
+            total: editResult.quoteDraft.hardwareLines?.length || 0,
+            lineCount: editResult.quoteDraft.hardwareLines?.length || 0,
+            quoteDraft: {
+              ...editResult.quoteDraft,
+              step: 2,
+              hardwareLines: editResult.quoteDraft.hardwareLines,
+              preview: editResult.quoteDraft.preview,
+            },
+          },
+        });
+        writeResponseChunk(response, {
+          uuid,
+          type: "textResponse",
+          textResponse: editResult.reply,
+          sources: [],
+          attachments,
+          close: true,
+          error: null,
+          metrics: {
+            grounding: "operator_draft_edit",
+            draftEdits: editResult.applied,
+          },
+        });
+        await WorkspaceChats.new({
+          workspaceId: workspace.id,
+          prompt: message,
+          response: {
+            text: editResult.reply,
+            sources: [],
+            type: chatMode,
+            attachments,
+            metrics: {
+              grounding: "operator_draft_edit",
+              draftEdits: editResult.applied,
+            },
+          },
+          threadId: thread?.id || null,
+          include: false,
+          user,
+        });
+        return;
+      }
+      if (editResult.reason === "line_not_found" && editResult.reply) {
+        writeResponseChunk(response, {
+          uuid,
+          type: "textResponse",
+          textResponse: editResult.reply,
+          sources: [],
+          attachments,
+          close: true,
+          error: null,
+          metrics: { grounding: "operator_draft_edit_miss" },
+        });
+        await WorkspaceChats.new({
+          workspaceId: workspace.id,
+          prompt: message,
+          response: {
+            text: editResult.reply,
+            sources: [],
+            type: chatMode,
+            attachments,
+            metrics: { grounding: "operator_draft_edit_miss" },
+          },
+          threadId: thread?.id || null,
+          include: false,
+          user,
+        });
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("[offerKp] draft chat edit:", e?.message || e);
+  }
 
   // Small local models may repeat a catalog block from chat history even when
   // ShopDB enrichment was correctly skipped. Keep casual OfferKP messages out
@@ -480,6 +585,35 @@ async function streamChatWithWorkspace(
       ...metadata,
     });
   });
+
+  // Live UI draft — so the operator can freely ask about / refer to current KP lines
+  // without re-uploading the inquiry. Prices here may include operator overrides.
+  const liveDraftLines =
+    clientQuoteDraft?.hardwareLines || clientQuoteDraft?.preview?.lines || [];
+  if (Array.isArray(liveDraftLines) && liveDraftLines.length) {
+    const draftSummary = liveDraftLines
+      .slice(0, 200)
+      .map((line, index) => {
+        const name =
+          line.requestedName || line.inquiryRaw || line.name || line.productName || "—";
+        const sku = line.article || line.sku || "—";
+        const qty = line.quantity ?? "—";
+        const price =
+          Number(line.unitPriceNet) > 0
+            ? Number(line.unitPriceNet)
+            : Number(line.priceWithVat) > 0
+              ? Number(line.priceWithVat)
+              : "—";
+        const status = line.status || line.kpStatus || "";
+        return `${index + 1}. ${name} | арт. ${sku} | ${qty} | цена ${price} | ${status}`;
+      })
+      .join("\n");
+    contextTexts.push(
+      `=== ТЕКУЩАЯ СВОДКА ПОЗИЦИЙ (черновик КП в UI) ===\n${draftSummary}\n=== КОНЕЦ СВОДКИ ===\n` +
+        `Покупатель: ${clientQuoteDraft?.customer?.name || "—"}. ` +
+        `Для правок цены/кол-ва оператор пишет команду в чат — не выдумывай цены из головы.`
+    );
+  }
 
   const vectorSearchResults =
     !quoteDocumentRequest && embeddingsCount !== 0

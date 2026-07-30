@@ -367,6 +367,18 @@ export default function ChatContainer({
           ),
         attachments,
         conversationMemory: conversationMemory || null,
+        quoteDraft:
+          offerKpMode && offerKp?.quoteDraft?.hardwareLines?.length
+            ? {
+                reference: offerKp.quoteDraft.reference,
+                customer: offerKp.quoteDraft.customer,
+                vatRate: offerKp.quoteDraft.vatRate,
+                hardwareLines: offerKp.quoteDraft.hardwareLines,
+                preview: offerKp.quoteDraft.preview,
+                doc: offerKp.quoteDraft.doc,
+                step: offerKp.quoteDraft.step,
+              }
+            : null,
       });
       return;
     }
