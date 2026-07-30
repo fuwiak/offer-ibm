@@ -610,6 +610,23 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ...stock,
     });
     const isOverrideMatch = overrideProductId === String(product.id);
+    const matchType = isOverrideMatch
+      ? override.matchType
+      : classification.matchType;
+    let status = classification.status;
+    let mismatchReason = classification.mismatchReason || null;
+    let analogOf = classification.analogOf;
+    // Operator-verified golden SKU: keep matchType, drop residual heuristic
+    // mismatch (e.g. 8.8→10.9 analog) so price + chat cards stay eligible.
+    if (isOverrideMatch && (matchType === "exact" || matchType === "analog")) {
+      mismatchReason = null;
+      if (matchType === "analog") {
+        status = STATUS.ANALOG;
+        analogOf = analogOf || inquiryLine.name || searchText;
+      } else if (Number(stock.stockCount) > 0) {
+        status = STATUS.IN_STOCK;
+      }
+    }
     return {
       productId: String(product.id),
       name: product.name,
@@ -617,14 +634,10 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       price: resolvedPrice.price || 0,
       priceSource: resolvedPrice.source || null,
       stockCount: stock.stockCount,
-      // Operator-verified matchType from the golden set wins over the
-      // heuristic classifier; stock-derived status still comes from live data.
-      matchType: isOverrideMatch
-        ? override.matchType
-        : classification.matchType,
-      status: classification.status,
-      analogOf: classification.analogOf,
-      mismatchReason: classification.mismatchReason || null,
+      matchType,
+      status,
+      analogOf,
+      mismatchReason,
       productUrl: buildProductUrl(
         getShopBaseUrl(),
         product.category_url,
@@ -923,6 +936,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     retrieverDisagreement,
     retrievedAt,
     priceSnapshot: hasPrice ? unitPrice : null,
+    priceSource: accepted ? best?.priceSource || null : null,
     allowPrice: accepted && hasPrice,
     // Matching enrichment (constraints / LTR / selective / conformal / AL)
     anomaly: matchGates?.anomaly || null,

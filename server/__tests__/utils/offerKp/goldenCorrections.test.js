@@ -77,6 +77,22 @@ describe("goldenCorrections", () => {
     delete process.env.SHOP_DB_GOLDEN_CORRECTIONS;
   });
 
+  it("findGoldenCorrection matches packed RFQ raw with qty + ordinal noise", () => {
+    // eslint-disable-next-line global-require
+    const {
+      reloadGoldenCorrections,
+      findGoldenCorrection,
+    } = require("../../../utils/offerKp/goldenCorrections");
+    reloadGoldenCorrections();
+    const hit = findGoldenCorrection([
+      "Винт ГОСТ ISO 7380-1-М10х25-8.8 – 1700 шт. 2.",
+      "Винт ГОСТ ISO 7380-1-М10x25-8.8 2.",
+    ]);
+    expect(hit).not.toBeNull();
+    expect(hit.sku).toBe("073801000100025");
+    expect(hit.matchType).toBe("analog");
+  });
+
   it("reloadGoldenCorrections against the real test_files tree does not throw", () => {
     // eslint-disable-next-line global-require
     const { reloadGoldenCorrections } = require("../../../utils/offerKp/goldenCorrections");

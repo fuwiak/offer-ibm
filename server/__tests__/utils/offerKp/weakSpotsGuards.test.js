@@ -122,6 +122,15 @@ describe("reviewReasons", () => {
     expect(
       resolveReviewReason({ accepted: true, hasPrice: true })
     ).toBeNull();
+    // Accepted golden analog must not inherit residual strength_class mismatch.
+    expect(
+      resolveReviewReason({
+        accepted: true,
+        hasPrice: true,
+        mismatchReason: "strength_class",
+        matchType: "analog",
+      })
+    ).toBeNull();
   });
 });
 

@@ -60,22 +60,24 @@ function resolveReviewReason(input = {}) {
   }
   if (input.unitNeedsRecalc) return REVIEW_REASONS.UNIT_RECALC;
 
-  const mismatch = input.mismatchReason || null;
-  if (mismatch === "size_unconfirmed") return REVIEW_REASONS.SIZE_UNCONFIRMED;
-  if (mismatch === "size_mismatch" || input.matchType === "size_mismatch") {
-    return REVIEW_REASONS.SIZE_MISMATCH;
-  }
-  if (
-    mismatch === "product_type" ||
-    mismatch === "coating" ||
-    mismatch === "material" ||
-    mismatch === "strength_class" ||
-    input.matchType === "spec_mismatch"
-  ) {
-    return REVIEW_REASONS.SPEC_MISMATCH;
-  }
-
+  // Spec mismatch reasons only matter when the line was NOT accepted.
+  // Golden analog (8.8→10.9) keeps residual strength_class on the candidate
+  // classifier — must not wipe an accepted priced line in chat/UI.
   if (!input.accepted) {
+    const mismatch = input.mismatchReason || null;
+    if (mismatch === "size_unconfirmed") return REVIEW_REASONS.SIZE_UNCONFIRMED;
+    if (mismatch === "size_mismatch" || input.matchType === "size_mismatch") {
+      return REVIEW_REASONS.SIZE_MISMATCH;
+    }
+    if (
+      mismatch === "product_type" ||
+      mismatch === "coating" ||
+      mismatch === "material" ||
+      mismatch === "strength_class" ||
+      input.matchType === "spec_mismatch"
+    ) {
+      return REVIEW_REASONS.SPEC_MISMATCH;
+    }
     if (input.matchType === "size_unconfirmed")
       return REVIEW_REASONS.SIZE_UNCONFIRMED;
     if (input.matchType === "size_mismatch")

@@ -179,6 +179,18 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines.every((l) => !/Здравствуйте/i.test(l.raw))).toBe(true);
   });
 
+  it("strips next-item ordinal glued after qty in packed RFQ", () => {
+    const text =
+      "Винт ГОСТ ISO 7380-1-М10х25-8.8 – 1700 шт. 2.Винт ГОСТ ISO 7380-1-М8х70-8.8 – 400 шт.";
+    const lines = parseInquiryText(text);
+    expect(lines).toHaveLength(2);
+    expect(lines[0].name).toBe("Винт ГОСТ ISO 7380-1-М10x25-8.8");
+    expect(lines[0].quantity).toBe(1700);
+    expect(lines[1].name).toBe("Винт ГОСТ ISO 7380-1-М8x70-8.8");
+    expect(lines[1].quantity).toBe(400);
+    expect(lines[0].name).not.toMatch(/\d+\.\s*$/);
+  });
+
   it("does not treat DIN codes as quantity on compare questions", () => {
     const { parseQuantity } = require("../../../utils/offerKp/parseInquiry");
     expect(parseQuantity("Сравни болты DIN 931 и DIN 933 М10х50")).toBe(1);

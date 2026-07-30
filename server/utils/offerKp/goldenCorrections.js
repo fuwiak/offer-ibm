@@ -38,6 +38,32 @@ function normalizeKey(text) {
   return normalizeSearchText(foldHomoglyphs(String(text || "")));
 }
 
+/**
+ * Variants of a line that should still hit the same golden row.
+ * Packed RFQs leave "– 1700 шт." / trailing "2." on raw/name; CSV source_name
+ * is the clean product title — try both.
+ */
+function goldenLookupVariants(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  const variants = new Set([raw]);
+  let cur = raw
+    .replace(/^\d+[.)]\s*/u, "")
+    .replace(
+      /\s*[-–—]{1,2}\s*\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|кг|kg)\s*\.?$/iu,
+      ""
+    )
+    .replace(
+      /\s+\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|кг|kg)\s*\.?$/iu,
+      ""
+    )
+    .replace(/\s+\d+[.)]\s*$/u, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (cur) variants.add(cur);
+  return [...variants];
+}
+
 /** Minimal CSV parser: quoted fields may contain commas (mirrors goldenSet.test.js). */
 function parseCsvLine(line) {
   const fields = [];
@@ -178,8 +204,10 @@ function findGoldenCorrection(candidateTexts = []) {
   if (!map.size) return null;
   for (const text of candidateTexts) {
     if (!text) continue;
-    const hit = map.get(normalizeKey(text));
-    if (hit) return hit;
+    for (const variant of goldenLookupVariants(text)) {
+      const hit = map.get(normalizeKey(variant));
+      if (hit) return hit;
+    }
   }
   return null;
 }
@@ -211,4 +239,6 @@ module.exports = {
   isGoldenCorrectionsEnabled: () => CORRECTIONS_ENABLED,
   // Exported for unit tests only — pure parsing, no filesystem discovery.
   parseExpectedCsv,
+  goldenLookupVariants,
+  normalizeKey,
 };

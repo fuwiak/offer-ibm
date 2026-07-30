@@ -247,7 +247,12 @@ function explodePackedHardwareLine(line) {
   for (let i = 0; i < uniqStarts.length; i++) {
     const from = uniqStarts[i];
     const to = i + 1 < uniqStarts.length ? uniqStarts[i + 1] : working.length;
-    const chunk = working.slice(from, to).trim();
+    // "… 1700 шт. 2.Винт …" → first chunk must not keep the next ordinal "2."
+    let chunk = working
+      .slice(from, to)
+      .replace(/\s*\d+[.)]\s*$/u, "")
+      .replace(/^\d+[.)]\s*/u, "")
+      .trim();
     if (chunk.length >= 5) parts.push(chunk);
   }
   return parts.length ? parts : [working];
@@ -481,6 +486,8 @@ function parseInquiryLine(lineText) {
       /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|м|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)\s*$/i,
       ""
     )
+    // Packed RFQ ordinal glued after qty: "… М10х25-8.8 2." → drop "2."
+    .replace(/\s+\d+[.)]\s*$/u, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+[-–—]+\s*$/, "")
     .trim();
