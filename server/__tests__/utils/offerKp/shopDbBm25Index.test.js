@@ -50,12 +50,12 @@ describe("ShopDB BM25F catalog index", () => {
   it("normalizes SKU, standard and MxL into exact technical tokens", () => {
     expect(technicalTokens("ГОСТ 7798 M10×25 SKU 073801000100025")).toEqual(
       expect.arrayContaining([
-        "std:gost:7798",
-        "stdnum:7798",
-        "size:m10x25",
-        "dia:m10",
-        "len:25",
-        "sku:073801000100025",
+        "stdgost7798",
+        "stdnum7798",
+        "sizem10x25",
+        "diam10",
+        "len25",
+        "sku073801000100025",
       ])
     );
   });
@@ -79,6 +79,16 @@ describe("ShopDB BM25F catalog index", () => {
       3
     );
     expect(hits[0].productId).toBe(1);
+  });
+
+  it("does not fuzzy-match a SKU that differs by one digit", () => {
+    const exact = record(1, { skuCodes: ["009755100360002"] });
+    const oneDigitAway = record(2, { skuCodes: ["009755100560002"] });
+    const hits = createBm25Index([oneDigitAway, exact]).search(
+      "009755100360002",
+      5
+    );
+    expect(hits.map((hit) => hit.productId)).toEqual([1]);
   });
 
   it("keeps a 45 compatible + 5 approved analog candidate window", () => {

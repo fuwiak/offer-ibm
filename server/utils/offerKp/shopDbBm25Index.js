@@ -70,7 +70,7 @@ function technicalTokens(value) {
           ? "gost"
           : "iso"
         : match[1];
-    tokens.push(`std:${family}:${match[2]}`, `stdnum:${match[2]}`);
+    tokens.push(`std${family}${match[2]}`, `stdnum${match[2]}`);
   }
 
   for (const match of raw.matchAll(
@@ -80,18 +80,18 @@ function technicalTokens(value) {
     const pitch = match[2] || "";
     const length = match[3];
     tokens.push(
-      `dia:m${diameter}`,
-      `len:${length}`,
-      `size:m${diameter}x${pitch ? `${pitch}x` : ""}${length}`
+      `diam${diameter}`,
+      `len${length}`,
+      `sizem${diameter}x${pitch ? `${pitch}x` : ""}${length}`
     );
-    if (pitch) tokens.push(`pitch:${pitch}`);
+    if (pitch) tokens.push(`pitch${pitch}`);
   }
 
   for (const match of raw.matchAll(/\bm\s*(\d+(?:\.\d+)?)(?![\d.]|\s*x)/giu)) {
-    tokens.push(`dia:m${match[1]}`);
+    tokens.push(`diam${match[1]}`);
   }
   for (const match of raw.matchAll(/\b\d{8,18}\b/g)) {
-    tokens.push(`sku:${match[0]}`);
+    tokens.push(`sku${match[0]}`);
   }
   return tokens;
 }
@@ -169,7 +169,10 @@ function createBm25Index(records = []) {
         term: searchableField(raw),
         properties: Object.keys(FIELD_BOOSTS),
         boost: FIELD_BOOSTS,
-        tolerance: 1,
+        // Technical identifiers are exact. OCR/typo rescue belongs to the
+        // separate dense e5 path; fuzzy BM25 can turn a one-digit SKU or M×L
+        // difference into a false positive.
+        tolerance: 0,
         limit: Math.max(1, Math.min(100, Number(limit) || topK())),
       });
       return result.hits.map((hit) => ({

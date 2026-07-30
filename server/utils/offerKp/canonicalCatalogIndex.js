@@ -84,6 +84,13 @@ function optimizeVectorStoreOnSync() {
   return ["1", "true", "on", "yes"].includes(raw);
 }
 
+function verifyVectorHashesOnSync() {
+  const raw = String(process.env.SHOP_DB_VECTOR_VERIFY_HASHES_ON_SYNC ?? "0")
+    .trim()
+    .toLowerCase();
+  return ["1", "true", "on", "yes"].includes(raw);
+}
+
 function embeddingModel() {
   return (
     String(process.env.SHOP_DB_EMBEDDING_MODEL || "").trim() ||
@@ -304,7 +311,18 @@ async function buildVectorMatrix(
     });
   }
 
-  if (vectorStore && reused.length) {
+  const previousManifest = getCanonicalCatalogManifest();
+  const trustedCompleteVectorStore =
+    previousManifest?.hasVectors === true &&
+    previousManifest?.vectorStore === "lancedb" &&
+    Number(previousManifest?.vectorCount) === records.length &&
+    Number(previous?.meta?.count) === records.length;
+
+  if (
+    vectorStore &&
+    reused.length &&
+    (!trustedCompleteVectorStore || verifyVectorHashesOnSync())
+  ) {
     const stored = new Map(
       (await vectorStore.metadata()).map((row) => [
         Number(row.productId),
@@ -692,6 +710,7 @@ module.exports = {
   denseEnabled,
   denseTopK,
   optimizeVectorStoreOnSync,
+  verifyVectorHashesOnSync,
   indexIsFresh,
   getCanonicalCatalogManifest,
   getCanonicalCatalogRecords,

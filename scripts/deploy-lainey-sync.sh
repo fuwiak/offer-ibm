@@ -207,7 +207,8 @@ for pair in \
   "SHOP_DB_DENSE_RESCUE_TOP_K=10" \
   "SHOP_DB_RRF_COMPATIBLE_LIMIT=45" \
   "SHOP_DB_RRF_ANALOG_LIMIT=5" \
-  "SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC=0"; do
+  "SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC=0" \
+  "SHOP_DB_VECTOR_VERIFY_HASHES_ON_SYNC=0"; do
   key="\${pair%%=*}"
   if grep -q "^\${key}=" "\$ENV_FILE"; then
     sed -i "s|^\${key}=.*|\${pair}|" "\$ENV_FILE"
