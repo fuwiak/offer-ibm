@@ -48,6 +48,7 @@ B2B-система формирования **коммерческих пред�
 | Override | `goldenCorrections.js` + `test_files/*.expected.csv` (`matched_sku`, `match_type`) | Точный нормализованный запрос → SKU до живого поиска |
 | Few-shot | `goldenFewShot.js` | Похожие примеры в промпт LLM-fallback |
 | Embedding rerank | `embeddingSimilarity.js` | CPU e5-small поверх TF-IDF кандидатов |
+| **Catalog dense ANN** | `canonicalCatalogIndex.js` + RRF | Полный каталог → persisted vectors; top-K как независимый источник кандидатов (`SHOP_DB_CATALOG_DENSE`) |
 | Cross-encoder | `crossEncoderRerank.js` | Опционально, **выкл. по умолчанию** (`SHOP_DB_RERANKER_ENABLED=0`) |
 | Matching stack | `matching/` | Blocking → constraints → LTR features → Bayes → selective/cost gates → conformal set → anomaly → active learning (`OFFER_KP_MATCH_ENRICHMENT=0` отключает) |
 | Knowledge MD | `knowledge/*.md` + `knowledgeBase.js` | Правила DIN↔ГОСТ / прочность-покрытие в LLM-fallback |

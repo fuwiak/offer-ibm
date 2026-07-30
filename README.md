@@ -82,10 +82,18 @@ yarn deploy:lainey
 | `OFFER_KP_EXPERIENCE_MEMORY` | namespace-память intent/OCR/matching |
 | `OFFER_KP_MEMORY_EMBEDDING_MODEL` | embedding model OpenRouter для памяти |
 | `SHOP_DB_EMBEDDING_SIMILARITY` | embedding rerank (1/0) |
+| `SHOP_DB_CANONICAL_INDEX` | полный канонический snapshot товаров ShopDB |
+| `SHOP_DB_CATALOG_DENSE` | dense ANN по всему каталогу (persisted vectors, 1/0) |
 | `SHOP_DB_GOLDEN_CORRECTIONS` | override из golden CSV |
 | `SHOP_DB_METRICS_ENABLED` | JSONL метрик matching |
 
 Полный список: `server/.env.example`.
+
+Перестроить snapshot после синхронизации каталога:
+
+```bash
+yarn sync:shopdb-canonical
+```
 
 ---
 

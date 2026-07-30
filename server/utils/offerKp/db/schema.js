@@ -9,6 +9,7 @@ const TABLES = {
   productFeatures: "shop_product_features",
   feature: "shop_feature",
   featureValueVarchar: "shop_feature_values_varchar",
+  featureValueDimension: "shop_feature_values_dimension",
   productSkus: "shop_product_skus",
   searchWord: "shop_search_word",
   searchIndex: "shop_search_index",
@@ -25,6 +26,7 @@ const ENRICH_TABLES = [
   TABLES.productFeatures,
   TABLES.feature,
   TABLES.featureValueVarchar,
+  TABLES.featureValueDimension,
 ];
 
 const PRODUCT_COLUMNS = {
@@ -94,6 +96,13 @@ const SCHEMA_REQUIREMENTS = {
   ],
   [TABLES.feature]: ["id", FEATURE_COLUMNS.featureName],
   [TABLES.featureValueVarchar]: ["id", FEATURE_COLUMNS.featureValue],
+  [TABLES.featureValueDimension]: [
+    "id",
+    "feature_id",
+    FEATURE_COLUMNS.featureValue,
+    "unit",
+    "value_base_unit",
+  ],
 };
 
 /** Поля, обязательные в блоке [Каталог · …] для ответа LLM о цене */

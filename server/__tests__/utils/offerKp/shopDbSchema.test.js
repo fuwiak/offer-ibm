@@ -13,6 +13,7 @@ describe("offerKp shop DB schema map", () => {
     expect(ENRICH_TABLES).toContain(TABLES.product);
     expect(ENRICH_TABLES).toContain(TABLES.productSkus);
     expect(ENRICH_TABLES).toContain(TABLES.searchIndex);
+    expect(ENRICH_TABLES).toContain(TABLES.featureValueDimension);
   });
 
   it("requires price and currency on shop_product for LLM excerpts", () => {

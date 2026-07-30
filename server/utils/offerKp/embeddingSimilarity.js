@@ -184,9 +184,67 @@ async function computeEmbeddingSimilarities(queryText, candidates) {
   }
 }
 
+/**
+ * Embed arbitrary texts with the passage prefix (catalog documents).
+ * @param {string[]} texts
+ * @returns {Promise<number[][]|null>}
+ */
+async function embedPassageTexts(texts = []) {
+  const active = getEmbedder();
+  if (!active || !texts.length) return null;
+  const prefix = active.embeddingPrefix || "";
+  const payloads = texts.map((text) => `${prefix}${String(text || "").trim()}`);
+  try {
+    const vectors = await active.embedChunks(payloads);
+    return Array.isArray(vectors) ? vectors : null;
+  } catch (error) {
+    embedderDisabled = true;
+    console.error(
+      "[ShopDbEmbedding] Passage embed failed, disabling for this process:",
+      error?.message || error
+    );
+    return null;
+  }
+}
+
+/**
+ * Embed a search query with the model query prefix.
+ * @param {string} queryText
+ * @returns {Promise<number[]|null>}
+ */
+async function embedQueryText(queryText) {
+  const active = getEmbedder();
+  const text = String(queryText || "").trim();
+  if (!active || !text) return null;
+  try {
+    const vector = await active.embedTextInput(text);
+    return vector?.length ? vector : null;
+  } catch (error) {
+    embedderDisabled = true;
+    console.error(
+      "[ShopDbEmbedding] Query embed failed, disabling for this process:",
+      error?.message || error
+    );
+    return null;
+  }
+}
+
+/** Test helper — force re-init on next getEmbedder(). */
+function resetShopDbEmbedderForTests() {
+  embedder = null;
+  embedderDisabled = !EMBEDDING_ENABLED;
+  vectorCache.clear();
+}
+
 module.exports = {
   EMBEDDING_WEIGHT,
+  EMBEDDING_MODEL,
+  MAX_CANDIDATES,
   isEmbeddingSimilarityEnabled: () => !embedderDisabled,
+  getShopDbEmbedder: getEmbedder,
   computeEmbeddingSimilarities,
+  embedPassageTexts,
+  embedQueryText,
   cosineSimilarity,
+  resetShopDbEmbedderForTests,
 };

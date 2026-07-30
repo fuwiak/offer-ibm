@@ -18,6 +18,16 @@ const {
   EMBEDDING_WEIGHT,
   computeEmbeddingSimilarities,
 } = require("./embeddingSimilarity");
+const {
+  canonicalTextForProduct,
+  denseTopK,
+  embeddingModel,
+  getCanonicalCatalogRecords,
+  scheduleCanonicalCatalogSync,
+  searchCanonicalCatalogDense,
+} = require("./canonicalCatalogIndex");
+const { canonicalEmbeddingCacheKey } = require("./canonicalProductText");
+const { reciprocalRankFusion } = require("./retrievalFusion");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -343,7 +353,10 @@ function rankProductsByNameSimilarity(
   return (products || [])
     .map((p, index) => ({
       p,
-      score: nameSimilarityScore(queryText, p.name || ""),
+      score: nameSimilarityScore(
+        queryText,
+        p._canonicalText || canonicalTextForProduct(p)
+      ),
       index,
     }))
     .filter((row) => row.score >= minScore)
@@ -404,6 +417,83 @@ async function fetchNameSimilarityCandidatePool(
   return mapSearchRows(rows, "name_cosine_pool");
 }
 
+async function hydrateCatalogProducts(rankedRows, matchSource) {
+  if (!rankedRows.length) return [];
+  const ids = rankedRows.map((row) => Number(row.productId));
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = await query(
+    `
+      SELECT ${PRODUCT_SELECT}, ? AS match_source
+      FROM ${TABLES.product} p
+      LEFT JOIN ${TABLES.category} c
+        ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
+      WHERE p.${P.status} = 1 AND p.${P.id} IN (${placeholders})
+    `,
+    [matchSource, ...ids]
+  );
+  const byId = new Map(rows.map((row) => [Number(row.id), row]));
+  return rankedRows
+    .map((row) => {
+      const product = byId.get(Number(row.productId));
+      if (!product) return null;
+      return {
+        ...product,
+        ...row.meta,
+      };
+    })
+    .filter(Boolean)
+    .map((row) => mapSearchRows([row], matchSource)[0]);
+}
+
+async function fetchCanonicalCatalogCandidatePool(searchText, limit = 120) {
+  scheduleCanonicalCatalogSync();
+  const records = getCanonicalCatalogRecords();
+  if (!records.length) return [];
+
+  const ranked = records
+    .map((record) => ({
+      productId: Number(record.productId),
+      score: nameSimilarityScore(searchText, record.canonicalText),
+      meta: {
+        _canonicalText: record.canonicalText,
+        _canonicalSimilarity: null,
+      },
+      record,
+    }))
+    .filter((row) => row.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score || Number(b.productId) - Number(a.productId)
+    )
+    .slice(0, sqlLimit(limit))
+    .map((row) => ({
+      productId: row.productId,
+      meta: {
+        _canonicalText: row.record.canonicalText,
+        _canonicalSimilarity: Number(row.score.toFixed(4)),
+      },
+    }));
+  return hydrateCatalogProducts(ranked, "canonical_catalog");
+}
+
+/**
+ * Full-catalog dense ANN (persisted e5 vectors). Independent candidate source —
+ * not a price/exact decision. Hydrates live ShopDB rows for price after match.
+ */
+async function fetchDenseCatalogCandidatePool(searchText, limit = denseTopK()) {
+  const hits = await searchCanonicalCatalogDense(searchText, limit);
+  if (!hits.length) return [];
+  const ranked = hits.map((hit) => ({
+    productId: Number(hit.productId),
+    meta: {
+      _canonicalText: hit.canonicalText,
+      _denseSimilarity: hit.score,
+      _embeddingSimilarity: hit.score,
+    },
+  }));
+  return hydrateCatalogProducts(ranked, "catalog_dense");
+}
+
 /**
  * Dokłada opcjonalny sygnał embeddingowy (semantyczny) do kandydatów z pełnej
  * puli SQL LIKE (nie tylko tych, które już przeszły próg TF-IDF — patrz
@@ -417,29 +507,59 @@ async function fetchNameSimilarityCandidatePool(
 async function applyEmbeddingBoost(queryText, products) {
   if (!products.length) return products;
 
-  const similarities = await computeEmbeddingSimilarities(
-    queryText,
-    products.map((p) => ({ id: p.id, name: p.name }))
-  );
-  if (!similarities.size) return products;
+  // Dense catalog hits already carry full-catalog cosine — only embed the rest.
+  const needEmbed = products.filter((p) => p._embeddingSimilarity == null);
+  const similarities = needEmbed.length
+    ? await computeEmbeddingSimilarities(
+        queryText,
+        needEmbed.map((p) => {
+          const canonicalText = p._canonicalText || canonicalTextForProduct(p);
+          return {
+            id: canonicalEmbeddingCacheKey(
+              embeddingModel(),
+              p.id,
+              canonicalText
+            ),
+            name: canonicalText,
+            productId: p.id,
+          };
+        })
+      )
+    : new Map();
 
   return products.map((p) => {
-    const embedScore = similarities.get(p.id);
+    let embedScore = p._embeddingSimilarity;
+    if (embedScore == null) {
+      const canonicalText = p._canonicalText || canonicalTextForProduct(p);
+      const cacheKey = canonicalEmbeddingCacheKey(
+        embeddingModel(),
+        p.id,
+        canonicalText
+      );
+      embedScore = similarities.get(cacheKey);
+    }
     if (embedScore == null) return p;
     const base = p._nameSimilarity || 0;
     const blended = Math.max(
       base,
       base * (1 - EMBEDDING_WEIGHT) + embedScore * EMBEDDING_WEIGHT
     );
+    const fromDense = p._denseSimilarity != null;
     return {
       ...p,
       _nameSimilarity: Number(blended.toFixed(4)),
       _embeddingSimilarity: Number(embedScore.toFixed(4)),
       _matchSources: [
-        ...new Set([...(p._matchSources || []), "name_embedding"]),
+        ...new Set([
+          ...(p._matchSources || []),
+          fromDense ? "catalog_dense" : "name_embedding",
+        ]),
       ],
       shopMatchSources: [
-        ...new Set([...(p.shopMatchSources || []), "name_embedding"]),
+        ...new Set([
+          ...(p.shopMatchSources || []),
+          fromDense ? "catalog_dense" : "name_embedding",
+        ]),
       ],
     };
   });
@@ -452,18 +572,40 @@ async function applyEmbeddingBoost(queryText, products) {
  * @returns {Promise<object[]>}
  */
 async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
-  const pool = await fetchNameSimilarityCandidatePool(
-    searchText,
-    terms,
-    Math.max(limit * 8, 80)
-  );
-  if (!pool.length) return [];
+  const poolLimit = Math.max(limit * 12, 120);
+  const denseLimit = Math.max(denseTopK(), limit * 5);
+  const [sqlPool, canonicalPool, densePool] = await Promise.all([
+    fetchNameSimilarityCandidatePool(searchText, terms, poolLimit),
+    fetchCanonicalCatalogCandidatePool(searchText, poolLimit),
+    fetchDenseCatalogCandidatePool(searchText, denseLimit),
+  ]);
 
-  // Score the WHOLE pool first (minScore=0) instead of pre-filtering by
-  // TF-IDF — a paraphrase/synonym can score low here yet still be the right
-  // product. Filtering happens once, below, AFTER the embedding blend, so a
-  // weak lexical score doesn't kill a candidate the embedding recognizes.
-  const ranked = rankProductsByNameSimilarity(searchText, pool, 0);
+  // Rank each source independently, then RRF-merge so dense can surface
+  // products SQL LIKE never retrieved.
+  const sqlRanked = rankProductsByNameSimilarity(searchText, sqlPool, 0).map(
+    (row) => row.p
+  );
+  const canonicalRanked = [...canonicalPool].sort(
+    (a, b) =>
+      (b._canonicalSimilarity || 0) - (a._canonicalSimilarity || 0) ||
+      Number(a.id) - Number(b.id)
+  );
+  const denseRanked = [...densePool].sort(
+    (a, b) =>
+      (b._denseSimilarity || 0) - (a._denseSimilarity || 0) ||
+      Number(a.id) - Number(b.id)
+  );
+
+  const fused = reciprocalRankFusion(
+    [denseRanked, canonicalRanked, sqlRanked],
+    { k: 60 }
+  ).slice(0, poolLimit);
+
+  if (!fused.length) return [];
+
+  // Score the WHOLE fused pool (minScore=0) — paraphrase/synonym can score low
+  // on TF-IDF yet still be correct via dense. Filter after embedding blend.
+  const ranked = rankProductsByNameSimilarity(searchText, fused, 0);
   const withMeta = ranked.map((row) => ({
     ...row.p,
     _nameSimilarity: Number(row.score.toFixed(4)),
@@ -480,18 +622,21 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
 
   const boosted = await applyEmbeddingBoost(searchText, withMeta);
 
-  // Survive on EITHER signal: solid lexical score (as before), or a strong
-  // standalone embedding match even with weak/no lexical overlap.
+  // Survive on EITHER signal: solid lexical score, or strong dense/embedding.
   const survivors = boosted.filter(
     (p) =>
       (p._nameSimilarity || 0) >= DEFAULT_MIN_COSINE ||
-      (p._embeddingSimilarity || 0) >= EMBEDDING_STANDALONE_MIN
+      (p._embeddingSimilarity || 0) >= EMBEDDING_STANDALONE_MIN ||
+      (p._denseSimilarity || 0) >= EMBEDDING_STANDALONE_MIN
   );
 
   const deduped = applyCheaperPreferenceAmongSimilar(
     survivors.map((p, index) => ({
       p,
-      score: (p._nameSimilarity || 0) * 100,
+      score:
+        (p._rrfScore || 0) * 1000 +
+        (p._nameSimilarity || 0) * 100 +
+        (p._embeddingSimilarity || 0) * 50,
       index,
     }))
   );
@@ -512,4 +657,6 @@ module.exports = {
   rankProductsByNameSimilarity,
   searchByNameSimilarity,
   fetchNameSimilarityCandidatePool,
+  fetchCanonicalCatalogCandidatePool,
+  fetchDenseCatalogCandidatePool,
 };
