@@ -479,6 +479,12 @@ const TRANSLATIONS = {
     status: "Status",
     alternatives: "Alternatives",
     addFromDb: "From catalog",
+    cheapestAnalogs: "Cheapest analogs",
+    cheapestAnalogsTitle:
+      "One click: apply the cheapest analog from each line’s alternatives",
+    cheapestAnalogsSuccess: "Applied cheapest analogs: {{count}}",
+    cheapestAnalogsEmpty:
+      "No lines with priced analogs in alternatives (or already selected).",
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Note",
     commentPlaceholder: "Comment",

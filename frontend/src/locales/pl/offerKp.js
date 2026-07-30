@@ -457,6 +457,12 @@ const TRANSLATIONS = {
     status: "Status",
     alternatives: "Zamienniki",
     addFromDb: "Z bazy",
+    cheapestAnalogs: "Najtańsze analogi",
+    cheapestAnalogsTitle:
+      "Jednym kliknięciem podstaw najtańszy analog z zamienników w każdym wierszu",
+    cheapestAnalogsSuccess: "Podstawiono najtańsze analogi: {{count}}",
+    cheapestAnalogsEmpty:
+      "Brak wierszy z analogami w zamiennikach (lub już wybrane).",
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Uwaga",
     commentPlaceholder: "Komentarz",

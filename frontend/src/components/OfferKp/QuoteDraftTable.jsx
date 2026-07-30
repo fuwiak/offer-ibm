@@ -9,6 +9,7 @@ import {
   FileDoc,
   CircleNotch,
   Brain,
+  TrendDown,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import OfferKp from "@/models/offerKp";
@@ -17,6 +18,7 @@ import { AUTH_TOKEN } from "@/utils/constants";
 import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
 import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
 import { localeForCountry } from "@/utils/offerKp/quoteBrand";
+import { resolveCheapestAnalogsForLines } from "@/utils/offerKp/pickCheapestAnalog";
 import showToast from "@/utils/toast";
 
 const EMPTY_LINE = {
@@ -521,16 +523,76 @@ export default function QuoteDraftTable() {
     }
   }
 
+  function altPatch(alt) {
+    return {
+      name: alt.name,
+      article: alt.sku,
+      sku: alt.sku,
+      productId: alt.productId || undefined,
+      matchType: alt.matchType || "analog",
+      priceWithVat: Number((Number(alt.price || 0) * (1 + vatRate)).toFixed(2)),
+      status: alt.status || "Аналог",
+      kpStatus: "Предложен аналог",
+      analogOf: alt.analogOf,
+      allowPrice: true,
+    };
+  }
+
   function selectAlternative(lineIndex, alt) {
     const line = lines[lineIndex];
     handleFieldChange(lineIndex, "name", alt.name, line);
-    updateLine(lineIndex, {
-      name: alt.name,
-      article: alt.sku,
-      priceWithVat: Number((Number(alt.price || 0) * (1 + vatRate)).toFixed(2)),
-      status: alt.status,
-      analogOf: alt.analogOf,
+    updateLine(lineIndex, altPatch(alt));
+  }
+
+  function applyCheapestAnalogs() {
+    const picks = resolveCheapestAnalogsForLines(lines);
+    if (!picks.length) {
+      showToast(
+        t("draftTable.cheapestAnalogsEmpty", {
+          defaultValue:
+            "Нет строк с аналогами в альтернативах (или уже выбраны).",
+        }),
+        "info"
+      );
+      return;
+    }
+
+    const byIndex = new Map(picks.map((p) => [p.index, p.alt]));
+    setQuoteDraft((prev) => {
+      const current = prev.hardwareLines || prev.preview?.lines || [];
+      const next = current.map((line, i) => {
+        const alt = byIndex.get(i);
+        if (!alt) return line;
+        return recalcLine({ ...line, ...altPatch(alt) }, vatRate);
+      });
+      const subtotal = next.reduce(
+        (sum, line) => sum + lineNetTotal(line, vatRate),
+        0
+      );
+      const totalWeightKg = next.reduce(
+        (sum, line) => sum + lineTotalWeight(line),
+        0
+      );
+      return {
+        ...prev,
+        hardwareLines: next,
+        preview: {
+          ...(prev.preview || {}),
+          lines: next,
+          subtotal,
+          totalWeightKg,
+          total: subtotal,
+        },
+      };
     });
+
+    showToast(
+      t("draftTable.cheapestAnalogsSuccess", {
+        count: picks.length,
+        defaultValue: "Подобрано дешёвых аналогов: {{count}}",
+      }),
+      "success"
+    );
   }
 
   async function exportFile(kind) {
@@ -657,6 +719,20 @@ export default function QuoteDraftTable() {
           >
             <MagnifyingGlass size={13} />
             {t("draftTable.addFromDb", { defaultValue: "Из базы" })}
+          </button>
+          <button
+            type="button"
+            onClick={applyCheapestAnalogs}
+            title={t("draftTable.cheapestAnalogsTitle", {
+              defaultValue:
+                "Одним кликом подставить самый дешёвый аналог из альтернатив по каждой строке",
+            })}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover"
+          >
+            <TrendDown size={13} weight="bold" />
+            {t("draftTable.cheapestAnalogs", {
+              defaultValue: "Дешёвые аналоги",
+            })}
           </button>
           <button
             type="button"

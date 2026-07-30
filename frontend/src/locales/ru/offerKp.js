@@ -485,6 +485,12 @@ const TRANSLATIONS = {
     status: "Статус",
     alternatives: "Аналоги",
     addFromDb: "Из базы",
+    cheapestAnalogs: "Дешёвые аналоги",
+    cheapestAnalogsTitle:
+      "Одним кликом подставить самый дешёвый аналог из альтернатив по каждой строке",
+    cheapestAnalogsSuccess: "Подобрано дешёвых аналогов: {{count}}",
+    cheapestAnalogsEmpty:
+      "Нет строк с аналогами в альтернативах (или уже выбраны).",
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Коммент.",
     commentPlaceholder: "Комментарий",
