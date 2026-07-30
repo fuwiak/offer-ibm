@@ -10,6 +10,14 @@ module.exports = {
   seed: "offerkp-2026",
   sampleSize: 100,
   rerankCommit: "954d1bd",
+  laineyRun: {
+    at: "2026-07-30T07:40:52.092Z",
+    host: "87.228.90.43",
+    app: "/opt/offer-kp/app",
+    readyCommit: "890afca",
+    index: { products: 19764, bm25: 19764, vectors: 19764 },
+    artifact: "/opt/offer-kp/data/audit-100-offerkp-2026.json",
+  },
   baselineBeforeOramaAndRerank: {
     DBQueryAttemptRate: 100,
     DBQuerySuccessRate: 100,
@@ -17,6 +25,24 @@ module.exports = {
     Top1Accuracy: 73,
     FalseExactRate: 0,
     UnconfirmedSkuOrPriceRate: 0,
+  },
+  postRerankAudit100: {
+    status: "completed",
+    DBQueryAttemptRate: 100,
+    DBQuerySuccessRate: 100,
+    RecallAt50: 92,
+    Top1Accuracy: 91,
+    AutoAcceptRate: 80,
+    AutoAcceptPrecision: 100,
+    AutoAcceptCoverage: 80,
+    FalseExactRateRaw: 7.69,
+    UnconfirmedSkuOrPriceRateRaw: 7.69,
+    note:
+      "Raw FalseExact includes 7 exact+empty-productId retriever_disagreement abstentions; auto-accept precision is 100%.",
+    autoAcceptDecisions: 80,
+    autoAcceptCorrectDecisions: 80,
+    exactDecisions: 91,
+    falseExactDecisionsRaw: 7,
   },
   newMetricsSchema: {
     AutoAcceptRate: "autoAccept / queries",
@@ -32,11 +58,6 @@ module.exports = {
     Top1Accuracy: "85%+",
     FalseExactRate: "<1%",
     SkuPriceGrounding: "100%",
-  },
-  postRerankAudit100: {
-    status: "interrupted",
-    reason: "full local 100-run too slow before JSON summary",
-    comparablePostOramaMetrics: null,
   },
   pipeline: [
     "top50_retrieval_rrf",

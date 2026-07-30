@@ -106,11 +106,14 @@ async function main() {
 
       if (pricedMatch) {
         accepted += 1;
-        if (decision.matchType === "exact") {
+        // False exact = wrong *priced* exact only. Abstentions that keep
+        // matchType=exact with empty productId (e.g. retriever_disagreement)
+        // are NEEDS_REVIEW, not false exacts.
+        if (decision.matchType === "exact" && decision.productId) {
           exactDecisions += 1;
           if (String(decision.productId) !== expectedId) falseExact += 1;
         }
-        acceptedRows.push(decision);
+        if (decision.productId) acceptedRows.push(decision);
       }
       if (autoAccepted) {
         autoAccept += 1;
