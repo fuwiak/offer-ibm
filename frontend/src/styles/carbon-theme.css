@@ -1636,6 +1636,121 @@ html.carbon-ui .offerKp-hero-title {
   margin-bottom: -1px;
 }
 
+/* ShopDB match progress — sticky, animated, hard to miss while lines compute */
+.offerKp-match-progress {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--theme-sidebar-border);
+  flex-shrink: 0;
+  backdrop-filter: blur(6px);
+}
+
+.offerKp-match-progress--live {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 125, 105, 0.16) 0%,
+    rgba(12, 125, 105, 0.08) 100%
+  );
+  box-shadow: 0 1px 0 rgba(12, 125, 105, 0.25);
+  animation: offerKp-match-progress-pulse 1.6s ease-in-out infinite;
+}
+
+.offerKp-match-progress--done {
+  background: var(--theme-bg-secondary);
+}
+
+.offerKp-match-progress__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.offerKp-match-progress__spinner {
+  color: #0c7d69;
+  margin-top: 1px;
+}
+
+.offerKp-match-progress__check {
+  color: #0c7d69;
+  margin-top: 1px;
+}
+
+.offerKp-match-progress__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--theme-text-primary);
+}
+
+.offerKp-match-progress__detail {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--theme-text-secondary);
+}
+
+.offerKp-match-progress__pct {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #0c7d69;
+  margin-top: 1px;
+}
+
+.offerKp-match-progress__track {
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(12, 125, 105, 0.18);
+  overflow: hidden;
+}
+
+.offerKp-match-progress__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0c7d69 0%, #14b8a6 100%);
+  transition: width 0.35s ease-out;
+}
+
+.offerKp-match-progress__bar--indeterminate {
+  width: 36% !important;
+  animation: offerKp-match-progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes offerKp-match-progress-pulse {
+  0%,
+  100% {
+    box-shadow: 0 1px 0 rgba(12, 125, 105, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 rgba(12, 125, 105, 0.35),
+      0 0 0 1px rgba(12, 125, 105, 0.12);
+  }
+}
+
+@keyframes offerKp-match-progress-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+[data-theme="dark"] .offerKp-match-progress--live,
+html:not([data-theme="light"]) .offerKp-match-progress--live {
+  background: linear-gradient(
+    180deg,
+    rgba(20, 184, 166, 0.22) 0%,
+    rgba(20, 184, 166, 0.1) 100%
+  );
+}
+
 .offerKp-thread-panel-section--files-pdf {
   flex: 1 1 auto;
   min-height: 0;

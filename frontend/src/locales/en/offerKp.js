@@ -464,8 +464,9 @@ const TRANSLATIONS = {
   },
   matchProgress: {
     parsing: "Recognized {{count}} line(s). Matching against catalog…",
-    searching: "ShopDB search: line {{current}} / {{total}}",
+    searching: "ShopDB search: line {{current}} / {{total}} — computing",
     matched: "Matching complete",
+    liveHint: "Results are still being computed — the table will update as lines finish.",
     waitTable: "Quote draft will appear as lines are matched…",
   },
   draftTable: {

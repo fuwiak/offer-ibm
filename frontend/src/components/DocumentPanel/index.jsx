@@ -9,6 +9,8 @@ import {
   CaretLeft,
   CaretRight,
   NotePencil,
+  CircleNotch,
+  CheckCircle,
 } from "@phosphor-icons/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
@@ -39,6 +41,103 @@ import PdfJsViewer from "@/components/OfferKp/PdfJsViewer";
 function fileExtension(filename = "") {
   const parts = filename.split(".");
   return parts.length > 1 ? parts.pop().toUpperCase() : "FILE";
+}
+
+/**
+ * Sticky, high-visibility ShopDB matching progress (parsing / searching / done).
+ */
+function MatchProgressBanner({ matchProgress, isMatchingInProgress, t }) {
+  const stage = matchProgress?.stage;
+  const current = Number(matchProgress?.matchedCount) || 0;
+  const total = Math.max(0, Number(matchProgress?.total) || 0);
+  const lineCount = Number(matchProgress?.lineCount) || 0;
+  const pct =
+    total > 0
+      ? Math.min(100, Math.round((current / total) * 100))
+      : stage === "matched"
+        ? 100
+        : 8;
+
+  let title;
+  let detail = null;
+  if (stage === "parsing") {
+    title = t("matchProgress.parsing", {
+      count: lineCount,
+      defaultValue:
+        "Распознано позиций: {{count}}. Сопоставление с каталогом…",
+    });
+    detail = t("matchProgress.liveHint", {
+      defaultValue:
+        "Результаты ещё считаются — подождите, таблица обновится по ходу.",
+    });
+  } else if (stage === "searching") {
+    title = t("matchProgress.searching", {
+      current,
+      total,
+      defaultValue: "Поиск в ShopDB: строка {{current}} / {{total}}",
+    });
+    detail = t("matchProgress.liveHint", {
+      defaultValue:
+        "Результаты ещё считаются — подождите, таблица обновится по ходу.",
+    });
+  } else {
+    title = t("matchProgress.matched", {
+      defaultValue: "Сопоставление завершено",
+    });
+  }
+
+  return (
+    <div
+      className={`offerKp-match-progress ${
+        isMatchingInProgress
+          ? "offerKp-match-progress--live"
+          : "offerKp-match-progress--done"
+      }`}
+      role="status"
+      aria-live="polite"
+      aria-busy={isMatchingInProgress}
+    >
+      <div className="offerKp-match-progress__row">
+        {isMatchingInProgress ? (
+          <CircleNotch
+            size={20}
+            weight="bold"
+            className="offerKp-match-progress__spinner animate-spin shrink-0"
+            aria-hidden
+          />
+        ) : (
+          <CheckCircle
+            size={20}
+            weight="fill"
+            className="offerKp-match-progress__check shrink-0"
+            aria-hidden
+          />
+        )}
+        <div className="offerKp-match-progress__copy min-w-0">
+          <p className="offerKp-match-progress__title">{title}</p>
+          {detail ? (
+            <p className="offerKp-match-progress__detail">{detail}</p>
+          ) : null}
+        </div>
+        {isMatchingInProgress && total > 0 ? (
+          <span className="offerKp-match-progress__pct shrink-0">{pct}%</span>
+        ) : null}
+      </div>
+      <div
+        className="offerKp-match-progress__track"
+        aria-hidden={!isMatchingInProgress}
+      >
+        <div
+          className={`offerKp-match-progress__bar ${
+            isMatchingInProgress && total <= 0
+              ? "offerKp-match-progress__bar--indeterminate"
+              : ""
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function fileIcon(ext) {
@@ -710,23 +809,11 @@ export default function DocumentPanel() {
         ) : showDraftTable ? (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
             {isMatchingInProgress || matchProgress?.stage === "matched" ? (
-              <div className="px-4 py-2.5 border-b border-theme-sidebar-border bg-theme-bg-secondary text-xs text-theme-text-secondary shrink-0">
-                {matchProgress?.stage === "parsing"
-                  ? t("matchProgress.parsing", {
-                      count: matchProgress.lineCount || 0,
-                      defaultValue: "Распознано позиций: {{count}}. Сопоставление с каталогом…",
-                    })
-                  : matchProgress?.stage === "searching"
-                    ? t("matchProgress.searching", {
-                        current: matchProgress.matchedCount || 0,
-                        total: matchProgress.total || 0,
-                        defaultValue:
-                          "Поиск в ShopDB: строка {{current}} / {{total}}",
-                      })
-                    : t("matchProgress.matched", {
-                        defaultValue: "Сопоставление завершено",
-                      })}
-              </div>
+              <MatchProgressBanner
+                matchProgress={matchProgress}
+                isMatchingInProgress={isMatchingInProgress}
+                t={t}
+              />
             ) : null}
             {hasEditableQuoteLines ? (
               <QuoteDraftTable />

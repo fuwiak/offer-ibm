@@ -441,9 +441,11 @@ const TRANSLATIONS = {
       "Interaktywny wizualizer przekroju (One 8.3 → Diamond → Laminated → Hybrid) — Faza 2.",
   },
   matchProgress: {
-    parsing: "Rozpoznano pozycji: {{count}}. Dopasowywanie do katalogu…",
-    searching: "Szukanie w ShopDB: wiersz {{current}} / {{total}}",
+    parsing: "Rozpoznano pozycji: {{count}}. Trwa dopasowywanie do katalogu…",
+    searching: "Szukanie w ShopDB: wiersz {{current}} / {{total}} — liczenie",
     matched: "Dopasowanie zakończone",
+    liveHint:
+      "Wyniki są nadal liczone — poczekaj, tabela zaktualizuje się w trakcie.",
     waitTable: "Szkic oferty pojawi się w trakcie dopasowywania pozycji…",
   },
   draftTable: {
