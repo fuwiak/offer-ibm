@@ -210,7 +210,14 @@ for pair in \
   "SHOP_DB_RRF_COMPATIBLE_LIMIT=90" \
   "SHOP_DB_RRF_ANALOG_LIMIT=10" \
   "SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC=0" \
-  "SHOP_DB_VECTOR_VERIFY_HASHES_ON_SYNC=0"; do
+  "SHOP_DB_VECTOR_VERIFY_HASHES_ON_SYNC=0" \
+  "OFFER_KP_QUEUE=1" \
+  "OFFER_KP_REDIS_URL=redis://127.0.0.1:6379" \
+  "OFFER_KP_GPU_WORKER_CONCURRENCY=1" \
+  "OFFER_KP_MATCHING_WORKER_CONCURRENCY=2" \
+  "OFFER_KP_EXPORT_WORKER_CONCURRENCY=2" \
+  "OFFER_KP_PIPELINE_VERSION=2026-07-30" \
+  "OFFER_KP_OCR_PROMPT_VERSION=v1"; do
   key="\${pair%%=*}"
   if grep -q "^\${key}=" "\$ENV_FILE"; then
     sed -i "s|^\${key}=.*|\${pair}|" "\$ENV_FILE"
@@ -218,10 +225,37 @@ for pair in \
     printf '%s\n' "\$pair" >> "\$ENV_FILE"
   fi
 done
-systemctl restart offer-kp offer-kp-collector
+
+# Redis + BullMQ workers (GPU OCR concurrency 1, CPU matching/export).
+if ! command -v redis-server >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -yq --no-install-recommends redis-server
+fi
+# Bind localhost only; disable protected-mode warnings for local workers.
+if [ -f /etc/redis/redis.conf ]; then
+  sed -i 's/^supervised .*/supervised systemd/' /etc/redis/redis.conf || true
+  if ! grep -q '^bind 127.0.0.1' /etc/redis/redis.conf; then
+    sed -i 's/^bind .*/bind 127.0.0.1 ::1/' /etc/redis/redis.conf || true
+  fi
+fi
+systemctl enable redis-server >/dev/null 2>&1 || true
+systemctl restart redis-server || systemctl start redis-server
+sleep 1
+redis-cli ping || true
+
+install -m 644 ${REMOTE_APP}/docker/offer-kp-gpu-worker.service /etc/systemd/system/offer-kp-gpu-worker.service
+install -m 644 ${REMOTE_APP}/docker/offer-kp-cpu-worker.service /etc/systemd/system/offer-kp-cpu-worker.service
+systemctl daemon-reload
+systemctl enable offer-kp-gpu-worker offer-kp-cpu-worker >/dev/null 2>&1 || true
+
+systemctl restart offer-kp offer-kp-collector offer-kp-gpu-worker offer-kp-cpu-worker
 sleep 2
 systemctl is-active offer-kp
 systemctl is-active offer-kp-collector || true
+systemctl is-active redis-server || true
+systemctl is-active offer-kp-gpu-worker || true
+systemctl is-active offer-kp-cpu-worker || true
 curl -sS -o /dev/null -w "local / : %{http_code}\\n" --max-time 15 http://127.0.0.1:3001/ || true
 curl -sS -o /dev/null -w "nginx / : %{http_code}\\n" --max-time 15 http://127.0.0.1/ || true
 EOS

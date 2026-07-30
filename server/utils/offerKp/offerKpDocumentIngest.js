@@ -10,8 +10,8 @@ const {
 const { directUploadsPath } = require("../files");
 const { safeJsonParse } = require("../http");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
-const { visionOcrPdf } = require("./offerKpVisionOcr");
 const { ensurePipelineModelLoaded } = require("./offerKpModelPipeline");
+const { runQueuedVisionOcr } = require("./queue/runQueuedVisionOcr");
 
 function isOfferKpVisionOcrEnabled() {
   const flag = String(process.env.OFFER_KP_USE_VISION_OCR ?? "1").trim();
@@ -150,9 +150,11 @@ async function enrichDocumentsWithOfferKpOcr({
   });
 
   try {
-    const ocrResult = await visionOcrPdf(pdfPath, {
+    const ocrResult = await runQueuedVisionOcr(pdfPath, {
       workspace,
       contextText: beforeText,
+      originalFilename,
+      onProgress,
       onPage: ({ pageNumber, total }) => {
         onProgress?.({
           type: "ocr_progress",

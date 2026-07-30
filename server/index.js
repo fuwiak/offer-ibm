@@ -71,6 +71,7 @@ const {
   googleAgentSkillEndpoints,
 } = require("./endpoints/utils/googleAgentSkillEndpoints");
 const { offerKpEndpoints } = require("./endpoints/offerKp");
+const { offerKpJobEndpoints } = require("./endpoints/offerKpJobs");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -165,6 +166,7 @@ scheduledJobEndpoints(apiRouter);
 outlookAgentEndpoints(apiRouter);
 googleAgentSkillEndpoints(apiRouter);
 offerKpEndpoints(apiRouter);
+offerKpJobEndpoints(apiRouter);
 // Externally facing embedder endpoints
 embeddedEndpoints(apiRouter);
 

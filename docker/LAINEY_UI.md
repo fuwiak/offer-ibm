@@ -5,7 +5,8 @@
 Стек на сервере Lainey (`87.228.90.43`), **без Railway**:
 
 - nginx `:80` → Node app `:3001`
-- systemd: `offer-kp.service`, `offer-kp-collector.service`
+- systemd: `offer-kp.service`, `offer-kp-collector.service`, `offer-kp-gpu-worker`, `offer-kp-cpu-worker`
+- Redis (`redis-server`) + BullMQ: OCR/GPU queue concurrency **1**, matching/export CPU workers
 - код: `/opt/offer-kp/app`
 - данные: `/opt/offer-kp/data`
 - collector hotdir: `/opt/offer-kp/app/collector/hotdir`
