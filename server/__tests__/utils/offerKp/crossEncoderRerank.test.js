@@ -1,15 +1,25 @@
 describe("crossEncoderRerank", () => {
-  const ENV_KEY = "SHOP_DB_RERANKER_ENABLED";
-  const originalEnv = process.env[ENV_KEY];
+  const ENV_KEYS = [
+    "SHOP_DB_RERANKER_ENABLED",
+    "SHOP_DB_RERANKER_MODEL",
+    "SHOP_DB_RERANKER_MODEL_FILE",
+    "SHOP_DB_RERANKER_QUANTIZED",
+    "SHOP_DB_RERANKER_MAX_CANDIDATES",
+  ];
+  const originalEnv = Object.fromEntries(
+    ENV_KEYS.map((key) => [key, process.env[key]])
+  );
 
   afterEach(() => {
     jest.resetModules();
-    if (originalEnv === undefined) delete process.env[ENV_KEY];
-    else process.env[ENV_KEY] = originalEnv;
+    for (const key of ENV_KEYS) {
+      if (originalEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = originalEnv[key];
+    }
   });
 
   it("is disabled by default and returns an empty map without touching the model", async () => {
-    delete process.env[ENV_KEY];
+    delete process.env.SHOP_DB_RERANKER_ENABLED;
     const {
       computeRerankScores,
       isRerankerEnabled,
@@ -25,7 +35,7 @@ describe("crossEncoderRerank", () => {
   });
 
   it("short-circuits on empty query/candidates without throwing", async () => {
-    process.env[ENV_KEY] = "1";
+    process.env.SHOP_DB_RERANKER_ENABLED = "1";
     // eslint-disable-next-line global-require
     const { computeRerankScores } = require("../../../utils/offerKp/crossEncoderRerank");
 
@@ -33,5 +43,25 @@ describe("crossEncoderRerank", () => {
     await expect(
       computeRerankScores("Болт DIN 933 M16x70", [])
     ).resolves.toEqual(new Map());
+  });
+
+  it("uses the lightweight multilingual MiniLM L6 defaults", () => {
+    delete process.env.SHOP_DB_RERANKER_ENABLED;
+    delete process.env.SHOP_DB_RERANKER_MODEL;
+    delete process.env.SHOP_DB_RERANKER_MODEL_FILE;
+    delete process.env.SHOP_DB_RERANKER_QUANTIZED;
+    delete process.env.SHOP_DB_RERANKER_MAX_CANDIDATES;
+
+    const {
+      getRerankerConfig,
+      // eslint-disable-next-line global-require
+    } = require("../../../utils/offerKp/crossEncoderRerank");
+
+    expect(getRerankerConfig()).toMatchObject({
+      model: "Slite/mmarco-mMiniLMv2-L6-H384-v1-onnx-o4",
+      modelFile: "model_optimized.onnx",
+      quantized: false,
+      maxCandidates: 5,
+    });
   });
 });

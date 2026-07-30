@@ -92,6 +92,7 @@
     "mysql2": "^3.9.8",
     "node-telegram-bot-api": "^0.67.0",
     "ollama": "^0.6.3",
+    "onnxruntime-node-modern": "npm:onnxruntime-node@1.20.1",
     "openai": "4.95.1",
     "p-queue": "6.6.2",
     "pdf-lib": "1.17.1",
