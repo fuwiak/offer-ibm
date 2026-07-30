@@ -79,6 +79,7 @@ yarn deploy:lainey
 | `SHOP_DB_ENRICH=1` | каталожный enrich |
 | `SHOP_BASE_URL` | ссылки на товары |
 | `OFFER_KP_INTENT_MODEL` | intent judge OpenRouter (`deepseek/deepseek-v4-flash`) |
+| `OFFER_KP_CHAT_COMMAND_LLM` | единый NL → command planner всего чата (`false` отключает) |
 | `OFFER_KP_EXPERIENCE_MEMORY` | namespace-память intent/OCR/matching |
 | `OFFER_KP_MEMORY_EMBEDDING_MODEL` | embedding model OpenRouter для памяти |
 | `SHOP_DB_EMBEDDING_SIMILARITY` | embedding rerank (1/0) |

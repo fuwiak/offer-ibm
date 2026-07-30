@@ -7,6 +7,7 @@ const mockGetShopDbContext = jest.fn();
 const mockApplyCatalog = jest.fn();
 const mockGetHistory = jest.fn();
 const mockAppendHistory = jest.fn();
+const mockChatCompletion = jest.fn();
 
 jest.mock("../../../models/workspace", () => ({
   Workspace: { get: (...args) => mockWorkspaceGet(...args) },
@@ -45,12 +46,20 @@ describe("OfferKP public deterministic grounding", () => {
       chatModel: "qwen",
     });
     mockGetHistory.mockReturnValue([]);
+    mockGetLlm.mockResolvedValue({
+      getChatCompletion: (...args) => mockChatCompletion(...args),
+    });
   });
 
-  it("answers greetings without loading or calling an LLM", async () => {
+  it("routes a greeting once through the command planner", async () => {
+    mockChatCompletion.mockResolvedValue({
+      textResponse:
+        '{"command":"casual","target":"","value":"","row":0}',
+    });
     await streamOfferKpPublicChat({}, "hello", "session-1");
 
-    expect(mockGetLlm).not.toHaveBeenCalled();
+    expect(mockGetLlm).toHaveBeenCalledTimes(1);
+    expect(mockChatCompletion).toHaveBeenCalledTimes(1);
     expect(mockGetShopDbContext).not.toHaveBeenCalled();
     expect(mockWrite.mock.calls[0][1]).toMatchObject({
       textResponse: expect.stringContaining("Hello"),
@@ -58,7 +67,11 @@ describe("OfferKP public deterministic grounding", () => {
     });
   });
 
-  it("returns only trusted ShopDB blocks without calling an LLM", async () => {
+  it("routes once, then returns only trusted ShopDB blocks", async () => {
+    mockChatCompletion.mockResolvedValue({
+      textResponse:
+        '{"command":"catalog_search","target":"","value":"","row":0}',
+    });
     const block =
       "[Каталог · purolat.com]\nТовар: Болт DIN 933 M10x80\nЦена: 12.50 RUB\nАртикул / SKU: SKU-10";
     mockGetShopDbContext.mockResolvedValue({
@@ -75,7 +88,8 @@ describe("OfferKP public deterministic grounding", () => {
 
     await streamOfferKpPublicChat({}, "найди болт DIN 933 M10x80", "session-2");
 
-    expect(mockGetLlm).not.toHaveBeenCalled();
+    expect(mockGetLlm).toHaveBeenCalledTimes(1);
+    expect(mockChatCompletion).toHaveBeenCalledTimes(1);
     expect(mockWrite.mock.calls[0][1]).toMatchObject({
       textResponse: expect.stringContaining("SKU-10"),
       metrics: { grounding: "shopdb_direct" },

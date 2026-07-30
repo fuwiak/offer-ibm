@@ -14,25 +14,16 @@ const {
   applyDraftChatEdits,
 } = require("../../../utils/offerKp/draftChatEdit");
 
-describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
+describe("uiDraftCommands cheapest_analogs (exact UI labels)", () => {
   const shouldMatch = [
     "Дешёвые аналоги",
-    "подставь дешёвые аналоги",
-    "встав для всех Дешёвые аналоги",
-    "вставь дешёвые аналоги для всех",
-    "дешевые аналоги для всех",
-    "примени дешёвые аналоги",
-    "давай возьмём самые дешёвые аналоги по всем позициям",
-    "замени на более дешёвые аналоги в сводке",
-    "можно подставить дешёвые аналоги из наличия?",
     "Cheapest analogs",
-    "please apply the cheapest analogs for all rows",
     "Najtańsze analogi",
-    "podstaw najtańsze analogi dla wszystkich",
-    "użyj najtańszych zamienników w ofercie",
   ];
 
   const shouldReject = [
+    "подставь дешёвые аналоги",
+    "давай возьмём самые дешёвые аналоги по всем позициям",
     "найди дешёвые аналоги DIN 933 М10х80",
     "подбери дешёвый аналог на болт М12",
     "какие дешёвые аналоги есть в каталоге?",
@@ -47,7 +38,7 @@ describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
     );
   });
 
-  it.each(shouldMatch)("matches NL: %s", (text) => {
+  it.each(shouldMatch)("matches label: %s", (text) => {
     expect(matchUiDraftCommand(text)).toBe("cheapest_analogs");
     expect(isUiDraftCommand(text)).toBe(true);
     expect(looksLikeDraftEdit(text)).toBe(true);
@@ -57,15 +48,13 @@ describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
     expect(matchUiDraftCommand(text)).toBeNull();
   });
 
-  it("routes as edit_quote, not system_help", () => {
-    const routed = routeOfferKpMessage(
-      "давай возьмём самые дешёвые аналоги по всем позициям"
-    );
+  it("routes an exact label as edit_quote", () => {
+    const routed = routeOfferKpMessage("Дешёвые аналоги");
     expect(routed.primaryIntent).toBe(OFFER_KP_INTENTS.EDIT_QUOTE);
     expect(routed.policy.allowQuoteMutation).toBe(true);
   });
 
-  it("applies cheapest analogs for free-form phrasing", () => {
+  it("applies an LLM-resolved command without reparsing its wording", () => {
     const linesWithAlts = [
       {
         name: "Болт М16",
@@ -91,7 +80,8 @@ describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
       },
     ];
     const result = applyDraftChatEdits({
-      message: "замени на более дешёвые аналоги в сводке",
+      message: "wybierzmy ekonomiczniejsze odpowiedniki dla całego zestawienia",
+      resolvedCommand: "cheapest_analogs",
       quoteDraft: {
         hardwareLines: linesWithAlts,
         preview: { lines: linesWithAlts },
@@ -101,5 +91,17 @@ describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
     expect(result.ok).toBe(true);
     expect(result.quoteDraft.hardwareLines[0].article).toBe("CHEAP");
     expect(result.quoteDraft.hardwareLines[0].unitPriceNet).toBe(15);
+  });
+
+  it("does not execute an unknown LLM command", () => {
+    const result = applyDraftChatEdits({
+      message: "zrób coś",
+      resolvedCommand: "delete_database",
+      quoteDraft: {
+        hardwareLines: [{ name: "Болт", quantity: 1 }],
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("not_an_edit");
   });
 });

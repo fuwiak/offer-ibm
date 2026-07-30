@@ -276,6 +276,8 @@ function summarizeDraft(lines = [], vatRate = 0.2) {
  *   message: string,
  *   quoteDraft?: object|null,
  *   vatRate?: number,
+ *   resolvedCommand?: string|null,
+ *   commandPlan?: {command?: string,target?: string,value?: string,row?: number}|null,
  * }} input
  */
 function applyDraftChatEdits(input = {}) {
@@ -294,7 +296,19 @@ function applyDraftChatEdits(input = {}) {
     })) || []),
   ];
 
-  const uiCommand = matchUiDraftCommand(message);
+  const commandPlan =
+    input.commandPlan && typeof input.commandPlan === "object"
+      ? input.commandPlan
+      : null;
+  const plannedCommand = String(commandPlan?.command || "").trim();
+  const resolvedCommand = String(input.resolvedCommand || "").trim();
+  const uiCommand =
+    plannedCommand === "quote_apply_cheapest_analogs"
+      ? "cheapest_analogs"
+      : resolvedCommand === "cheapest_analogs"
+        ? resolvedCommand
+        : matchUiDraftCommand(message);
+  const hasPlannedEdit = /^quote_(?:set_|remove_)/u.test(plannedCommand);
 
   if (!prev || !lines.length) {
     return {
@@ -307,7 +321,7 @@ function applyDraftChatEdits(input = {}) {
       reason: "no_draft",
     };
   }
-  if (!looksLikeDraftEdit(message)) {
+  if (!uiCommand && !hasPlannedEdit && !looksLikeDraftEdit(message)) {
     return {
       ok: false,
       applied: [],
@@ -325,19 +339,38 @@ function applyDraftChatEdits(input = {}) {
   let nextLines = lines;
   let nextCustomer = { ...(prev.customer || {}) };
 
-  const customerName = extractCustomerName(message);
+  const customerName =
+    plannedCommand === "quote_set_customer"
+      ? String(commandPlan?.value || "").trim()
+      : extractCustomerName(message);
   if (customerName) {
     nextCustomer = { ...nextCustomer, name: customerName };
     applied.push({ op: "set_customer", name: customerName });
   }
 
-  const price = extractPriceAmount(message);
-  const qty = extractQuantity(message);
-  const remove = wantsRemoveLine(message);
+  const price =
+    plannedCommand === "quote_set_price"
+      ? parseMoneyAmount(commandPlan?.value)
+      : extractPriceAmount(message);
+  const qty =
+    plannedCommand === "quote_set_quantity"
+      ? parseMoneyAmount(commandPlan?.value)
+      : extractQuantity(message);
+  const remove =
+    plannedCommand === "quote_remove_line" || wantsRemoveLine(message);
   const needsLine = price != null || qty != null || remove;
 
   if (needsLine) {
-    const index = findTargetLineIndex(message, nextLines);
+    const plannedRow = Number(commandPlan?.row);
+    const index =
+      Number.isInteger(plannedRow) &&
+      plannedRow >= 1 &&
+      plannedRow <= nextLines.length
+        ? plannedRow - 1
+        : findTargetLineIndex(
+            commandPlan?.target ? String(commandPlan.target) : message,
+            nextLines
+          );
     if (index < 0) {
       return {
         ok: false,

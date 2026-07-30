@@ -52,9 +52,12 @@ function resolveSystemHelpReply(message = "") {
   return SYSTEM_HELP_REPLY_RU;
 }
 
-function resolveOfferKpImmediateReply(message = "") {
+function resolveOfferKpImmediateReply(message = "", resolvedIntent = null) {
   const text = String(message || "").trim();
-  const routed = routeOfferKpMessage(text);
+  const routed =
+    resolvedIntent?.primaryIntent != null
+      ? resolvedIntent
+      : routeOfferKpMessage(text);
   const echo = text.match(/^(?:скажи|повтори|say)\s+(.{1,40}?)[!?.\s]*$/iu);
   if (echo && routed.primaryIntent === OFFER_KP_INTENTS.CASUAL_OR_TEST) {
     return echo[1].trim();

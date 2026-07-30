@@ -40,8 +40,22 @@ async function streamOfferKpPublicChat(
   }
 
   const uuid = uuidv4();
+  const rawChatHistory =
+    options?.chatHistory?.length > 0
+      ? options.chatHistory
+      : getPublicChatHistory(sessionId);
+  const chatHistory = sanitizeOfferKpHistory(rawChatHistory);
+  const {
+    planOfferKpChatCommand,
+    routeFromChatCommand,
+  } = require("../offerKp/chatCommandLlm");
+  const chatCommandPlan = await planOfferKpChatCommand(message, {
+    workspace,
+    context: JSON.stringify(chatHistory.slice(-8)),
+  });
+  let resolvedIntent = routeFromChatCommand(chatCommandPlan, message);
   const immediateReply = shopDbEnrichEnabled()
-    ? resolveOfferKpImmediateReply(message)
+    ? resolveOfferKpImmediateReply(message, resolvedIntent)
     : null;
   if (immediateReply) {
     appendPublicChatMessage(sessionId, "user", message);
@@ -58,17 +72,8 @@ async function streamOfferKpPublicChat(
     return;
   }
 
-  const rawChatHistory =
-    options?.chatHistory?.length > 0
-      ? options.chatHistory
-      : getPublicChatHistory(sessionId);
-  const chatHistory = sanitizeOfferKpHistory(rawChatHistory);
-
   let externalContexts = [];
-  let resolvedIntent = null;
   if (shopDbEnrichEnabled()) {
-    const { routeOfferKpMessage } = require("../offerKp/intentRouter");
-    resolvedIntent = routeOfferKpMessage(message);
     const catalog = await getShopDbContext(message, {
       maxDocs: 5,
       chatHistory,

@@ -59,6 +59,28 @@ const INTENT_CATEGORY_ENUM = [
   "out_of_scope",
 ];
 
+const CHAT_COMMAND_ENUM = [
+  "product_inquiry",
+  "catalog_search",
+  "quote_create",
+  "quote_apply_cheapest_analogs",
+  "quote_set_price",
+  "quote_set_quantity",
+  "quote_set_customer",
+  "quote_remove_line",
+  "quote_edit_other",
+  "quote_get_total",
+  "quote_get_line_count",
+  "quote_get_summary",
+  "document_question",
+  "data_question",
+  "system_help",
+  "casual",
+  "out_of_scope",
+  "unsafe",
+  "ambiguous",
+];
+
 /** Constrained-decoding schemas for LM Studio / OpenAI-compatible APIs. */
 const RESPONSE_FORMATS = Object.freeze({
   productSelection: {
@@ -90,6 +112,24 @@ const RESPONSE_FORMATS = Object.freeze({
           category: { type: "string", enum: INTENT_CATEGORY_ENUM },
         },
         required: ["category"],
+        additionalProperties: false,
+      },
+    },
+  },
+  chatCommand: {
+    type: "json_schema",
+    json_schema: {
+      name: "chat_command",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          command: { type: "string", enum: CHAT_COMMAND_ENUM },
+          target: { type: "string" },
+          value: { type: "string" },
+          row: { type: "integer", minimum: 0 },
+        },
+        required: ["command", "target", "value", "row"],
         additionalProperties: false,
       },
     },

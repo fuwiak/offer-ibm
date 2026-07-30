@@ -40,6 +40,17 @@ async function streamChatWithWorkspace(
   const clientQuoteDraft = options?.quoteDraft || null;
   const uuid = uuidv4();
   const commandMessage = await grepCommand(message, user);
+  const {
+    planOfferKpChatCommand,
+    routeFromChatCommand,
+    isExecutableDraftCommand,
+    isDraftReadCommand,
+  } = require("../offerKp/chatCommandLlm");
+  const chatCommandPlan = await planOfferKpChatCommand(commandMessage, {
+    workspace,
+    context: conversationMemory,
+  });
+  let routedIntent = routeFromChatCommand(chatCommandPlan, commandMessage);
 
   // Operator chat edits against the live UI draft (price/qty/customer/remove
   // + UI button labels like «Дешёвые аналоги»). Must run before ShopDB rematch.
@@ -48,12 +59,16 @@ async function streamChatWithWorkspace(
       looksLikeDraftEdit,
       applyDraftChatEdits,
       isUiDraftCommand,
+      matchUiDraftCommand,
     } = require("../offerKp/draftChatEdit");
     const draftLines =
       clientQuoteDraft?.hardwareLines || clientQuoteDraft?.preview?.lines || [];
     const hasDraft = Array.isArray(draftLines) && draftLines.length > 0;
-    const uiCmd = isUiDraftCommand(commandMessage);
-    const isDraftCmd = looksLikeDraftEdit(commandMessage) || uiCmd;
+    const uiCmd = !chatCommandPlan && isUiDraftCommand(commandMessage);
+    const resolvedCommand = uiCmd ? matchUiDraftCommand(commandMessage) : null;
+    const isDraftCmd = chatCommandPlan
+      ? isExecutableDraftCommand(chatCommandPlan.command)
+      : looksLikeDraftEdit(commandMessage) || uiCmd;
 
     async function replyDraftEditAndStop(text, metrics) {
       writeResponseChunk(response, {
@@ -82,7 +97,32 @@ async function streamChatWithWorkspace(
       });
     }
 
-    if (isDraftCmd && !hasDraft && uiCmd) {
+    if (isDraftReadCommand(chatCommandPlan?.command)) {
+      const { resolveDraftReadCommand } = require("../offerKp/draftReadCommands");
+      const readResult = resolveDraftReadCommand({
+        command: chatCommandPlan.command,
+        message: commandMessage,
+        quoteDraft: clientQuoteDraft,
+      });
+      if (readResult?.text) {
+        await replyDraftEditAndStop(readResult.text, {
+          grounding: "current_quote_draft",
+          draftRead: {
+            command: readResult.command,
+            lineCount: readResult.lineCount,
+            total: readResult.total,
+            currency: readResult.currency,
+          },
+        });
+        return;
+      }
+    }
+
+    if (
+      isDraftCmd &&
+      !hasDraft &&
+      (uiCmd || isExecutableDraftCommand(chatCommandPlan?.command))
+    ) {
       await replyDraftEditAndStop(
         "Сначала нужна сводка позиций КП. Загрузите заявку или сформируйте черновик, затем повторите команду кнопки.",
         { grounding: "operator_draft_edit", reason: "no_draft" }
@@ -98,6 +138,8 @@ async function streamChatWithWorkspace(
         message: commandMessage,
         quoteDraft: clientQuoteDraft,
         vatRate,
+        resolvedCommand,
+        commandPlan: chatCommandPlan,
       });
       if (editResult.ok && editResult.quoteDraft) {
         writeResponseChunk(response, {
@@ -147,7 +189,7 @@ async function streamChatWithWorkspace(
   const { shopDbEnrichEnabled } = require("../offerKp/enrich");
   const { resolveOfferKpImmediateReply } = require("../offerKp/immediateReply");
   const immediateReply = shopDbEnrichEnabled()
-    ? resolveOfferKpImmediateReply(commandMessage)
+    ? resolveOfferKpImmediateReply(commandMessage, routedIntent)
     : null;
   if (immediateReply) {
     writeResponseChunk(response, {
@@ -191,10 +233,7 @@ async function streamChatWithWorkspace(
   const {
     parsedTextHasQuoteSignals,
   } = require("../offerKp/quotePdfModelRouter");
-  const {
-    OFFER_KP_INTENTS,
-    routeOfferKpMessage,
-  } = require("../offerKp/intentRouter");
+  const { OFFER_KP_INTENTS } = require("../offerKp/intentRouter");
   const {
     detectQuoteCreationIntentWithLlm,
     mightNeedLlmQuoteJudge,
@@ -204,9 +243,9 @@ async function streamChatWithWorkspace(
   // inquiry — otherwise a bare "here's the file" message with no recognized
   // trigger phrase silently falls through to vector search / web enrich,
   // reopening the hallucination path the ShopDB-only mandate exists to close.
-  let routedIntent = routeOfferKpMessage(commandMessage);
   let generalIntentJudgeAttempted = false;
   if (
+    !chatCommandPlan &&
     shopDbEnrichEnabled() &&
     routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS
   ) {

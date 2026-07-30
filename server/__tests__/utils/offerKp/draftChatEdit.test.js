@@ -46,13 +46,9 @@ describe("draftChatEdit", () => {
       )
     ).toBe(50);
     expect(
-      extractPriceAmount(
-        "цена Болт М20x90 неправильная, в КП вставь 50 руб"
-      )
+      extractPriceAmount("цена Болт М20x90 неправильная, в КП вставь 50 руб")
     ).toBe(50);
-    expect(
-      extractPriceAmount("поставь цену 12.5 для строки 2")
-    ).toBe(12.5);
+    expect(extractPriceAmount("поставь цену 12.5 для строки 2")).toBe(12.5);
   });
 
   it("finds target line by product tokens", () => {
@@ -93,6 +89,60 @@ describe("draftChatEdit", () => {
     expect(result.quoteDraft.hardwareLines[0].quantity).toBe(200);
   });
 
+  it("executes structured LLM edit commands without phrase parsing", () => {
+    const priceResult = applyDraftChatEdits({
+      message: "dla drugiej pozycji przyjmijmy pięćdziesiąt",
+      commandPlan: {
+        command: "quote_set_price",
+        target: "",
+        value: "50",
+        row: 2,
+      },
+      quoteDraft: { hardwareLines: lines },
+    });
+    expect(priceResult.ok).toBe(true);
+    expect(priceResult.quoteDraft.hardwareLines[1].unitPriceNet).toBe(50);
+
+    const quantityResult = applyDraftChatEdits({
+      message: "pierwszej potrzebujemy dwieście",
+      commandPlan: {
+        command: "quote_set_quantity",
+        target: "",
+        value: "200",
+        row: 1,
+      },
+      quoteDraft: { hardwareLines: lines },
+    });
+    expect(quantityResult.ok).toBe(true);
+    expect(quantityResult.quoteDraft.hardwareLines[0].quantity).toBe(200);
+
+    const customerResult = applyDraftChatEdits({
+      message: "oferta będzie dla ACME",
+      commandPlan: {
+        command: "quote_set_customer",
+        target: "",
+        value: "ACME",
+        row: 0,
+      },
+      quoteDraft: { hardwareLines: lines },
+    });
+    expect(customerResult.ok).toBe(true);
+    expect(customerResult.quoteDraft.customer.name).toBe("ACME");
+
+    const removeResult = applyDraftChatEdits({
+      message: "tej środkowej nie potrzebujemy",
+      commandPlan: {
+        command: "quote_remove_line",
+        target: "",
+        value: "",
+        row: 2,
+      },
+      quoteDraft: { hardwareLines: lines },
+    });
+    expect(removeResult.ok).toBe(true);
+    expect(removeResult.quoteDraft.hardwareLines).toHaveLength(2);
+  });
+
   it("removes a line", () => {
     const result = applyDraftChatEdits({
       message: "удали строку с Болт М20x90 из КП",
@@ -106,9 +156,7 @@ describe("draftChatEdit", () => {
   });
 
   it("detects edit intent", () => {
-    expect(
-      looksLikeDraftEdit("w kp wstaw 50 rub для Болт М20x90")
-    ).toBe(true);
+    expect(looksLikeDraftEdit("w kp wstaw 50 rub для Болт М20x90")).toBe(true);
     expect(looksLikeDraftEdit("сколько позиций в каталоге?")).toBe(false);
   });
 
@@ -116,8 +164,10 @@ describe("draftChatEdit", () => {
     expect(looksLikeDraftEdit("Дешёвые аналоги")).toBe(true);
     expect(looksLikeDraftEdit("Najtańsze analogi")).toBe(true);
     expect(looksLikeDraftEdit("Cheapest analogs")).toBe(true);
-    expect(looksLikeDraftEdit("подставь дешёвые аналоги")).toBe(true);
-    expect(looksLikeDraftEdit("встав для всех Дешёвые аналоги")).toBe(true);
+    // Free-form utterances are resolved asynchronously by chatCommandLlm,
+    // not by growing the synchronous phrase matcher.
+    expect(looksLikeDraftEdit("подставь дешёвые аналоги")).toBe(false);
+    expect(looksLikeDraftEdit("встав для всех Дешёвые аналоги")).toBe(false);
 
     const linesWithAlts = [
       {
@@ -126,7 +176,13 @@ describe("draftChatEdit", () => {
         quantity: 10,
         unitPriceNet: 40,
         alternatives: [
-          { sku: "OLD", name: "Болт М16 old", price: 40, matchType: "exact", stockCount: 0 },
+          {
+            sku: "OLD",
+            name: "Болт М16 old",
+            price: 40,
+            matchType: "exact",
+            stockCount: 0,
+          },
           {
             sku: "CHEAP",
             name: "Болт М16 cheap",
@@ -142,7 +198,13 @@ describe("draftChatEdit", () => {
         quantity: 5,
         unitPriceNet: 8,
         alternatives: [
-          { sku: "KEEP", name: "Гайка keep", price: 8, matchType: "exact", stockCount: 5 },
+          {
+            sku: "KEEP",
+            name: "Гайка keep",
+            price: 8,
+            matchType: "exact",
+            stockCount: 5,
+          },
           {
             sku: "CHEAPER",
             name: "Гайка cheaper",
@@ -156,7 +218,10 @@ describe("draftChatEdit", () => {
 
     const result = applyDraftChatEdits({
       message: "Дешёвые аналоги",
-      quoteDraft: { hardwareLines: linesWithAlts, preview: { lines: linesWithAlts } },
+      quoteDraft: {
+        hardwareLines: linesWithAlts,
+        preview: { lines: linesWithAlts },
+      },
       vatRate: 0.2,
     });
     expect(result.ok).toBe(true);
@@ -172,7 +237,11 @@ describe("draftChatEdit", () => {
       message: "Дешёвые аналоги",
       quoteDraft: {
         hardwareLines: [
-          { name: "X", article: "A", alternatives: [{ sku: "A", price: 1, stockCount: 1 }] },
+          {
+            name: "X",
+            article: "A",
+            alternatives: [{ sku: "A", price: 1, stockCount: 1 }],
+          },
         ],
       },
     });
