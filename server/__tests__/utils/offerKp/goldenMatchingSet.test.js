@@ -24,9 +24,9 @@ describe("golden matching set (test_files matched_sku columns)", () => {
     expect(isGoldenCorrectionsEnabled()).toBe(true);
   });
 
-  it("loads all 7 verified matching rows from Prostoy_* CSVs", () => {
+  it("loads verified matching rows from Prostoy_* and Yandex_* CSVs", () => {
     const examples = listMatchExamples();
-    expect(examples.length).toBeGreaterThanOrEqual(7);
+    expect(examples.length).toBeGreaterThanOrEqual(8);
 
     const skus = new Set(examples.map((e) => e.sku));
     // Prostoy_zapros_s_nashimi_artikulami_1
@@ -38,6 +38,8 @@ describe("golden matching set (test_files matched_sku columns)", () => {
     expect(skus.has("009128100080016")).toBe(true);
     expect(skus.has("009331100160070")).toBe(true);
     expect(skus.has("009331100160040")).toBe(true);
+    // Yandex site:purolat.com ISO 7380-1 M10x25 10.9
+    expect(skus.has("073801000100025")).toBe(true);
   });
 
   it.each([
@@ -62,7 +64,9 @@ describe("golden matching set (test_files matched_sku columns)", () => {
 
   it("does not invent a correction for an unknown query", () => {
     expect(
-      findGoldenCorrection(["полностью выдуманный товар XYZ-999-нет-в-каталоге"])
+      findGoldenCorrection([
+        "полностью выдуманный товар XYZ-999-нет-в-каталоге",
+      ])
     ).toBeNull();
   });
 });
