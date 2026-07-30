@@ -67,7 +67,7 @@ describe("asPDF skipCollectorOcr", () => {
 
     expect(result.success).toBe(false);
     expect(result.documents).toEqual([]);
-    expect(String(result.reason || "")).toMatch(/No text content/i);
+    expect(String(result.reason || "")).toMatch(/Deferred to Vision OCR/i);
     expect(mockOcrPDFNative).not.toHaveBeenCalled();
     expect(mockOcrPDF).not.toHaveBeenCalled();
   });

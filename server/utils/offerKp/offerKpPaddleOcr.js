@@ -27,16 +27,9 @@ async function renderPdfPages(pdfPath, { dpi = 200, onPage = null } = {}) {
   const jpegFlag = String(process.env.OFFER_KP_VISION_OCR_PDF_JPEG ?? "1")
     .trim()
     .toLowerCase();
-  const useJpeg = jpegFlag !== "0" && jpegFlag !== "false";
-  const formatFlag = useJpeg ? "-jpeg" : "-png";
-  const ext = useJpeg ? "jpg" : "png";
-  try {
-    await execFileAsync(
-      "pdftoppm",
-      [formatFlag, "-r", String(dpi), pdfPath, outRoot],
-      { timeout: 600_000 }
-    );
+  const preferJpeg = jpegFlag !== "0" && jpegFlag !== "false";
 
+  function collectPages(ext, mime) {
     const pageFiles = fs
       .readdirSync(tmpDir)
       .map((file) => ({
@@ -52,16 +45,56 @@ async function renderPdfPages(pdfPath, { dpi = 200, onPage = null } = {}) {
     const pages = [];
     for (const { file, page } of pageFiles) {
       const buf = fs.readFileSync(path.join(tmpDir, file));
-      pages.push({
-        pageNumber: page,
-        buffer: buf,
-        mime: useJpeg ? "image/jpeg" : "image/png",
-      });
+      pages.push({ pageNumber: page, buffer: buf, mime });
       if (typeof onPage === "function") {
         onPage({ pageNumber: page, total: pageFiles.length });
       }
     }
     return pages;
+  }
+
+  /** Some poppler builds emit `.jpeg`, others `.jpg` — accept both. */
+  function collectJpegPages() {
+    const jpg = collectPages("jpg", "image/jpeg");
+    if (jpg.length) return jpg;
+    return collectPages("jpeg", "image/jpeg");
+  }
+
+  async function runPdftoppm(formatFlag) {
+    await execFileAsync(
+      "pdftoppm",
+      [formatFlag, "-r", String(dpi), pdfPath, outRoot],
+      { timeout: 600_000 }
+    );
+  }
+
+  try {
+    if (preferJpeg) {
+      try {
+        await runPdftoppm("-jpeg");
+        const jpegPages = collectJpegPages();
+        if (jpegPages.length) return jpegPages;
+        offerKpLog("warn", "pdftoppm -jpeg produced 0 pages — retrying -png", {
+          pdfPath: path.basename(pdfPath),
+          files: fs.readdirSync(tmpDir),
+        });
+      } catch (jpegErr) {
+        offerKpLog("warn", "pdftoppm -jpeg failed — retrying -png", {
+          error: jpegErr?.message || String(jpegErr),
+        });
+      }
+      // Clear partial jpeg outputs before png pass.
+      for (const file of fs.readdirSync(tmpDir)) {
+        try {
+          fs.unlinkSync(path.join(tmpDir, file));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    await runPdftoppm("-png");
+    return collectPages("png", "image/png");
   } catch (error) {
     offerKpLog("warn", "PaddleOCR pdftoppm render failed", {
       error: error?.message || String(error),

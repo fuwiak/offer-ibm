@@ -108,6 +108,9 @@ function get(key) {
  */
 function set(key, value) {
   if (!ENABLED || !key || value === undefined || value === null) return;
+  // Never cache empty extractions docs — skipCollectorOcr deferrals and
+  // transient PDFLoader failures would otherwise poison the next upload.
+  if (Array.isArray(value) && value.length === 0) return;
   if (store.has(key)) store.delete(key);
   store.set(key, { value, expiresAt: Date.now() + TTL_MS });
   while (store.size > MAX_ENTRIES) {

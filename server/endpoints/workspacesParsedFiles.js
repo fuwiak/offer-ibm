@@ -328,11 +328,19 @@ function workspaceParsedFilesEndpoints(app) {
         // Collector/Tesseract often returns empty for photos of RFQ tables.
         // Fall back to archived original + Qwen-VL vision OCR.
         if (!success || !documents?.[0]) {
-          const visionDocs = await ocrArchivedOriginalAsDocuments({
-            originalLocation,
-            originalFilename: originalname,
-            workspace,
-          });
+          let visionDocs = [];
+          try {
+            visionDocs = await ocrArchivedOriginalAsDocuments({
+              originalLocation,
+              originalFilename: originalname,
+              workspace,
+            });
+          } catch (visionErr) {
+            console.error(
+              "[parse] Vision OCR recovery failed:",
+              visionErr?.message || visionErr
+            );
+          }
           if (visionDocs?.[0]?.pageContent?.trim()) {
             documents = visionDocs;
             success = true;
@@ -340,7 +348,12 @@ function workspaceParsedFilesEndpoints(app) {
           } else {
             return response.status(500).json({
               success: false,
-              error: reason || "No document returned from collector",
+              error:
+                reason &&
+                reason !== "A processing error occurred." &&
+                reason !== "Deferred to Vision OCR"
+                  ? reason
+                  : "Collector returned no text and Vision OCR could not recover the PDF. Check LM Studio / pdftoppm.",
             });
           }
         } else {
@@ -463,20 +476,34 @@ function workspaceParsedFilesEndpoints(app) {
           );
 
         if (!success || !documents?.[0]) {
-          const visionDocs = await ocrArchivedOriginalAsDocuments({
-            originalLocation,
-            originalFilename: originalname,
-            workspace,
-            onProgress: send,
-          });
+          let visionDocs = [];
+          try {
+            visionDocs = await ocrArchivedOriginalAsDocuments({
+              originalLocation,
+              originalFilename: originalname,
+              workspace,
+              onProgress: send,
+            });
+          } catch (visionErr) {
+            console.error(
+              "[parse-stream] Vision OCR recovery failed:",
+              visionErr?.message || visionErr
+            );
+          }
           if (visionDocs?.[0]?.pageContent?.trim()) {
             documents = visionDocs;
             success = true;
             reason = null;
           } else {
+            const detail =
+              reason &&
+              reason !== "A processing error occurred." &&
+              reason !== "Deferred to Vision OCR"
+                ? reason
+                : "Collector returned no text and Vision OCR could not recover the PDF. Check LM Studio / pdftoppm.";
             send({
               type: "error",
-              error: reason || "No document returned from collector",
+              error: detail,
             });
             return response.end();
           }

@@ -103,7 +103,17 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
 
   emit({ type: "stage", stage: "loading" });
   const pdfLoader = new PDFLoader(fullFilePath, { splitPages: true });
-  let docs = await pdfLoader.load();
+  let docs = [];
+  try {
+    docs = await pdfLoader.load();
+  } catch (loadErr) {
+    // Damaged / unusual PDFs: do not abort the whole upload — fall through to
+    // OCR (or Vision deferral via skipCollectorOcr).
+    console.warn(
+      `[asPDF] PDFLoader.load failed for ${filename}: ${loadErr?.message || loadErr}`
+    );
+    docs = [];
+  }
 
   // ── Step 1: decide whether the digital text layer is usable ─────────────────
   const rawText = docs.map((d) => d.pageContent || "").join("");
@@ -284,8 +294,17 @@ async function asPdf({
   }
 
   if (!pageContent.length) {
-    console.error(`[asPDF] Resulting text content was empty for ${filename}.`);
     if (!options.absolutePath) trashFile(fullFilePath);
+    // Intentional: OfferKP skips collector Tesseract and recovers via Vision OCR.
+    if (options?.skipCollectorOcr) {
+      console.log(`[asPDF] Deferred to Vision OCR for ${filename}.`);
+      return {
+        success: false,
+        reason: "Deferred to Vision OCR",
+        documents: [],
+      };
+    }
+    console.error(`[asPDF] Resulting text content was empty for ${filename}.`);
     return {
       success: false,
       reason: `No text content found in ${filename}.`,
