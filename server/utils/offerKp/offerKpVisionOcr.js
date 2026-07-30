@@ -33,17 +33,22 @@ const VISION_OCR_PROMPT = `Извлеки весь текст с изображ�
  * Eyes only: extract line items as JSON. Never invent prices or SKUs —
  * catalog truth lives in ShopDB / matchInquiry.
  */
-const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на крепёж. Извлеки ВСЕ позиции с изображения.
+const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на крепёж / ведомости метизов. Извлеки ВСЕ позиции с изображения.
 
 Верни ТОЛЬКО JSON-объект (без markdown и рассуждений):
-{"lines":[{"source_page":1,"source_row":1,"name_verbatim":"полное наименование","quantity":100,"unit":"шт","confidence":0.97}]}
+{"lines":[{"source_page":1,"source_row":1,"name_verbatim":"полное наименование для поиска","quantity":100,"unit":"шт","gost":"7798-70","diameter_mm":16,"length_mm":55,"strength_class":"8.8","coating":"оцинк.","confidence":0.97}]}
 
 Допускается также legacy-массив [["наименование",qty,"шт"], ...] если schema недоступна.
 
 Правила:
-- Наименование перепиши дословно целиком: DIN/ГОСТ/размер/покрытие.
-- Количество — только колонка количества; НЕ путай с ценой и размером.
+- Таблица может быть «ВЕДОМОСТЬ МОНТАЖНЫХ МЕТИЗОВ» с колонками: Наименование, Диаметр, Толщина пакета, Длина, Кол-во, Вес, ГОСТ, Класс прочности, Примечания.
+- name_verbatim собери ПОЛНОЕ обозначение для каталога, например:
+  «Болт М16×55 ГОСТ 7798-70 кл.8.8 оцинк.» или «Гайка М20 ГОСТ 5915-70 кл.8 оцинк.» или «Шайба 16 ГОСТ 11371-78 оцинк.».
+  Диаметр → М{d}; длину болта добавь как ×{L}; ГОСТ/класс/покрытие из соответствующих колонок.
+- quantity — ТОЛЬКО колонка «Кол-во, шт.» (не вес кгс и не толщина пакета).
+- unit обычно «шт»; вес не пиши как quantity.
 - Не выдумывай цены, SKU, остатки и ссылки — их нет в твоей роли.
+- Строку «Итого» не включай. Примечания 1–3 внизу листа — не позиции (кроме явной позиции вроде «химический анкер… — 20 шт»).
 - Если таблица пуста — верни {"lines":[]}.`;
 
 function formatExtractionMemory(examples = []) {
@@ -177,6 +182,7 @@ function extractJsonArray(text) {
 
 /**
  * Convert OCR JSON lines into plain inquiry text for parseInquiryText.
+ * Builds catalog-ready names from ведомость columns when present.
  * @param {Array<object>} lines
  * @returns {string}
  */
@@ -195,25 +201,71 @@ function inquiryTextFromOcrJsonLines(lines = []) {
           qty != null && String(qty).trim() !== "" ? ` — ${qty} ${unit}` : "";
         return `${index + 1}. ${name}${qtyPart}`;
       }
-      const name = String(
+      let name = String(
         row.name_verbatim || row.name || row.title || row.наименование || ""
       ).trim();
       if (!name) return "";
-      const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
-      const unit = String(row.unit || row.ед || "шт").trim() || "шт";
+
+      const diameter = row.diameter_mm ?? row.diameter ?? row.dia ?? row.d;
+      const length = row.length_mm ?? row.length ?? row.l;
+      const strength =
+        row.strength_class || row.strengthClass || row.class || "";
+      const coating = row.coating || row.finish || "";
+
+      // Compose MdxL if diameter present and not already in the name.
+      if (diameter != null && String(diameter).trim() !== "") {
+        const d = String(diameter).replace(/[^\d.,]/g, "").replace(",", ".");
+        if (d && !new RegExp(`\\bM\\s*${d}\\b`, "i").test(name)) {
+          const L =
+            length != null && String(length).trim() !== ""
+              ? String(length).replace(/[^\d.,]/g, "").replace(",", ".")
+              : "";
+          const size = L ? `М${d}×${L}` : `М${d}`;
+          // "Болт" → "Болт М16×55 …"
+          name = /\b(болт|гайка|шайба|винт|шпильк\w*)\b/i.test(name)
+            ? name.replace(
+                /\b(болт|гайка|шайба|винт|шпильк\w*)\b/i,
+                `$1 ${size}`
+              )
+            : `${name} ${size}`;
+        }
+      }
+
       const din =
         row.din && !new RegExp(`\\bDIN\\s*${row.din}\\b`, "i").test(name)
           ? ` DIN ${row.din}`
           : "";
+      const gostRaw = row.gost != null ? String(row.gost).trim() : "";
       const gost =
-        row.gost &&
-        !new RegExp(`(?:ГОСТ|GOST)\\s*${row.gost}\\b`, "i").test(name)
-          ? ` ГОСТ ${row.gost}`
+        gostRaw &&
+        !new RegExp(
+          `(?:ГОСТ|GOST)\\s*${gostRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+          "i"
+        ).test(name)
+          ? ` ГОСТ ${gostRaw}`
+          : "";
+      const strengthPart =
+        strength &&
+        !new RegExp(
+          String(strength).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i"
+        ).test(name)
+          ? ` кл.${strength}`
+          : "";
+      const coatingPart =
+        coating &&
+        !new RegExp(
+          String(coating).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i"
+        ).test(name)
+          ? ` ${coating}`
           : "";
       const notes = row.notes ? ` (${row.notes})` : "";
+      const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
+      const unit = String(row.unit || row.ед || "шт").trim() || "шт";
       const qtyPart =
         qty != null && String(qty).trim() !== "" ? ` — ${qty} ${unit}` : "";
-      return `${index + 1}. ${name}${din}${gost}${qtyPart}${notes}`.trim();
+      return `${index + 1}. ${name}${din}${gost}${strengthPart}${coatingPart}${qtyPart}${notes}`.trim();
     })
     .filter(Boolean)
     .join("\n");

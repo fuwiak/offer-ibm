@@ -99,7 +99,7 @@ function parsedTextHasQuoteSignals(text = "") {
     return true;
   }
   if (
-    /(наименован|артикул|кол-?во|количеств|qty|price|цена|сумма|ед\.?\s*изм)/i.test(
+    /(наименован|артикул|кол-?во|количеств|qty|price|цена|сумма|ед\.?\s*изм|ведомость|метиз)/i.test(
       combined
     )
   ) {

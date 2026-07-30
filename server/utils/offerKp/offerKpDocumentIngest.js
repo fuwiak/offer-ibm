@@ -22,7 +22,7 @@ function isOfferKpVisionOcrEnabled() {
 function assessInquiryTableIntegrity(text = "") {
   const combined = String(text || "");
   const tableLike =
-    /наименование\s+товара|кол-?во|потребность\s+на|перечень\s+(?:болтов|товаров)/i.test(
+    /наименование\s+товара|\bнаименование\b|кол-?во|потребность\s+на|перечень\s+(?:болтов|товаров)|ведомость\s+монтажных\s+метизов|\bметиз/i.test(
       combined
     );
   const candidateRows = (

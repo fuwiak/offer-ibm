@@ -153,6 +153,9 @@ export function DnDFileUploaderProvider({
 
   /**
    * Handle pasted attachments.
+   * OfferKP: photos of RFQ tables must go through /parse + Vision OCR
+   * (same as PDF), not as chat-only multimodal attachments — otherwise
+   * ShopDB enrich runs on empty text and returns the abstain banner.
    * @param {CustomEvent<{files: File[]}>} event
    */
   async function handlePastedAttachment(event) {
@@ -160,25 +163,14 @@ export function DnDFileUploaderProvider({
     if (!files.length) return;
     const newAccepted = [];
     for (const file of files) {
-      if (file.type.startsWith("image/")) {
-        newAccepted.push({
-          uid: v4(),
-          file,
-          contentString: await toBase64(file),
-          status: "success",
-          error: null,
-          type: "attachment",
-        });
-      } else {
-        newAccepted.push({
-          uid: v4(),
-          file,
-          contentString: null,
-          status: "in_progress",
-          error: null,
-          type: "upload",
-        });
-      }
+      newAccepted.push({
+        uid: v4(),
+        file,
+        contentString: null,
+        status: "in_progress",
+        error: null,
+        type: "upload",
+      });
     }
     setFiles((prev) => [...prev, ...newAccepted]);
     embedEligibleAttachments(newAccepted);
@@ -186,6 +178,7 @@ export function DnDFileUploaderProvider({
 
   /**
    * Handle dropped files.
+   * Images are uploads (Vision OCR), not chat attachments — see paste handler.
    * @param {Attachment[]} acceptedFiles
    * @param {any[]} _rejections
    */
@@ -195,25 +188,14 @@ export function DnDFileUploaderProvider({
     /** @type {Attachment[]} */
     const newAccepted = [];
     for (const file of acceptedFiles) {
-      if (file.type.startsWith("image/")) {
-        newAccepted.push({
-          uid: v4(),
-          file,
-          contentString: await toBase64(file),
-          status: "success",
-          error: null,
-          type: "attachment",
-        });
-      } else {
-        newAccepted.push({
-          uid: v4(),
-          file,
-          contentString: null,
-          status: "in_progress",
-          error: null,
-          type: "upload",
-        });
-      }
+      newAccepted.push({
+        uid: v4(),
+        file,
+        contentString: null,
+        status: "in_progress",
+        error: null,
+        type: "upload",
+      });
     }
 
     setFiles((prev) => [...prev, ...newAccepted]);
@@ -221,7 +203,7 @@ export function DnDFileUploaderProvider({
   }
 
   /**
-   * Embeds attachments that are eligible for embedding - basically files that are not images.
+   * Parse uploads into thread context (PDF + RFQ photos via Vision OCR).
    * @param {Attachment[]} newAttachments
    */
   async function embedEligibleAttachments(newAttachments = []) {
@@ -239,7 +221,6 @@ export function DnDFileUploaderProvider({
     let batchPendingFiles = [];
 
     for (const attachment of newAttachments) {
-      // Images/attachments are chat specific.
       if (attachment.type === "attachment") continue;
 
       const formData = new FormData();
@@ -470,21 +451,4 @@ export default function DnDFileUploaderWrapper({ children }) {
       {children}
     </div>
   );
-}
-
-/**
- * Convert image types into Base64 strings for requests.
- * @param {File} file
- * @returns {Promise<string>}
- */
-async function toBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64String = reader.result.split(",")[1];
-      resolve(`data:${file.type};base64,${base64String}`);
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
 }

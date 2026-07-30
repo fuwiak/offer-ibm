@@ -160,13 +160,25 @@ async function streamChatWithWorkspace(
     `intent=${routedIntent.primaryIntent} conf=${routedIntent.confidence}`
   );
   const attachmentOnlyPrompt =
-    /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request)/iu.test(
+    /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк|фото|скан|изображен)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request|photo|image)/iu.test(
       commandMessage
     );
+  // Photo/PDF RFQ already OCR'd into thread context: treat as create_quote
+  // even without an explicit «сделай КП» (same as pasted multi-line RFQ).
+  let attachedInquiryLineCount = 0;
+  try {
+    const { parseInquiryText } = require("../offerKp/parseInquiry");
+    attachedInquiryLineCount = parseInquiryText(
+      parsedFileTexts.join("\n\n")
+    ).length;
+  } catch {
+    attachedInquiryLineCount = 0;
+  }
   const attachmentQuoteRequest =
-    parsedTextHasQuoteSignals(parsedFileTexts.join("\n")) &&
-    (attachmentOnlyPrompt ||
-      routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS);
+    attachedInquiryLineCount >= 2 ||
+    (parsedTextHasQuoteSignals(parsedFileTexts.join("\n")) &&
+      (attachmentOnlyPrompt ||
+        routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS));
   let quoteDocumentRequest =
     isQuoteDocumentRequest(commandMessage) || attachmentQuoteRequest;
 

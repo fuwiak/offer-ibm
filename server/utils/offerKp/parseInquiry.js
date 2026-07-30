@@ -7,7 +7,7 @@ const { parseHardwareQuery } = require("./hardwareQuery");
 
 const LINE_SPLIT_RE = /\n+|;\s*(?=\d)|(?<=\d)\s*[,;]\s*(?=\D)/;
 const HARDWARE_LINE_RE =
-  /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bm\s*\d+\b|\bd\s*\d+\b|\bштанг|\bшпильк|\bрым|\bболт\s+m|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк|\bвинт|\bшайб|\bштифт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
+  /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bm\s*\d+\b|\bd\s*\d+\b|\bштанг|\bшпильк|\bрым|\bболт\s+m|\bболт\s+\d|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк\w*\s+\d|\bгайк|\bвинт|\bшайб\w*\s+\d|\bшайб|\bштифт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
 const INQUIRY_SKIP_LINE_RE =
   /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац)/i;
 const INQUIRY_UNIT_RE =
