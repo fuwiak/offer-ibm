@@ -186,6 +186,8 @@ function getLLMProvider({
         // it shows up in chat metrics/logs instead of only a server warn.
         if (resolved.modelFallback) llm.modelFallback = resolved.modelFallback;
         if (resolved.fallbackReason) llm.fallbackReason = resolved.fallbackReason;
+        if (resolved.llmUnreachable) llm.llmUnreachable = true;
+        if (resolved.lmStudioReachable === false) llm.lmStudioReachable = false;
         return llm;
       }
     case "localai":
@@ -650,7 +652,7 @@ async function getLLMProviderWithFallback({
     model,
     forceRefresh,
   });
-  return getLLMProvider(resolved);
+  return getLLMProvider({ ...resolved, useResolved: true });
 }
 
 module.exports = {

@@ -274,9 +274,23 @@ async function resolveLlmProviderWithFallback(params = {}) {
       "error",
       "LM Studio unreachable and OpenRouter/egress also down"
     );
+    return {
+      ...resolveLmStudioOnly({
+        ...params,
+        catalog,
+        fallbackReason: "lmstudio_and_openrouter_unreachable",
+      }),
+      lmStudioReachable: false,
+      llmUnreachable: true,
+    };
   }
 
-  return resolveLlmProviderAndModel({ ...params, catalog });
+  const resolved = resolveLlmProviderAndModel({ ...params, catalog });
+  return {
+    ...resolved,
+    lmStudioReachable: catalog?.reachable !== false,
+    llmUnreachable: catalog?.reachable === false && resolved.provider === "lmstudio",
+  };
 }
 
 module.exports = {

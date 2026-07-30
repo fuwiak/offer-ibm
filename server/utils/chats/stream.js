@@ -285,6 +285,44 @@ async function streamChatWithWorkspace(
     model: LLMConnector?.model || effectiveChatModel,
   });
 
+  if (
+    LLMConnector?.llmUnreachable ||
+    LLMConnector?.lmStudioReachable === false
+  ) {
+    const abortError =
+      "LM Studio на lainey недоступен (пустое соединение :1234). " +
+      "Чат не может генерировать ответ, пока модель не загружена в LM Studio. " +
+      `requestId=${uuid}`;
+    diagNote(pipelineDiag, "llmUnreachable fail-fast");
+    recordPipelineFailure(pipelineDiag, new Error(abortError));
+    markStage(requestTrace, "GENERATION", "fail", { error: abortError });
+    finalizeTrace(requestTrace, { status: "fail", error: abortError });
+    writeResponseChunk(response, {
+      uuid,
+      sources: [],
+      type: "abort",
+      textResponse: null,
+      close: true,
+      error: abortError,
+      metrics: { offerKpTrace: summarizeTrace(requestTrace) },
+    });
+    await WorkspaceChats.new({
+      workspaceId: workspace.id,
+      prompt: message,
+      response: {
+        text: "",
+        sources: [],
+        type: chatMode,
+        attachments,
+        metrics: { offerKpTrace: summarizeTrace(requestTrace) },
+      },
+      threadId: thread?.id || null,
+      include: false,
+      user,
+    });
+    return;
+  }
+
   if (LLMConnector?.fallbackReason === "openrouter_unreachable") {
     const fallbackModel =
       LLMConnector?.model || process.env.LMSTUDIO_MODEL_PREF || "LM Studio";
@@ -295,24 +333,8 @@ async function streamChatWithWorkspace(
       content: `OpenRouter/egress недоступен — ответ через LM Studio (${fallbackModel}).`,
     });
   }
-  const matchHeartbeat = setInterval(() => {
-    if (
-      pipelineDiag.stage === "enrich_done" ||
-      pipelineDiag.stage === "generation"
-    ) {
-      return;
-    }
-    if (pipelineDiag.matchedCount === 0 && pipelineDiag.stage !== "matching") {
-      return;
-    }
-    writeResponseChunk(response, {
-      uuid,
-      type: "statusResponse",
-      content: `ShopDB matching… ${pipelineDiag.matchedCount}/${pipelineDiag.total || "?"}`,
-      close: false,
-      error: false,
-    });
-  }, 12000);
+  // Keep SSE alive with quote-progress events only (statusResponse would
+  // clear loadingResponse in the UI — see frontend utils/chat/index.js).
   const shopEnrichPromise = collectExternalContexts({
     message: updatedMessage,
     workspace,
@@ -340,7 +362,7 @@ async function streamChatWithWorkspace(
         },
       });
     },
-  }).finally(() => clearInterval(matchHeartbeat));
+  });
 
   // Look for pinned documents
   // as pinning is a supplemental tool but it should be used with caution since it can easily blow up a context window.

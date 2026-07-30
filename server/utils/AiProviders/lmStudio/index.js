@@ -26,6 +26,11 @@ class LMStudioLLM {
     this.lmstudio = new OpenAIApi({
       baseURL: parseLMStudioBasePath(process.env.LMSTUDIO_BASE_PATH), // here is the URL to your LMStudio instance
       apiKey,
+      // Empty-reply / hung lainey must not block chat forever (default SDK = no timeout).
+      timeout: Math.max(
+        10_000,
+        parseInt(process.env.LMSTUDIO_CHAT_TIMEOUT_MS, 10) || 90_000
+      ),
     });
 
     // Prior to LMStudio 0.2.17 the `model` param was not required and you could pass anything
