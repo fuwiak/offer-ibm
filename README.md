@@ -84,6 +84,8 @@ yarn deploy:lainey
 | `SHOP_DB_EMBEDDING_SIMILARITY` | embedding rerank (1/0) |
 | `SHOP_DB_CANONICAL_INDEX` | полный канонический snapshot товаров ShopDB |
 | `SHOP_DB_CATALOG_DENSE` | dense ANN по всему каталогу (persisted vectors, 1/0) |
+| `SHOP_DB_HISTORY_DB` | отдельная SQLite с историей каталога и embedding |
+| `SHOP_DB_VECTOR_DB_DIR` | отдельная LanceDB с векторами ShopDB |
 | `SHOP_DB_GOLDEN_CORRECTIONS` | override из golden CSV |
 | `SHOP_DB_METRICS_ENABLED` | JSONL метрик matching |
 
@@ -94,6 +96,12 @@ yarn deploy:lainey
 ```bash
 yarn sync:shopdb-canonical
 ```
+
+Данные ShopDB не изменяются. Индекс хранится отдельно:
+
+- история и версии: `$STORAGE_DIR/shopdb-history/history.sqlite`;
+- векторы: `$STORAGE_DIR/shopdb-vector-db` (LanceDB);
+- snapshot и безопасный checkpoint миграции: `$STORAGE_DIR/shopdb-index`.
 
 ---
 

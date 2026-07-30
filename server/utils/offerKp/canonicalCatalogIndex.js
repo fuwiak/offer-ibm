@@ -23,10 +23,15 @@ const {
   clearVectorCheckpoint,
   acquireIndexSyncLock,
 } = require("./canonicalVectorCheckpoint");
+const {
+  DEFAULT_VECTOR_DB_DIR,
+  getShopDbVectorStore,
+} = require("./shopDbVectorStore");
+const { getShopDbHistoryStore } = require("./shopDbHistoryStore");
 const shopDbLog = require("./shopDbLog");
 
-/** v3 = canonical texts + dense vectors + structured signature fields. */
-const INDEX_VERSION = 3;
+/** v4 = structured snapshot + separate SQLite history + LanceDB vectors. */
+const INDEX_VERSION = 4;
 const DEFAULT_EMBEDDING_MODEL =
   EMBEDDING_MODEL || "MintplexLabs/multilingual-e5-small";
 const INDEX_DIR = process.env.STORAGE_DIR
@@ -47,6 +52,7 @@ let catalogMapCache = null;
 let syncPromise = null;
 /** @type {{ ids: number[], dims: number, matrix: Float32Array }|null} */
 let vectorIndexCache = null;
+let vectorIndexInjectedForTests = false;
 
 function enabled() {
   const raw = String(process.env.SHOP_DB_CANONICAL_INDEX ?? "1")
@@ -110,7 +116,20 @@ function indexIsFresh() {
     return false;
   }
   if (denseEnabled() && !manifest.hasVectors) return false;
-  if (manifest.hasVectors && !fs.existsSync(VECTORS_FILE)) return false;
+  if (
+    manifest.hasVectors &&
+    manifest.vectorStore === "lancedb" &&
+    !fs.existsSync(DEFAULT_VECTOR_DB_DIR)
+  ) {
+    return false;
+  }
+  if (
+    manifest.hasVectors &&
+    manifest.vectorStore !== "lancedb" &&
+    !fs.existsSync(VECTORS_FILE)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -239,11 +258,17 @@ function loadPreviousVectorIndex() {
 /**
  * Embed missing canonical texts; reuse previous vectors when hash matches.
  */
-async function buildVectorMatrix(records) {
+async function buildVectorMatrix(
+  records,
+  { vectorStore = null, historyStore = null, syncId = null } = {}
+) {
   if (!denseEnabled() || !records.length) return null;
 
   const previous = loadPreviousVectorIndex();
   const checkpoint = loadVectorCheckpoint(INDEX_DIR, embeddingModel());
+  const recordById = new Map(
+    records.map((record) => [Number(record.productId), record])
+  );
   const reused = [];
   const toEmbed = [];
 
@@ -264,6 +289,38 @@ async function buildVectorMatrix(records) {
       reusableVectors: reused.length,
       remaining: toEmbed.length,
     });
+  }
+
+  if (vectorStore && reused.length) {
+    const stored = new Map(
+      (await vectorStore.metadata()).map((row) => [
+        Number(row.productId),
+        String(row.hash || ""),
+      ])
+    );
+    const migrationRows = reused
+      .filter((row) => stored.get(row.id) !== recordById.get(row.id)?.hash)
+      .map((row) => ({
+        productId: row.id,
+        hash: recordById.get(row.id).hash,
+        canonicalText: recordById.get(row.id).canonicalText,
+        vector: row.vector,
+      }));
+    for (let offset = 0; offset < migrationRows.length; offset += EMBED_BATCH) {
+      const batch = migrationRows.slice(offset, offset + EMBED_BATCH);
+      await vectorStore.upsert(batch);
+      await historyStore?.recordEmbeddingBatch(
+        syncId,
+        batch,
+        embeddingModel(),
+        "migrated"
+      );
+    }
+    if (migrationRows.length) {
+      shopDbLog.ok("catalog checkpoint migrated to LanceDB", {
+        vectors: migrationRows.length,
+      });
+    }
   }
 
   /** @type {Map<number, Float32Array|number[]>} */
@@ -292,6 +349,17 @@ async function buildVectorMatrix(records) {
       });
     });
     appendVectorCheckpoint(INDEX_DIR, embeddingModel(), checkpointRows);
+    const persistentRows = checkpointRows.map((row) => ({
+      ...row,
+      canonicalText: recordById.get(row.productId)?.canonicalText || "",
+    }));
+    await vectorStore?.upsert(persistentRows);
+    await historyStore?.recordEmbeddingBatch(
+      syncId,
+      persistentRows,
+      embeddingModel(),
+      "embedded"
+    );
     shopDbLog.ok("catalog dense embed progress", {
       done: Math.min(offset + batch.length, toEmbed.length),
       total: toEmbed.length,
@@ -327,7 +395,7 @@ async function buildVectorMatrix(records) {
     );
   });
 
-  return {
+  const result = {
     ids: ordered.map((row) => row.id),
     hashes: ordered.map((row) => row.hash),
     dims,
@@ -335,6 +403,8 @@ async function buildVectorMatrix(records) {
     embedded: fresh.size,
     reused: reused.length,
   };
+  await vectorStore?.optimize();
+  return result;
 }
 
 function persistVectorMatrix(vectorBuild) {
@@ -392,13 +462,35 @@ function loadVectorIndex() {
 async function searchCanonicalCatalogDense(queryText, topK = denseTopK()) {
   if (!denseEnabled()) return [];
   const index = loadVectorIndex();
-  if (!index?.ids?.length) {
+  const queryVector = await embedQueryText(queryText);
+  if (!queryVector?.length) return [];
+  const limit = Math.max(1, Math.min(200, Number(topK) || denseTopK()));
+  const catalogMap = getCanonicalCatalogMap();
+
+  if (!vectorIndexInjectedForTests) {
+    try {
+      const hits = await getShopDbVectorStore(embeddingModel()).search(
+        queryVector,
+        limit
+      );
+      if (hits.length) {
+        return hits.map((row) => ({
+          ...row,
+          score: Number(row.score.toFixed(4)),
+          canonicalText: catalogMap.get(row.productId)?.canonicalText || null,
+        }));
+      }
+    } catch (error) {
+      shopDbLog.warn("LanceDB catalog search failed — using matrix fallback", {
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  if (!index?.ids?.length || queryVector.length !== index.dims) {
     scheduleCanonicalCatalogSync();
     return [];
   }
-
-  const queryVector = await embedQueryText(queryText);
-  if (!queryVector?.length || queryVector.length !== index.dims) return [];
 
   const scored = [];
   for (let i = 0; i < index.ids.length; i++) {
@@ -410,8 +502,6 @@ async function searchCanonicalCatalogDense(queryText, topK = denseTopK()) {
     });
   }
   scored.sort((a, b) => b.score - a.score || a.productId - b.productId);
-  const limit = Math.max(1, Math.min(200, Number(topK) || denseTopK()));
-  const catalogMap = getCanonicalCatalogMap();
   return scored.slice(0, limit).map((row) => ({
     ...row,
     score: Number(row.score.toFixed(4)),
@@ -434,69 +524,101 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
     return { skipped: true, reason: "locked" };
   }
 
+  let historyStore = null;
+  let syncId = null;
   syncPromise = (async () => {
-    const startedAt = Date.now();
-    const products = await fetchActiveProducts();
-    const features = await fetchProductFeatures(
-      products.map((product) => Number(product.id))
-    );
-    const modelId = embeddingModel();
-    const records = products.map((product) => {
-      const featureRows = features.get(Number(product.id)) || [];
-      const canonicalText = buildCanonicalProductText(product, featureRows);
-      const signature = buildProductSignature(product, featureRows);
-      const hash = canonicalTextHash(canonicalText);
-      return {
-        productId: Number(product.id),
-        name: product.name,
-        categoryName: product.category_name || null,
-        canonicalText,
-        signature,
-        hash,
-        embeddingCacheKey: canonicalEmbeddingCacheKey(
-          modelId,
-          product.id,
-          canonicalText
-        ),
-      };
-    });
+    try {
+      const startedAt = Date.now();
+      const modelId = embeddingModel();
+      historyStore = getShopDbHistoryStore();
+      syncId = await historyStore.startSync({
+        modelId,
+        indexVersion: INDEX_VERSION,
+      });
+      const products = await fetchActiveProducts();
+      const features = await fetchProductFeatures(
+        products.map((product) => Number(product.id))
+      );
+      const records = products.map((product) => {
+        const featureRows = features.get(Number(product.id)) || [];
+        const canonicalText = buildCanonicalProductText(product, featureRows);
+        const signature = buildProductSignature(product, featureRows);
+        const hash = canonicalTextHash(canonicalText);
+        return {
+          productId: Number(product.id),
+          name: product.name,
+          categoryName: product.category_name || null,
+          canonicalText,
+          signature,
+          hash,
+          embeddingCacheKey: canonicalEmbeddingCacheKey(
+            modelId,
+            product.id,
+            canonicalText
+          ),
+        };
+      });
+      await historyStore.recordProductVersions(records, modelId);
 
-    let vectorBuild = null;
-    let hasVectors = false;
-    if (denseEnabled()) {
-      vectorBuild = await buildVectorMatrix(records);
-      hasVectors = persistVectorMatrix(vectorBuild);
-    } else {
-      try {
-        if (fs.existsSync(VECTORS_FILE)) fs.unlinkSync(VECTORS_FILE);
-        if (fs.existsSync(VECTOR_META_FILE)) fs.unlinkSync(VECTOR_META_FILE);
-      } catch {
-        /* ignore */
+      let vectorBuild = null;
+      let hasVectors = false;
+      const vectorStore = getShopDbVectorStore(modelId);
+      if (denseEnabled()) {
+        vectorBuild = await buildVectorMatrix(records, {
+          vectorStore,
+          historyStore,
+          syncId,
+        });
+        hasVectors = persistVectorMatrix(vectorBuild);
+      } else {
+        try {
+          if (fs.existsSync(VECTORS_FILE)) fs.unlinkSync(VECTORS_FILE);
+          if (fs.existsSync(VECTOR_META_FILE)) fs.unlinkSync(VECTOR_META_FILE);
+        } catch {
+          /* ignore */
+        }
+        clearVectorCheckpoint(INDEX_DIR);
+        vectorIndexCache = null;
       }
-      clearVectorCheckpoint(INDEX_DIR);
-      vectorIndexCache = null;
-    }
 
-    const manifest = {
-      version: INDEX_VERSION,
-      embeddingModel: modelId,
-      productCount: records.length,
-      hasVectors,
-      vectorCount: vectorBuild?.ids?.length || 0,
-      vectorDims: vectorBuild?.dims || 0,
-      vectorsEmbedded: vectorBuild?.embedded || 0,
-      vectorsReused: vectorBuild?.reused || 0,
-      createdAt: new Date().toISOString(),
-      durationMs: Date.now() - startedAt,
-    };
-    writeAtomicJson(PRODUCTS_FILE, records);
-    writeAtomicJson(MANIFEST_FILE, manifest);
-    catalogCache = records;
-    catalogMapCache = new Map(
-      records.map((row) => [Number(row.productId), row])
-    );
-    shopDbLog.ok("canonical catalog index synced", manifest);
-    return { skipped: false, manifest, records };
+      if (denseEnabled()) {
+        await vectorStore.removeMissing(
+          records.map((record) => record.productId)
+        );
+      }
+      const vectorCount = denseEnabled() ? await vectorStore.count() : 0;
+      const manifest = {
+        version: INDEX_VERSION,
+        embeddingModel: modelId,
+        productCount: records.length,
+        hasVectors: hasVectors && vectorCount === records.length,
+        vectorStore: "lancedb",
+        vectorDatabaseDir: DEFAULT_VECTOR_DB_DIR,
+        historyDatabase: historyStore.databaseFile,
+        vectorCount,
+        vectorDims: vectorBuild?.dims || 0,
+        vectorsEmbedded: vectorBuild?.embedded || 0,
+        vectorsReused: vectorBuild?.reused || 0,
+        createdAt: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      };
+      writeAtomicJson(PRODUCTS_FILE, records);
+      writeAtomicJson(MANIFEST_FILE, manifest);
+      catalogCache = records;
+      catalogMapCache = new Map(
+        records.map((row) => [Number(row.productId), row])
+      );
+      await historyStore.completeSync(syncId, {
+        productCount: records.length,
+        embeddedCount: vectorBuild?.embedded || 0,
+        reusedCount: vectorBuild?.reused || 0,
+      });
+      shopDbLog.ok("canonical catalog index synced", manifest);
+      return { skipped: false, manifest, records };
+    } catch (error) {
+      await historyStore?.failSync(syncId, error);
+      throw error;
+    }
   })().finally(() => {
     syncPromise = null;
     releaseLock();
@@ -519,11 +641,13 @@ function resetCanonicalCatalogCaches() {
   catalogCache = null;
   catalogMapCache = null;
   vectorIndexCache = null;
+  vectorIndexInjectedForTests = false;
   syncPromise = null;
 }
 
 function setVectorIndexForTests(index) {
   vectorIndexCache = index;
+  vectorIndexInjectedForTests = true;
 }
 
 module.exports = {
