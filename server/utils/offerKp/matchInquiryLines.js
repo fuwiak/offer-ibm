@@ -28,6 +28,7 @@ const {
 } = require("./canonicalProductText");
 const { detectVariantAmbiguity, variantPricingKey } = require("./variantSpecs");
 const { findGoldenCorrection } = require("./goldenCorrections");
+const { sanitizeSku } = require("./fabricatedSku");
 const { recordSearchMetric } = require("./searchMetrics");
 const { withLineEvidence, MATCH_RULES_VERSION } = require("./matchEvidence");
 const { assessInquiryCompleteness } = require("./inquiryCompleteness");
@@ -1044,7 +1045,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     inquiryRaw: inquiryLine.raw,
     name: accepted && lineProductId ? best.name : inquiryLine.name,
     requestedName: inquiryLine.name,
-    article: accepted && lineProductId ? best.sku || "" : "",
+    article: accepted && lineProductId ? sanitizeSku(best.sku) : "",
     productId: lineProductId,
     quantity: qty,
     unit: inquiryLine.unit || "шт",

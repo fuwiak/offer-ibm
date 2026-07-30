@@ -103,8 +103,19 @@ class AgentHarness {
    * @returns {string}
    */
   sanitizeOutgoingChat(content) {
-    const text = typeof content === "string" ? content : "";
-    if (!text.trim()) return content;
+    const raw = typeof content === "string" ? content : "";
+    if (!raw.trim()) return content;
+
+    const finish = (out) => {
+      try {
+        const {
+          stripFabricatedProductLinks,
+        } = require("../offerKp/groundedResponse");
+        return stripFabricatedProductLinks(String(out ?? ""));
+      } catch {
+        return out;
+      }
+    };
 
     try {
       const {
@@ -123,6 +134,7 @@ class AgentHarness {
 
       const draft = this.state.get("inquiryDbDraft") || null;
       const catalogBlocks = collectCatalogBlocksFromHarness(this);
+      const text = raw;
 
       // Invented Ссылка / SKU in Товар cards → force ShopDB-backed cards.
       try {
@@ -135,7 +147,8 @@ class AgentHarness {
         const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
         if (
           chatHasInventedCatalogFacts(text, allowed) ||
-          /\/product\//i.test(text)
+          /\/product\//i.test(text) ||
+          /Артикул\s*(?:\/\s*SKU)?\s*:\s*10{8,}/i.test(text)
         ) {
           const replaced = replaceHallucinatedCatalogInChat(text, {
             draft,
@@ -145,11 +158,11 @@ class AgentHarness {
             hadDraft: Boolean(draft?.lines?.length),
             catalogBlocks: (catalogBlocks || []).length,
           });
-          if (replaced && replaced !== text) return replaced;
+          if (replaced && replaced !== text) return finish(replaced);
         }
         // Surgical safety net: never leave /product/{sku} even if cards stay.
         if (/\/product\//i.test(text)) {
-          return stripFabricatedProductLinks(text);
+          return finish(stripFabricatedProductLinks(text));
         }
       } catch (e) {
         harnessLog("warn", "outgoingChat.catalogGroundingFailed", {
@@ -194,32 +207,32 @@ class AgentHarness {
               replaced !== text &&
               !/неподтверждёнными ссылками/i.test(replaced)
             ) {
-              return replaced;
+              return finish(replaced);
             }
           } catch {
             /* fall through to abstain */
           }
-          return ABSTAIN_MESSAGE;
+          return finish(ABSTAIN_MESSAGE);
         }
       }
 
-      if (!text.includes("|")) return content;
+      if (!text.includes("|")) return finish(content);
 
       if (draft?.lines?.length) {
         const check = validateQuotePricesFromDb(text, { draft, catalogBlocks });
-        if (check.ok) return text;
+        if (check.ok) return finish(text);
 
         const {
           buildQuoteMarkdownFromDraft,
         } = require("../offerKp/inquiryDraftPrompt");
         const forced = buildQuoteMarkdownFromDraft(draft);
-        if (!forced) return text;
+        if (!forced) return finish(text);
 
         harnessLog("warn", "outgoingChat.forcedDraftMarkdown", {
           violations: check.violations.map((v) => v.id),
           draftLines: draft.lines.length,
         });
-        return forced;
+        return finish(forced);
       }
 
       const sanitized = sanitizeQuotePricesToShopDb(text, {
@@ -230,7 +243,7 @@ class AgentHarness {
         harnessLog("warn", "outgoingChat.sanitizedInventedPrices", {
           replaced: sanitized.replaced,
         });
-        return sanitized.content;
+        return finish(sanitized.content);
       }
     } catch (error) {
       harnessLog("warn", "outgoingChat.sanitizeFailed", {
@@ -238,7 +251,7 @@ class AgentHarness {
       });
     }
 
-    return content;
+    return finish(content);
   }
 
   async install() {

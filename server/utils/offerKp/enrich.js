@@ -262,13 +262,20 @@ function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
   }
 
   if (skuRows?.length) {
-    lines.push("SKU (shop_product_skus):");
+    const { sanitizeSku } = require("./fabricatedSku");
+    const skuLines = [];
     for (const sk of skuRows) {
+      const code = sanitizeSku(sk.sku || sk.sku_name);
+      if (!code) continue;
       const skuPrice = formatPrice(sk.price, product.currency);
-      lines.push(
-        `  · ${sk.sku || sk.sku_name}${skuPrice ? ` — ${skuPrice}` : ""}` +
+      skuLines.push(
+        `  · ${code}${skuPrice ? ` — ${skuPrice}` : ""}` +
           (sk.count != null ? `, остаток: ${sk.count}` : "")
       );
+    }
+    if (skuLines.length) {
+      lines.push("SKU (shop_product_skus):");
+      lines.push(...skuLines);
     }
   }
 

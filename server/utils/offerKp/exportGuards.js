@@ -59,8 +59,25 @@ function assertExportGuards(input = {}) {
       });
     }
 
+    // Invented / placeholder SKU: never export filler like 1000…000.
+    const article = String(line.article || line.sku || "").trim();
+    if (article) {
+      try {
+        const { isFabricatedSku } = require("./fabricatedSku");
+        if (isFabricatedSku(article)) {
+          violations.push({
+            id: "fabricated_sku",
+            message: `line[${i}] fabricated SKU=${article}`,
+            severity: "error",
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     // Invented SKU: price present without product id / article from ShopDB.
-    if (unitPrice > 0 && !productId && !String(line.article || line.sku || "")) {
+    if (unitPrice > 0 && !productId && !article) {
       violations.push({
         id: "invented_sku",
         message: `line[${i}] priced without productId/sku`,
@@ -108,20 +125,23 @@ function assertExportGuards(input = {}) {
  * @param {object[]} lines
  */
 function stripIllegalPrices(lines = []) {
-  return (lines || []).map((line) => {
-    const matchType = String(line.matchType || "none");
-    const eligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);
-    if (eligible && line.allowPrice !== false) return line;
-    return {
-      ...line,
-      unitPriceNet: 0,
-      unitPrice: 0,
-      priceWithVat: 0,
-      lineTotal: 0,
-      allowPrice: false,
-      priceSnapshot: null,
-    };
-  });
+  const { stripFabricatedSkusFromLines } = require("./fabricatedSku");
+  return stripFabricatedSkusFromLines(
+    (lines || []).map((line) => {
+      const matchType = String(line.matchType || "none");
+      const eligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);
+      if (eligible && line.allowPrice !== false) return line;
+      return {
+        ...line,
+        unitPriceNet: 0,
+        unitPrice: 0,
+        priceWithVat: 0,
+        lineTotal: 0,
+        allowPrice: false,
+        priceSnapshot: null,
+      };
+    })
+  );
 }
 
 module.exports = {

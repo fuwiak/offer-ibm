@@ -96,8 +96,15 @@ function isFabricatedShopUrl(url = "") {
   return false;
 }
 
+const {
+  isFabricatedSku,
+  sanitizeSku,
+  stripFabricatedSkusFromText,
+  stripFabricatedSkusFromLines,
+} = require("./fabricatedSku");
+
 /**
- * Drop invented /product/{sku} (and markdown links to them) from any chat text.
+ * Drop invented /product/{sku} (and markdown links to them) + fake SKU lines.
  */
 function stripFabricatedProductLinks(text = "") {
   let t = String(text || "");
@@ -110,6 +117,7 @@ function stripFabricatedProductLinks(text = "") {
     "$1"
   );
   t = t.replace(/https?:\/\/[^\s)\]]*\/product\/[^\s)\]]*/gi, "");
+  t = stripFabricatedSkusFromText(t);
   return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -129,13 +137,11 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
     for (const m of text.matchAll(
       /(?:Артикул\s*(?:\/\s*SKU)?|SKU)\s*:\s*([^\s\n*|]+)/gi
     )) {
-      const s = String(m[1] || "")
-        .replace(/\*+/g, "")
-        .trim();
+      const s = sanitizeSku(m[1]);
       if (s) skus.add(s.toLowerCase());
     }
     for (const m of text.matchAll(/^\s*·\s*([A-Za-z0-9._/-]+)/gm)) {
-      const s = String(m[1] || "").trim();
+      const s = sanitizeSku(m[1]);
       if (s && /[0-9]/.test(s)) skus.add(s.toLowerCase());
     }
     for (const m of text.matchAll(/ID товара[^:]*:\s*(\d+)/gi)) {
@@ -148,8 +154,10 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
       const u = normalizeUrlKey(line.productUrl);
       if (u.startsWith("http") && !isFabricatedShopUrl(u)) urls.add(u);
     }
-    if (line.article) skus.add(String(line.article).trim().toLowerCase());
-    if (line.sku) skus.add(String(line.sku).trim().toLowerCase());
+    const article = sanitizeSku(line.article);
+    const sku = sanitizeSku(line.sku);
+    if (article) skus.add(article.toLowerCase());
+    if (sku) skus.add(sku.toLowerCase());
     if (line.productId) productIds.add(String(line.productId));
   }
 
@@ -201,13 +209,14 @@ function formatGroundedDraftCard(line = {}) {
   const price = Number(line.unitPriceNet || line.unitPrice || 0);
   const publicUrl = resolvePublicProductUrl(line);
   const safeName = String(name).replace(/\[/g, "(").replace(/\]/g, ")");
+  const article = sanitizeSku(line.article || line.sku);
   const rows = [
     "[Каталог · purolat.com]",
     publicUrl
       ? `Товар: [${safeName}](${publicUrl})`
       : `Товар: ${name}`,
     price > 0 ? `Цена: ${price.toFixed(2)} RUB` : "Цена: по запросу",
-    line.article ? `Артикул / SKU: ${String(line.article).trim()}` : null,
+    article ? `Артикул / SKU: ${article}` : null,
     `ID товара (shop_product.id): ${productId}`,
     // Bare URL kept for price/SKU harness parsers; markdown linkify + Товар link for UI.
     publicUrl ? `Ссылка: ${publicUrl}` : null,
@@ -313,6 +322,7 @@ function chatHasInventedCatalogFacts(text = "", allowed = null) {
       .trim()
       .toLowerCase();
     if (!sku) continue;
+    if (isFabricatedSku(sku)) return true;
     if (facts.skus.size > 0 && !facts.skus.has(sku)) return true;
     // No allowed SKUs from ShopDB this turn → any LLM SKU is invented.
     if (facts.skus.size === 0) return true;
@@ -408,4 +418,8 @@ module.exports = {
   resolvePublicProductUrl,
   isFabricatedShopUrl,
   stripFabricatedProductLinks,
+  isFabricatedSku,
+  sanitizeSku,
+  stripFabricatedSkusFromText,
+  stripFabricatedSkusFromLines,
 };
