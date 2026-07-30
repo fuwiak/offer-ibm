@@ -110,8 +110,15 @@ class AgentHarness {
       try {
         const {
           stripFabricatedProductLinks,
+          collectAllowedCatalogFacts,
         } = require("../offerKp/groundedResponse");
-        return stripFabricatedProductLinks(String(out ?? ""));
+        const draft = this.state.get("inquiryDbDraft") || null;
+        const {
+          collectCatalogBlocksFromHarness,
+        } = require("../offerKp/harnessEvidence");
+        const catalogBlocks = collectCatalogBlocksFromHarness(this);
+        const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
+        return stripFabricatedProductLinks(String(out ?? ""), allowed.skus);
       } catch {
         return out;
       }

@@ -55,15 +55,15 @@ function assertExportGuards(input = {}) {
       });
     }
 
-    // Invented / placeholder SKU: never export filler like 1000…000.
+    // SKU must be ShopDB-grounded: productId + exact/analog, never filler.
     const article = String(line.article || line.sku || "").trim();
     if (article) {
       try {
-        const { isFabricatedSku } = require("./fabricatedSku");
-        if (isFabricatedSku(article)) {
+        const { isFabricatedSku, lineMayCarrySku } = require("./fabricatedSku");
+        if (isFabricatedSku(article) || !lineMayCarrySku(line)) {
           violations.push({
-            id: "fabricated_sku",
-            message: `line[${i}] fabricated SKU=${article}`,
+            id: "ungrounded_sku",
+            message: `line[${i}] ungrounded SKU=${article} (need ShopDB productId + exact/analog)`,
             severity: "error",
           });
         }
@@ -114,8 +114,8 @@ function assertExportGuards(input = {}) {
  * @param {object[]} lines
  */
 function stripIllegalPrices(lines = []) {
-  const { stripFabricatedSkusFromLines } = require("./fabricatedSku");
-  return stripFabricatedSkusFromLines(
+  const { stripUngroundedSkusFromLines } = require("./fabricatedSku");
+  return stripUngroundedSkusFromLines(
     (lines || []).map((line) => {
       const matchType = String(line.matchType || "none");
       const eligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);

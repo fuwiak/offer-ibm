@@ -1016,7 +1016,17 @@ async function streamChatWithWorkspace(
       catalogBlocks: llmCatalog.catalogBlocks || [],
       injectDraftCards,
     });
-    groundedText = stripFabricatedProductLinks(groundedText || "");
+    const {
+      collectAllowedCatalogFacts,
+    } = require("../offerKp/groundedResponse");
+    const allowed = collectAllowedCatalogFacts(
+      injectDraftCards ? llmCatalog.inquiryDraft : null,
+      injectDraftCards ? llmCatalog.catalogBlocks || [] : []
+    );
+    groundedText = stripFabricatedProductLinks(
+      groundedText || "",
+      allowed.skus
+    );
     if (groundedText && groundedText !== completeText) {
       console.warn(
         "[offerKp] replaced hallucinated catalog cards with ShopDB-backed cards"

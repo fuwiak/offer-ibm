@@ -101,12 +101,19 @@ const {
   sanitizeSku,
   stripFabricatedSkusFromText,
   stripFabricatedSkusFromLines,
+  stripUngroundedSkusFromText,
+  stripUngroundedSkusFromLines,
+  isGroundedSku,
+  groundSku,
+  lineMayCarrySku,
 } = require("./fabricatedSku");
 
 /**
- * Drop invented /product/{sku} (and markdown links to them) + fake SKU lines.
+ * Drop invented /product/{sku} URLs + any SKU not in ShopDB allowlist.
+ * @param {string} text
+ * @param {Set<string>|string[]|null|undefined} [allowedSkus]
  */
-function stripFabricatedProductLinks(text = "") {
+function stripFabricatedProductLinks(text = "", allowedSkus = null) {
   let t = String(text || "");
   t = t.replace(
     /^[^\n]*Ссылка\s*:\s*https?:\/\/[^\n]*\/product\/[^\n]*$/gim,
@@ -114,7 +121,11 @@ function stripFabricatedProductLinks(text = "") {
   );
   t = t.replace(/\[([^\]]*)\]\(https?:\/\/[^)]*\/product\/[^)]*\)/gi, "$1");
   t = t.replace(/https?:\/\/[^\s)\]]*\/product\/[^\s)\]]*/gi, "");
-  t = stripFabricatedSkusFromText(t);
+  // Fail closed: when allowlist provided (even empty), strip ungrounded SKUs.
+  t =
+    allowedSkus == null
+      ? stripFabricatedSkusFromText(t)
+      : stripUngroundedSkusFromText(t, allowedSkus);
   return t
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -154,6 +165,8 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
       const u = normalizeUrlKey(line.productUrl);
       if (u.startsWith("http") && !isFabricatedShopUrl(u)) urls.add(u);
     }
+    // Only exact/analog + productId lines contribute grounded SKUs.
+    if (!lineMayCarrySku(line)) continue;
     const article = sanitizeSku(line.article);
     const sku = sanitizeSku(line.sku);
     if (article) skus.add(article.toLowerCase());
@@ -209,7 +222,9 @@ function formatGroundedDraftCard(line = {}) {
   const price = Number(line.unitPriceNet || line.unitPrice || 0);
   const publicUrl = resolvePublicProductUrl(line);
   const safeName = String(name).replace(/\[/g, "(").replace(/\]/g, ")");
-  const article = sanitizeSku(line.article || line.sku);
+  const article = lineMayCarrySku(line)
+    ? sanitizeSku(line.article || line.sku)
+    : "";
   const rows = [
     "[Каталог · purolat.com]",
     publicUrl ? `Товар: [${safeName}](${publicUrl})` : `Товар: ${name}`,
@@ -367,25 +382,33 @@ function replaceHallucinatedCatalogInChat(
   const hasFabricatedUrl = /https?:\/\/[^\s)\]]*\/product\//i.test(body);
 
   if (!injectDraftCards) {
-    if (!hasCards && !hasFabricatedUrl) return body;
-    return stripFabricatedProductLinks(stripLlmCatalogSections(body));
+    if (!hasCards && !hasFabricatedUrl) {
+      return stripFabricatedProductLinks(body, allowed.skus);
+    }
+    return stripFabricatedProductLinks(
+      stripLlmCatalogSections(body),
+      allowed.skus
+    );
   }
 
   if (!hasCards && !grounded) {
-    return hasFabricatedUrl ? stripFabricatedProductLinks(body) : body;
+    return stripFabricatedProductLinks(body, allowed.skus);
   }
 
   const invented =
     chatHasInventedCatalogFacts(body, allowed) || hasFabricatedUrl;
   if (!invented && !grounded) {
-    return hasFabricatedUrl ? stripFabricatedProductLinks(body) : body;
+    return stripFabricatedProductLinks(body, allowed.skus);
   }
   if (!invented && grounded && !hasCards) {
-    return stripFabricatedProductLinks(body);
+    return stripFabricatedProductLinks(body, allowed.skus);
   }
 
   if (!grounded) {
-    const cleaned = stripFabricatedProductLinks(stripLlmCatalogSections(body));
+    const cleaned = stripFabricatedProductLinks(
+      stripLlmCatalogSections(body),
+      allowed.skus
+    );
     return (
       `${cleaned}\n\n` +
       "Карточки каталога с неподтверждёнными ссылками/SKU удалены. " +
@@ -393,10 +416,14 @@ function replaceHallucinatedCatalogInChat(
     ).trim();
   }
 
-  const preface = stripFabricatedProductLinks(stripLlmCatalogSections(body));
+  const preface = stripFabricatedProductLinks(
+    stripLlmCatalogSections(body),
+    allowed.skus
+  );
   const parts = [];
   if (preface) parts.push(preface);
-  parts.push(stripFabricatedProductLinks(grounded));
+  // Grounded cards already come from ShopDB — pass their SKUs as allowlist.
+  parts.push(stripFabricatedProductLinks(grounded, allowed.skus));
   parts.push(
     "_Источник: каталог purolat.com (MySQL: shop_product, shop_product_skus)._"
   );
@@ -418,6 +445,11 @@ module.exports = {
   stripFabricatedProductLinks,
   isFabricatedSku,
   sanitizeSku,
+  isGroundedSku,
+  groundSku,
+  lineMayCarrySku,
   stripFabricatedSkusFromText,
   stripFabricatedSkusFromLines,
+  stripUngroundedSkusFromText,
+  stripUngroundedSkusFromLines,
 };
