@@ -134,6 +134,25 @@ async function streamChatWithWorkspace(
   markStage(requestTrace, "INTENT", "ok", {
     intent: routedIntent.primaryIntent,
   });
+  const {
+    createPipelineDiagnostics,
+    note: diagNote,
+    updateMatchProgress,
+    updateEnrichFlags,
+    setGenerationTarget,
+    formatDiagnosticsForLlm,
+    formatAbortError,
+    recordPipelineFailure,
+  } = require("../offerKp/pipelineDiagnostics");
+  const pipelineDiag = createPipelineDiagnostics({
+    requestId: uuid,
+    intent: routedIntent,
+    channel: "workspace",
+  });
+  diagNote(
+    pipelineDiag,
+    `intent=${routedIntent.primaryIntent} conf=${routedIntent.confidence}`
+  );
   const attachmentOnlyPrompt =
     /(?:вот|держи|прикрепил|загрузил|посмотри).{0,30}(?:файл|pdf|заявк)|(?:here|attached|uploaded).{0,30}(?:file|pdf|request)/iu.test(
       commandMessage
@@ -263,16 +282,39 @@ async function streamChatWithWorkspace(
     model: effectiveChatModel,
     forceRefresh: true,
   });
+  setGenerationTarget(pipelineDiag, {
+    provider: LLMConnector?.constructor?.name || effectiveChatProvider,
+    model: LLMConnector?.model || effectiveChatModel,
+  });
 
   if (LLMConnector?.fallbackReason === "openrouter_unreachable") {
     const fallbackModel =
       LLMConnector?.model || process.env.LMSTUDIO_MODEL_PREF || "LM Studio";
+    diagNote(pipelineDiag, `openrouter unreachable → ${fallbackModel}`);
     writeResponseChunk(response, {
       uuid,
       type: "statusResponse",
       content: `OpenRouter/egress недоступен — ответ через LM Studio (${fallbackModel}).`,
     });
   }
+  const matchHeartbeat = setInterval(() => {
+    if (
+      pipelineDiag.stage === "enrich_done" ||
+      pipelineDiag.stage === "generation"
+    ) {
+      return;
+    }
+    if (pipelineDiag.matchedCount === 0 && pipelineDiag.stage !== "matching") {
+      return;
+    }
+    writeResponseChunk(response, {
+      uuid,
+      type: "statusResponse",
+      content: `ShopDB matching… ${pipelineDiag.matchedCount}/${pipelineDiag.total || "?"}`,
+      close: false,
+      error: false,
+    });
+  }, 12000);
   const shopEnrichPromise = collectExternalContexts({
     message: updatedMessage,
     workspace,
@@ -282,9 +324,10 @@ async function streamChatWithWorkspace(
     threadId: thread?.id || null,
     resolvedIntent: routedIntent,
     onProgress: (payload = {}) => {
+      updateMatchProgress(pipelineDiag, payload);
       writeResponseChunk(response, {
         uuid,
-        type: "offerKpQuotePanel",
+        type: "offerKpQuoteUpdate",
         content: {
           documentPanelView: "draftTable",
           progressStage: payload.progressStage || "searching",
@@ -299,7 +342,7 @@ async function streamChatWithWorkspace(
         },
       });
     },
-  });
+  }).finally(() => clearInterval(matchHeartbeat));
 
   // Look for pinned documents
   // as pinning is a supplemental tool but it should be used with caution since it can easily blow up a context window.
@@ -415,6 +458,13 @@ async function streamChatWithWorkspace(
   }
 
   externalContexts = await shopEnrichPromise;
+  const shopFlags = (externalContexts || []).find((c) => c?.kind === "shopdb")?.flags || {};
+  const shopTexts = (externalContexts || []).find((c) => c?.kind === "shopdb")?.contextTexts || [];
+  updateEnrichFlags(pipelineDiag, shopFlags, shopTexts.length);
+  diagNote(
+    pipelineDiag,
+    `enrich done blocks=${shopTexts.length} timeout=${!!shopFlags.shopDbTimeout}`
+  );
   const {
     applyExternalContextsForLlm,
     applyInquiryDraftToUserPrompt,
@@ -595,6 +645,10 @@ async function streamChatWithWorkspace(
 
   // Compress & Assemble message to ensure prompt passes token limit with room for response
   // and build system messages based on inputs and history.
+  const pipelineDiagBlock = formatDiagnosticsForLlm(pipelineDiag);
+  if (pipelineDiagBlock) {
+    contextTexts = [pipelineDiagBlock, ...contextTexts];
+  }
   const safeChatHistory = sanitizeOfferKpHistory(chatHistory);
   const safeRawHistory = sanitizeOfferKpHistory(rawHistory);
   const messages = await LLMConnector.compressMessages(
@@ -608,55 +662,93 @@ async function streamChatWithWorkspace(
     safeRawHistory
   );
 
-  // If streaming is not explicitly enabled for connector
-  // we do regular waiting of a response and send a single chunk.
-  if (LLMConnector.streamingEnabled() !== true) {
-    console.log(
-      `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
-    );
-    const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
-    const { textResponse, metrics: performanceMetrics } =
-      await LLMConnector.getChatCompletion(messages, {
+  pipelineDiag.stage = "generation";
+  try {
+    // If streaming is not explicitly enabled for connector
+    // we do regular waiting of a response and send a single chunk.
+    if (LLMConnector.streamingEnabled() !== true) {
+      console.log(
+        `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
+      );
+      const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
+      const { textResponse, metrics: performanceMetrics } =
+        await LLMConnector.getChatCompletion(messages, {
+          ...resolveOfferKpChatSampling(),
+          user: user,
+        });
+
+      completeText = textResponse;
+      try {
+        const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
+        metrics = sanitizeMetricsForUi(performanceMetrics, {
+          displayModel: workspace?.chatModel || null,
+        });
+      } catch {
+        metrics = performanceMetrics;
+      }
+      writeResponseChunk(response, {
+        uuid,
+        sources,
+        type: "textResponseChunk",
+        textResponse: completeText,
+        close: true,
+        error: false,
+        metrics,
+      });
+    } else {
+      const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
+      const stream = await LLMConnector.streamGetChatCompletion(messages, {
         ...resolveOfferKpChatSampling(),
         user: user,
       });
-
-    completeText = textResponse;
-    try {
-      const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
-      metrics = sanitizeMetricsForUi(performanceMetrics, {
-        displayModel: workspace?.chatModel || null,
+      completeText = await LLMConnector.handleStream(response, stream, {
+        uuid,
+        sources,
+        pipelineDiag,
       });
-    } catch {
-      metrics = performanceMetrics;
+      try {
+        const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
+        metrics = sanitizeMetricsForUi(stream.metrics, {
+          displayModel: workspace?.chatModel || null,
+        });
+      } catch {
+        metrics = stream.metrics;
+      }
     }
+
+  } catch (genErr) {
+    recordPipelineFailure(pipelineDiag, genErr);
+    const abortError = formatAbortError(genErr, pipelineDiag);
+    markStage(requestTrace, "GENERATION", "fail", {
+      error: abortError,
+      matchedCount: pipelineDiag.matchedCount,
+      total: pipelineDiag.total,
+    });
+    finalizeTrace(requestTrace, { status: "fail", error: abortError });
     writeResponseChunk(response, {
       uuid,
       sources,
-      type: "textResponseChunk",
-      textResponse: completeText,
+      type: "abort",
+      textResponse: null,
       close: true,
-      error: false,
-      metrics,
+      error: abortError,
+      metrics: { offerKpTrace: summarizeTrace(requestTrace) },
     });
-  } else {
-    const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
-    const stream = await LLMConnector.streamGetChatCompletion(messages, {
-      ...resolveOfferKpChatSampling(),
-      user: user,
+    await WorkspaceChats.new({
+      workspaceId: workspace.id,
+      prompt: message,
+      response: {
+        text: "",
+        sources,
+        type: chatMode,
+        attachments,
+        metrics: { offerKpTrace: summarizeTrace(requestTrace) },
+      },
+      threadId: thread?.id || null,
+      include: false,
+      user,
     });
-    completeText = await LLMConnector.handleStream(response, stream, {
-      uuid,
-      sources,
-    });
-    try {
-      const { sanitizeMetricsForUi } = require("../offerKpApp/teacherLlm");
-      metrics = sanitizeMetricsForUi(stream.metrics, {
-        displayModel: workspace?.chatModel || null,
-      });
-    } catch {
-      metrics = stream.metrics;
-    }
+    return;
   }
 
   const orchestration = await runGenerationPipeline({

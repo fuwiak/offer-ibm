@@ -390,7 +390,11 @@ class OpenRouterLLM {
    */
   handleStream(response, stream, responseProps) {
     const timeoutThresholdMs = this.timeout;
-    const { uuid = uuidv4(), sources = [] } = responseProps;
+    const {
+      uuid = uuidv4(),
+      sources = [],
+      pipelineDiag = null,
+    } = responseProps;
     let hasUsageMetrics = false;
     let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
@@ -548,13 +552,26 @@ class OpenRouterLLM {
         stream?.endMeasurement(usage);
         resolve(fullText);
       } catch (e) {
+        let abortError = this.formatOpenRouterConnectionError(e, this.basePath);
+        try {
+          const {
+            formatAbortError,
+            recordPipelineFailure,
+          } = require("../../offerKp/pipelineDiagnostics");
+          if (pipelineDiag) {
+            recordPipelineFailure(pipelineDiag, e);
+            abortError = formatAbortError(e, pipelineDiag);
+          }
+        } catch {
+          /* optional */
+        }
         writeResponseChunk(response, {
           uuid,
           sources,
           type: "abort",
           textResponse: null,
           close: true,
-          error: this.formatOpenRouterConnectionError(e, this.basePath),
+          error: abortError,
         });
         response.removeListener("close", handleAbort);
         clearInterval(timeoutCheck);

@@ -17,7 +17,11 @@ function clientAbortedHandler(resolve, fullText) {
  * @returns {Promise<string>}
  */
 function handleDefaultStreamResponseV2(response, stream, responseProps) {
-  const { uuid = uuidv4(), sources = [] } = responseProps;
+  const {
+    uuid = uuidv4(),
+    sources = [],
+    pipelineDiag = null,
+  } = responseProps;
 
   // Why are we doing this?
   // OpenAI do enable the usage metrics in the stream response but:
@@ -106,13 +110,37 @@ function handleDefaultStreamResponseV2(response, stream, responseProps) {
       }
     } catch (e) {
       console.log(`\x1b[43m\x1b[34m[STREAMING ERROR]\x1b[0m ${e.message}`);
+      let abortError = e.message;
+      try {
+        const {
+          formatAbortError,
+          recordPipelineFailure,
+        } = require("../../offerKp/pipelineDiagnostics");
+        if (pipelineDiag) {
+          recordPipelineFailure(pipelineDiag, e);
+          abortError = formatAbortError(e, pipelineDiag);
+        } else {
+          recordPipelineFailure(
+            {
+              requestId: uuid,
+              stage: "generation",
+              matchedCount: 0,
+              total: 0,
+              notes: [],
+            },
+            e
+          );
+        }
+      } catch {
+        /* diagnostics optional */
+      }
       writeResponseChunk(response, {
         uuid,
         type: "abort",
         textResponse: null,
         sources: [],
         close: true,
-        error: e.message,
+        error: abortError,
       });
       stream?.endMeasurement(usage);
       resolve(fullText); // Return what we currently have - if anything.
