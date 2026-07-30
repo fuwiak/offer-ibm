@@ -92,4 +92,16 @@ describe("OfferKP deterministic intent router", () => {
     ).toBe(true);
     expect(shouldRunShopEnrich("какая цена?")).toBe(false);
   });
+
+  it("routes UI button «Дешёвые аналоги» to edit_quote", () => {
+    for (const label of [
+      "Дешёвые аналоги",
+      "Najtańsze analogi",
+      "Cheapest analogs",
+      "подставь дешёвые аналоги",
+    ]) {
+      const result = routeOfferKpMessage(label);
+      expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.EDIT_QUOTE);
+    }
+  });
 });

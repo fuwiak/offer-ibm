@@ -111,4 +111,72 @@ describe("draftChatEdit", () => {
     ).toBe(true);
     expect(looksLikeDraftEdit("сколько позиций в каталоге?")).toBe(false);
   });
+
+  it("recognizes UI button label «Дешёвые аналоги» as draft command", () => {
+    expect(looksLikeDraftEdit("Дешёвые аналоги")).toBe(true);
+    expect(looksLikeDraftEdit("Najtańsze analogi")).toBe(true);
+    expect(looksLikeDraftEdit("Cheapest analogs")).toBe(true);
+    expect(looksLikeDraftEdit("подставь дешёвые аналоги")).toBe(true);
+
+    const linesWithAlts = [
+      {
+        name: "Болт М16",
+        article: "OLD",
+        quantity: 10,
+        unitPriceNet: 40,
+        alternatives: [
+          { sku: "OLD", name: "Болт М16 old", price: 40, matchType: "exact", stockCount: 0 },
+          {
+            sku: "CHEAP",
+            name: "Болт М16 cheap",
+            price: 15,
+            matchType: "exact",
+            stockCount: 20,
+          },
+        ],
+      },
+      {
+        name: "Гайка",
+        article: "KEEP",
+        quantity: 5,
+        unitPriceNet: 8,
+        alternatives: [
+          { sku: "KEEP", name: "Гайка keep", price: 8, matchType: "exact", stockCount: 5 },
+          {
+            sku: "CHEAPER",
+            name: "Гайка cheaper",
+            price: 5,
+            matchType: "analog",
+            stockCount: 9,
+          },
+        ],
+      },
+    ];
+
+    const result = applyDraftChatEdits({
+      message: "Дешёвые аналоги",
+      quoteDraft: { hardwareLines: linesWithAlts, preview: { lines: linesWithAlts } },
+      vatRate: 0.2,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.applied.every((a) => a.op === "cheapest_analog")).toBe(true);
+    expect(result.quoteDraft.hardwareLines[0].article).toBe("CHEAP");
+    expect(result.quoteDraft.hardwareLines[0].unitPriceNet).toBe(15);
+    expect(result.quoteDraft.hardwareLines[1].article).toBe("CHEAPER");
+    expect(result.quoteDraft.hardwareLines[1].unitPriceNet).toBe(5);
+  });
+
+  it("replies when cheapest-analogs button finds nothing", () => {
+    const result = applyDraftChatEdits({
+      message: "Дешёвые аналоги",
+      quoteDraft: {
+        hardwareLines: [
+          { name: "X", article: "A", alternatives: [{ sku: "A", price: 1, stockCount: 1 }] },
+        ],
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("cheapest_analogs_empty");
+    expect(result.reply).toMatch(/Нет строк/);
+  });
 });

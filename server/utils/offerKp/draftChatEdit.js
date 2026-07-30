@@ -3,7 +3,14 @@
 /**
  * Apply free-form chat commands to the current quote draft (Сводка позиций).
  * Operator overrides (price/qty/customer/remove) — not ShopDB inventing prices.
+ * Also recognizes UI button labels (e.g. «Дешёвые аналоги») as the same actions.
  */
+
+const { matchUiDraftCommand, isUiDraftCommand } = require("./uiDraftCommands");
+const {
+  resolveCheapestAnalogsForLines,
+  altPatchForLine,
+} = require("./pickCheapestAnalog");
 
 function normalizeText(value = "") {
   return String(value || "")
@@ -160,6 +167,7 @@ function wantsRemoveLine(message = "") {
 function looksLikeDraftEdit(message = "") {
   const text = String(message || "").trim();
   if (!text) return false;
+  if (isUiDraftCommand(text)) return true;
   if (extractPriceAmount(text) != null) return true;
   if (extractQuantity(text) != null) return true;
   if (extractCustomerName(text)) return true;
@@ -167,6 +175,53 @@ function looksLikeDraftEdit(message = "") {
   return /(?:в\s+кп|в\s+сводк|в\s+черновик|w\s+kp|edit\s+quote|исправь|поправь|поставь|вставь|wstaw|ustaw).{0,80}(?:цен|количеств|строк|позиц|покупател|cena|qty|wiersz)/iu.test(
     text
   );
+}
+
+function applyCheapestAnalogsCommand(prev, lines, vatRate) {
+  const picks = resolveCheapestAnalogsForLines(lines);
+  if (!picks.length) {
+    return {
+      ok: false,
+      applied: [],
+      quoteDraft: prev,
+      reply:
+        "Нет строк с вариантом в наличии и с ценой из меню «Аналоги» (≥2), либо уже выбран лучший. Откройте сводку и проверьте аналоги.",
+      reason: "cheapest_analogs_empty",
+    };
+  }
+
+  const byIndex = new Map(picks.map((p) => [p.index, p.alt]));
+  const nextLines = lines.map((line, i) => {
+    const alt = byIndex.get(i);
+    if (!alt) return line;
+    return recalcLineTotals({ ...line, ...altPatchForLine(alt, vatRate) }, vatRate);
+  });
+  const totals = summarizeDraft(nextLines, vatRate);
+  const quoteDraft = {
+    ...prev,
+    hardwareLines: nextLines,
+    preview: {
+      ...(prev.preview || {}),
+      lines: nextLines,
+      subtotal: totals.subtotal,
+      total: totals.total,
+      totalWeightKg: totals.totalWeightKg,
+    },
+  };
+  const applied = picks.map((p) => ({
+    op: "cheapest_analog",
+    index: p.index,
+    sku: p.alt?.sku || "",
+    name: p.alt?.name || p.line?.name || "",
+    price: Number(p.alt?.price || p.alt?.unitPriceNet) || 0,
+  }));
+
+  return {
+    ok: true,
+    applied,
+    quoteDraft,
+    reply: `Готово. Подставил дешёвые аналоги из наличия с ценой: ${picks.length} поз. Проверьте вкладку «Сводка позиций».`,
+  };
 }
 
 function recalcLineTotals(line, vatRate = 0.2) {
@@ -239,12 +294,16 @@ function applyDraftChatEdits(input = {}) {
     })) || []),
   ];
 
+  const uiCommand = matchUiDraftCommand(message);
+
   if (!prev || !lines.length) {
     return {
       ok: false,
       applied: [],
       quoteDraft: prev,
-      reply: "",
+      reply: uiCommand
+        ? "Сначала нужна сводка позиций КП. Загрузите заявку или сформируйте черновик, затем повторите команду кнопки."
+        : "",
       reason: "no_draft",
     };
   }
@@ -256,6 +315,10 @@ function applyDraftChatEdits(input = {}) {
       reply: "",
       reason: "not_an_edit",
     };
+  }
+
+  if (uiCommand === "cheapest_analogs") {
+    return applyCheapestAnalogsCommand(prev, lines, vatRate);
   }
 
   const applied = [];
@@ -376,6 +439,9 @@ function applyDraftChatEdits(input = {}) {
     if (op.op === "set_customer") {
       return `покупатель → ${op.name}`;
     }
+    if (op.op === "cheapest_analog") {
+      return `аналог «${op.name || op.sku || `#${op.index + 1}`}»`;
+    }
     return op.op;
   });
 
@@ -396,4 +462,6 @@ module.exports = {
   looksLikeDraftEdit,
   applyDraftChatEdits,
   recalcLineTotals,
+  isUiDraftCommand,
+  matchUiDraftCommand,
 };

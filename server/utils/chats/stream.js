@@ -41,20 +41,56 @@ async function streamChatWithWorkspace(
   const uuid = uuidv4();
   const commandMessage = await grepCommand(message, user);
 
-  // Operator chat edits against the live UI draft (price/qty/customer/remove).
-  // Must run before ShopDB rematch so free-form commands update Сводка, not rebuild it.
+  // Operator chat edits against the live UI draft (price/qty/customer/remove
+  // + UI button labels like «Дешёвые аналоги»). Must run before ShopDB rematch.
   try {
     const {
       looksLikeDraftEdit,
       applyDraftChatEdits,
+      isUiDraftCommand,
     } = require("../offerKp/draftChatEdit");
     const draftLines =
       clientQuoteDraft?.hardwareLines || clientQuoteDraft?.preview?.lines || [];
-    if (
-      Array.isArray(draftLines) &&
-      draftLines.length > 0 &&
-      looksLikeDraftEdit(commandMessage)
-    ) {
+    const hasDraft = Array.isArray(draftLines) && draftLines.length > 0;
+    const uiCmd = isUiDraftCommand(commandMessage);
+    const isDraftCmd = looksLikeDraftEdit(commandMessage) || uiCmd;
+
+    async function replyDraftEditAndStop(text, metrics) {
+      writeResponseChunk(response, {
+        uuid,
+        type: "textResponse",
+        textResponse: text,
+        sources: [],
+        attachments,
+        close: true,
+        error: null,
+        metrics,
+      });
+      await WorkspaceChats.new({
+        workspaceId: workspace.id,
+        prompt: message,
+        response: {
+          text,
+          sources: [],
+          type: chatMode,
+          attachments,
+          metrics,
+        },
+        threadId: thread?.id || null,
+        include: false,
+        user,
+      });
+    }
+
+    if (isDraftCmd && !hasDraft && uiCmd) {
+      await replyDraftEditAndStop(
+        "Сначала нужна сводка позиций КП. Загрузите заявку или сформируйте черновик, затем повторите команду кнопки.",
+        { grounding: "operator_draft_edit", reason: "no_draft" }
+      );
+      return;
+    }
+
+    if (isDraftCmd && hasDraft) {
       const vatRate =
         Number(clientQuoteDraft?.vatRate ?? clientQuoteDraft?.preview?.vatRate) ||
         0.2;
@@ -81,62 +117,21 @@ async function streamChatWithWorkspace(
             },
           },
         });
-        writeResponseChunk(response, {
-          uuid,
-          type: "textResponse",
-          textResponse: editResult.reply,
-          sources: [],
-          attachments,
-          close: true,
-          error: null,
-          metrics: {
-            grounding: "operator_draft_edit",
-            draftEdits: editResult.applied,
-          },
-        });
-        await WorkspaceChats.new({
-          workspaceId: workspace.id,
-          prompt: message,
-          response: {
-            text: editResult.reply,
-            sources: [],
-            type: chatMode,
-            attachments,
-            metrics: {
-              grounding: "operator_draft_edit",
-              draftEdits: editResult.applied,
-            },
-          },
-          threadId: thread?.id || null,
-          include: false,
-          user,
+        await replyDraftEditAndStop(editResult.reply, {
+          grounding: "operator_draft_edit",
+          draftEdits: editResult.applied,
         });
         return;
       }
-      if (editResult.reason === "line_not_found" && editResult.reply) {
-        writeResponseChunk(response, {
-          uuid,
-          type: "textResponse",
-          textResponse: editResult.reply,
-          sources: [],
-          attachments,
-          close: true,
-          error: null,
-          metrics: { grounding: "operator_draft_edit_miss" },
-        });
-        await WorkspaceChats.new({
-          workspaceId: workspace.id,
-          prompt: message,
-          response: {
-            text: editResult.reply,
-            sources: [],
-            type: chatMode,
-            attachments,
-            metrics: { grounding: "operator_draft_edit_miss" },
-          },
-          threadId: thread?.id || null,
-          include: false,
-          user,
+      if (
+        editResult.reply &&
+        ["line_not_found", "cheapest_analogs_empty", "no_draft"].includes(
+          editResult.reason
+        )
+      ) {
+        await replyDraftEditAndStop(editResult.reply, {
+          grounding: "operator_draft_edit_miss",
+          reason: editResult.reason,
         });
         return;
       }

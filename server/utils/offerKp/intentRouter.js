@@ -73,6 +73,9 @@ const EDIT_QUOTE_PATTERNS = [
   /(?:цен[аыуе]|cena|price).{0,120}(?:неправильн|ошиб|niepopraw|wrong|incorrect)/iu,
   /(?:вставь|поставь|wstaw|ustaw).{0,40}\d+(?:[.,]\d+)?\s*(?:руб|rub|₽|pln|zł)/iu,
   /(?:в\s+кп|в\s+сводк|w\s+kp).{0,40}(?:вставь|поставь|wstaw|исправь|поправь)/iu,
+  // UI button labels from Сводка (exact + short paraphrases).
+  /^(?:деш[её]в\w*|cheapest|najta[nń]sze)\s+(?:аналог|analog)/iu,
+  /(?:подставь|выбери|примени|поставь|apply|podstaw).{0,40}(?:деш[её]в|cheapest|najta[nń]sz).{0,25}(?:аналог|analog)/iu,
 ];
 
 const DOCUMENT_QUESTION_PATTERNS = [
@@ -314,7 +317,16 @@ function routeOfferKpMessage(input = "") {
     /направьте?\s+(?:пожалуйста\s+)?(?:кп|предложен|оферт|коммерческ)/iu.test(
       text
     );
-  const editIntent = EDIT_QUOTE_PATTERNS.some((pattern) => pattern.test(text));
+  const editIntent =
+    EDIT_QUOTE_PATTERNS.some((pattern) => pattern.test(text)) ||
+    (() => {
+      try {
+        const { isUiDraftCommand } = require("./uiDraftCommands");
+        return isUiDraftCommand(text);
+      } catch {
+        return false;
+      }
+    })();
   const documentIntent = DOCUMENT_QUESTION_PATTERNS.some((pattern) =>
     pattern.test(text)
   );
