@@ -213,7 +213,12 @@ function productNameHasUnverifiableDimension(
     if (queryParsed?.diameter) return false;
     return Boolean(extractDiameter(nameNorm));
   }
-  if (queryParsed?.thread || queryParsed?.diameter) return false;
+  // Bolts/screws require MxL. A diameter-only request ("M10") cannot prove
+  // that a concrete catalog item ("M10x80") is the requested length. Treat
+  // it as unconfirmed rather than exact; otherwise an arbitrary in-stock
+  // length can receive a ShopDB price and look like a grounded answer.
+  if (queryParsed?.thread) return false;
+  if (queryParsed?.diameter) return Boolean(extractThread(nameNorm));
   return Boolean(extractThread(nameNorm));
 }
 
@@ -315,6 +320,13 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
 
   if (parsed.diameter) {
     if (!diameterMatches(nameNorm, parsed.diameter)) return { ok: false };
+    if (
+      rule?.matchRule === "thread_coating_strength" &&
+      !parsed.thread &&
+      extractThread(nameNorm)
+    ) {
+      return { ok: false, unconfirmed: true };
+    }
     if (
       parsed.pitch &&
       !pitchMatches(nameNorm, parsed.diameter, parsed.pitch)

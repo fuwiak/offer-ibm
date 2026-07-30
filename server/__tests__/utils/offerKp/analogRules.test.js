@@ -70,6 +70,15 @@ describe("analogRules", () => {
     expect(result.matchType).not.toBe("exact");
   });
 
+  test("diameter-only bolt request cannot confirm a catalog length", () => {
+    const result = classifyProductMatch("Болт DIN 933 M10", {
+      name: "Болт DIN 933 M10x80 8.8 оцинкованный",
+      stockCount: 100,
+    });
+    expect(result.matchType).toBe("size_unconfirmed");
+    expect(result.status).toBe(STATUS.NEEDS_REVIEW);
+  });
+
   test("getEquivalentStandards for DIN 934", () => {
     const equiv = getEquivalentStandards("934");
     expect(equiv).toContain("934");
