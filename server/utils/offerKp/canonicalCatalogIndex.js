@@ -77,6 +77,13 @@ function denseTopK() {
   );
 }
 
+function optimizeVectorStoreOnSync() {
+  const raw = String(process.env.SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC ?? "0")
+    .trim()
+    .toLowerCase();
+  return ["1", "true", "on", "yes"].includes(raw);
+}
+
 function embeddingModel() {
   return (
     String(process.env.SHOP_DB_EMBEDDING_MODEL || "").trim() ||
@@ -276,6 +283,7 @@ async function buildVectorMatrix(
   );
   const reused = [];
   const toEmbed = [];
+  let vectorStoreWrites = 0;
 
   for (const record of records) {
     const productId = Number(record.productId);
@@ -314,6 +322,7 @@ async function buildVectorMatrix(
     for (let offset = 0; offset < migrationRows.length; offset += EMBED_BATCH) {
       const batch = migrationRows.slice(offset, offset + EMBED_BATCH);
       await vectorStore.upsert(batch);
+      vectorStoreWrites += batch.length;
       await historyStore?.recordEmbeddingBatch(
         syncId,
         batch,
@@ -359,6 +368,7 @@ async function buildVectorMatrix(
       canonicalText: recordById.get(row.productId)?.canonicalText || "",
     }));
     await vectorStore?.upsert(persistentRows);
+    vectorStoreWrites += persistentRows.length;
     await historyStore?.recordEmbeddingBatch(
       syncId,
       persistentRows,
@@ -408,7 +418,12 @@ async function buildVectorMatrix(
     embedded: fresh.size,
     reused: reused.length,
   };
-  await vectorStore?.optimize();
+  // LanceDB compaction is expensive even for an unchanged 20k-row table.
+  // Metadata-only catalog upgrades (for example v4 → v5 BM25 fields) reuse
+  // every vector, so there is nothing to compact.
+  if (vectorStoreWrites > 0 && optimizeVectorStoreOnSync()) {
+    await vectorStore?.optimize();
+  }
   return result;
 }
 
@@ -676,6 +691,7 @@ module.exports = {
   embeddingModel,
   denseEnabled,
   denseTopK,
+  optimizeVectorStoreOnSync,
   indexIsFresh,
   getCanonicalCatalogManifest,
   getCanonicalCatalogRecords,
