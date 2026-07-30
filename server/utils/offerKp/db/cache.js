@@ -130,6 +130,11 @@ function setCachedAgentResult(key, result) {
 function clearShopDbCache() {
   queryCache.clear();
   agentResultCache.clear();
+  try {
+    require("./layeredCache").clearLayeredCaches();
+  } catch {
+    // layeredCache may be unavailable in partial test mocks
+  }
 }
 
 module.exports = {
@@ -141,8 +146,17 @@ module.exports = {
   getCachedAgentResult,
   setCachedAgentResult,
   clearShopDbCache,
-  getShopDbCacheStats: () => ({
-    query: queryCache.stats(),
-    agent: agentResultCache.stats(),
-  }),
+  getShopDbCacheStats: () => {
+    let layered = null;
+    try {
+      layered = require("./layeredCache").getLayeredCacheStats();
+    } catch {
+      layered = null;
+    }
+    return {
+      query: queryCache.stats(),
+      agent: agentResultCache.stats(),
+      layered,
+    };
+  },
 };

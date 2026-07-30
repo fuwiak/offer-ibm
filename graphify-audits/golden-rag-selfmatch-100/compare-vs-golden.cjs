@@ -66,15 +66,32 @@ function main() {
   });
 
   if (result.error) throw result.error;
-  if (typeof result.status === "number" && result.status !== 0) {
-    process.exit(result.status);
+  const failed =
+    result.signal != null ||
+    (typeof result.status === "number" && result.status !== 0);
+  if (failed) {
+    const code =
+      typeof result.status === "number" && result.status !== 0
+        ? result.status
+        : 1;
+    console.error(
+      JSON.stringify({
+        error: "COMPARE_CHILD_FAILED",
+        status: result.status,
+        signal: result.signal || null,
+      })
+    );
+    process.exit(code);
   }
 
   // Stamp pack-local compare meta next to the report.
   const metaPath = path.join(PACK_DIR, "last-compare.meta.json");
+  const reportPath = path.isAbsolute(jsonOut)
+    ? jsonOut
+    : path.resolve(REPO_ROOT, jsonOut);
   let reportSummary = null;
   try {
-    const full = JSON.parse(fs.readFileSync(jsonOut, "utf8"));
+    const full = JSON.parse(fs.readFileSync(reportPath, "utf8"));
     reportSummary = {
       total: full.total,
       skuAt1: full.skuAt1,
@@ -96,7 +113,7 @@ function main() {
         pack: GOLDEN_META.id,
         seed: GOLDEN_META.seed,
         csv: csvRel,
-        json: path.relative(REPO_ROOT, jsonOut),
+        json: path.relative(REPO_ROOT, reportPath),
         goldenOverrides: withOverrides ? "on" : "off",
         graph: "graphify-out/graph.json",
         summary: reportSummary,
@@ -106,6 +123,24 @@ function main() {
     )}\n`,
     "utf8"
   );
+
+  // Also keep a committed-friendly copy when --json points at compare-report.json
+  if (reportSummary && /compare-report\.json$/.test(reportPath)) {
+    fs.writeFileSync(
+      path.join(PACK_DIR, "compare-report.meta.json"),
+      `${JSON.stringify(
+        {
+          ...reportSummary,
+          comparedAt: new Date().toISOString(),
+          pack: GOLDEN_META.id,
+          seed: GOLDEN_META.seed,
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+  }
 }
 
 main();

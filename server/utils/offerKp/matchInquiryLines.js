@@ -35,6 +35,16 @@ const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
 const { stripMessengerExportNoise } = require("./parseInquiry");
 const { buildProductUrl, getShopBaseUrl } = require("./productUrl");
+const {
+  buildMatchIdentityCacheKey,
+  getCachedMatchIdentity,
+  setCachedMatchIdentity,
+  getCachedCommercial,
+  setCachedCommercial,
+  applyCommercialFields,
+  resolveIndexVersion,
+} = require("./db/layeredCache");
+const { getCanonicalCatalogManifest } = require("./canonicalCatalogIndex");
 
 const {
   DETERMINISTIC_MATCH_PROFILE,
@@ -47,35 +57,51 @@ function matchEnrichmentEnabled() {
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
-/** Per-thread line match cache: follow-ups should not re-match the whole PDF. */
-const LINE_MATCH_CACHE_TTL_MS = 30 * 60 * 1000;
-const lineMatchCache = new Map();
+function lineMatchIdentityKey(threadId, raw) {
+  return buildMatchIdentityCacheKey({
+    inquiryText: `${threadId || "global"}::${raw || ""}`,
+    indexVersion: resolveIndexVersion(getCanonicalCatalogManifest()),
+  });
+}
 
-function normalizeLineCacheKey(raw = "") {
-  return String(raw || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+async function hydrateLineCommercial(line) {
+  if (!line || typeof line !== "object") return line;
+  const productId = line.productId != null ? String(line.productId).trim() : "";
+  if (!productId || line.allowPrice === false) {
+    return applyCommercialFields(line, {
+      unitPriceNet: 0,
+      priceWithVat: 0,
+      allowPrice: false,
+      retrievedAt: new Date().toISOString(),
+    });
+  }
+
+  let commercial = getCachedCommercial(productId);
+  if (!commercial) {
+    const stock = await fetchProductStock(productId);
+    const unitPriceNet = Number(stock.price) || 0;
+    commercial = {
+      sku: stock.sku || "",
+      unitPriceNet,
+      priceWithVat: unitPriceNet
+        ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
+        : 0,
+      priceSource: stock.priceSource || null,
+      stockCount: Number(stock.stockCount) || 0,
+      allowPrice: true,
+      retrievedAt: new Date().toISOString(),
+    };
+    setCachedCommercial(productId, commercial);
+  }
+  return applyCommercialFields(line, commercial);
 }
 
 function getCachedLineMatch(threadId, raw) {
-  const key = `${threadId || "global"}::${normalizeLineCacheKey(raw)}`;
-  const hit = lineMatchCache.get(key);
-  if (!hit) return null;
-  if (Date.now() - hit.at > LINE_MATCH_CACHE_TTL_MS) {
-    lineMatchCache.delete(key);
-    return null;
-  }
-  return hit.value;
+  return getCachedMatchIdentity(lineMatchIdentityKey(threadId, raw)) || null;
 }
 
 function setCachedLineMatch(threadId, raw, value) {
-  const key = `${threadId || "global"}::${normalizeLineCacheKey(raw)}`;
-  lineMatchCache.set(key, { at: Date.now(), value });
-  if (lineMatchCache.size > 2000) {
-    const oldest = lineMatchCache.keys().next().value;
-    lineMatchCache.delete(oldest);
-  }
+  setCachedMatchIdentity(lineMatchIdentityKey(threadId, raw), value);
 }
 
 function resolveMatchConcurrency(lineCount) {
@@ -559,8 +585,12 @@ function buildUnderspecifiedLine(inquiryLine, completeness) {
 async function matchInquiryLine(inquiryLine, options = {}) {
   const cacheRaw = inquiryLine.raw || inquiryLine.name;
   const cached = getCachedLineMatch(options.threadId, cacheRaw);
-  if (cached)
-    return { ...cached, quantity: inquiryLine.quantity || cached.quantity };
+  if (cached) {
+    return hydrateLineCommercial({
+      ...cached,
+      quantity: inquiryLine.quantity || cached.quantity,
+    });
+  }
 
   const searchText = stripMessengerExportNoise(
     inquiryLine.raw || inquiryLine.name
@@ -1015,8 +1045,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     comment: commentParts.join("; "),
     thread: inquiryLine.thread,
     alternatives,
-    productUrl:
-      accepted && lineProductId ? best.productUrl : undefined,
+    productUrl: accepted && lineProductId ? best.productUrl : undefined,
     // Provenance (persisted on the line, not only in metrics)
     matchSource:
       best?.matchSource ||

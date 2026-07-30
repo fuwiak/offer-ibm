@@ -12,10 +12,13 @@
 
 const { query } = require("./db/client");
 const {
-  getCachedAgentResult,
-  setCachedAgentResult,
-  makeCacheKey,
-} = require("./db/cache");
+  buildRetrievalCacheKey,
+  getCachedRetrieval,
+  setCachedRetrieval,
+  resolveIndexVersion,
+  resolvePipelineVersion,
+} = require("./db/layeredCache");
+const { getCanonicalCatalogManifest } = require("./canonicalCatalogIndex");
 const shopDbLog = require("./shopDbLog");
 const {
   parseHardwareQuery,
@@ -378,6 +381,8 @@ function buildProductSearchAgentCacheKey({
   chatHistory = null,
   limit = 10,
   parsedFileTexts = null,
+  indexVersion = null,
+  pipelineVersion = null,
 }) {
   const parsedTexts = (parsedFileTexts || []).filter(Boolean);
   const searchText = buildProductSearchText(message, {
@@ -385,14 +390,19 @@ function buildProductSearchAgentCacheKey({
     history: chatHistory,
     parsedFileTexts: parsedTexts,
   });
-  return makeCacheKey("productSearchAgent", [
-    searchText,
-    // Requested output window (not sqlLimit-capped) so Top-50 ≠ Top-100 cache.
-    String(Math.max(1, Math.min(200, parseInt(limit, 10) || 10))),
-    `retrievalWindow=${RETRIEVAL_WINDOW}`,
-    String(message || "").trim(),
-    parsedTexts.join("\n\n"),
-  ]);
+  // Requested limit (not sqlLimit-capped) so Top-50 ≠ Top-100 cache keys.
+  return buildRetrievalCacheKey({
+    queryText: searchText,
+    limit,
+    indexVersion:
+      indexVersion || resolveIndexVersion(getCanonicalCatalogManifest()),
+    pipelineVersion:
+      pipelineVersion ||
+      resolvePipelineVersion({ retrievalWindow: RETRIEVAL_WINDOW }),
+    extra: [String(message || "").trim(), parsedTexts.join("\n\n")]
+      .filter(Boolean)
+      .join("\n---\n"),
+  });
 }
 
 /**
@@ -430,14 +440,15 @@ async function runProductSearchAgent({
       signals: { intent: routedIntent },
       tablesUsed: [],
     };
-    setCachedAgentResult(agentCacheKey, skipped);
+    setCachedRetrieval(agentCacheKey, skipped);
     return skipped;
   }
-  const cachedAgent = getCachedAgentResult(agentCacheKey);
+  const cachedAgent = getCachedRetrieval(agentCacheKey);
   if (cachedAgent) {
     shopDbLog.skip("product search agent cache hit", {
       messageLen: String(message || "").length,
       hits: cachedAgent.products?.length || 0,
+      cacheKeyPrefix: String(agentCacheKey).slice(0, 48),
     });
     return cachedAgent;
   }
@@ -500,7 +511,7 @@ async function runProductSearchAgent({
       signals,
       tablesUsed: [],
     };
-    setCachedAgentResult(agentCacheKey, skipped);
+    setCachedRetrieval(agentCacheKey, skipped);
     return skipped;
   }
 
@@ -638,7 +649,7 @@ async function runProductSearchAgent({
     signals,
     tablesUsed: [...tablesUsed].sort(),
   };
-  setCachedAgentResult(agentCacheKey, result);
+  setCachedRetrieval(agentCacheKey, result);
   return result;
 }
 
@@ -648,6 +659,7 @@ module.exports = {
   mergeProductHits,
   mergeRetrievalMeta,
   buildProductSearchText,
+  buildProductSearchAgentCacheKey,
   collectPriorHardwareContext,
   extractSkuCodes,
   isCatalogRelayRequest,
