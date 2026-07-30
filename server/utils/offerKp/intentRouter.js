@@ -3,10 +3,14 @@
 /**
  * Deterministic intent signal for OfferKP.
  *
- * This module deliberately does not execute actions. Callers may use the
- * returned policy to decide whether the existing ShopDB / quote pipeline is
- * eligible to run. Prices and SKU values remain guarded by the existing
- * matchInquiryLines + quoteDbPriceGate contracts.
+ * This module deliberately does not call an LLM and does not execute actions.
+ * Callers may use the returned policy to decide whether the existing ShopDB /
+ * quote pipeline is eligible to run. Prices and SKU values remain guarded by
+ * the existing matchInquiryLines + quoteDbPriceGate contracts.
+ *
+ * LLM tie-break (intentLlmJudge.resolveOfferKpIntent) runs ONLY when
+ * needsLlmIntentJudge(result) is true — i.e. primaryIntent === ambiguous.
+ * Confident routes (product_inquiry / create_quote / …) never pay for a judge.
  */
 
 const OFFER_KP_INTENTS = Object.freeze({
@@ -479,6 +483,32 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
+  // Pasted multi-line RFQ (≥2 inquiry lines + qty) → create_quote draft path.
+  // Export stays off until an explicit «сделай КП / PDF» phrase (explicitQuote).
+  if (hasProductSignal && hasQuantity) {
+    try {
+      const { parseInquiryText } = require("./parseInquiry");
+      const inquiryLineCount = parseInquiryText(text).length;
+      if (inquiryLineCount >= 2) {
+        addIntent(I.CREATE_QUOTE);
+        return buildResult({
+          primaryIntent: I.CREATE_QUOTE,
+          intents,
+          confidence: 0.95,
+          signals: {
+            productSignalCount,
+            hasQuantity,
+            multiLineRfq: true,
+            inquiryLineCount,
+          },
+          policyOverrides: { allowExport: false },
+        });
+      }
+    } catch {
+      /* parseInquiry may be unavailable in isolated unit tests */
+    }
+  }
+
   if (productSignalCount >= 2) {
     return buildResult({
       primaryIntent: I.PRODUCT_INQUIRY,
@@ -515,10 +545,16 @@ function routeOfferKpMessage(input = "") {
   });
 }
 
+/** True only for the rare tie-break bucket — never for confident routes. */
+function needsLlmIntentJudge(routed = {}) {
+  return routed?.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS;
+}
+
 module.exports = {
   OFFER_KP_INTENTS,
   START_QUOTE_PROMPTS,
   normalizeIntentText,
   routeOfferKpMessage,
   buildResult,
+  needsLlmIntentJudge,
 };

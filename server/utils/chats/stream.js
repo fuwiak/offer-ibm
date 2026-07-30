@@ -110,9 +110,14 @@ async function streamChatWithWorkspace(
     shopDbEnrichEnabled() &&
     routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS
   ) {
-    const { resolveOfferKpIntent } = require("../offerKp/intentLlmJudge");
-    generalIntentJudgeAttempted = true;
-    routedIntent = await resolveOfferKpIntent(commandMessage, { workspace });
+    const {
+      resolveOfferKpIntent,
+    } = require("../offerKp/intentLlmJudge");
+    const { needsLlmIntentJudge } = require("../offerKp/intentRouter");
+    if (needsLlmIntentJudge(routedIntent)) {
+      generalIntentJudgeAttempted = true;
+      routedIntent = await resolveOfferKpIntent(commandMessage, { workspace });
+    }
   }
   const {
     createRequestTrace,

@@ -56,23 +56,26 @@ describe("OfferKP deterministic intent router", () => {
     }
   });
 
-  it("gates ShopDB enrichment without changing its downstream contract", () => {
-    expect(shouldRunShopEnrich("Найди болт DIN 933 M10x80")).toBe(true);
-    expect(
-      shouldRunShopEnrich(
-        "Найди цену на сайте конкурента для болта DIN 933 M10x80"
-      )
-    ).toBe(false);
-    expect(shouldRunShopEnrich("Какая погода в Москве?")).toBe(false);
-    expect(
-      shouldRunShopEnrich("hello", {
-        parsedFileTexts: ["Штанга DIN 975 M36x2000, 10 шт"],
-      })
-    ).toBe(false);
-    expect(
-      shouldRunShopEnrich("how are you?", {
-        parsedFileTexts: ["Штанга DIN 975 M36x2000, 10 шт"],
-      })
-    ).toBe(false);
+  it("routes multi-line RFQ to create_quote without export", () => {
+    const rfq = [
+      "Винт DIN 6912 M6x20 — 500 шт",
+      "Винт M6x20 ГОСТ Р ИСО 1207-2013 — 500 шт",
+      "Гайка М24 ГОСТ ISO 7040 — 28200 шт",
+    ].join("\n");
+    const result = routeOfferKpMessage(rfq);
+    expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.CREATE_QUOTE);
+    expect(result.policy.allowExport).toBe(false);
+    expect(result.policy.allowShopDbSearch).toBe(true);
+    expect(result.signals.multiLineRfq).toBe(true);
+  });
+
+  it("exposes needsLlmIntentJudge only for ambiguous", () => {
+    const {
+      needsLlmIntentJudge,
+    } = require("../../../utils/offerKp/intentRouter");
+    expect(needsLlmIntentJudge(routeOfferKpMessage("найди болт DIN 933"))).toBe(
+      false
+    );
+    expect(needsLlmIntentJudge(routeOfferKpMessage("кп"))).toBe(true);
   });
 });

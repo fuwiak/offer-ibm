@@ -3,8 +3,8 @@
 {"text":"гайка DIN 934 М16 оцинкованная 500 шт","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"шайба ГОСТ 11371 М8 — 1000 шт.","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"М10х50 8.8 DIN 933, 250 шт","intent":"product_inquiry","allowShopDbSearch":true}
-{"text":"Нужно: болт М12х80 — 100 шт, гайка М12 — 100 шт","intent":"product_inquiry","allowShopDbSearch":true}
-{"text":"1. Винт DIN 912 М6х30, 200 шт\n2. Шайба М6, 200 шт","intent":"product_inquiry","allowShopDbSearch":true}
+{"text":"Нужно: болт М12х80 — 100 шт, гайка М12 — 100 шт","intent":"create_quote","allowShopDbSearch":true,"allowExport":false}
+{"text":"1. Винт DIN 912 М6х30, 200 шт\n2. Шайба М6, 200 шт","intent":"create_quote","allowShopDbSearch":true,"allowExport":false}
 {"text":"болт м10 на 80 количество 200","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"найди аналог DIN 931","intent":"product_search","allowShopDbSearch":true}
 {"text":"найди болт М10х80 DIN 933","intent":"product_search","allowShopDbSearch":true}

@@ -6,22 +6,21 @@
  * Confident router categories never pay for this — it only fires on the
  * rare tie-break case, keeping it cheap on the shared GPU.
  *
- * Under OFFER_KP_STRICT_DETERMINISM the judge is skipped: ambiguous stays
- * ambiguous so the UI can ask a clarifying question instead of letting the
- * LLM authoritatively pick an intent.
+ * Closed-set classification only (one category code). Independent of
+ * OFFER_KP_STRICT_DETERMINISM: strict mode still pins sampling / disables
+ * generative ranking, but this judge does not invent prices or SKUs.
+ * Kill-switch: OFFER_KP_INTENT_LLM_JUDGE=false.
  */
 
 const {
   OFFER_KP_INTENTS,
   routeOfferKpMessage,
   buildResult,
+  needsLlmIntentJudge,
 } = require("./intentRouter");
 const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
-const {
-  offerKpStrictDeterminismEnabled,
-  resolveOfferKpChatSampling,
-} = require("./deterministicSampling");
+const { resolveOfferKpChatSampling } = require("./deterministicSampling");
 const { RESPONSE_FORMATS } = require("./llmJsonSchema");
 
 const JUDGE_CATEGORIES = [
@@ -50,7 +49,6 @@ out_of_scope — вопрос вне тематики крепежа/КП (по�
 Сообщение может быть на любом языке — язык сам по себе не признак категории. Если сомневаешься — выбери out_of_scope.`;
 
 function intentLlmJudgeEnabled() {
-  if (offerKpStrictDeterminismEnabled()) return false;
   return process.env.OFFER_KP_INTENT_LLM_JUDGE !== "false";
 }
 
@@ -123,7 +121,7 @@ async function classifyAmbiguousIntentWithLlm(text, { workspace = null } = {}) {
  */
 async function resolveOfferKpIntent(text, { workspace = null } = {}) {
   const routed = routeOfferKpMessage(text);
-  if (routed.primaryIntent !== OFFER_KP_INTENTS.AMBIGUOUS) return routed;
+  if (!needsLlmIntentJudge(routed)) return routed;
 
   const judged = await classifyAmbiguousIntentWithLlm(text, { workspace });
   if (!judged) return routed;

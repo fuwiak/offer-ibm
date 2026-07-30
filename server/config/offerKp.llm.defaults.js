@@ -27,7 +27,8 @@ module.exports = {
   OFFER_KP_PIPELINE_AGENT_FALLBACK: OFFER_KP_LM_AGENT_FALLBACK,
   OFFER_KP_PIPELINE_AGENT_CONTEXT: String(OFFER_KP_PIPELINE_AGENT_CONTEXT),
   OFFER_KP_SINGLE_MODEL: "true",
-  // Max determinism: LLM advisory only; judges/ranking off unless explicitly relaxed.
+  // Pin sampling / disable generative ranking. Intent LLM judge (ambiguous
+  // only) stays available — kill with OFFER_KP_INTENT_LLM_JUDGE=false.
   OFFER_KP_STRICT_DETERMINISM: "true",
   // Native OpenAI-style tools for OpenRouter teacher / agents (create-docx, quote-calculator…).
   PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING:
