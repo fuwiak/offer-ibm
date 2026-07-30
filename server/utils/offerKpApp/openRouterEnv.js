@@ -1,6 +1,9 @@
 /**
  * OpenRouter API key from Railway aliases.
  * Supports both OPENROUTER_API_KEY and OPEN_ROUTER_TOKEN.
+ *
+ * Kill-switch: OpenRouter is OFF by default for OfferKP (LM Studio only).
+ * Set OFFER_KP_OPENROUTER=1 to re-enable teacher / egress / intent-judge OR.
  */
 const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 /** Local reverse-SSH egress proxy (see scripts/openrouter-egress-proxy.cjs). */
@@ -11,7 +14,16 @@ let egressEnsurePromise = null;
 let lastProbeOk = null;
 let lastProbeAt = 0;
 
+/** OfferKP: OpenRouter off unless explicitly opted in. */
+function isOpenRouterEnabled() {
+  const raw = process.env.OFFER_KP_OPENROUTER;
+  if (raw == null || String(raw).trim() === "") return false;
+  const flag = String(raw).trim().toLowerCase();
+  return flag === "1" || flag === "true" || flag === "yes" || flag === "on";
+}
+
 function resolveOpenRouterApiKey() {
+  if (!isOpenRouterEnabled()) return null;
   const key =
     process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER_TOKEN || null;
   return key && String(key).trim() ? String(key).trim() : null;
@@ -190,8 +202,10 @@ async function probeOpenRouterReachable(
 /**
  * If OPENROUTER_BASE_URL is unset, prefer local egress proxy when it answers.
  * Idempotent; safe to call on every chat resolve.
+ * No-op when OFFER_KP_OPENROUTER is off.
  */
 async function ensureOpenRouterEgressBaseUrl() {
+  if (!isOpenRouterEnabled()) return null;
   if (egressEnsurePromise) return egressEnsurePromise;
   egressEnsurePromise = (async () => {
     applyOpenRouterEnvAliases();
@@ -214,6 +228,14 @@ async function ensureOpenRouterEgressBaseUrl() {
 
 /** Boot / recovery: refresh probe cache (and log clearly). */
 async function warmOpenRouterReachabilityProbe() {
+  if (!isOpenRouterEnabled()) {
+    console.log(
+      "\x1b[36m[OpenRouter]\x1b[0m disabled (OFFER_KP_OPENROUTER off) — LM Studio only"
+    );
+    lastProbeOk = false;
+    lastProbeAt = Date.now();
+    return false;
+  }
   applyOpenRouterEnvAliases();
   const base = resolveOpenRouterBaseUrl();
   const ok = await probeOpenRouterReachable(base, 2500);
@@ -232,6 +254,7 @@ function resetOpenRouterEgressCache() {
 module.exports = {
   DEFAULT_OPENROUTER_BASE_URL,
   DEFAULT_EGRESS_PROXY_BASE_URL,
+  isOpenRouterEnabled,
   resolveOpenRouterApiKey,
   resolveOpenRouterBaseUrl,
   resolveOpenRouterHeaders,

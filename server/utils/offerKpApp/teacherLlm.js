@@ -2,8 +2,8 @@
  * Teacher LLM (OpenRouter) — runtime only.
  * UI / workspace stay on LM Studio labels; flip via OFFER_KP_TEACHER_LLM.
  *
- * Default: OFF (LM Studio primary). Explicit OFFER_KP_TEACHER_LLM=1 uses
- * OpenRouter when reachable, with LM Studio as fallback if egress/OR is down.
+ * Default: OFF. Requires both OFFER_KP_OPENROUTER=1 and OFFER_KP_TEACHER_LLM=1
+ * (plus API key). Otherwise LM Studio only — no OpenRouter fallback.
  */
 const { resolveOpenRouterApiKey } = require("./openRouterEnv");
 const llmDefaults = require("../../config/offerKp.llm.defaults");

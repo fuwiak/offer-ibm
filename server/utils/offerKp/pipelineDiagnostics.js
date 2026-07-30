@@ -133,7 +133,7 @@ function formatAbortError(error, diag = null) {
   if (diag?.requestId) parts.push(`requestId=${diag.requestId}`);
   if (/connection error/i.test(raw)) {
     parts.push(
-      "Likely LM Studio / OpenRouter / proxy dropped during or right after ShopDB matching."
+      "Likely LM Studio dropped during or right after ShopDB matching."
     );
   }
   return parts.join(" ");

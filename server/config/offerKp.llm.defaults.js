@@ -27,10 +27,13 @@ module.exports = {
   OFFER_KP_PIPELINE_AGENT_FALLBACK: OFFER_KP_LM_AGENT_FALLBACK,
   OFFER_KP_PIPELINE_AGENT_CONTEXT: String(OFFER_KP_PIPELINE_AGENT_CONTEXT),
   OFFER_KP_SINGLE_MODEL: "true",
+  // OpenRouter teacher / egress / intent-judge OR — OFF. Opt in with =1.
+  OFFER_KP_OPENROUTER: "false",
   // Pin sampling / disable generative ranking. Intent LLM judge (ambiguous
   // only) stays available — kill with OFFER_KP_INTENT_LLM_JUDGE=false.
   OFFER_KP_STRICT_DETERMINISM: "true",
-  // Native OpenAI-style tools for OpenRouter teacher / agents (create-docx, quote-calculator…).
+  // Native OpenAI-style tools (create-docx, quote-calculator…). openrouter
+  // kept in the allowlist for rare opt-in; runtime still gated by OFFER_KP_OPENROUTER.
   PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING:
     "generic-openai,bedrock,localai,groq,litellm,openrouter,lmstudio",
   OFFER_KP_DEFAULT_LLM_LABEL: "LM Studio (Qwen3-VL-8B · resident T4 model)",

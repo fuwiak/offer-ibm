@@ -14,6 +14,7 @@ const openRouterEnv = require("../../../utils/offerKpApp/openRouterEnv");
 describe("resolveLlmProvider", () => {
   const prevPref = process.env.LMSTUDIO_MODEL_PREF;
   const prevTeacher = process.env.OFFER_KP_TEACHER_LLM;
+  const prevOrEnabled = process.env.OFFER_KP_OPENROUTER;
   const prevOrKey = process.env.OPENROUTER_API_KEY;
   const prevOrToken = process.env.OPEN_ROUTER_TOKEN;
   const prevOrModel = process.env.OPENROUTER_MODEL_PREF;
@@ -24,6 +25,8 @@ describe("resolveLlmProvider", () => {
     else process.env.LMSTUDIO_MODEL_PREF = prevPref;
     if (prevTeacher === undefined) delete process.env.OFFER_KP_TEACHER_LLM;
     else process.env.OFFER_KP_TEACHER_LLM = prevTeacher;
+    if (prevOrEnabled === undefined) delete process.env.OFFER_KP_OPENROUTER;
+    else process.env.OFFER_KP_OPENROUTER = prevOrEnabled;
     if (prevOrKey === undefined) delete process.env.OPENROUTER_API_KEY;
     else process.env.OPENROUTER_API_KEY = prevOrKey;
     if (prevOrToken === undefined) delete process.env.OPEN_ROUTER_TOKEN;
@@ -38,10 +41,16 @@ describe("resolveLlmProvider", () => {
   beforeEach(() => {
     // Teacher sync path is pessimistic for local egress until probed OK.
     delete process.env.OPENROUTER_BASE_URL;
+    delete process.env.OFFER_KP_OPENROUTER;
     openRouterEnv.resetOpenRouterEgressCache();
   });
 
-  it("uses OpenRouter teacher when OFFER_KP_TEACHER_LLM=1 and key set", () => {
+  function enableOpenRouter() {
+    process.env.OFFER_KP_OPENROUTER = "1";
+  }
+
+  it("uses OpenRouter teacher when OFFER_KP_OPENROUTER=1, TEACHER=1 and key set", () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
@@ -60,7 +69,23 @@ describe("resolveLlmProvider", () => {
     expect(process.env.LMSTUDIO_MODEL_PREF).toBe("openai/gpt-oss-20b");
   });
 
+  it("ignores teacher flag when OFFER_KP_OPENROUTER is off", () => {
+    process.env.OFFER_KP_OPENROUTER = "false";
+    process.env.OFFER_KP_TEACHER_LLM = "1";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
+
+    const resolved = resolveLlmProviderAndModel({
+      provider: "lmstudio",
+      model: "openai/gpt-oss-20b",
+    });
+
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+  });
+
   it("sync resolve skips OpenRouter when local egress is unprobed/down", () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.OPENROUTER_BASE_URL = "http://127.0.0.1:8787/api/v1";
@@ -77,6 +102,7 @@ describe("resolveLlmProvider", () => {
   });
 
   it("hides OpenRouter model id from UI metrics when teacher is on", () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3.5-plus-20260420";
@@ -133,7 +159,31 @@ describe("resolveLlmProvider", () => {
     expect(resolved.teacher).toBe(false);
   });
 
-  it("falls back to OpenRouter when LM Studio catalog is unreachable", () => {
+  it("does not fall back to OpenRouter when OpenRouter is disabled", () => {
+    process.env.OFFER_KP_OPENROUTER = "false";
+    process.env.OFFER_KP_TEACHER_LLM = "0";
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+    process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
+    process.env.LMSTUDIO_MODEL_PREF = "qwen/qwen3-vl-8b";
+
+    const resolved = resolveLlmProviderAndModel({
+      provider: "lmstudio",
+      model: "qwen/qwen3-vl-8b",
+      catalog: {
+        ids: [],
+        loadedIds: [],
+        stateById: {},
+        reachable: false,
+        fetchError: true,
+      },
+    });
+
+    expect(resolved.provider).toBe("lmstudio");
+    expect(resolved.teacher).toBe(false);
+  });
+
+  it("falls back to OpenRouter when enabled and LM Studio catalog is unreachable", () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "0";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
@@ -210,6 +260,7 @@ describe("resolveLlmProvider", () => {
   });
 
   it("falls back to LM Studio when teacher OpenRouter/egress is unreachable", async () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.OPENROUTER_MODEL_PREF = "qwen/qwen3-vl-235b-a22b-instruct";
@@ -247,6 +298,7 @@ describe("resolveLlmProvider", () => {
   });
 
   it("getLLMProvider keeps LM Studio after fallback (does not re-enable teacher)", async () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";
@@ -274,6 +326,7 @@ describe("resolveLlmProvider", () => {
     expect(llm.fallbackReason).toBe("openrouter_unreachable");
   });
   it("uses LM Studio even when catalog looks unreachable if OpenRouter is down", async () => {
+    enableOpenRouter();
     process.env.OFFER_KP_TEACHER_LLM = "1";
     process.env.OPENROUTER_API_KEY = "sk-or-test";
     process.env.LMSTUDIO_MODEL_PREF = "openai/gpt-oss-20b";

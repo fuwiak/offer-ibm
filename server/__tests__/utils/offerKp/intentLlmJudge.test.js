@@ -15,12 +15,14 @@ describe("intentLlmJudge", () => {
   const ORIGINAL_ENV = process.env.OFFER_KP_INTENT_LLM_JUDGE;
   const ORIGINAL_STRICT = process.env.OFFER_KP_STRICT_DETERMINISM;
   const ORIGINAL_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+  const ORIGINAL_OPENROUTER = process.env.OFFER_KP_OPENROUTER;
   const ORIGINAL_MEMORY = process.env.OFFER_KP_EXPERIENCE_MEMORY;
   const ORIGINAL_FETCH = global.fetch;
 
   beforeEach(() => {
     delete process.env.OFFER_KP_INTENT_LLM_JUDGE;
     delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OFFER_KP_OPENROUTER;
     process.env.OFFER_KP_EXPERIENCE_MEMORY = "0";
     // Strict must not silence the closed-set intent judge.
     process.env.OFFER_KP_STRICT_DETERMINISM = "true";
@@ -37,6 +39,9 @@ describe("intentLlmJudge", () => {
     if (ORIGINAL_OPENROUTER_KEY === undefined)
       delete process.env.OPENROUTER_API_KEY;
     else process.env.OPENROUTER_API_KEY = ORIGINAL_OPENROUTER_KEY;
+    if (ORIGINAL_OPENROUTER === undefined)
+      delete process.env.OFFER_KP_OPENROUTER;
+    else process.env.OFFER_KP_OPENROUTER = ORIGINAL_OPENROUTER;
     if (ORIGINAL_MEMORY === undefined)
       delete process.env.OFFER_KP_EXPERIENCE_MEMORY;
     else process.env.OFFER_KP_EXPERIENCE_MEMORY = ORIGINAL_MEMORY;
@@ -80,7 +85,8 @@ describe("intentLlmJudge", () => {
       expect(result).toBe(OFFER_KP_INTENTS.PRODUCT_SEARCH);
     });
 
-    it("uses DeepSeek V4 Flash through OpenRouter when configured", async () => {
+    it("uses DeepSeek V4 Flash through OpenRouter when OFFER_KP_OPENROUTER=1", async () => {
+      process.env.OFFER_KP_OPENROUTER = "1";
       process.env.OPENROUTER_API_KEY = "test-key";
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -95,7 +101,19 @@ describe("intentLlmJudge", () => {
       expect(getLLMProviderWithFallback).not.toHaveBeenCalled();
     });
 
+    it("skips OpenRouter when OFFER_KP_OPENROUTER is off", async () => {
+      process.env.OFFER_KP_OPENROUTER = "false";
+      process.env.OPENROUTER_API_KEY = "test-key";
+      global.fetch = jest.fn();
+      mockAnswer('{"category":"product_search"}');
+      const result = await classifyAmbiguousIntentWithLlm("что есть похожее?");
+      expect(result).toBe(OFFER_KP_INTENTS.PRODUCT_SEARCH);
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(getLLMProviderWithFallback).toHaveBeenCalledTimes(1);
+    });
+
     it("falls back to the workspace connector when OpenRouter fails", async () => {
+      process.env.OFFER_KP_OPENROUTER = "1";
       process.env.OPENROUTER_API_KEY = "test-key";
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,

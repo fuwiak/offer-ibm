@@ -63,7 +63,7 @@ B2B-система формирования **коммерческих пред�
 - **Одна резидентная модель:** `qwen/qwen3-vl-8b` (OCR + chat/agent), `OFFER_KP_SINGLE_MODEL=true`.  
   Раньше swap eyes↔brain (gpt-oss) стоил 90+ с — убрали.
 - LM Studio: `http://87.228.90.43:1234/v1` (см. `offerKp.llm.defaults.js`).
-- Опционально OpenRouter teacher + egress-proxy с Selectel.
+- OpenRouter **выкл** по умолчанию (`OFFER_KP_OPENROUTER=false`). Только LM Studio. Opt-in: `OFFER_KP_OPENROUTER=1` + `OFFER_KP_TEACHER_LLM=1`.
 - Constrained JSON Schema на LM Studio **работает**; адаптер `AiProviders/lmStudio` пока не прокидывает `response_format` — кандидат на доработку.
 
 ---

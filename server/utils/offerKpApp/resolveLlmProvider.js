@@ -84,8 +84,9 @@ function resolveOpenRouterTeacherResult({ reason = "teacher" } = {}) {
 
 /**
  * Resolve LLM for offer-kp.
- * Teacher mode (OFFER_KP_TEACHER_LLM=1 or key present): OpenRouter under the hood;
- * UI stays LM Studio. Otherwise: LM Studio only. Prefers models with state=loaded in VRAM.
+ * Default: LM Studio only. OpenRouter (teacher / LM-down fallback) requires
+ * OFFER_KP_OPENROUTER=1 plus OFFER_KP_TEACHER_LLM=1 (or key for fallback).
+ * Prefers models with state=loaded in VRAM.
  */
 function resolveLlmProviderAndModel({
   provider: _provider = null,
@@ -106,8 +107,13 @@ function resolveLlmProviderAndModel({
     return resolveOpenRouterTeacherResult({ reason: "teacher" });
   }
 
-  // Sync path: if caller already knows LM Studio is down, prefer OpenRouter.
-  if (catalog?.reachable === false && openRouterEnv.resolveOpenRouterApiKey()) {
+  // Sync path: if caller already knows LM Studio is down, prefer OpenRouter
+  // only when OpenRouter is explicitly enabled.
+  if (
+    catalog?.reachable === false &&
+    openRouterEnv.isOpenRouterEnabled() &&
+    openRouterEnv.resolveOpenRouterApiKey()
+  ) {
     if (openRouterEnv.isOpenRouterLikelyReachable()) {
       return resolveOpenRouterTeacherResult({
         reason: "lmstudio_unreachable",
@@ -210,12 +216,13 @@ function resolveLmStudioOnly(params = {}) {
 
 /**
  * Resolves provider/model after refreshing LM Studio catalog + VRAM state.
- * If lainey is unreachable and OpenRouter key exists → OpenRouter (even when
- * OFFER_KP_TEACHER_LLM=0), so @agent / chat do not die with Connection error.
+ * OpenRouter fallback only when OFFER_KP_OPENROUTER=1 and LM Studio is down.
  * Inverse: teacher mode with dead egress → LM Studio when available.
  */
 async function resolveLlmProviderWithFallback(params = {}) {
-  await openRouterEnv.ensureOpenRouterEgressBaseUrl();
+  if (openRouterEnv.isOpenRouterEnabled()) {
+    await openRouterEnv.ensureOpenRouterEgressBaseUrl();
+  }
 
   const lmStudioModels = require("./lmStudioModels");
 
@@ -245,17 +252,18 @@ async function resolveLlmProviderWithFallback(params = {}) {
     });
   }
 
-  // Always re-probe when OpenRouter is available so a dead lainey does not
-  // keep serving a stale "reachable" cache and crash @agent.
+  // Re-probe LM Studio; OpenRouter fallback only when explicitly enabled.
   const forceRefresh =
     params.forceRefresh === true ||
-    Boolean(openRouterEnv.resolveOpenRouterApiKey());
+    (openRouterEnv.isOpenRouterEnabled() &&
+      Boolean(openRouterEnv.resolveOpenRouterApiKey()));
   const catalog = await lmStudioModels.fetchLmStudioModelCatalog({
     forceRefresh,
   });
 
   if (
     catalog?.reachable === false &&
+    openRouterEnv.isOpenRouterEnabled() &&
     openRouterEnv.resolveOpenRouterApiKey()
   ) {
     const orOk = await openRouterEnv.probeOpenRouterReachable(
@@ -279,6 +287,19 @@ async function resolveLlmProviderWithFallback(params = {}) {
         ...params,
         catalog,
         fallbackReason: "lmstudio_and_openrouter_unreachable",
+      }),
+      lmStudioReachable: false,
+      llmUnreachable: true,
+    };
+  }
+
+  if (catalog?.reachable === false) {
+    offerKpLog("error", "LM Studio unreachable (OpenRouter disabled)");
+    return {
+      ...resolveLmStudioOnly({
+        ...params,
+        catalog,
+        fallbackReason: "lmstudio_unreachable",
       }),
       lmStudioReachable: false,
       llmUnreachable: true,
