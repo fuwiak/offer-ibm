@@ -5,9 +5,7 @@
  * Explains every quote line decision; complements searchMetrics JSONL.
  */
 
-const {
-  DETERMINISTIC_MATCH_PROFILE,
-} = require("./matching/algorithmProfile");
+const { DETERMINISTIC_MATCH_PROFILE } = require("./matching/algorithmProfile");
 
 /** Bump when match acceptance / price eligibility rules change. */
 const MATCH_RULES_VERSION =

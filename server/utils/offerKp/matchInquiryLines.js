@@ -1040,7 +1040,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     algorithmProfile: DETERMINISTIC_MATCH_PROFILE.id,
     rulesVersion: MATCH_RULES_VERSION,
     evidence: evidenced.evidence,
-    rerankMargin: matchGates?.rerank?.margin ?? enrichmentMeta?.rerank?.margin ?? null,
+    rerankMargin:
+      matchGates?.rerank?.margin ?? enrichmentMeta?.rerank?.margin ?? null,
   };
   recordSearchMetric(metric);
   require("./shopDbLog").info("match decision", {
