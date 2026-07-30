@@ -20,6 +20,20 @@ describe("OfferKP zero-latency grounding", () => {
     ).toContain("не найдено подтверждённых совпадений");
   });
 
+  it("does not short-circuit multi-line RFQ into empty catalog abstain", () => {
+    const rfq = [
+      "Винт DIN 6912 M6x20 — 500 шт",
+      "Винт M6x20 ГОСТ Р ИСО 1207-2013 — 500 шт",
+      "Гайка М24 ГОСТ ISO 7040 — 28200 шт",
+    ].join("\n");
+    expect(shouldRenderCatalogDirectly(rfq)).toBe(false);
+    expect(
+      renderGroundedCatalogResponse(rfq, [], {
+        primaryIntent: "product_inquiry",
+      })
+    ).toBeNull();
+  });
+
   it("accepts a rare LLM tie-break result without another model call", () => {
     expect(
       renderGroundedCatalogResponse("цена", [block], {

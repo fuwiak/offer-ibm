@@ -516,13 +516,16 @@ async function streamChatWithWorkspace(
     }
   }
 
-  const groundedCatalogResponse = quoteDocumentRequest
-    ? null
-    : renderGroundedCatalogResponse(
-        updatedMessage,
-        llmCatalog.catalogBlocks || [],
-        routedIntent
-      );
+  // Multi-line RFQ already has (or will get) an inquiry draft — never
+  // short-circuit with grounded "не найдено" before quote artifacts.
+  const groundedCatalogResponse =
+    quoteDocumentRequest || llmCatalog.inquiryDraft?.lines?.length > 1
+      ? null
+      : renderGroundedCatalogResponse(
+          updatedMessage,
+          llmCatalog.catalogBlocks || [],
+          routedIntent
+        );
   if (groundedCatalogResponse) {
     writeResponseChunk(response, {
       uuid,

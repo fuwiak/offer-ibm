@@ -527,13 +527,29 @@ async function getShopDbContext(message, options = {}) {
     );
     partial.inquiryEnrich = inquiryEnrich;
 
-    const agentResult = await runProductSearchAgent({
-      message: effectiveMessage,
-      chatHistory: options.chatHistory || options.history || null,
-      workspace: options.workspace || null,
-      limit: maxDocs * 3,
-      parsedFileTexts,
-    });
+    // Multi-line RFQ: line-by-line matchInquiry already ran. A second
+    // blob search over the whole paste OR-pollutes DIN/ISO/M-size signals
+    // and burns the enrich timeout — skip it when we have ≥2 inquiry lines.
+    const inquiryLineCount = Number(
+      inquiryEnrich.inquiryDraft?.lines?.length ||
+        inquiryEnrich.contextTexts?.length ||
+        0
+    );
+    const skipBlobSearch = inquiryLineCount >= 2;
+    const agentResult = skipBlobSearch
+      ? {
+          products: [],
+          strategies: ["skipped_blob_after_inquiry_lines"],
+          signals: { searchTerms: extractSearchTerms(searchText) },
+          tablesUsed: [],
+        }
+      : await runProductSearchAgent({
+          message: effectiveMessage,
+          chatHistory: options.chatHistory || options.history || null,
+          workspace: options.workspace || null,
+          limit: maxDocs * 3,
+          parsedFileTexts,
+        });
 
     const inquiryIds = inquiryEnrich.productIds || new Set();
     const ranked = agentResult.products

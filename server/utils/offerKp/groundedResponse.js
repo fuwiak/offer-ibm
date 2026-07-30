@@ -28,12 +28,29 @@ function sanitizeOfferKpHistory(history = []) {
   });
 }
 
+/**
+ * Multi-line RFQ (2+ parsed positions) must go through matchInquiry → draft /
+ * quote artifacts — not the one-shot grounded catalog short-circuit.
+ * Searching the whole blob as one ShopDB query also collapses conflicting
+ * DIN/ISO/M-sizes and often yields zero hits → false "не найдено".
+ */
+function isMultiLineInquiry(message = "") {
+  try {
+    const { parseInquiryText } = require("./parseInquiry");
+    return parseInquiryText(String(message || "")).length >= 2;
+  } catch {
+    return false;
+  }
+}
+
 function shouldRenderCatalogDirectly(message = "", resolvedIntent = null) {
   const primaryIntent =
     resolvedIntent?.primaryIntent ||
     resolvedIntent ||
     routeOfferKpMessage(message).primaryIntent;
-  return DIRECT_CATALOG_INTENTS.has(primaryIntent);
+  if (!DIRECT_CATALOG_INTENTS.has(primaryIntent)) return false;
+  if (isMultiLineInquiry(message)) return false;
+  return true;
 }
 
 function renderGroundedCatalogResponse(
@@ -64,4 +81,5 @@ module.exports = {
   renderGroundedCatalogResponse,
   sanitizeOfferKpHistory,
   shouldRenderCatalogDirectly,
+  isMultiLineInquiry,
 };
