@@ -61,15 +61,11 @@ function attachFailHandler(worker, label) {
 }
 
 const matchingWorker = attachFailHandler(
-  new Worker(
-    QUEUE_NAMES.MATCHING,
-    async (job) => processMatchingJob(job),
-    {
-      connection: bullmqConnectionOpts(),
-      concurrency: matchingConcurrency,
-      lockDuration: 300000,
-    }
-  ),
+  new Worker(QUEUE_NAMES.MATCHING, async (job) => processMatchingJob(job), {
+    connection: bullmqConnectionOpts(),
+    concurrency: matchingConcurrency,
+    lockDuration: 300000,
+  }),
   "matching"
 );
 
@@ -83,15 +79,11 @@ const exportWorker = attachFailHandler(
 );
 
 const indexWorker = attachFailHandler(
-  new Worker(
-    QUEUE_NAMES.INDEX_SYNC,
-    async (job) => processIndexSyncJob(job),
-    {
-      connection: bullmqConnectionOpts(),
-      concurrency: indexConcurrency,
-      lockDuration: 3600000,
-    }
-  ),
+  new Worker(QUEUE_NAMES.INDEX_SYNC, async (job) => processIndexSyncJob(job), {
+    connection: bullmqConnectionOpts(),
+    concurrency: indexConcurrency,
+    lockDuration: 3600000,
+  }),
   "index-sync"
 );
 
