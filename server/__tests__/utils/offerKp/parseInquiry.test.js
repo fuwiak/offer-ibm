@@ -191,6 +191,34 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines[0].name).not.toMatch(/\d+\.\s*$/);
   });
 
+  it("parses pasted expected.csv (incl. jammed one-line chat paste)", () => {
+    const {
+      tryParseExpectedCsvInquiry,
+    } = require("../../../utils/offerKp/parseInquiry");
+    const csv = [
+      "nr,source_name,unit,quantity,matched_sku,matched_name,match_type",
+      '1,"Винт ГОСТ ISO 7380-1-М10х25-8.8",шт,1700,073801000100025,"Винт ISO 7380-1 M 10x 25 10.9",analog',
+      '2,"Винт ГОСТ ISO 7380-1-М8х70-8.8",шт,400,073801000080070,"Винт ISO 7380-1 M 8x 70 10.9",analog',
+    ].join("\n");
+    const multi = parseInquiryText(csv);
+    expect(multi).toHaveLength(2);
+    expect(multi[0]).toMatchObject({
+      name: "Винт ГОСТ ISO 7380-1-М10х25-8.8",
+      quantity: 1700,
+      sku: "073801000100025",
+      matchTypeHint: "analog",
+    });
+    expect(multi[0].name).not.toMatch(/matched_sku|analog|,шт,/);
+
+    const jammed =
+      'L-8B nr,source_name,unit,quantity,matched_sku,matched_name,match_type 1,“Винт ГОСТ ISO 7380-1-М10х25-8.8”,шт,1700,073801000100025,“name”,analog 2,“Винт ГОСТ ISO 7380-1-М8х70-8.8”,шт,400,073801000080070,“name2”,analog\n\nсделай кп';
+    const fromJammed = tryParseExpectedCsvInquiry(jammed);
+    expect(fromJammed).toHaveLength(2);
+    expect(fromJammed[0].quantity).toBe(1700);
+    expect(fromJammed[1].sku).toBe("073801000080070");
+    expect(parseInquiryText(jammed)).toHaveLength(2);
+  });
+
   it("does not treat DIN codes as quantity on compare questions", () => {
     const { parseQuantity } = require("../../../utils/offerKp/parseInquiry");
     expect(parseQuantity("Сравни болты DIN 931 и DIN 933 М10х50")).toBe(1);

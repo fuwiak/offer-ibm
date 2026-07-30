@@ -538,7 +538,25 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // Golden-set override (test_files/*.expected.csv with matched_sku/match_type
   // columns filled in): an operator-confirmed answer for this exact line text
   // beats live search — see goldenCorrections.js.
-  const override = findGoldenCorrection([inquiryLine.raw, inquiryLine.name]);
+  // Also accept pasted expected.csv rows that already carry matched_sku.
+  let override = findGoldenCorrection([inquiryLine.raw, inquiryLine.name]);
+  if (
+    !override?.sku &&
+    inquiryLine.sku &&
+    String(inquiryLine.sku).trim()
+  ) {
+    const hint = String(inquiryLine.matchTypeHint || "").toLowerCase();
+    override = {
+      sourceName: inquiryLine.name || inquiryLine.raw,
+      sku: String(inquiryLine.sku).trim(),
+      matchedName: null,
+      matchType:
+        hint === "analog" || hint === "exact" || hint === "none"
+          ? hint
+          : "exact",
+      sourceFile: "pasted_expected_csv",
+    };
+  }
   let overrideProductId = null;
   let products = [];
   let matchStrategies = [];

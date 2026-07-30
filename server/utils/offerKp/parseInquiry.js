@@ -518,9 +518,134 @@ function extractSpecialRequirements(text) {
   return parts.join("; ");
 }
 
+/** Minimal CSV field split (quoted commas OK). Curly quotes normalized first. */
+function splitCsvFields(line) {
+  const raw = String(line || "")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'");
+  const fields = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inQuotes) {
+      if (ch === '"' && raw[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      fields.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  fields.push(cur);
+  return fields.map((f) => f.trim());
+}
+
+/**
+ * Paste of test_files/*.expected.csv (or the same rows jammed on one line).
+ * Returns inquiry lines from source_name/unit/quantity; null if not that schema.
+ */
+function tryParseExpectedCsvInquiry(text) {
+  let raw = String(text || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .trim();
+  if (!raw || !/source_name/i.test(raw)) return null;
+
+  // Drop leading chat noise ("-8B", "L-8B", "сделай кп") before the CSV header.
+  const headerAt = raw.search(/(?:^|[\s,;])nr\s*,\s*source_name\s*,/i);
+  if (headerAt >= 0) {
+    const start = raw.slice(headerAt).search(/nr\s*,\s*source_name\s*,/i);
+    if (start >= 0) raw = raw.slice(headerAt + start);
+  }
+
+  // One-line / chat paste: header and rows jammed with spaces.
+  // Only split on row boundaries (after match_type / before next nr) —
+  // never on "qty,SKU," which also looks like digit-comma-quote.
+  if (!/\n/.test(raw) || raw.split(/\n/).filter(Boolean).length < 3) {
+    raw = raw
+      .replace(/(match_type)\s+(?=\d+\s*,)/i, "$1\n")
+      .replace(/\b(exact|analog|none)\s+(?=\d+\s*,)/gi, "$1\n");
+  }
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return null;
+
+  const header = splitCsvFields(lines[0]).map((h) => h.trim().toLowerCase());
+  const sourceIdx = header.indexOf("source_name");
+  const qtyIdx = header.indexOf("quantity");
+  const unitIdx = header.indexOf("unit");
+  const skuIdx = header.indexOf("matched_sku");
+  if (sourceIdx < 0) return null;
+
+  const out = [];
+  for (const line of lines.slice(1)) {
+    if (/^nr\s*,\s*source_name/i.test(line)) continue;
+    const fields = splitCsvFields(line);
+    if (fields.length <= sourceIdx) continue;
+    const sourceName = String(fields[sourceIdx] || "").trim();
+    if (!sourceName || sourceName.length < 3) continue;
+    if (/^source_name$/i.test(sourceName)) continue;
+
+    const unitRaw = unitIdx >= 0 ? String(fields[unitIdx] || "шт").trim() : "шт";
+    const unit = /кг|kg/i.test(unitRaw)
+      ? "кг"
+      : /уп|pack/i.test(unitRaw)
+        ? "уп"
+        : "шт";
+    const qtyRaw = qtyIdx >= 0 ? String(fields[qtyIdx] || "").trim() : "";
+    const quantity = normalizeInquiryQuantity(
+      Number(String(qtyRaw).replace(",", ".")),
+      unit
+    );
+    const sku =
+      skuIdx >= 0 ? String(fields[skuIdx] || "").trim() || null : null;
+
+    const parsed = parseHardwareQuery(sourceName);
+    out.push({
+      raw: quantity > 1 ? `${sourceName} – ${quantity} ${unit}` : sourceName,
+      name: sourceName,
+      dinNumbers: parsed.dinNumbers,
+      thread: parsed.thread,
+      dimensions: parsed.dimensions,
+      strengthClass: parsed.strengthClass,
+      coating: parsed.coating,
+      productTypes: parsed.productTypes,
+      quantity,
+      unit,
+      sku,
+      matchTypeHint:
+        header.indexOf("match_type") >= 0
+          ? String(fields[header.indexOf("match_type")] || "")
+              .trim()
+              .toLowerCase() || null
+          : null,
+      specialRequirements: "",
+      needsReview: unit !== "шт",
+    });
+  }
+  return out.length ? out : null;
+}
+
 function parseInquiryText(text) {
   const raw = normalizeOcrInquiryText(String(text || "").trim());
   if (!raw) return [];
+
+  const fromCsv = tryParseExpectedCsvInquiry(String(text || ""));
+  if (fromCsv?.length) return fromCsv;
 
   const chunks = splitInquiryChunks(raw);
   if (chunks.length <= 1) {
@@ -564,4 +689,5 @@ module.exports = {
   explodePackedHardwareLine,
   splitInquiryChunks,
   isInquiryMetaLine,
+  tryParseExpectedCsvInquiry,
 };
