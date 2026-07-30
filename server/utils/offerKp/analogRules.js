@@ -8,6 +8,7 @@ const {
   parseHardwareQuery,
   PRODUCT_TYPE_ROOTS,
 } = require("./hardwareQuery");
+const { extractMaterial } = require("./variantSpecs");
 
 /** @type {Array<{din: string, analogs: string[], productType: string, matchRule: string}>} */
 const ANALOG_RULES = [
@@ -176,8 +177,56 @@ function nameContainsStandard(nameNorm, stdNum) {
   );
 }
 
+/** ISO 261 coarse pitch — a query naming it adds no constraint the catalog omits. */
+const COARSE_PITCH_MM = Object.freeze({
+  3: 0.5,
+  4: 0.7,
+  5: 0.8,
+  6: 1,
+  8: 1.25,
+  10: 1.5,
+  12: 1.75,
+  14: 2,
+  16: 2,
+  18: 2.5,
+  20: 2.5,
+  22: 2.5,
+  24: 3,
+  27: 3,
+  30: 3.5,
+  33: 3.5,
+  36: 4,
+  39: 4,
+  42: 4.5,
+  45: 4.5,
+  48: 5,
+  52: 5,
+  56: 5.5,
+  60: 5.5,
+  64: 6,
+});
+
+/**
+ * @returns {boolean} true when `pitch` is the standard coarse pitch for the
+ *   diameter (or unknown diameter — then nothing can be claimed).
+ */
+function isCoarsePitch(diameter, pitch) {
+  const coarse = COARSE_PITCH_MM[Number(diameter)];
+  if (!coarse || !pitch) return true;
+  return Math.abs(Number(String(pitch).replace(",", ".")) - coarse) < 0.01;
+}
+
 function threadMatchesExact(nameNorm, thread) {
   if (!thread) return true;
+  // Fine thread is part of the identity: M16x1,5x150 must not match M16x150,
+  // and a coarse M16x150 request must not match the fine-pitch product.
+  if (thread.pitch) {
+    const p = String(thread.pitch).replace(".", "[.,]");
+    return new RegExp(
+      `\\bm\\s*${thread.size}\\s*x\\s*${p}\\s*x\\s*${thread.length}\\b`,
+      "i"
+    ).test(nameNorm);
+  }
   const re = new RegExp(
     `\\bm\\s*${thread.size}\\s*x\\s*${thread.length}\\b`,
     "i"
@@ -236,9 +285,15 @@ function productTypeMatches(nameNorm, requestedTypes = [], rule = null) {
   );
 }
 
-function requestedSpecsMatch(nameNorm, parsed, rule = null) {
+function requestedSpecsMatch(nameNorm, parsed, rule = null, requestText = "") {
   if (!productTypeMatches(nameNorm, parsed.productTypes || [], rule)) {
     return { ok: false, reason: "product_type" };
+  }
+  // Material is an identity field, not a nicety: нерж A4 is not нерж A2 and
+  // латунь is not steel, and the price gap runs several times over.
+  const requestedMaterial = extractMaterial(requestText);
+  if (requestedMaterial && extractMaterial(nameNorm) !== requestedMaterial) {
+    return { ok: false, reason: "material" };
   }
   if (parsed.coating && !/оцинк|цинк|ocink|cink|\bzn\b|zinc/i.test(nameNorm)) {
     return { ok: false, reason: "coating" };
@@ -331,10 +386,14 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
       parsed.pitch &&
       !pitchMatches(nameNorm, parsed.diameter, parsed.pitch)
     ) {
-      // Soft: diameter matches but pitch differs / missing — still allow
-      // exact on diameter for nuts when catalog omits pitch in the name.
       const nameHasPitch = /\bm\s*\d+\s*x\s*\d+(?:[.,]\d+)?\b/i.test(nameNorm);
       if (nameHasPitch) return { ok: false };
+      // Catalog omits the pitch. Coarse pitch is the default, so that stays
+      // exact; a fine pitch (M36x2) is a different product and the silent
+      // candidate cannot prove it — abstain instead of pricing the coarse one.
+      if (!isCoarsePitch(parsed.diameter, parsed.pitch)) {
+        return { ok: false, unconfirmed: true };
+      }
     }
     return { ok: true };
   }
@@ -389,7 +448,7 @@ function classifyProductMatch(requestText, product) {
         };
       }
       if (!size.ok) continue;
-      const specs = requestedSpecsMatch(nameNorm, parsed, rule);
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText);
       if (!specs.ok) {
         return {
           matchType: "spec_mismatch",
@@ -417,7 +476,7 @@ function classifyProductMatch(requestText, product) {
       }
       if (!size.ok) continue;
 
-      const specs = requestedSpecsMatch(nameNorm, parsed, rule);
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText);
       if (!specs.ok) {
         return {
           matchType: "spec_mismatch",

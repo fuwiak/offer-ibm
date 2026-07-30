@@ -29,12 +29,30 @@ const BARE_CLASS_RE = new RegExp(
 // «нерж», «A2», «А4» (Cyrillic А too), «inox». JS \b is ASCII-only — never use
 // it around Cyrillic.
 const STAINLESS_RE = new RegExp(
-  `(?:^|${NON_ALNUM})(?:нерж\\p{L}*|inox|stainless|[aа][24])(?:$|${NON_ALNUM})`,
+  `(?:^|${NON_ALNUM})(?:нерж\\p{L}*|inox|stainless|[aа][245])(?:$|${NON_ALNUM})`,
+  "iu"
+);
+
+// A2 and A4 are different alloys at different prices — never one bucket.
+const STAINLESS_GRADE_RE = new RegExp(
+  `(?:^|${NON_ALNUM})[aа]\\s?([245])(?:$|${NON_ALNUM})`,
+  "iu"
+);
+
+const BRASS_RE = new RegExp(
+  `(?:^|${NON_ALNUM})(?:латун\\p{L}*|brass|\\(ms\\))(?:$|${NON_ALNUM})`,
+  "iu"
+);
+
+const COPPER_RE = new RegExp(
+  `(?:^|${NON_ALNUM})(?:мед[ьн]\\p{L}*|copper)(?:$|${NON_ALNUM})`,
   "iu"
 );
 
 const CARBON_STEEL = "сталь";
 const STAINLESS = "нерж";
+const BRASS = "латунь";
+const COPPER = "медь";
 
 function normalizeClass(value) {
   return String(value || "")
@@ -61,6 +79,21 @@ function isStainless(text) {
 }
 
 /**
+ * Material family, graded where the grade drives the price.
+ * @param {string} text
+ * @returns {string} "" | "нерж" | "нерж a2" | "нерж a4" | "латунь" | "медь"
+ */
+function extractMaterial(text) {
+  const raw = String(text || "");
+  if (BRASS_RE.test(raw)) return BRASS;
+  if (COPPER_RE.test(raw)) return COPPER;
+  const grade = raw.match(STAINLESS_GRADE_RE);
+  if (grade) return `${STAINLESS} a${grade[1]}`;
+  if (STAINLESS_RE.test(raw)) return STAINLESS;
+  return "";
+}
+
+/**
  * @param {string} text
  * @returns {{strengthClass: string, material: string}} material is "" when the
  *   text is silent about it (a query), never guessed as carbon steel.
@@ -68,7 +101,7 @@ function isStainless(text) {
 function variantSpecs(text) {
   return {
     strengthClass: extractStrengthClass(text),
-    material: isStainless(text) ? STAINLESS : "",
+    material: extractMaterial(text),
   };
 }
 
@@ -142,7 +175,10 @@ function detectVariantAmbiguity({ queryText, alternatives = [] } = {}) {
 module.exports = {
   CARBON_STEEL,
   STAINLESS,
+  BRASS,
+  COPPER,
   extractStrengthClass,
+  extractMaterial,
   isStainless,
   variantSpecs,
   variantPricingKey,

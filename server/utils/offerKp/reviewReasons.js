@@ -68,6 +68,7 @@ function resolveReviewReason(input = {}) {
   if (
     mismatch === "product_type" ||
     mismatch === "coating" ||
+    mismatch === "material" ||
     mismatch === "strength_class" ||
     input.matchType === "spec_mismatch"
   ) {

@@ -240,6 +240,15 @@ function applyConstraintsToAlternative(queryText, alt) {
         ? "spec_mismatch"
         : "none";
 
+  // Operator-verified golden SKU wins over heuristic hard constraints
+  // (e.g. «гровер» vs lexicon «шайба» before synonym fix).
+  if (
+    alt.matchSource === "golden_override" &&
+    (alt.matchType === "exact" || alt.matchType === "analog")
+  ) {
+    return next;
+  }
+
   if (alt.matchType === "exact" || alt.matchType === "analog") {
     next.matchType = demoteTo;
     next.mismatchReason = result.hard[0];

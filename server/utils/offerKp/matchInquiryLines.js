@@ -143,6 +143,19 @@ function draftProgressPayload(partialLines, { stage, completed, total }) {
   };
 }
 
+/**
+ * Retrieval merge steps keep `_matchSources` as a Set (productSearchAgent /
+ * shopDbSearch) while exposing `shopMatchSources` as an array. Metrics must
+ * accept both: a Set here used to throw and turn every line into match_error.
+ * @returns {string[]}
+ */
+function candidateMatchSources(candidate = {}) {
+  const raw = candidate._matchSources || candidate.shopMatchSources || [];
+  if (Array.isArray(raw)) return raw;
+  if (raw instanceof Set) return [...raw];
+  return [];
+}
+
 function positivePrice(value) {
   const price = Number(value);
   return Number.isFinite(price) && price > 0 ? price : 0;
@@ -676,7 +689,13 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     if (enrichmentMeta) enrichmentMeta = { ...enrichmentMeta, ...matchGates };
     else enrichmentMeta = matchGates;
 
-    if (matchGates.gateRejected && accepted) {
+    // Golden override: operator-verified exact/analog must not be wiped by
+    // selective / OOD gates (price still comes from live ShopDB SKU lookup).
+    if (
+      matchGates.gateRejected &&
+      accepted &&
+      best?.matchSource !== "golden_override"
+    ) {
       accepted = false;
     }
   }
@@ -813,6 +832,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       const labels = {
         product_type: "тип изделия",
         coating: "покрытие",
+        material: "материал",
         strength_class: "класс прочности",
       };
       commentParts.push(
@@ -919,12 +939,10 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const denseHitCount = candidates.filter(
     (candidate) =>
       candidate._denseSimilarity != null ||
-      (candidate._matchSources || candidate.shopMatchSources || []).includes(
-        "catalog_dense"
-      )
+      candidateMatchSources(candidate).includes("catalog_dense")
   ).length;
   const sqlHitCount = candidates.filter((candidate) => {
-    const sources = candidate._matchSources || candidate.shopMatchSources || [];
+    const sources = candidateMatchSources(candidate);
     return sources.some((source) =>
       [
         "structured",

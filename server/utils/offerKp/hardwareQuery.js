@@ -63,7 +63,9 @@ const PRODUCT_TYPE_ROOTS = {
   гайка: ["гайк", "nut"],
   винт: ["винт", "screw"],
   штифт: ["штифт", "pin"],
-  шайба: ["шайб", "washer"],
+  // Гровер = пружинная шайба (DIN 127 / ГОСТ 6402); имя в каталоге часто
+  // без слова «шайба» — без синонима constraintValidator даёт product_type_mismatch.
+  шайба: ["шайб", "washer", "гровер", "spring washer", "lock washer"],
   анкер: ["анкер", "anchor"],
   шпоночная: ["шпоночн", "шпонк", "keyway", "key steel"],
   сталь: ["сталь", "steel"],
@@ -111,13 +113,25 @@ const STANDARD_IMPLIES_TYPE = {
 };
 
 function normalizeForMatch(text) {
-  // Fine pitch first (M50x1,5 / M50x1.5), then integer MxL — otherwise
+  // Fine-thread triple first (M16x1,5x150 = diameter × pitch × length):
+  // without it "m 16x1,5x150" collapsed to " m16x1.5 x150" and the length was
+  // orphaned, so an M16x1,5x150 bolt matched an M16x55 one.
+  // Then fine pitch (M50x1,5 / M50x1.5), then integer MxL — otherwise
   // "M 50x1,5" collapses to "m50x1" and the pitch fraction is lost.
   // Negative lookahead: do not re-match "m50x1" inside already-normalized "m50x1.5".
   return foldHomoglyphs(
     normalizeSearchText(text)
-      .replace(/\bm\s*(\d+)\s*x\s*(\d+)[.,](\d+)/gi, " m$1x$2.$3 ")
-      .replace(/\bm\s*(\d+)\s*x\s*(\d+)(?!\.\d)/gi, " m$1x$2 ")
+      .replace(
+        /\bm\s*(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/gi,
+        (_all, diameter, pitch, length) =>
+          ` m${diameter}x${String(pitch).replace(",", ".")}x${String(
+            length
+          ).replace(",", ".")} `
+      )
+      // Lookahead: leave the canonical triple alone, otherwise this rule cuts
+      // "m16x1.5x150" back into "m16x1.5 x150".
+      .replace(/\bm\s*(\d+)\s*x\s*(\d+)[.,](\d+)(?!x?\d)/gi, " m$1x$2.$3 ")
+      .replace(/\bm\s*(\d+)\s*x\s*(\d+)(?!\.\d)(?!x\d)/gi, " m$1x$2 ")
   );
 }
 
@@ -156,6 +170,22 @@ function parseMetricSpecs(normalized, productTypes = []) {
   let thread = null;
   let pitch = null;
   let diameter = null;
+
+  // Fine-thread triple: M16x1.5x150 → diameter 16, pitch 1.5, length 150.
+  const triple = normalized.match(
+    /\bm\s*(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\b/i
+  );
+  if (triple) {
+    return {
+      thread: {
+        size: triple[1],
+        length: String(Math.trunc(Number(triple[3]))),
+        pitch: triple[2],
+      },
+      pitch: triple[2],
+      diameter: triple[1],
+    };
+  }
 
   // Decimal diameter first: M2,5x8 / M1.6x6 (RFQ often uses comma).
   const decimalThread = normalized.match(

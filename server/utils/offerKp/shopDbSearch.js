@@ -102,7 +102,17 @@ async function searchByStructuredQuery(parsed, limit) {
     // flexible whitespace matches all of the above uniformly. `size`/`length`
     // are digit-only captures from hardwareQuery.js, safe to interpolate.
     conditions.push(`p.${P.name} REGEXP ?`);
-    params.push(`M[[:space:]]*${size}x[[:space:]]*${length}([^0-9]|$)`);
+    if (parsed.thread.pitch) {
+      // Fine thread is written diameter × pitch × length ("M 16x1,5x150"):
+      // the plain size REGEXP never matches it, so those products stayed
+      // invisible and the coarse M16x150 bolt won the line instead.
+      const pitch = String(parsed.thread.pitch).replace(".", "[.,]");
+      params.push(
+        `M[[:space:]]*${size}x[[:space:]]*${pitch}x[[:space:]]*${length}([^0-9]|$)`
+      );
+    } else {
+      params.push(`M[[:space:]]*${size}x[[:space:]]*${length}([^0-9]|$)`);
+    }
   } else if (parsed.diameter && parsed.pitch) {
     const pitch = String(parsed.pitch).replace(".", "[.,]");
     conditions.push(`p.${P.name} REGEXP ?`);
