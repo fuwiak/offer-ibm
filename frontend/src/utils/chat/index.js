@@ -152,6 +152,7 @@ export default function handleChat(
     emitAssistantMessageCompleteEvent(chatId);
   } else if (
     type === "textResponseChunk" ||
+    type === "textResponseReplace" ||
     type === "finalizeResponseStream"
   ) {
     const chatIdx = _chatHistory.findIndex((chat) => chat.uuid === uuid);
@@ -178,6 +179,19 @@ export default function handleChat(
 
         emitAssistantMessageCompleteEvent(chatId);
         setLoadingResponse(false);
+      } else if (type === "textResponseReplace") {
+        // Server replaced hallucinated catalog cards with ShopDB-only text.
+        updatedHistory = {
+          ...existingHistory,
+          content: streamChunkText(textResponse),
+          ...(sources && sources.length > 0 ? { sources } : {}),
+          error,
+          closed: close,
+          animate: !close,
+          pending: false,
+          chatId,
+          metrics,
+        };
       } else {
         updatedHistory = {
           ...existingHistory,

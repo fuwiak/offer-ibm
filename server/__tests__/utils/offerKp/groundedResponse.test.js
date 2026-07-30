@@ -57,4 +57,47 @@ describe("OfferKP zero-latency grounding", () => {
       false
     );
   });
+
+  it("replaces invented /product/{sku} links with ShopDB draft cards", () => {
+    const {
+      replaceHallucinatedCatalogInChat,
+      chatHasInventedCatalogFacts,
+    } = require("../../../utils/offerKp/groundedResponse");
+    const fake = `[Каталог · purolat.com]
+Товар: Винт ГОСТ ISO 7380-1-М10×25-8.8
+Цена: 12.50 RUB
+Артикул / SKU: 45104992510700
+Ссылка: https://purolat.com/product/45104992510700`;
+    const draft = {
+      lines: [
+        {
+          name: "Винт ГОСТ ISO 7380-1-М10×25-8.8 Zn",
+          requestedName: "Винт ГОСТ ISO 7380-1-М10х25-8.8",
+          article: "069280140063050",
+          productId: "35291",
+          unitPriceNet: 12.5,
+          matchType: "exact",
+          productUrl:
+            "https://purolat.com/shop/vinty/vint-gost-iso-7380-1-m10x25/",
+        },
+      ],
+    };
+    expect(
+      chatHasInventedCatalogFacts(fake, {
+        urls: new Set([
+          "https://purolat.com/shop/vinty/vint-gost-iso-7380-1-m10x25/",
+        ]),
+        skus: new Set(["069280140063050"]),
+        productIds: new Set(["35291"]),
+      })
+    ).toBe(true);
+    const out = replaceHallucinatedCatalogInChat(fake, { draft });
+    expect(out).toContain("069280140063050");
+    expect(out).toContain(
+      "https://purolat.com/shop/vinty/vint-gost-iso-7380-1-m10x25/"
+    );
+    expect(out).not.toContain("45104992510700");
+    expect(out).not.toContain("/product/45104992510700");
+    expect(out).toContain("ID товара (shop_product.id): 35291");
+  });
 });

@@ -124,6 +124,31 @@ class AgentHarness {
       const draft = this.state.get("inquiryDbDraft") || null;
       const catalogBlocks = collectCatalogBlocksFromHarness(this);
 
+      // Invented Ссылка / SKU in Товар cards → force ShopDB-backed cards.
+      try {
+        const {
+          replaceHallucinatedCatalogInChat,
+          chatHasInventedCatalogFacts,
+          collectAllowedCatalogFacts,
+        } = require("../offerKp/groundedResponse");
+        const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
+        if (chatHasInventedCatalogFacts(text, allowed)) {
+          const replaced = replaceHallucinatedCatalogInChat(text, {
+            draft,
+            catalogBlocks,
+          });
+          harnessLog("warn", "outgoingChat.replacedInventedCatalogCards", {
+            hadDraft: Boolean(draft?.lines?.length),
+            catalogBlocks: (catalogBlocks || []).length,
+          });
+          if (replaced && replaced !== text) return replaced;
+        }
+      } catch (e) {
+        harnessLog("warn", "outgoingChat.catalogGroundingFailed", {
+          error: e?.message || String(e),
+        });
+      }
+
       // Bullet-style "**Цена:** … / **Артикул / SKU:** …" replies (the
       // format prompts.js itself teaches the model) contain no "|" table
       // syntax, so the markdown-table price gate below never inspects them —
@@ -147,6 +172,25 @@ class AgentHarness {
             claimedPrices,
             allowedCount: allowed.size,
           });
+          // Prefer grounded cards over full abstain when draft exists.
+          try {
+            const {
+              replaceHallucinatedCatalogInChat,
+            } = require("../offerKp/groundedResponse");
+            const replaced = replaceHallucinatedCatalogInChat(text, {
+              draft,
+              catalogBlocks,
+            });
+            if (
+              replaced &&
+              replaced !== text &&
+              !/неподтверждёнными ссылками/i.test(replaced)
+            ) {
+              return replaced;
+            }
+          } catch {
+            /* fall through to abstain */
+          }
           return ABSTAIN_MESSAGE;
         }
       }

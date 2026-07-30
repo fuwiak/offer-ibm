@@ -608,6 +608,7 @@ async function streamChatWithWorkspace(
   const {
     renderGroundedCatalogResponse,
     sanitizeOfferKpHistory,
+    buildGroundedCatalogCardsFromDraft,
   } = require("../offerKp/groundedResponse");
 
   // Deterministic ShopDB aggregates (AUDYT data_question) — no LLM.
@@ -727,6 +728,18 @@ async function streamChatWithWorkspace(
   }
 
   pipelineDiag.stage = "generation";
+  // RFQ / КП: chat catalog cards = ShopDB only. Never stream LLM-invented
+  // /product/{sku} URLs — model freely fabricates them in Товар/Ссылка format.
+  const shopDbGroundedCards = buildGroundedCatalogCardsFromDraft(
+    llmCatalog.inquiryDraft,
+    llmCatalog.catalogBlocks || []
+  );
+  const forceShopDbCatalogChat =
+    Boolean(shopDbGroundedCards) &&
+    (quoteDocumentRequest ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+      (llmCatalog.inquiryDraft?.lines?.length || 0) >= 2);
+
   if (llmUnreachable) {
     // Draft/panel already emitted above when enrich succeeded — skip hung LM call.
     completeText = buildLlmDownChatReply({
@@ -736,6 +749,27 @@ async function streamChatWithWorkspace(
     metrics = { grounding: "llm_down_shopdb_continue" };
     markStage(requestTrace, "GENERATION", "skip", {
       reason: "llm_unreachable",
+      matchedCount: pipelineDiag.matchedCount,
+      total: pipelineDiag.total,
+    });
+    writeResponseChunk(response, {
+      uuid,
+      sources,
+      type: "textResponseChunk",
+      textResponse: completeText,
+      close: true,
+      error: false,
+      metrics,
+    });
+  } else if (forceShopDbCatalogChat) {
+    completeText =
+      "Позиции подтверждены в ShopDB (MySQL). Сводка и цены — во вкладке «Сводка позиций».\n\n" +
+      shopDbGroundedCards +
+      "\n\n_Источник: каталог purolat.com (MySQL)._";
+    metrics = { grounding: "shopdb_catalog_cards" };
+    diagNote(pipelineDiag, "generation skipped — ShopDB catalog cards only");
+    markStage(requestTrace, "GENERATION", "ok", {
+      reason: "shopdb_grounded_skip_llm",
       matchedCount: pipelineDiag.matchedCount,
       total: pipelineDiag.total,
     });
@@ -920,6 +954,36 @@ async function streamChatWithWorkspace(
   });
   completeText = orchestration.text;
   sources = orchestration.sources;
+
+  // Hard ShopDB-only: replace LLM Товар/Ссылка cards with SQL-backed cards.
+  // Fake /product/{sku} URLs and invented артикулы must never reach the UI.
+  try {
+    const {
+      replaceHallucinatedCatalogInChat,
+    } = require("../offerKp/groundedResponse");
+    const groundedText = replaceHallucinatedCatalogInChat(completeText || "", {
+      draft: llmCatalog.inquiryDraft,
+      catalogBlocks: llmCatalog.catalogBlocks || [],
+    });
+    if (groundedText && groundedText !== completeText) {
+      console.warn(
+        "[offerKp] replaced hallucinated catalog cards with ShopDB-backed cards"
+      );
+      completeText = groundedText;
+      // Overwrite streamed LLM hallucination in the live chat UI.
+      writeResponseChunk(response, {
+        uuid,
+        sources,
+        type: "textResponseReplace",
+        textResponse: completeText,
+        close: false,
+        error: false,
+      });
+    }
+  } catch (e) {
+    console.error("[offerKp] grounded catalog replace:", e?.message || e);
+  }
+
   const cost = estimateChatCost(metrics);
   metrics = { ...(metrics || {}), cost };
   // Teacher OpenRouter stays in ragTrace only — never leak OR model id into UI metrics.
