@@ -22,6 +22,7 @@ const {
   rememberExperienceAsync,
   retrieveExperiences,
 } = require("./experienceMemory");
+const { prepareVisionImageBuffer } = require("./visionImagePrep");
 
 /** Legacy plain-text OCR (fallback when JSON parse fails). */
 const VISION_OCR_PROMPT = `Извлеки весь текст с изображения заявки/спецификации.
@@ -286,11 +287,14 @@ function normalizeVisionOcrResponse(raw) {
 }
 
 async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
-  const base64 = imageBuffer.toString("base64");
+  const prepared = await prepareVisionImageBuffer(imageBuffer, {
+    mime: opts.mime,
+  });
+  const base64 = prepared.buffer.toString("base64");
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
   const useJson = opts.json !== false;
-  const mime = opts.mime || "image/png";
+  const mime = prepared.mime || opts.mime || "image/png";
   const prompt = useJson
     ? buildVisionPrompt({
         memoryContext: opts.memoryContext,
@@ -368,7 +372,9 @@ async function visionOcrPageBuffers(pages, modelId, opts = {}) {
   let usedJson = false;
   const mime = opts.mime || "image/png";
 
-  for (const { pageNumber, buffer } of pages) {
+  for (const page of pages) {
+    const { pageNumber, buffer } = page;
+    const pageMime = page.mime || mime;
     opts.onProgress?.({
       type: "ocr_progress",
       engine: endpoint.engine,
@@ -378,16 +384,17 @@ async function visionOcrPageBuffers(pages, modelId, opts = {}) {
     let raw = await visionOcrImageBuffer(buffer, modelId, {
       json: true,
       memoryContext: opts.memoryContext,
-      mime,
+      mime: pageMime,
     });
     let normalized = normalizeVisionOcrResponse(raw);
     let validation = validateOcrLines(normalized.lines || []);
 
+    // Retry only on hard failures — warnings (missing unit, duplicates) must
+    // not double GPU time on an otherwise usable extraction.
     if (
       normalized.format !== "json" ||
       !normalized.text ||
-      !validation.valid ||
-      validation.warnings.length > 0
+      !validation.valid
     ) {
       raw = await visionOcrImageBuffer(buffer, modelId, {
         json: true,
@@ -395,7 +402,7 @@ async function visionOcrPageBuffers(pages, modelId, opts = {}) {
         retryFeedback: [...validation.errors, ...validation.warnings].join(
           ", "
         ),
-        mime,
+        mime: pageMime,
       });
       normalized = normalizeVisionOcrResponse(raw);
       validation = validateOcrLines(normalized.lines || []);
@@ -403,7 +410,7 @@ async function visionOcrPageBuffers(pages, modelId, opts = {}) {
     if (normalized.format !== "json" || !normalized.text) {
       raw = await visionOcrImageBuffer(buffer, modelId, {
         json: false,
-        mime,
+        mime: pageMime,
       });
       normalized = normalizeVisionOcrResponse(raw);
       validation = validateOcrLines(normalized.lines || []);
@@ -604,7 +611,7 @@ async function visionOcrPdf(pdfPath, opts = {}) {
     await prepareVisionOcrSession(pdfPath, opts);
 
   const pages = await renderPdfPages(pdfPath, {
-    dpi: Number(process.env.OFFER_KP_VISION_OCR_DPI) || 150,
+    dpi: Number(process.env.OFFER_KP_VISION_OCR_DPI) || 120,
     onPage: opts.onPage,
   });
 
@@ -615,6 +622,7 @@ async function visionOcrPdf(pdfPath, opts = {}) {
   const result = await visionOcrPageBuffers(pages, modelId, {
     memoryContext,
     onProgress: opts.onProgress,
+    mime: pages[0]?.mime || "image/jpeg",
   });
 
   return finalizeVisionOcrResult({

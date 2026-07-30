@@ -4,7 +4,8 @@ import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-const DEFAULT_SCALE = 1.25;
+/** Cap canvas width so huge scan embeds (2–3k px) don't freeze the UI. */
+const MAX_CANVAS_WIDTH = 900;
 
 /**
  * Renders a PDF from a blob URL using PDF.js (canvas per page).
@@ -18,7 +19,6 @@ export default function PdfJsViewer({ url, title = "PDF preview" }) {
   useEffect(() => {
     if (!url) return undefined;
     let cancelled = false;
-    const canvases = [];
 
     async function render() {
       setLoading(true);
@@ -30,7 +30,10 @@ export default function PdfJsViewer({ url, title = "PDF preview" }) {
       container.replaceChildren();
 
       try {
-        const task = pdfjs.getDocument({ url, withCredentials: false });
+        const task = pdfjs.getDocument({
+          url,
+          withCredentials: false,
+        });
         const pdf = await task.promise;
         if (cancelled) return;
 
@@ -39,16 +42,21 @@ export default function PdfJsViewer({ url, title = "PDF preview" }) {
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
           if (cancelled) return;
           const page = await pdf.getPage(pageNum);
-          const viewport = page.getViewport({ scale: DEFAULT_SCALE });
+          const base = page.getViewport({ scale: 1 });
+          const fitScale = Math.min(1.25, MAX_CANVAS_WIDTH / base.width);
+          const viewport = page.getViewport({ scale: fitScale });
           const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          const context = canvas.getContext("2d", { alpha: false });
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
           canvas.className = "offerKp-pdfjs-viewer__page";
           canvas.setAttribute("aria-label", `${title} — page ${pageNum}`);
-          canvases.push(canvas);
           container.appendChild(canvas);
-          await page.render({ canvasContext: context, viewport }).promise;
+          await page.render({
+            canvasContext: context,
+            viewport,
+            intent: "display",
+          }).promise;
         }
       } catch (e) {
         if (!cancelled) {

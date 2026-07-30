@@ -23,10 +23,17 @@ function lmStudioChatUrl() {
 async function renderPdfPages(pdfPath, { dpi = 200, onPage = null } = {}) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "offerkp-paddle-ppm-"));
   const outRoot = path.join(tmpDir, "page");
+  // JPEG is much smaller than PNG for VL upload; quality is enough for tables.
+  const jpegFlag = String(process.env.OFFER_KP_VISION_OCR_PDF_JPEG ?? "1")
+    .trim()
+    .toLowerCase();
+  const useJpeg = jpegFlag !== "0" && jpegFlag !== "false";
+  const formatFlag = useJpeg ? "-jpeg" : "-png";
+  const ext = useJpeg ? "jpg" : "png";
   try {
     await execFileAsync(
       "pdftoppm",
-      ["-png", "-r", String(dpi), pdfPath, outRoot],
+      [formatFlag, "-r", String(dpi), pdfPath, outRoot],
       { timeout: 600_000 }
     );
 
@@ -34,7 +41,10 @@ async function renderPdfPages(pdfPath, { dpi = 200, onPage = null } = {}) {
       .readdirSync(tmpDir)
       .map((file) => ({
         file,
-        page: parseInt((file.match(/-(\d+)\.png$/) || [])[1] || "0", 10),
+        page: parseInt(
+          (file.match(new RegExp(`-(\\d+)\\.${ext}$`, "i")) || [])[1] || "0",
+          10
+        ),
       }))
       .filter((x) => x.page > 0)
       .sort((a, b) => a.page - b.page);
@@ -42,7 +52,11 @@ async function renderPdfPages(pdfPath, { dpi = 200, onPage = null } = {}) {
     const pages = [];
     for (const { file, page } of pageFiles) {
       const buf = fs.readFileSync(path.join(tmpDir, file));
-      pages.push({ pageNumber: page, buffer: buf });
+      pages.push({
+        pageNumber: page,
+        buffer: buf,
+        mime: useJpeg ? "image/jpeg" : "image/png",
+      });
       if (typeof onPage === "function") {
         onPage({ pageNumber: page, total: pageFiles.length });
       }

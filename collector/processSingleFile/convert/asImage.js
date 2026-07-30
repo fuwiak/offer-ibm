@@ -16,10 +16,25 @@ async function asImage({
   options = {},
   metadata = {},
 }) {
+  // OfferKP Vision OCR replaces Tesseract for RFQ photos — fail fast so the
+  // server can OCR the archived original with Qwen-VL.
+  if (options?.skipCollectorOcr) {
+    console.log(
+      `[asImage] skipCollectorOcr=1 for ${filename} — deferring to Vision OCR.`
+    );
+    if (!options.absolutePath) trashFile(fullFilePath);
+    return {
+      success: false,
+      reason: "Deferred to Vision OCR",
+      documents: [],
+    };
+  }
+
   // OCR изображения тоже дорогой — кэшируем текст по отпечатку файла + языкам.
   const cacheKey = parseCache.buildKey(fullFilePath, [
     "image",
     options?.ocr?.langList || "default",
+    "ocr",
   ]);
   let content = await parseCache.remember(cacheKey, () =>
     new OCRLoader({ targetLanguages: options?.ocr?.langList }).ocrImage(

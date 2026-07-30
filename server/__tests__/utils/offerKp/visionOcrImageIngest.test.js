@@ -9,6 +9,9 @@ const {
 const {
   documentsNeedVisionOcr,
 } = require("../../../utils/offerKp/offerKpDocumentIngest");
+const {
+  prepareVisionImageBuffer,
+} = require("../../../utils/offerKp/visionImagePrep");
 
 describe("parsedFileOriginal vision targets", () => {
   it("detects pdf and image filenames", () => {
@@ -67,5 +70,52 @@ describe("inquiryTextFromOcrJsonLines", () => {
     expect(text).toMatch(/кл\.8\.8/);
     expect(text).toMatch(/оцинк/);
     expect(text).toMatch(/120\s+шт/);
+  });
+});
+
+describe("validateOcrLines retry gate", () => {
+  const {
+    validateOcrLines,
+  } = require("../../../utils/offerKp/offerKpVisionOcr");
+
+  it("treats missing unit as warning, not hard error", () => {
+    const result = validateOcrLines([
+      { name_verbatim: "Болт М16×55", quantity: 10 },
+    ]);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => /missing_unit/.test(w))).toBe(true);
+  });
+
+  it("rejects empty extraction as hard error", () => {
+    const result = validateOcrLines([]);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("no_rows_extracted");
+  });
+});
+
+describe("prepareVisionImageBuffer", () => {
+  it("downscales oversized JPEG and returns image/jpeg", async () => {
+    let sharp;
+    try {
+      sharp = require("../../../../collector/node_modules/sharp");
+    } catch {
+      return; // sharp optional in CI without collector deps
+    }
+    const input = await sharp({
+      create: {
+        width: 2400,
+        height: 3200,
+        channels: 3,
+        background: { r: 240, g: 240, b: 240 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+
+    const prepared = await prepareVisionImageBuffer(input, { maxEdge: 800 });
+    expect(prepared.mime).toBe("image/jpeg");
+    const meta = await sharp(prepared.buffer).metadata();
+    expect(Math.max(meta.width, meta.height)).toBeLessThanOrEqual(800);
+    expect(prepared.buffer.length).toBeLessThan(input.length);
   });
 });

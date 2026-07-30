@@ -111,6 +111,19 @@ async function extractPdfDocs({ fullFilePath, filename, options }) {
   const report = textQualityReport(rawText, pageCount);
 
   if (docs.length === 0 || report.needsOcr) {
+    // OfferKP: Vision OCR (Qwen-VL) owns scans. Collector Tesseract here is
+    // wasted CPU — often minutes on a 1-page photo-PDF — then thrown away.
+    if (options?.skipCollectorOcr) {
+      console.log(
+        `[asPDF] ${
+          docs.length === 0 ? "No text layer" : "Low-quality text layer"
+        } for ${filename} — skipCollectorOcr=1, deferring to Vision OCR ` +
+          `(alnumRatio=${report.alnumRatio}, charsPerPage=${report.charsPerPage}).`
+      );
+      emit({ type: "stage", stage: "ocr-deferred" });
+      return [];
+    }
+
     console.log(
       `[asPDF] ${
         docs.length === 0 ? "No text layer" : "Low-quality text layer"
@@ -237,10 +250,11 @@ async function asPdf({
   console.log(`-- Working ${filename} --`);
   const pageContent = [];
 
-  // Кэш-ключ зависит от содержимого файла и языков OCR (влияют на результат).
+  // Кэш-ключ зависит от содержимого файла, языков OCR и skipCollectorOcr.
   const cacheKey = parseCache.buildKey(fullFilePath, [
     "pdf",
     options?.ocr?.langList || "default",
+    options?.skipCollectorOcr ? "skip-ocr" : "ocr",
   ]);
 
   let docs;

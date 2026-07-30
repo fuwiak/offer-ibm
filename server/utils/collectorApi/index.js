@@ -56,6 +56,22 @@ class CollectorApi {
   }
 
   /**
+   * OfferKP runs Qwen-VL on scans anyway. Skipping collector Tesseract/SmartOCR
+   * avoids a multi-minute CPU pass that is thrown away on the next step.
+   * Disable with OFFER_KP_SKIP_COLLECTOR_OCR=0 (or Vision OCR off).
+   */
+  #shouldSkipCollectorOcr() {
+    const vision = String(process.env.OFFER_KP_USE_VISION_OCR ?? "1")
+      .trim()
+      .toLowerCase();
+    if (vision === "0" || vision === "false") return false;
+    const skip = String(process.env.OFFER_KP_SKIP_COLLECTOR_OCR ?? "1")
+      .trim()
+      .toLowerCase();
+    return skip !== "0" && skip !== "false";
+  }
+
+  /**
    * Attach options to the request passed to the collector API
    * @returns {CollectorOptions}
    */
@@ -69,6 +85,7 @@ class CollectorApi {
         // Русский ставится первым, чтобы Tesseract не «ломал» кириллицу.
         langList: process.env.TARGET_OCR_LANG || "rus,eng",
       },
+      skipCollectorOcr: this.#shouldSkipCollectorOcr(),
       runtimeSettings: {
         allowAnyIp: process.env.COLLECTOR_ALLOW_ANY_IP ?? "false",
         browserLaunchArgs: process.env.AV_ELIA_BOT_CHROMIUM_ARGS ?? [],
@@ -292,6 +309,9 @@ class CollectorApi {
       options: {
         ...this.#attachOptions(),
         absolutePath: parseOptions.absolutePath || null,
+        ...(parseOptions.skipCollectorOcr != null
+          ? { skipCollectorOcr: !!parseOptions.skipCollectorOcr }
+          : {}),
       },
     });
 
@@ -337,6 +357,9 @@ class CollectorApi {
       options: {
         ...this.#attachOptions(),
         absolutePath: parseOptions.absolutePath || null,
+        ...(parseOptions.skipCollectorOcr != null
+          ? { skipCollectorOcr: !!parseOptions.skipCollectorOcr }
+          : {}),
       },
     });
 
