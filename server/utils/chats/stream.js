@@ -206,6 +206,31 @@ async function streamChatWithWorkspace(
   });
   if (isAgentChat) return;
 
+  // Open KP panel immediately for quote intents — before LLM connect / ShopDB match.
+  // Progress uses offerKpQuotePanel (not statusResponse) so loadingResponse stays.
+  const openQuotePanelEarly =
+    quoteDocumentRequest ||
+    routedIntent?.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+    routedIntent?.primaryIntent === OFFER_KP_INTENTS.EDIT_QUOTE;
+  if (openQuotePanelEarly) {
+    writeResponseChunk(response, {
+      uuid,
+      type: "offerKpQuotePanel",
+      content: {
+        documentPanelView: "draftTable",
+        progressStage: "parsing",
+        matchedCount: 0,
+        total: 0,
+        lineCount: 0,
+        quoteDraft: {
+          step: 2,
+          hardwareLines: [],
+          preview: { lines: [] },
+        },
+      },
+    });
+  }
+
   const VectorDb = getVectorDbClass();
 
   const messageLimit = workspace?.openAiHistory || 20;
@@ -359,7 +384,7 @@ async function streamChatWithWorkspace(
       updateMatchProgress(pipelineDiag, payload);
       writeResponseChunk(response, {
         uuid,
-        type: "offerKpQuoteUpdate",
+        type: "offerKpQuotePanel",
         content: {
           documentPanelView: "draftTable",
           progressStage: payload.progressStage || "searching",

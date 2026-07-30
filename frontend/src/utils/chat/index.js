@@ -216,7 +216,12 @@ export default function handleChat(
       })
     );
     setChatHistory([..._chatHistory]);
-  } else if (type === "offerKpQuotePanel" && chatResult.content) {
+  } else if (
+    (type === "offerKpQuotePanel" || type === "offerKpQuoteUpdate") &&
+    chatResult.content
+  ) {
+    // Progress (offerKpQuoteUpdate) and final draft (offerKpQuotePanel) both
+    // open the sliding KP panel — do not wait for matching to finish.
     window.dispatchEvent(
       new CustomEvent(OFFER_KP_QUOTE_PANEL_EVENT, { detail: chatResult.content })
     );
