@@ -18,6 +18,7 @@ const { validateCandidate } = require("./constraintValidator");
 const FEATURE_NAMES = Object.freeze([
   "lexicalScore",
   "embeddingScore",
+  "bm25Score",
   "alignmentSim",
   "typeMatch",
   "standardMatch",
@@ -106,6 +107,7 @@ function extractMatchFeatures(queryText, alt = {}, product = {}) {
     lexicalScore: Number(product._nameSimilarity ?? alt.lexicalScore ?? 0) || 0,
     embeddingScore:
       Number(product._embeddingSimilarity ?? alt.embeddingScore ?? 0) || 0,
+    bm25Score: Number(product._bm25Score ?? alt._bm25Score ?? alt.bm25Score ?? 0) || 0,
     alignmentSim: alignment.similarity || 0,
     typeMatch,
     standardMatch,

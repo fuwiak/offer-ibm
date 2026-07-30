@@ -68,6 +68,8 @@ async function main() {
   let falseExact = 0;
   let exactDecisions = 0;
   let accepted = 0;
+  let autoAccept = 0;
+  let autoAcceptCorrect = 0;
   const acceptedRows = [];
   const failures = [];
 
@@ -94,13 +96,25 @@ async function main() {
         },
         { requestId: `random-audit:${seed}:${expected.id}` }
       );
-      if (["exact", "analog"].includes(decision.matchType)) {
+      const pricedMatch = ["exact", "analog"].includes(decision.matchType);
+      // Auto-accept = priced match that did not fall into operator review.
+      const autoAccepted =
+        pricedMatch &&
+        decision.status !== "Требует проверки" &&
+        decision.kpStatus !== "Требуется проверка" &&
+        !decision.reviewReason;
+
+      if (pricedMatch) {
         accepted += 1;
         if (decision.matchType === "exact") {
           exactDecisions += 1;
           if (String(decision.productId) !== expectedId) falseExact += 1;
         }
         acceptedRows.push(decision);
+      }
+      if (autoAccepted) {
+        autoAccept += 1;
+        if (String(decision.productId) === expectedId) autoAcceptCorrect += 1;
       }
 
       if (rank !== 0 || String(decision.productId || "") !== expectedId) {
@@ -112,6 +126,7 @@ async function main() {
           selectedSku: decision.article || null,
           matchType: decision.matchType,
           reviewReason: decision.reviewReason || null,
+          autoAccepted,
         });
       }
     } catch (error) {
@@ -206,12 +221,19 @@ async function main() {
       DBQuerySuccessRate: pct(dbSuccess, dbAttempts),
       RecallAt50: pct(recall50, products.length),
       Top1Accuracy: pct(top1, products.length),
+      // AutoAccept*: precision of automated priced matches vs coverage of sample.
+      // FalseExact=0 alone is cheap if everything goes to NEEDS_REVIEW.
+      AutoAcceptRate: pct(autoAccept, products.length),
+      AutoAcceptPrecision: pct(autoAcceptCorrect, autoAccept),
+      AutoAcceptCoverage: pct(autoAccept, products.length),
       FalseExactRate: pct(falseExact, exactDecisions),
       UnconfirmedSkuOrPriceRate: pct(
         unconfirmedSkuOrPrice,
         Math.max(accepted, 1)
       ),
       acceptedDecisions: accepted,
+      autoAcceptDecisions: autoAccept,
+      autoAcceptCorrectDecisions: autoAcceptCorrect,
       exactDecisions,
       falseExactDecisions: falseExact,
       unconfirmedSkuOrPriceDecisions: unconfirmedSkuOrPrice,

@@ -106,7 +106,8 @@ function costSensitiveDecision(best, runnerUp = null, expertConfig = null) {
         expectedCost,
       };
     }
-    // Default: only revoke exact when a structural rival exists or STRICT mode.
+    // Revoke exact when a structural identity rival is too close on LTR.
+    // Coating / strength twins share diameter+length+standard → not rivals.
     if (structuralRival && margin < expertMargin) {
       return {
         allowExact: false,
@@ -115,6 +116,7 @@ function costSensitiveDecision(best, runnerUp = null, expertConfig = null) {
         expectedCost,
       };
     }
+    // Opt-in STRICT: also require absolute Top-1 vs Top-2 LTR margin.
     if (strict && margin < expertMargin) {
       return {
         allowExact: false,

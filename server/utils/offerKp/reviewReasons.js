@@ -52,6 +52,7 @@ function resolveReviewReason(input = {}) {
   if (input.selectiveReject) {
     if (
       input.gateReason === "low_ltr_margin" ||
+      input.gateReason === "low_rerank_margin" ||
       input.gateReason === "low_bayes"
     ) {
       return REVIEW_REASONS.LOW_CONFIDENCE;

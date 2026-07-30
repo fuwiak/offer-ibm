@@ -16,9 +16,15 @@ const { detectAnomaly } = require("./anomalyDetection");
 const { activeLearningScore } = require("./activeLearning");
 const { resolveExpert } = require("./productTypeExperts");
 const { aggregateWeakLabels } = require("./weakSupervision");
+const {
+  rerankTop50,
+  isIdentityRival,
+  minAcceptMargin,
+} = require("./top50Rerank");
 
 /**
  * Annotate + re-rank alternatives (constraints, LTR, Bayes, weak labels).
+ * Final order: Top-50 hard filters → BM25/LTR boosts → Top-10 identity rank.
  */
 function enrichAlternatives(input = {}) {
   const queryText = input.queryText || "";
@@ -32,7 +38,19 @@ function enrichAlternatives(input = {}) {
 
   let alternatives = (
     blocked.filtered ? blocked.candidates : input.alternatives || []
-  ).map((alt) => applyConstraintsToAlternative(queryText, alt));
+  ).map((alt) => {
+    const product = productsById.get(String(alt.productId)) || {};
+    return applyConstraintsToAlternative(queryText, {
+      ...alt,
+      // Carry retrieval signals into feature extraction / Top-50 rerank.
+      _bm25Score: alt._bm25Score ?? product._bm25Score ?? null,
+      _nameSimilarity: alt._nameSimilarity ?? product._nameSimilarity ?? null,
+      _embeddingSimilarity:
+        alt._embeddingSimilarity ?? product._embeddingSimilarity ?? null,
+      _rrfScore: alt._rrfScore ?? product._rrfScore ?? null,
+      _signatureHard: alt._signatureHard ?? product._signatureHard ?? [],
+    });
+  });
 
   alternatives = rankWithLtr(queryText, alternatives, productsById);
   alternatives = alternatives.map((alt) => {
@@ -53,12 +71,22 @@ function enrichAlternatives(input = {}) {
     };
   });
 
+  const rerank = rerankTop50(alternatives);
+  alternatives = rerank.alternatives;
+
   return {
     alternatives,
     blocking: {
       filtered: blocked.filtered,
       kept: blocked.kept,
       keys: blocked.block.keys,
+    },
+    rerank: {
+      top10Count: rerank.top10.length,
+      margin: rerank.margin,
+      marginThreshold: rerank.marginThreshold,
+      acceptByMargin: rerank.acceptByMargin,
+      identityRivalId: rerank.identityRival?.productId || null,
     },
   };
 }
@@ -84,11 +112,17 @@ function decideMatchGates(input = {}) {
   const expert = resolveExpert(queryText);
 
   const rankedForMargin = [...alternatives].sort(
-    (a, b) => (b._ltrScore || 0) - (a._ltrScore || 0)
+    (a, b) =>
+      (b._rerankScore || 0) - (a._rerankScore || 0) ||
+      (b._ltrScore || 0) - (a._ltrScore || 0)
   );
   const runnerUp =
     rankedForMargin.find((a) => a && best && a.productId !== best.productId) ||
     null;
+  const identityRival =
+    rankedForMargin.find(
+      (a) => a && best && a.productId !== best.productId && isIdentityRival(best, a)
+    ) || null;
 
   const hardOod = (anomaly.reasons || []).some((r) =>
     [
@@ -101,12 +135,13 @@ function decideMatchGates(input = {}) {
 
   const selective = selectivePredict({
     best,
-    runnerUp,
+    runnerUp: identityRival || runnerUp,
     expertConfig: expert.config,
     retrieverDisagreement: !!input.retrieverDisagreement,
     underspecified: !!input.underspecified,
     // Soft OOD (e.g. missing embeddings) must NOT block ShopDB exact prices.
     outOfDistribution: hardOod,
+    identityRival,
   });
 
   const conformal = conformalCandidateSet(rankedForMargin, {
@@ -116,7 +151,7 @@ function decideMatchGates(input = {}) {
 
   const activeLearning = activeLearningScore({
     best,
-    runnerUp,
+    runnerUp: identityRival || runnerUp,
     retrieverDisagreement: !!input.retrieverDisagreement,
     outOfDistribution: anomaly.outOfDistribution,
     underspecified: !!input.underspecified,
@@ -139,6 +174,22 @@ function decideMatchGates(input = {}) {
     acceptedMatchType = "none";
   }
 
+  // Explicit Top-1 vs identity-rival margin gate (even when LTR scores missing).
+  if (
+    !gateRejected &&
+    (best?.matchType === "exact" || best?.matchType === "analog") &&
+    identityRival &&
+    Number.isFinite(best._rerankScore) &&
+    Number.isFinite(identityRival._rerankScore)
+  ) {
+    const rerankMargin = best._rerankScore - identityRival._rerankScore;
+    if (rerankMargin < minAcceptMargin()) {
+      gateRejected = true;
+      gateReason = gateReason || "low_rerank_margin";
+      acceptedMatchType = "none";
+    }
+  }
+
   if (
     hardOod &&
     (best?.matchType === "exact" || best?.matchType === "analog")
@@ -155,6 +206,7 @@ function decideMatchGates(input = {}) {
     conformal,
     activeLearning,
     runnerUp,
+    identityRival,
     gateRejected,
     gateReason,
     acceptedMatchType,
@@ -207,4 +259,5 @@ module.exports = {
   alignTechnicalNames: require("./tokenAlignment").alignTechnicalNames,
   logEvidenceScore: require("./bayesianScore").logEvidenceScore,
   costSensitiveDecision: require("./costSensitive").costSensitiveDecision,
+  rerankTop50: require("./top50Rerank").rerankTop50,
 };

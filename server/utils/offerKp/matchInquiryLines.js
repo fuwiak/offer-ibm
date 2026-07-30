@@ -676,6 +676,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         product.product_url || product.url
       ),
       matchSource: isOverrideMatch ? "golden_override" : undefined,
+      _bm25Score: product._bm25Score ?? null,
+      _nameSimilarity: product._nameSimilarity ?? null,
+      _embeddingSimilarity: product._embeddingSimilarity ?? null,
+      _rrfScore: product._rrfScore ?? null,
+      _signatureHard: product._signatureHard || [],
     };
   });
 
@@ -693,7 +698,10 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       matchStrategies,
     });
     alternatives = enriched.alternatives;
-    enrichmentMeta = { blocking: enriched.blocking };
+    enrichmentMeta = {
+      blocking: enriched.blocking,
+      rerank: enriched.rerank || null,
+    };
   }
 
   let best = pickBestInquiryAlternative(alternatives, searchText);
@@ -1017,6 +1025,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     candidateIds,
     sqlHitCount,
     denseHitCount,
+    // Auto-accept = priced exact/analog that did not enter operator review.
+    autoAccepted:
+      accepted &&
+      status !== STATUS.NEEDS_REVIEW &&
+      kpStatus !== "Требуется проверка" &&
+      !reviewReason,
     failureReason: !accepted
       ? best?.mismatchReason || reviewReason || best?.matchType || null
       : null,
@@ -1026,6 +1040,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     algorithmProfile: DETERMINISTIC_MATCH_PROFILE.id,
     rulesVersion: MATCH_RULES_VERSION,
     evidence: evidenced.evidence,
+    rerankMargin: matchGates?.rerank?.margin ?? enrichmentMeta?.rerank?.margin ?? null,
   };
   recordSearchMetric(metric);
   require("./shopDbLog").info("match decision", {

@@ -13,11 +13,13 @@ const { FEATURE_NAMES, extractMatchFeatures } = require("./matchFeatures");
 const DEFAULT_WEIGHTS = Object.freeze({
   lexicalScore: 1.2,
   embeddingScore: 1.0,
+  // BM25F already boosts SKU/size/standard — keep it decisive for Top-50→Top-1.
+  bm25Score: 2.2,
   alignmentSim: 1.4,
   typeMatch: 2.0,
-  standardMatch: 2.2,
-  diameterMatch: 3.5,
-  lengthMatch: 3.5,
+  standardMatch: 2.5,
+  diameterMatch: 4.0,
+  lengthMatch: 4.0,
   coatingMatch: 0.4,
   strengthMatch: 0.5,
   missingParamCount: -0.6,

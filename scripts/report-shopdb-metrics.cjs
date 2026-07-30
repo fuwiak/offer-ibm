@@ -96,11 +96,15 @@ function main() {
   let withPrice = 0;
   let candidateSum = 0;
   let errorCount = 0;
+  let autoAccept = 0;
+  let operatorCorrections = 0;
 
   for (const e of events) {
     byMatchType[e.matchType] = (byMatchType[e.matchType] || 0) + 1;
     if (e.matchType === "error") errorCount++;
     if (e.hasPrice) withPrice++;
+    if (e.autoAccepted) autoAccept++;
+    if (e.type === "operator_correction") operatorCorrections++;
     candidateSum += Number(e.candidateCount) || 0;
     for (const s of e.strategies || []) {
       byStrategy[s] = (byStrategy[s] || 0) + 1;
@@ -137,10 +141,18 @@ function main() {
 
   console.log("\n=== Сводка ===");
   console.log(`  С ценой (exact/analog):     ${pct(withPrice, events.length)}`);
+  console.log(`  AutoAccept coverage:       ${pct(autoAccept, events.length)}`);
   console.log(`  Ошибки поиска:              ${pct(errorCount, events.length)}`);
+  console.log(`  Правки оператора:           ${pct(operatorCorrections, events.length)}`);
   console.log(`  Среднее кандидатов/запрос:  ${(candidateSum / events.length).toFixed(1)}`);
   console.log(`  golden_override сработал:   ${pct(byStrategy.golden_override || 0, events.length)}`);
   console.log(`  llm_rank потребовался:      ${pct(byStrategy.llm_rank || 0, events.length)}`);
+  if (autoAccept && operatorCorrections) {
+    // Proxy for AutoAcceptPrecision when corrections are logged against auto-accepts.
+    console.log(
+      `  AutoAccept precision proxy: ${pct(Math.max(0, autoAccept - operatorCorrections), autoAccept)} (1 − corrections/autoAccept)`
+    );
+  }
 
   process.exit(0);
 }
