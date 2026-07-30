@@ -46,11 +46,53 @@ const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на �
 - name_verbatim собери ПОЛНОЕ обозначение для каталога, например:
   «Болт М16×55 ГОСТ 7798-70 кл.8.8 оцинк.» или «Гайка М20 ГОСТ 5915-70 кл.8 оцинк.» или «Шайба 16 ГОСТ 11371-78 оцинк.».
   Диаметр → М{d}; длину болта добавь как ×{L}; ГОСТ/класс/покрытие из соответствующих колонок.
-- quantity — ТОЛЬКО колонка «Кол-во, шт.» (не вес кгс и не толщина пакета).
-- unit обычно «шт»; вес не пиши как quantity.
+- quantity — ТОЛЬКО колонка «Кол-во» / «Кол-во, шт.» (НЕ «Вес», НЕ «кг», НЕ толщина пакета).
+- unit для метизов обычно «шт». «кг» ставь только если в заявке количество явно в килограммах (колонка ед.изм.=кг).
+- strength_class — только класс прочности вида 5.8 / 8.8 / 10.9 / 12.9 / 8. Метка «S16», «S17», «под ключ S…» — это размер зева ключа, НЕ класс прочности: пиши в name_verbatim как «(S16)», а strength_class=null.
 - Не выдумывай цены, SKU, остатки и ссылки — их нет в твоей роли.
 - Строку «Итого» не включай. Примечания 1–3 внизу листа — не позиции (кроме явной позиции вроде «химический анкер… — 20 шт»).
 - Если таблица пуста — верни {"lines":[]}.`;
+
+function isWrenchSizeToken(value) {
+  return /^S\s*\d{1,3}$/i.test(String(value || "").trim());
+}
+
+function nameHasThreadSize(name, diameter) {
+  const d = String(diameter || "")
+    .replace(/[^\d.,]/g, "")
+    .replace(",", ".");
+  if (!d) return true;
+  const dPat = d.replace(".", "[.,]");
+  return new RegExp(`[MМmм]\\s*${dPat}(?:\\s*[xх×*]\\s*\\d)?`, "iu").test(
+    String(name || "")
+  );
+}
+
+/** Drop wrench-size tokens from strength_class; keep them in the name. */
+function sanitizeOcrLine(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+  const next = { ...row };
+  const strengthRaw =
+    next.strength_class ?? next.strengthClass ?? next.class ?? "";
+  if (isWrenchSizeToken(strengthRaw)) {
+    const token = String(strengthRaw).replace(/\s+/g, "").toUpperCase();
+    const name = String(
+      next.name_verbatim || next.name || next.title || ""
+    ).trim();
+    if (name && !new RegExp(`\\(?\\s*${token}\\s*\\)?`, "i").test(name)) {
+      next.name_verbatim = `${name} (${token})`;
+    }
+    next.strength_class = null;
+    if ("strengthClass" in next) next.strengthClass = null;
+    if ("class" in next) next.class = null;
+  }
+  return next;
+}
+
+function sanitizeOcrLines(lines = []) {
+  if (!Array.isArray(lines)) return lines;
+  return lines.map(sanitizeOcrLine);
+}
 
 function formatExtractionMemory(examples = []) {
   if (!examples.length) return "";
@@ -189,7 +231,7 @@ function extractJsonArray(text) {
  */
 function inquiryTextFromOcrJsonLines(lines = []) {
   if (!Array.isArray(lines) || !lines.length) return "";
-  return lines
+  return sanitizeOcrLines(lines)
     .map((row, index) => {
       if (row == null) return "";
       if (typeof row === "string") return row.trim();
@@ -213,13 +255,17 @@ function inquiryTextFromOcrJsonLines(lines = []) {
         row.strength_class || row.strengthClass || row.class || "";
       const coating = row.coating || row.finish || "";
 
-      // Compose MdxL if diameter present and not already in the name.
+      // Compose MdxL if diameter present and not already in the name (Latin/Cyrillic M).
       if (diameter != null && String(diameter).trim() !== "") {
-        const d = String(diameter).replace(/[^\d.,]/g, "").replace(",", ".");
-        if (d && !new RegExp(`\\bM\\s*${d}\\b`, "i").test(name)) {
+        const d = String(diameter)
+          .replace(/[^\d.,]/g, "")
+          .replace(",", ".");
+        if (d && !nameHasThreadSize(name, d)) {
           const L =
             length != null && String(length).trim() !== ""
-              ? String(length).replace(/[^\d.,]/g, "").replace(",", ".")
+              ? String(length)
+                  .replace(/[^\d.,]/g, "")
+                  .replace(",", ".")
               : "";
           const size = L ? `М${d}×${L}` : `М${d}`;
           // "Болт" → "Болт М16×55 …"
@@ -247,6 +293,7 @@ function inquiryTextFromOcrJsonLines(lines = []) {
           : "";
       const strengthPart =
         strength &&
+        !isWrenchSizeToken(strength) &&
         !new RegExp(
           String(strength).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
           "i"
@@ -278,12 +325,29 @@ function inquiryTextFromOcrJsonLines(lines = []) {
  */
 function normalizeVisionOcrResponse(raw) {
   const content = String(raw || "").trim();
-  const lines = extractJsonArray(content);
-  if (lines) {
+  const lines = sanitizeOcrLines(extractJsonArray(content) || []);
+  if (lines.length) {
     const text = inquiryTextFromOcrJsonLines(lines);
     if (text) return { text, lines, format: "json" };
   }
   return { text: content, lines: null, format: "text" };
+}
+
+async function readLmStudioChatContent(response) {
+  const rawText = await response.text();
+  let body = {};
+  try {
+    body = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    const snippet = String(rawText || "")
+      .slice(0, 160)
+      .replace(/\s+/g, " ")
+      .trim();
+    throw new Error(
+      `Vision OCR: LM Studio returned non-JSON (HTTP ${response.status}): ${snippet || "(empty)"}`
+    );
+  }
+  return body;
 }
 
 async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
@@ -335,7 +399,13 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
     signal: AbortSignal.timeout(240_000),
   });
 
-  const responseBody = await response.json().catch(() => ({}));
+  let responseBody;
+  try {
+    responseBody = await readLmStudioChatContent(response);
+  } catch (parseErr) {
+    if (!response.ok) throw parseErr;
+    throw parseErr;
+  }
   if (!response.ok) {
     // Constrained schema may be unsupported — retry once without response_format.
     if (useJson && body.response_format) {
@@ -346,7 +416,7 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(240_000),
       });
-      const retryBody = await retry.json().catch(() => ({}));
+      const retryBody = await readLmStudioChatContent(retry);
       if (retry.ok) {
         return String(retryBody?.choices?.[0]?.message?.content || "").trim();
       }
@@ -391,11 +461,7 @@ async function visionOcrPageBuffers(pages, modelId, opts = {}) {
 
     // Retry only on hard failures — warnings (missing unit, duplicates) must
     // not double GPU time on an otherwise usable extraction.
-    if (
-      normalized.format !== "json" ||
-      !normalized.text ||
-      !validation.valid
-    ) {
+    if (normalized.format !== "json" || !normalized.text || !validation.valid) {
       raw = await visionOcrImageBuffer(buffer, modelId, {
         json: true,
         memoryContext: opts.memoryContext,
@@ -648,5 +714,8 @@ module.exports = {
   normalizeVisionOcrResponse,
   formatExtractionMemory,
   validateOcrLines,
+  sanitizeOcrLine,
+  sanitizeOcrLines,
+  isWrenchSizeToken,
   buildVisionPrompt,
 };

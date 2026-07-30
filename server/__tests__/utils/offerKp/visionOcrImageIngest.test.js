@@ -71,6 +71,43 @@ describe("inquiryTextFromOcrJsonLines", () => {
     expect(text).toMatch(/оцинк/);
     expect(text).toMatch(/120\s+шт/);
   });
+
+  it("does not duplicate Cyrillic М size already in name", () => {
+    const text = inquiryTextFromOcrJsonLines([
+      {
+        name_verbatim: "Болт М10х100 ГОСТ 7805-70",
+        diameter_mm: 10,
+        length_mm: 100,
+        quantity: 30,
+        unit: "шт",
+      },
+    ]);
+    expect(text).toBe("1. Болт М10х100 ГОСТ 7805-70 — 30 шт");
+  });
+
+  it("moves wrench size S16 out of strength_class into the name", () => {
+    const {
+      sanitizeOcrLine,
+    } = require("../../../utils/offerKp/offerKpVisionOcr");
+    const cleaned = sanitizeOcrLine({
+      name_verbatim: "Болт М10х100 ГОСТ 7805-70",
+      strength_class: "S16",
+      quantity: 30,
+      unit: "шт",
+    });
+    expect(cleaned.strength_class).toBeNull();
+    expect(cleaned.name_verbatim).toMatch(/\(S16\)/);
+    const text = inquiryTextFromOcrJsonLines([
+      {
+        name_verbatim: "Болт М10х100 ГОСТ 7805-70",
+        strength_class: "S16",
+        quantity: 30,
+        unit: "шт",
+      },
+    ]);
+    expect(text).toMatch(/\(S16\)/);
+    expect(text).not.toMatch(/кл\.S16/i);
+  });
 });
 
 describe("validateOcrLines retry gate", () => {
