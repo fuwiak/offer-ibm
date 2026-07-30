@@ -109,6 +109,10 @@ const SYSTEM_HELP_PATTERNS = [
   /(?:как\s+работает|что\s+такое|объясни).{0,40}(?:ocr|vision|matching|pipeline|очеред|shopdb|intent|enrich)/iu,
   /(?:jak\s+dzia[łl]a|co\s+to\s+jest).{0,40}(?:ocr|vision|matching|pipeline|shopdb)/iu,
   /(?:почему|why|dlaczego).{0,40}(?:не\s+(?:распознал|извл[её]к|прочитал)|no\s+(?:ocr|extract|match)|nie\s+(?:rozpozna|ocr))/iu,
+  // Capability / onboarding questions (must not hit catalog grounding).
+  /(?:what\s+can\s+you\s+do|what\s+do\s+you\s+do|your\s+capabilities|help\s+me\s+get\s+started)/iu,
+  /(?:co\s+(?:potrafisz|umiesz|mo[zż]esz)|jakie\s+masz\s+mo[zż]liwo[sś]ci)/iu,
+  /(?:чем\s+можешь\s+помочь|какие\s+у\s+тебя\s+возможност|расскажи\s+о\s+себе)/iu,
 ];
 
 /** Aggregate / schema questions about ShopDB (not a product SKU lookup). */

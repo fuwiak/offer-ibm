@@ -337,16 +337,31 @@ function chatHasInventedCatalogFacts(text = "", allowed = null) {
 /**
  * Replace LLM-narrated catalog cards with ShopDB-only cards.
  * Hard rule: never leave invented Ссылка / SKU in the assistant reply.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.injectDraftCards=true] When false (system_help /
+ *   document_question / casual), strip invented cards but never dump the
+ *   previous quote draft into the reply.
  */
 function replaceHallucinatedCatalogInChat(
   text = "",
-  { draft = null, catalogBlocks = [] } = {}
+  { draft = null, catalogBlocks = [], injectDraftCards = true } = {}
 ) {
-  const grounded = buildGroundedCatalogCardsFromDraft(draft, catalogBlocks);
-  const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
+  const grounded = injectDraftCards
+    ? buildGroundedCatalogCardsFromDraft(draft, catalogBlocks)
+    : "";
+  const allowed = collectAllowedCatalogFacts(
+    injectDraftCards ? draft : null,
+    injectDraftCards ? catalogBlocks : []
+  );
   const body = String(text || "");
   const hasCards = /Товар\s*:/i.test(body) || /\[Каталог\s*·/i.test(body);
   const hasFabricatedUrl = /https?:\/\/[^\s)\]]*\/product\//i.test(body);
+
+  if (!injectDraftCards) {
+    if (!hasCards && !hasFabricatedUrl) return body;
+    return stripFabricatedProductLinks(stripLlmCatalogSections(body));
+  }
 
   if (!hasCards && !grounded) {
     return hasFabricatedUrl ? stripFabricatedProductLinks(body) : body;

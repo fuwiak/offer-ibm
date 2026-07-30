@@ -201,4 +201,35 @@ SKU (shop_product_skus):
     expect(out).toContain("https://purolat.com/shop/vinty/real-slug/");
     expect(out).toContain("069280140063050");
   });
+
+  it("does not dump draft cards into system_help-style replies", () => {
+    const {
+      replaceHallucinatedCatalogInChat,
+    } = require("../../../utils/offerKp/groundedResponse");
+    const fake = `[Каталог · purolat.com]
+Товар: Болт M16
+Цена: 1.00 RUB
+Артикул / SKU: 10000000000000000000000000000000
+Ссылка: https://purolat.com/product/fake`;
+    const draft = {
+      lines: [
+        {
+          name: "Болт M16×55",
+          article: "REAL-SKU",
+          productId: "1",
+          unitPriceNet: 158.44,
+          matchType: "exact",
+          productUrl: "https://purolat.com/shop/bolty/real/",
+        },
+      ],
+    };
+    const out = replaceHallucinatedCatalogInChat(fake, {
+      draft,
+      injectDraftCards: false,
+    });
+    expect(out).not.toContain("REAL-SKU");
+    expect(out).not.toContain("158.44");
+    expect(out).not.toContain("10000000000000000000000000000000");
+    expect(out).not.toMatch(/Товар\s*:/i);
+  });
 });

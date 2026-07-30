@@ -207,3 +207,5 @@
 {"text":"pokaż tekst z OCR","intent":"document_question","allowQuoteMutation":false}
 {"text":"how does OCR work?","intent":"system_help","allowShopDbSearch":false}
 {"text":"как работает vision OCR?","intent":"system_help","allowShopDbSearch":false}
+{"text":"what can you do?","intent":"system_help","allowShopDbSearch":false}
+{"text":"Co potrafisz?","intent":"system_help","allowShopDbSearch":false}

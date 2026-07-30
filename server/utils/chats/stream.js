@@ -995,14 +995,26 @@ async function streamChatWithWorkspace(
 
   // Hard ShopDB-only: replace LLM Товар/Ссылка cards with SQL-backed cards.
   // Fake /product/{sku} URLs and invented артикулы must never reach the UI.
+  // Never inject previous draft cards into system_help / document / casual.
   try {
     const {
       replaceHallucinatedCatalogInChat,
       stripFabricatedProductLinks,
     } = require("../offerKp/groundedResponse");
+    const injectDraftCards = Boolean(
+      routedIntent?.policy?.allowShopDbSearch ||
+        [
+          OFFER_KP_INTENTS.PRODUCT_INQUIRY,
+          OFFER_KP_INTENTS.PRODUCT_SEARCH,
+          OFFER_KP_INTENTS.CREATE_QUOTE,
+          OFFER_KP_INTENTS.EDIT_QUOTE,
+          OFFER_KP_INTENTS.DATA_QUESTION,
+        ].includes(routedIntent?.primaryIntent)
+    );
     let groundedText = replaceHallucinatedCatalogInChat(completeText || "", {
       draft: llmCatalog.inquiryDraft,
       catalogBlocks: llmCatalog.catalogBlocks || [],
+      injectDraftCards,
     });
     groundedText = stripFabricatedProductLinks(groundedText || "");
     if (groundedText && groundedText !== completeText) {
