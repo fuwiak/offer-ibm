@@ -130,9 +130,13 @@ class AgentHarness {
           replaceHallucinatedCatalogInChat,
           chatHasInventedCatalogFacts,
           collectAllowedCatalogFacts,
+          stripFabricatedProductLinks,
         } = require("../offerKp/groundedResponse");
         const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
-        if (chatHasInventedCatalogFacts(text, allowed)) {
+        if (
+          chatHasInventedCatalogFacts(text, allowed) ||
+          /\/product\//i.test(text)
+        ) {
           const replaced = replaceHallucinatedCatalogInChat(text, {
             draft,
             catalogBlocks,
@@ -142,6 +146,10 @@ class AgentHarness {
             catalogBlocks: (catalogBlocks || []).length,
           });
           if (replaced && replaced !== text) return replaced;
+        }
+        // Surgical safety net: never leave /product/{sku} even if cards stay.
+        if (/\/product\//i.test(text)) {
+          return stripFabricatedProductLinks(text);
         }
       } catch (e) {
         harnessLog("warn", "outgoingChat.catalogGroundingFailed", {

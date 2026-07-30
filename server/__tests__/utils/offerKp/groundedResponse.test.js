@@ -62,12 +62,16 @@ describe("OfferKP zero-latency grounding", () => {
     const {
       replaceHallucinatedCatalogInChat,
       chatHasInventedCatalogFacts,
+      isFabricatedShopUrl,
+      stripFabricatedProductLinks,
     } = require("../../../utils/offerKp/groundedResponse");
     const fake = `[Каталог · purolat.com]
 Товар: Винт ГОСТ ISO 7380-1-М10×25-8.8
 Цена: 12.50 RUB
 Артикул / SKU: 45104992510700
-Ссылка: https://purolat.com/product/45104992510700`;
+Категория: Винты
+Ссылка: https://purolat.com/product/45104992510700
+Характеристики: класс 8.8`;
     const draft = {
       lines: [
         {
@@ -82,6 +86,9 @@ describe("OfferKP zero-latency grounding", () => {
         },
       ],
     };
+    expect(isFabricatedShopUrl("https://purolat.com/product/45104992510700")).toBe(
+      true
+    );
     expect(
       chatHasInventedCatalogFacts(fake, {
         urls: new Set([
@@ -99,6 +106,38 @@ describe("OfferKP zero-latency grounding", () => {
     expect(out).not.toContain("45104992510700");
     expect(out).not.toContain("/product/45104992510700");
     expect(out).toContain("ID товара (shop_product.id): 35291");
+    expect(
+      stripFabricatedProductLinks(
+        "Ссылка: https://purolat.com/product/X\nок"
+      )
+    ).not.toContain("/product/");
+  });
+
+  it("bans /product/{sku} even when price matches allowed catalog", () => {
+    const {
+      chatHasInventedCatalogFacts,
+      replaceHallucinatedCatalogInChat,
+    } = require("../../../utils/offerKp/groundedResponse");
+    const block = `[Каталог · purolat.com] Винт M5
+ID товара (shop_product.id): 9
+Цена: 12.50 RUB
+Ссылка: https://purolat.com/shop/vinty/real-m5/`;
+    const fake = `Товар: Винт M5
+Цена: 12.50 RUB
+Артикул / SKU: 10642-M5x16-12.9
+Ссылка: https://purolat.com/product/10642-M5x16-12.9`;
+    expect(
+      chatHasInventedCatalogFacts(fake, {
+        urls: new Set(["https://purolat.com/shop/vinty/real-m5/"]),
+        skus: new Set(["real-sku"]),
+        productIds: new Set(["9"]),
+      })
+    ).toBe(true);
+    const out = replaceHallucinatedCatalogInChat(fake, {
+      catalogBlocks: [block],
+    });
+    expect(out).not.toContain("/product/");
+    expect(out).toContain("https://purolat.com/shop/vinty/real-m5/");
   });
 
   it("emits a card for every draft line and builds URL from slug", () => {

@@ -84,6 +84,35 @@ function normalizeUrlKey(url = "") {
     .toLowerCase();
 }
 
+/**
+ * Webasyst storefront URLs are /shop/{category}/{slug}/ — never /product/{sku}.
+ * LLM freely invents https://purolat.com/product/{артикул}; treat as always fake.
+ */
+function isFabricatedShopUrl(url = "") {
+  const u = normalizeUrlKey(url);
+  if (!u) return false;
+  if (/\/product\//i.test(u)) return true;
+  if (/purolat\.com\/product(?:\/|\?|#|$)/i.test(u)) return true;
+  return false;
+}
+
+/**
+ * Drop invented /product/{sku} (and markdown links to them) from any chat text.
+ */
+function stripFabricatedProductLinks(text = "") {
+  let t = String(text || "");
+  t = t.replace(
+    /^[^\n]*Ссылка\s*:\s*https?:\/\/[^\n]*\/product\/[^\n]*$/gim,
+    ""
+  );
+  t = t.replace(
+    /\[([^\]]*)\]\(https?:\/\/[^)]*\/product\/[^)]*\)/gi,
+    "$1"
+  );
+  t = t.replace(/https?:\/\/[^\s)\]]*\/product\/[^\s)\]]*/gi, "");
+  return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** URLs / SKUs that came from ShopDB enrich or priced draft — never LLM. */
 function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
   const urls = new Set();
@@ -94,7 +123,8 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
     const text = String(block || "");
     for (const m of text.matchAll(/Ссылка:\s*(\S+)/gi)) {
       const u = normalizeUrlKey(m[1]);
-      if (u.startsWith("http")) urls.add(u);
+      // Never trust /product/{sku} even if it leaked into an enrich block.
+      if (u.startsWith("http") && !isFabricatedShopUrl(u)) urls.add(u);
     }
     for (const m of text.matchAll(
       /(?:Артикул\s*(?:\/\s*SKU)?|SKU)\s*:\s*([^\s\n*|]+)/gi
@@ -116,7 +146,7 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
   for (const line of draft?.lines || []) {
     if (line.productUrl) {
       const u = normalizeUrlKey(line.productUrl);
-      if (u.startsWith("http")) urls.add(u);
+      if (u.startsWith("http") && !isFabricatedShopUrl(u)) urls.add(u);
     }
     if (line.article) skus.add(String(line.article).trim().toLowerCase());
     if (line.sku) skus.add(String(line.sku).trim().toLowerCase());
@@ -132,7 +162,9 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
  */
 function resolvePublicProductUrl(line = {}) {
   const raw = String(line.productUrl || line.url || "").trim();
-  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) {
+    return isFabricatedShopUrl(raw) ? "" : raw;
+  }
   try {
     const { buildProductUrl, getShopBaseUrl } = require("./productUrl");
     const slug = raw && !raw.includes("://") ? raw : "";
@@ -140,7 +172,10 @@ function resolvePublicProductUrl(line = {}) {
       line.categoryUrl || line.category_url || ""
     ).trim();
     if (!slug && !categoryUrl) return "";
-    return buildProductUrl(getShopBaseUrl(), categoryUrl, slug);
+    // Never build from a slug that is clearly a /product/ path fragment.
+    if (/^product\//i.test(slug)) return "";
+    const built = buildProductUrl(getShopBaseUrl(), categoryUrl, slug);
+    return isFabricatedShopUrl(built) ? "" : built;
   } catch {
     return "";
   }
@@ -252,13 +287,22 @@ function chatHasInventedCatalogFacts(text = "", allowed = null) {
   const facts = allowed || collectAllowedCatalogFacts(null, []);
   const body = String(text || "");
   if (!/Товар\s*:/i.test(body) && !/\[Каталог\s*·/i.test(body)) {
+    // Still catch bare /product/{sku} URLs outside card markup.
+    for (const m of body.matchAll(/https?:\/\/[^\s)\]]+/gi)) {
+      if (isFabricatedShopUrl(m[0])) return true;
+    }
     return false;
+  }
+
+  // Hard ban: any /product/{sku} (Ссылка, markdown, or bare).
+  for (const m of body.matchAll(/https?:\/\/[^\s)\]]+/gi)) {
+    if (isFabricatedShopUrl(m[0])) return true;
   }
 
   for (const m of body.matchAll(/Ссылка\s*:\s*(\S+)/gi)) {
     const u = normalizeUrlKey(m[1]);
     if (!u.startsWith("http")) continue;
-    if (!facts.urls.has(u)) return true;
+    if (isFabricatedShopUrl(u) || !facts.urls.has(u)) return true;
   }
 
   for (const m of body.matchAll(
@@ -272,6 +316,19 @@ function chatHasInventedCatalogFacts(text = "", allowed = null) {
     if (facts.skus.size > 0 && !facts.skus.has(sku)) return true;
     // No allowed SKUs from ShopDB this turn → any LLM SKU is invented.
     if (facts.skus.size === 0) return true;
+  }
+
+  // prompts.js template (Товар/Цена/Категория/Характеристики) without
+  // shop_product.id → LLM narration, not enrich/SQL cards.
+  if (
+    /Товар\s*:/i.test(body) &&
+    /Цена\s*:/i.test(body) &&
+    !/ID товара/i.test(body) &&
+    (/Категория\s*:/i.test(body) ||
+      /Характеристики\s*:/i.test(body) ||
+      /Ссылка\s*:/i.test(body))
+  ) {
+    return true;
   }
 
   return false;
@@ -289,16 +346,23 @@ function replaceHallucinatedCatalogInChat(
   const allowed = collectAllowedCatalogFacts(draft, catalogBlocks);
   const body = String(text || "");
   const hasCards = /Товар\s*:/i.test(body) || /\[Каталог\s*·/i.test(body);
-  if (!hasCards && !grounded) return body;
+  const hasFabricatedUrl = /https?:\/\/[^\s)\]]*\/product\//i.test(body);
 
-  const invented = chatHasInventedCatalogFacts(body, allowed);
-  if (!invented && !grounded) return body;
+  if (!hasCards && !grounded) {
+    return hasFabricatedUrl ? stripFabricatedProductLinks(body) : body;
+  }
+
+  const invented =
+    chatHasInventedCatalogFacts(body, allowed) || hasFabricatedUrl;
+  if (!invented && !grounded) {
+    return hasFabricatedUrl ? stripFabricatedProductLinks(body) : body;
+  }
   if (!invented && grounded && !hasCards) {
-    return body;
+    return stripFabricatedProductLinks(body);
   }
 
   if (!grounded) {
-    const cleaned = stripLlmCatalogSections(body);
+    const cleaned = stripFabricatedProductLinks(stripLlmCatalogSections(body));
     return (
       `${cleaned}\n\n` +
       "Карточки каталога с неподтверждёнными ссылками/SKU удалены. " +
@@ -306,10 +370,10 @@ function replaceHallucinatedCatalogInChat(
     ).trim();
   }
 
-  const preface = stripLlmCatalogSections(body);
+  const preface = stripFabricatedProductLinks(stripLlmCatalogSections(body));
   const parts = [];
   if (preface) parts.push(preface);
-  parts.push(grounded);
+  parts.push(stripFabricatedProductLinks(grounded));
   parts.push(
     "_Источник: каталог purolat.com (MySQL: shop_product, shop_product_skus)._"
   );
@@ -327,4 +391,6 @@ module.exports = {
   chatHasInventedCatalogFacts,
   formatGroundedDraftCard,
   resolvePublicProductUrl,
+  isFabricatedShopUrl,
+  stripFabricatedProductLinks,
 };

@@ -120,7 +120,8 @@ describe("AgentHarness.sanitizeOutgoingChat", () => {
   it("пропускает bullet-ответ, если цена реально подставлена сервером", () => {
     const catalogBlock =
       "[Каталог · purolat.com] Штанга DIN 975 M36×2000 4.8 оцинк\n" +
-      "ID товара (shop_product.id): 1\nЦена: 1250.00 RUB\nСсылка: https://purolat.com/product/975M362000Z";
+      "ID товара (shop_product.id): 1\nЦена: 1250.00 RUB\n" +
+      "Ссылка: https://purolat.com/shop/stangi-spilyki/din-975/shtanga_din_975_m36x2000_zn/";
     const harness = harnessWith({});
     harness.aibitat._chats = [
       { from: "USER", content: `${catalogBlock}\n\nкакая цена?` },
@@ -129,9 +130,34 @@ describe("AgentHarness.sanitizeOutgoingChat", () => {
     const legitReply = [
       "**Товар:** Штанга DIN 975 M36×2000 4.8 оцинк",
       "**Цена:** 1250.00 RUB",
-      "**Ссылка:** https://purolat.com/product/975M362000Z",
+      "ID товара (shop_product.id): 1",
+      "**Ссылка:** https://purolat.com/shop/stangi-spilyki/din-975/shtanga_din_975_m36x2000_zn/",
     ].join("\n");
 
-    expect(harness.sanitizeOutgoingChat(legitReply)).toBe(legitReply);
+    const out = harness.sanitizeOutgoingChat(legitReply);
+    expect(out).toContain("1250.00");
+    expect(out).not.toContain("/product/");
+    expect(out).toContain(
+      "https://purolat.com/shop/stangi-spilyki/din-975/shtanga_din_975_m36x2000_zn/"
+    );
+  });
+
+  it("вырезает выдуманные /product/{sku} даже при совпадении цены", () => {
+    const catalogBlock =
+      "[Каталог · purolat.com] Штанга DIN 975\n" +
+      "ID товара (shop_product.id): 1\nЦена: 1250.00 RUB\n" +
+      "Ссылка: https://purolat.com/shop/stangi/real-slug/";
+    const harness = harnessWith({});
+    harness.aibitat._chats = [
+      { from: "USER", content: `${catalogBlock}\n\nцена?` },
+    ];
+    const poisoned = [
+      "**Товар:** Штанга DIN 975",
+      "**Цена:** 1250.00 RUB",
+      "**Ссылка:** https://purolat.com/product/975M362000Z",
+    ].join("\n");
+    const out = harness.sanitizeOutgoingChat(poisoned);
+    expect(out).not.toContain("/product/975M362000Z");
+    expect(out).not.toMatch(/Ссылка:\s*https:\/\/purolat\.com\/product\//i);
   });
 });

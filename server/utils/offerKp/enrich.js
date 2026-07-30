@@ -219,11 +219,17 @@ async function loadProductSkus(productIds) {
 
 function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
   const name = product.name || `Товар #${product.id}`;
-  const url = buildProductUrl(
+  let url = buildProductUrl(
     baseUrl,
     product.category_url,
     product.product_url
   );
+  try {
+    const { isFabricatedShopUrl } = require("./groundedResponse");
+    if (isFabricatedShopUrl(url)) url = "";
+  } catch {
+    if (/\/product\//i.test(String(url || ""))) url = "";
+  }
   const effectivePrice = resolveProductPrice(
     product,
     skuRows,

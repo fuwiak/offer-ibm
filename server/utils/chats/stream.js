@@ -773,6 +773,8 @@ async function streamChatWithWorkspace(
     Boolean(shopDbGroundedCards) &&
     (quoteDocumentRequest ||
       routedIntent.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.PRODUCT_INQUIRY ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.PRODUCT_SEARCH ||
       (llmCatalog.inquiryDraft?.lines?.length || 0) >= 2);
 
   if (llmUnreachable) {
@@ -996,11 +998,13 @@ async function streamChatWithWorkspace(
   try {
     const {
       replaceHallucinatedCatalogInChat,
+      stripFabricatedProductLinks,
     } = require("../offerKp/groundedResponse");
-    const groundedText = replaceHallucinatedCatalogInChat(completeText || "", {
+    let groundedText = replaceHallucinatedCatalogInChat(completeText || "", {
       draft: llmCatalog.inquiryDraft,
       catalogBlocks: llmCatalog.catalogBlocks || [],
     });
+    groundedText = stripFabricatedProductLinks(groundedText || "");
     if (groundedText && groundedText !== completeText) {
       console.warn(
         "[offerKp] replaced hallucinated catalog cards with ShopDB-backed cards"
