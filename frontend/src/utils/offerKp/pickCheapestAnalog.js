@@ -1,9 +1,8 @@
 /**
  * Pick an alternative from the same list as the draft-table «Аналоги» menu.
  *
- * Preference: in-stock first, then cheapest price among those.
- * Exact / similar / analog all count — operators see them in the dropdown;
- * we no longer require matchType === "analog" (that left most rows empty).
+ * Strict: only in-stock options with a positive ShopDB price.
+ * Preference among those: cheapest net price, then higher stock, then menu order.
  *
  * @param {Array<{ matchType?: string, status?: string, price?: number, sku?: string, stockCount?: number }>} alternatives
  * @returns {object|null}
@@ -27,27 +26,34 @@ export function positiveAltPrice(value) {
   return Number.isFinite(price) && price > 0 ? price : 0;
 }
 
+/** Net unit price on an alternatives-menu row (ShopDB). */
+export function altNetPrice(alt = {}) {
+  return (
+    positiveAltPrice(alt.price) ||
+    positiveAltPrice(alt.unitPriceNet) ||
+    positiveAltPrice(alt.unitPrice) ||
+    0
+  );
+}
+
 /**
- * First usable in-stock option from the alternatives menu (cheapest among
- * those in stock). Falls back to cheapest priced option if stock is unknown.
+ * Cheapest in-stock + priced option from the alternatives menu.
+ * Returns null when no stocked priced option exists (no OOS / zero-price fallback).
  */
 export function pickCheapestAnalog(alternatives = []) {
   const list = (alternatives || []).filter(Boolean);
   if (!list.length) return null;
 
-  const inStock = list.filter(isInStockAlternative);
-  const pool = inStock.length ? inStock : list;
-
-  const priced = pool.filter((alt) => positiveAltPrice(alt.price) > 0);
-  const candidates = priced.length ? priced : pool;
+  const candidates = list.filter(
+    (alt) => isInStockAlternative(alt) && altNetPrice(alt) > 0
+  );
   if (!candidates.length) return null;
 
   // Stable sort: keep original menu order as tiebreaker.
   return [...candidates]
     .map((alt, menuIndex) => ({ alt, menuIndex }))
     .sort((a, b) => {
-      const priceDelta =
-        positiveAltPrice(a.alt.price) - positiveAltPrice(b.alt.price);
+      const priceDelta = altNetPrice(a.alt) - altNetPrice(b.alt);
       if (priceDelta) return priceDelta;
       const stockDelta =
         (Number(b.alt.stockCount) || 0) - (Number(a.alt.stockCount) || 0);
@@ -56,8 +62,15 @@ export function pickCheapestAnalog(alternatives = []) {
     })[0].alt;
 }
 
+function lineNetPrice(line = {}) {
+  const net = Number(line.unitPriceNet);
+  if (Number.isFinite(net) && net > 0) return net;
+  return positiveAltPrice(line.price) || 0;
+}
+
 /**
- * For each draft line, resolve best in-stock alternative from its menu.
+ * For each draft line, resolve best in-stock+priced alternative from its menu.
+ * Re-applies when SKU matches but the row still has no / wrong price.
  * @returns {{ index: number, alt: object, line: object }[]}
  */
 export function resolveCheapestAnalogsForLines(lines = []) {
@@ -71,9 +84,14 @@ export function resolveCheapestAnalogsForLines(lines = []) {
     const nextSku = String(alt.sku || "").trim();
     const currentId = String(line.productId || "").trim();
     const nextId = String(alt.productId || "").trim();
-    // Skip if already on this SKU / product (idempotent re-click).
-    if (currentSku && nextSku && currentSku === nextSku) return;
-    if (currentId && nextId && currentId === nextId) return;
+    const sameSku = Boolean(currentSku && nextSku && currentSku === nextSku);
+    const sameId = Boolean(currentId && nextId && currentId === nextId);
+    const nextNet = altNetPrice(alt);
+    const currentNet = lineNetPrice(line);
+    const priceNeedsUpdate =
+      nextNet > 0 && Math.abs(currentNet - nextNet) >= 0.005;
+    // Skip only when already on this SKU/product AND price already matches.
+    if ((sameSku || sameId) && !priceNeedsUpdate) return;
     picks.push({ index, alt, line });
   });
   return picks;

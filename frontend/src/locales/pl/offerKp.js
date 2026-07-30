@@ -461,10 +461,14 @@ const TRANSLATIONS = {
     addFromDb: "Z bazy",
     cheapestAnalogs: "Najtańsze analogi",
     cheapestAnalogsTitle:
-      "Podstaw w każdym wierszu najtańszy wariant z menu «Zamienniki», który jest na stanie",
-    cheapestAnalogsSuccess: "Podstawiono z magazynu: {{count}}",
+      "Podstaw w każdym wierszu najtańszy wariant z menu «Zamienniki» z ceną i stanem magazynowym",
+    cheapestAnalogsSuccess: "Podstawiono z magazynu z ceną: {{count}}",
     cheapestAnalogsEmpty:
-      "Brak wierszy z menu zamienników (≥2 opcje) albo już wybrano najlepszy na stanie.",
+      "Brak wierszy z wariantem na stanie i z ceną z katalogu (menu ≥2), albo już wybrano najlepszy.",
+    cheapestAnalogsUndo: "Cofnij",
+    cheapestAnalogsUndoTitle: "Cofnij ostatnie podstawienie «Najtańsze analogi»",
+    cheapestAnalogsUndoSuccess:
+      "Cofnięto: przywrócono pozycje sprzed «Najtańsze analogi».",
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Uwaga",
     commentPlaceholder: "Komentarz",

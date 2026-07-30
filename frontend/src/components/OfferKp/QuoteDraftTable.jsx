@@ -10,6 +10,7 @@ import {
   CircleNotch,
   Brain,
   TrendDown,
+  ArrowCounterClockwise,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import OfferKp from "@/models/offerKp";
@@ -18,7 +19,11 @@ import { AUTH_TOKEN } from "@/utils/constants";
 import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
 import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
 import { localeForCountry } from "@/utils/offerKp/quoteBrand";
-import { resolveCheapestAnalogsForLines } from "@/utils/offerKp/pickCheapestAnalog";
+import {
+  altNetPrice,
+  isInStockAlternative,
+  resolveCheapestAnalogsForLines,
+} from "@/utils/offerKp/pickCheapestAnalog";
 import showToast from "@/utils/toast";
 
 const EMPTY_LINE = {
@@ -129,6 +134,8 @@ export default function QuoteDraftTable() {
   const [teaching, setTeaching] = useState(false);
   const [columnPromptOpen, setColumnPromptOpen] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState("");
+  /** Snapshot before last «Дешёвые аналоги» — one-step undo. */
+  const [cheapestAnalogsUndo, setCheapestAnalogsUndo] = useState(null);
 
   const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
   const customColumns = quoteDraft?.customColumns || [];
@@ -153,6 +160,10 @@ export default function QuoteDraftTable() {
   useEffect(() => {
     setReviewConfirmed(false);
   }, [lines]);
+
+  useEffect(() => {
+    setCheapestAnalogsUndo(null);
+  }, [quoteDraft?.reference]);
 
   useEffect(() => {
     if (!lines.length) return;
@@ -524,17 +535,28 @@ export default function QuoteDraftTable() {
   }
 
   function altPatch(alt) {
+    const unitPriceNet = altNetPrice(alt);
+    const inStock = isInStockAlternative(alt);
+    const status =
+      alt.status ||
+      (inStock ? "В наличии" : alt.matchType === "analog" ? "Аналог" : "Аналог");
     return {
       name: alt.name,
       article: alt.sku,
       sku: alt.sku,
       productId: alt.productId || undefined,
       matchType: alt.matchType || "analog",
-      priceWithVat: Number((Number(alt.price || 0) * (1 + vatRate)).toFixed(2)),
-      status: alt.status || "Аналог",
-      kpStatus: "Предложен аналог",
+      // ShopDB alt.price is net — keep both fields in sync for the table.
+      unitPriceNet: Number(unitPriceNet.toFixed(2)),
+      priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
+      status,
+      kpStatus:
+        alt.matchType === "exact" && inStock
+          ? "Точное соответствие"
+          : "Предложен аналог",
       analogOf: alt.analogOf,
-      allowPrice: true,
+      stockCount: Number(alt.stockCount) || 0,
+      allowPrice: unitPriceNet > 0,
     };
   }
 
@@ -550,7 +572,7 @@ export default function QuoteDraftTable() {
       showToast(
         t("draftTable.cheapestAnalogsEmpty", {
           defaultValue:
-            "Нет строк с меню альтернатив (нужно ≥2 варианта) или уже выбран лучший на складе.",
+            "Нет строк с вариантом в наличии и с ценой из каталога (меню «Аналоги» ≥2), либо уже выбран лучший.",
         }),
         "info"
       );
@@ -558,6 +580,14 @@ export default function QuoteDraftTable() {
     }
 
     const byIndex = new Map(picks.map((p) => [p.index, p.alt]));
+    const snapshotLines = lines.map((line) => ({ ...line }));
+    setCheapestAnalogsUndo({
+      hardwareLines: snapshotLines,
+      previewLines: snapshotLines,
+      subtotal: quoteDraft?.preview?.subtotal,
+      totalWeightKg: quoteDraft?.preview?.totalWeightKg,
+      total: quoteDraft?.preview?.total,
+    });
     setQuoteDraft((prev) => {
       const current = prev.hardwareLines || prev.preview?.lines || [];
       const next = current.map((line, i) => {
@@ -589,9 +619,35 @@ export default function QuoteDraftTable() {
     showToast(
       t("draftTable.cheapestAnalogsSuccess", {
         count: picks.length,
-        defaultValue: "Подставлено из наличия: {{count}}",
+        defaultValue: "Подставлено из наличия с ценой: {{count}}",
       }),
       "success"
+    );
+  }
+
+  function undoCheapestAnalogs() {
+    if (!cheapestAnalogsUndo) return;
+    const snap = cheapestAnalogsUndo;
+    setQuoteDraft((prev) => {
+      const restored = snap.hardwareLines || [];
+      return {
+        ...prev,
+        hardwareLines: restored,
+        preview: {
+          ...(prev.preview || {}),
+          lines: snap.previewLines || restored,
+          subtotal: snap.subtotal ?? prev.preview?.subtotal,
+          totalWeightKg: snap.totalWeightKg ?? prev.preview?.totalWeightKg,
+          total: snap.total ?? prev.preview?.total,
+        },
+      };
+    });
+    setCheapestAnalogsUndo(null);
+    showToast(
+      t("draftTable.cheapestAnalogsUndoSuccess", {
+        defaultValue: "Отменено: восстановлены позиции до «Дешёвые аналоги».",
+      }),
+      "info"
     );
   }
 
@@ -725,7 +781,7 @@ export default function QuoteDraftTable() {
             onClick={applyCheapestAnalogs}
             title={t("draftTable.cheapestAnalogsTitle", {
               defaultValue:
-                "Подставить по каждой строке самый дешёвый вариант из меню «Аналоги», который есть на складе",
+                "Подставить по каждой строке самый дешёвый вариант из меню «Аналоги» с ценой и наличием на складе",
             })}
             className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover"
           >
@@ -734,6 +790,21 @@ export default function QuoteDraftTable() {
               defaultValue: "Дешёвые аналоги",
             })}
           </button>
+          {cheapestAnalogsUndo && (
+            <button
+              type="button"
+              onClick={undoCheapestAnalogs}
+              title={t("draftTable.cheapestAnalogsUndoTitle", {
+                defaultValue: "Отменить последнюю подстановку «Дешёвые аналоги»",
+              })}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-theme-sidebar-item-hover"
+            >
+              <ArrowCounterClockwise size={13} weight="bold" />
+              {t("draftTable.cheapestAnalogsUndo", {
+                defaultValue: "Отменить",
+              })}
+            </button>
+          )}
           <button
             type="button"
             onClick={addLine}
@@ -940,11 +1011,25 @@ export default function QuoteDraftTable() {
                           defaultValue: "Аналоги",
                         })}
                       </option>
-                      {line.alternatives.map((a, ai) => (
-                        <option key={ai} value={ai}>
-                          {a.name?.slice(0, 40)} ({a.status})
-                        </option>
-                      ))}
+                      {line.alternatives.map((a, ai) => {
+                        const net = altNetPrice(a);
+                        const stock = Number(a.stockCount) || 0;
+                        const priceBit =
+                          net > 0 ? ` · ${net.toFixed(2)}` : " · нет цены";
+                        const stockBit =
+                          stock > 0
+                            ? ` · ${stock} шт`
+                            : isInStockAlternative(a)
+                              ? ""
+                              : " · нет на складе";
+                        return (
+                          <option key={ai} value={ai}>
+                            {a.name?.slice(0, 36)} ({a.status}
+                            {priceBit}
+                            {stockBit})
+                          </option>
+                        );
+                      })}
                     </select>
                   )}
                 </td>
