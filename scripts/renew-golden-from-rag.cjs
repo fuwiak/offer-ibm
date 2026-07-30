@@ -9,6 +9,8 @@
  *    matched_name from the live catalog record (SKU authority).
  * 2. Write a committed catalog self-match sample:
  *    test_files/Rag_catalog_selfmatch_100.expected.csv
+ * 3. Sync the same CSV into graphify-audits/golden-rag-selfmatch-100/
+ *    (isolated graphify + compare-vs-golden.cjs oracle).
  *
  * Usage:
  *   node scripts/renew-golden-from-rag.cjs
@@ -171,6 +173,39 @@ function renewMatchingCsv(csvPath, bySku) {
   return { updated, missing, skipped: false };
 }
 
+function syncGraphifyGoldenPack(csvPath, seed, sampleMeta) {
+  const packDir = path.join(
+    REPO_ROOT,
+    "graphify-audits/golden-rag-selfmatch-100"
+  );
+  fs.mkdirSync(packDir, { recursive: true });
+  const packCsv = path.join(packDir, "Rag_catalog_selfmatch_100.expected.csv");
+  fs.copyFileSync(csvPath, packCsv);
+
+  const rebuild = path.join(packDir, "rebuild-snapshot.cjs");
+  let snapshotStatus = "skipped";
+  if (fs.existsSync(rebuild)) {
+    const { spawnSync } = require("child_process");
+    const regen = spawnSync(process.execPath, [rebuild], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    });
+    snapshotStatus =
+      regen.status === 0
+        ? "rebuilt"
+        : `failed:${(regen.stderr || regen.stdout || "").trim().slice(0, 200)}`;
+  }
+
+  return {
+    pack: path.relative(REPO_ROOT, packDir),
+    csv: path.relative(REPO_ROOT, packCsv),
+    snapshot: "graphify-audits/golden-rag-selfmatch-100/goldenSnapshot.cjs",
+    snapshotStatus,
+    seed,
+    sampleSize: sampleMeta.sampleSize,
+  };
+}
+
 function writeSelfMatchSample(rows, sampleSize, seed, outPath) {
   const ranked = rows
     .map((row) => {
@@ -256,6 +291,9 @@ function main() {
     );
   }
 
+  // Isolated graphify audit pack — compare live matcher against THIS oracle.
+  const graphifyAudit = syncGraphifyGoldenPack(selfOut, seed, sample);
+
   console.log(
     JSON.stringify(
       {
@@ -272,6 +310,7 @@ function main() {
         shopdbLocal: shopdb
           ? { ...shopdb, out: path.relative(REPO_ROOT, shopdbOut) }
           : null,
+        graphifyAudit,
       },
       null,
       2

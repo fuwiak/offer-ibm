@@ -51,6 +51,8 @@
     "deploy:lainey": "bash scripts/deploy-lainey-sync.sh",
     "deploy:lainey:server": "SKIP_FRONTEND=1 bash scripts/deploy-lainey-sync.sh",
     "deploy:lainey:docker": "bash scripts/deploy-lainey-app.sh",
+    "golden:renew-rag": "node scripts/renew-golden-from-rag.cjs",
+    "golden:compare-rag": "node graphify-audits/golden-rag-selfmatch-100/compare-vs-golden.cjs",
     "lms:switch": "bash docker/lmstudio-switch.sh",
     "lms:eyes": "bash docker/lmstudio-switch.sh eyes",
     "lms:brain": "bash docker/lmstudio-switch.sh brain",

@@ -1,0 +1,17 @@
+{
+  "compare-vs-golden.cjs": {
+    "mtime": 1785396858.3788006,
+    "ast_hash": "8378dd3ce113bfee847caaa362b42e98",
+    "semantic_hash": "8378dd3ce113bfee847caaa362b42e98"
+  },
+  "goldenSnapshot.cjs": {
+    "mtime": 1785396975.6484213,
+    "ast_hash": "4ef7d6433e089e1f68bbd7508e31b86f",
+    "semantic_hash": "4ef7d6433e089e1f68bbd7508e31b86f"
+  },
+  "rebuild-snapshot.cjs": {
+    "mtime": 1785396971.375458,
+    "ast_hash": "04e39d17f0110f3650dda3374811bb30",
+    "semantic_hash": "04e39d17f0110f3650dda3374811bb30"
+  }
+}

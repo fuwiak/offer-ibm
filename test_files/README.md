@@ -82,4 +82,11 @@ Query = имя каталога → свой SKU (`exact`). Обновление
 node scripts/renew-golden-from-rag.cjs
 ```
 
+Изолированный graphify + сравнение matcher vs этот oracle:
+
+```bash
+node graphify-audits/golden-rag-selfmatch-100/compare-vs-golden.cjs
+cd graphify-audits/golden-rag-selfmatch-100 && graphify query "golden SKU" --graph graphify-out/graph.json
+```
+
 Приватный MySQL-сэмпл `Shopdb_random_*` — локально, в git не класть.

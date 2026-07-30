@@ -52,4 +52,6 @@ test_files/Shopdb_random*.csv
 # Full-repo graphify rebuild (~30MB + AST cache) — keep lean audit graphs tracked
 /graphify-out/
 graphify-audits/**/graphify-out/cache/
+graphify-audits/**/last-compare.json
+graphify-audits/**/last-compare.meta.json
 server/__tests__/utils/agents/models/

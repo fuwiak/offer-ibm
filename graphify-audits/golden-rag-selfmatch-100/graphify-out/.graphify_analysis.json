@@ -1,0 +1,99 @@
+{
+  "communities": {
+    "0": [
+      "compare_vs_golden",
+      "compare_vs_golden_default_csv",
+      "compare_vs_golden_default_json",
+      "compare_vs_golden_fs",
+      "compare_vs_golden_main",
+      "compare_vs_golden_option",
+      "compare_vs_golden_path",
+      "compare_vs_golden_repo_root",
+      "compare_vs_golden_spawnsync"
+    ],
+    "1": [
+      "goldensnapshot",
+      "goldensnapshot_findbysku",
+      "goldensnapshot_findbysourcename",
+      "goldensnapshot_golden_meta",
+      "goldensnapshot_golden_rows",
+      "goldensnapshot_goldencsvpath",
+      "goldensnapshot_path",
+      "goldensnapshot_skuset"
+    ],
+    "2": [
+      "rebuild_snapshot",
+      "rebuild_snapshot_csv",
+      "rebuild_snapshot_fs",
+      "rebuild_snapshot_main",
+      "rebuild_snapshot_out",
+      "rebuild_snapshot_parsecsvline",
+      "rebuild_snapshot_path"
+    ]
+  },
+  "cohesion": {
+    "0": 0.25,
+    "1": 0.25,
+    "2": 0.3333333333333333
+  },
+  "gods": [
+    {
+      "id": "compare_vs_golden_option",
+      "label": "option()",
+      "degree": 2
+    },
+    {
+      "id": "compare_vs_golden_main",
+      "label": "main()",
+      "degree": 2
+    },
+    {
+      "id": "rebuild_snapshot_parsecsvline",
+      "label": "parseCsvLine()",
+      "degree": 2
+    },
+    {
+      "id": "rebuild_snapshot_main",
+      "label": "main()",
+      "degree": 2
+    },
+    {
+      "id": "compare_vs_golden_fs",
+      "label": "fs",
+      "degree": 1
+    },
+    {
+      "id": "compare_vs_golden_path",
+      "label": "path",
+      "degree": 1
+    },
+    {
+      "id": "compare_vs_golden_spawnsync",
+      "label": "{ spawnSync }",
+      "degree": 1
+    },
+    {
+      "id": "compare_vs_golden_repo_root",
+      "label": "REPO_ROOT",
+      "degree": 1
+    },
+    {
+      "id": "compare_vs_golden_default_csv",
+      "label": "DEFAULT_CSV",
+      "degree": 1
+    },
+    {
+      "id": "compare_vs_golden_default_json",
+      "label": "DEFAULT_JSON",
+      "degree": 1
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `fs`, `path`, `{ spawnSync }` to the rest of the system?",
+      "why": "13 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}
