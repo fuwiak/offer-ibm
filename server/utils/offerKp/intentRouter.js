@@ -197,9 +197,11 @@ function defaultPolicy(primaryIntent, intents = []) {
     allowQuoteMutation: [I.PRODUCT_INQUIRY, I.CREATE_QUOTE, I.EDIT_QUOTE].some(
       (intent) => allIntents.has(intent)
     ),
-    allowCatalogPriceUse: [I.PRODUCT_INQUIRY, I.PRODUCT_SEARCH, I.CREATE_QUOTE].some(
-      (intent) => allIntents.has(intent)
-    ),
+    allowCatalogPriceUse: [
+      I.PRODUCT_INQUIRY,
+      I.PRODUCT_SEARCH,
+      I.CREATE_QUOTE,
+    ].some((intent) => allIntents.has(intent)),
     allowExport: primaryIntent === I.CREATE_QUOTE,
     allowWebSearch: false,
     allowLlmPrice: false,

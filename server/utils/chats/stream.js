@@ -110,9 +110,7 @@ async function streamChatWithWorkspace(
     shopDbEnrichEnabled() &&
     routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS
   ) {
-    const {
-      resolveOfferKpIntent,
-    } = require("../offerKp/intentLlmJudge");
+    const { resolveOfferKpIntent } = require("../offerKp/intentLlmJudge");
     const { needsLlmIntentJudge } = require("../offerKp/intentRouter");
     if (needsLlmIntentJudge(routedIntent)) {
       generalIntentJudgeAttempted = true;
@@ -458,8 +456,11 @@ async function streamChatWithWorkspace(
   }
 
   externalContexts = await shopEnrichPromise;
-  const shopFlags = (externalContexts || []).find((c) => c?.kind === "shopdb")?.flags || {};
-  const shopTexts = (externalContexts || []).find((c) => c?.kind === "shopdb")?.contextTexts || [];
+  const shopFlags =
+    (externalContexts || []).find((c) => c?.kind === "shopdb")?.flags || {};
+  const shopTexts =
+    (externalContexts || []).find((c) => c?.kind === "shopdb")?.contextTexts ||
+    [];
   updateEnrichFlags(pipelineDiag, shopFlags, shopTexts.length);
   diagNote(
     pipelineDiag,
@@ -670,7 +671,9 @@ async function streamChatWithWorkspace(
       console.log(
         `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
       );
-      const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
+      const {
+        resolveOfferKpChatSampling,
+      } = require("../offerKp/deterministicSampling");
       const { textResponse, metrics: performanceMetrics } =
         await LLMConnector.getChatCompletion(messages, {
           ...resolveOfferKpChatSampling(),
@@ -696,7 +699,9 @@ async function streamChatWithWorkspace(
         metrics,
       });
     } else {
-      const { resolveOfferKpChatSampling } = require("../offerKp/deterministicSampling");
+      const {
+        resolveOfferKpChatSampling,
+      } = require("../offerKp/deterministicSampling");
       const stream = await LLMConnector.streamGetChatCompletion(messages, {
         ...resolveOfferKpChatSampling(),
         user: user,
@@ -715,7 +720,6 @@ async function streamChatWithWorkspace(
         metrics = stream.metrics;
       }
     }
-
   } catch (genErr) {
     recordPipelineFailure(pipelineDiag, genErr);
     const abortError = formatAbortError(genErr, pipelineDiag);
