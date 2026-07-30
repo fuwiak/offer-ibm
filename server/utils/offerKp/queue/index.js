@@ -8,7 +8,11 @@ const {
 } = require("./constants");
 const { buildOfferKpJobId, retrievalCacheKey } = require("./jobKey");
 const { pingRedis, closeSharedRedis } = require("./redisClient");
-const { setJobStatus, getJobStatus, subscribeJobEvents } = require("./statusStore");
+const {
+  setJobStatus,
+  getJobStatus,
+  subscribeJobEvents,
+} = require("./statusStore");
 const {
   getOcrCache,
   setOcrCache,
