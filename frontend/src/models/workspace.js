@@ -218,16 +218,19 @@ const Workspace = {
         if (chatResult) handleChat(chatResult);
       },
       onerror(err) {
+        // AbortController abort is expected (stop button / completed stream).
+        if (ctrl.signal.aborted) return;
         handleChat({
           id: v4(),
           type: "abort",
           textResponse: null,
           sources: [],
           close: true,
-          error: `An error occurred while streaming response. ${err.message}`,
+          error: `An error occurred while streaming response. ${err?.message || err}`,
         });
         ctrl.abort();
-        throw new Error();
+        // Do NOT throw — fetch-event-source retries on throw and surfaces
+        // another "network error" after the connection already died.
       },
     });
   },

@@ -158,16 +158,17 @@ const WorkspaceThread = {
           if (chatResult) handleChat(chatResult);
         },
         onerror(err) {
+          if (ctrl.signal.aborted) return;
           handleChat({
             id: v4(),
             type: "abort",
             textResponse: null,
             sources: [],
             close: true,
-            error: `An error occurred while streaming response. ${err.message}`,
+            error: `An error occurred while streaming response. ${err?.message || err}`,
           });
           ctrl.abort();
-          throw new Error();
+          // Do NOT throw — retries after a dead SSE show up as "network error".
         },
       }
     );

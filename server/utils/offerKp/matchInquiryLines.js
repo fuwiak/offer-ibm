@@ -182,11 +182,12 @@ function slimAlternativeForSse(alt = {}) {
 }
 
 /** Keep SSE quote-progress payloads small (avoids mid-stream network aborts). */
-function slimLineForSse(line = {}) {
+function slimLineForSse(line = {}, { includeAlternatives = false } = {}) {
   if (!line || typeof line !== "object") return line;
-  const alternatives = Array.isArray(line.alternatives)
-    ? line.alternatives.slice(0, 12).map(slimAlternativeForSse).filter(Boolean)
-    : [];
+  const alternatives =
+    includeAlternatives && Array.isArray(line.alternatives)
+      ? line.alternatives.slice(0, 12).map(slimAlternativeForSse).filter(Boolean)
+      : [];
   return {
     inquiryRaw: line.inquiryRaw,
     name: line.name,
@@ -214,9 +215,11 @@ function slimLineForSse(line = {}) {
 }
 
 function draftProgressPayload(partialLines, { stage, completed, total }) {
+  // During searching, omit alternatives entirely — UI only needs row fill state.
+  const includeAlternatives = stage === "matched";
   const lines = partialLines
     .map((line) => line || buildPendingDraftLine({}))
-    .map(slimLineForSse);
+    .map((line) => slimLineForSse(line, { includeAlternatives }));
   return {
     progressStage: stage,
     lineCount: total,
@@ -1336,7 +1339,9 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
 
   const draft = buildDraftFromMatchedLines(matched);
   if (onProgress) {
-    const slimLines = draft.lines.map(slimLineForSse);
+    const slimLines = draft.lines.map((line) =>
+      slimLineForSse(line, { includeAlternatives: true })
+    );
     onProgress({
       progressStage: "matched",
       lineCount: lines.length,

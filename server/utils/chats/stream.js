@@ -420,6 +420,66 @@ async function streamChatWithWorkspace(
     messageLimit,
   });
 
+  // Keep SSE alive during long ShopDB matching / LM Studio warmup.
+  const sseHeartbeat = setInterval(() => {
+    try {
+      if (!response.writableEnded && !response.destroyed) {
+        response.write(": offerkp-ping\n\n");
+      }
+    } catch {
+      /* client gone */
+    }
+  }, 8000);
+  const stopSseHeartbeat = () => {
+    try {
+      clearInterval(sseHeartbeat);
+    } catch {
+      /* ignore */
+    }
+  };
+  response.once?.("close", stopSseHeartbeat);
+
+  const writeMatchProgressSafe = (payload = {}) => {
+    try {
+      if (response.writableEnded || response.destroyed) return;
+      updateMatchProgress(pipelineDiag, payload);
+      writeResponseChunk(response, {
+        uuid,
+        type: "offerKpQuotePanel",
+        content: {
+          documentPanelView: "draftTable",
+          progressStage: payload.progressStage || "searching",
+          matchedCount: payload.matchedCount,
+          total: payload.total,
+          lineCount: payload.lineCount,
+          quoteDraft: payload.quoteDraft || {
+            step: 2,
+            hardwareLines: [],
+            preview: { lines: [] },
+          },
+        },
+      });
+    } catch (e) {
+      console.warn(
+        "[offerKp] match progress SSE write failed:",
+        e?.message || e
+      );
+    }
+  };
+
+  // Start catalog matching immediately — must NOT wait for LM Studio
+  // forceRefresh (that blocked SSE and surfaced as "network error" on RFQ paste).
+  const shopEnrichPromise = collectExternalContexts({
+    message: updatedMessage,
+    workspace,
+    language,
+    chatHistory: rawHistory,
+    parsedFileTexts,
+    threadId: thread?.id || null,
+    resolvedIntent: routedIntent,
+    onProgress: writeMatchProgressSafe,
+  });
+
   // parsedFiles / parsedFileTexts were already fetched above (needed for the
   // quoteDocumentRequest check before the agent-mode early-return).
   const {
@@ -438,7 +498,9 @@ async function streamChatWithWorkspace(
   const LLMConnector = await getLLMProviderWithFallback({
     provider: effectiveChatProvider,
     model: effectiveChatModel,
-    forceRefresh: true,
+    // false: RFQ matching already running; a forced LM Studio reload used to
+    // stall the stream for tens of seconds and drop the connection.
+    forceRefresh: false,
   });
   setGenerationTarget(pipelineDiag, {
     provider: LLMConnector?.constructor?.name || effectiveChatProvider,
@@ -458,6 +520,7 @@ async function streamChatWithWorkspace(
     llmUnreachable &&
     !shouldContinueWithoutChatLlm(routedIntent, quoteDocumentRequest)
   ) {
+    stopSseHeartbeat();
     const abortError = buildLlmDownChatReply({ requestId: uuid });
     diagNote(pipelineDiag, "llmUnreachable fail-fast");
     recordPipelineFailure(pipelineDiag, new Error(abortError));
@@ -507,34 +570,7 @@ async function streamChatWithWorkspace(
   }
   // Keep SSE alive with quote-progress events only (statusResponse would
   // clear loadingResponse in the UI — see frontend utils/chat/index.js).
-  const shopEnrichPromise = collectExternalContexts({
-    message: updatedMessage,
-    workspace,
-    language,
-    chatHistory: rawHistory,
-    parsedFileTexts,
-    threadId: thread?.id || null,
-    resolvedIntent: routedIntent,
-    onProgress: (payload = {}) => {
-      updateMatchProgress(pipelineDiag, payload);
-      writeResponseChunk(response, {
-        uuid,
-        type: "offerKpQuotePanel",
-        content: {
-          documentPanelView: "draftTable",
-          progressStage: payload.progressStage || "searching",
-          matchedCount: payload.matchedCount,
-          total: payload.total,
-          lineCount: payload.lineCount,
-          quoteDraft: payload.quoteDraft || {
-            step: 2,
-            hardwareLines: [],
-            preview: { lines: [] },
-          },
-        },
-      });
-    },
-  });
+  // shopEnrichPromise was already started above (before LM Studio warmup).
 
   // Look for pinned documents
   // as pinning is a supplemental tool but it should be used with caution since it can easily blow up a context window.
@@ -629,6 +665,7 @@ async function streamChatWithWorkspace(
 
   // Failed similarity search if it was run at all and failed.
   if (!!vectorSearchResults.message) {
+    stopSseHeartbeat();
     writeResponseChunk(response, {
       id: uuid,
       type: "abort",
@@ -679,6 +716,7 @@ async function streamChatWithWorkspace(
   }
 
   externalContexts = await shopEnrichPromise;
+  stopSseHeartbeat();
   const shopFlags =
     (externalContexts || []).find((c) => c?.kind === "shopdb")?.flags || {};
   const shopTexts =
