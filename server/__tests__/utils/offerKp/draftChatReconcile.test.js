@@ -140,12 +140,103 @@ ID товара (shop_product.id): 206
     expect(filled.productId).toBe("206");
   });
 
-  it("alignChatTextWithDraftMarkdown replaces table body", () => {
-    const chat = `Вот КП:\n| 1 | A | B | SKU | ok | шт | 1 | 1.00 | 1 | — |\nконец`;
-    const md = `| 1 | A | B | SKU | ok | шт | 1 | 2.00 | 2 | — |`;
-    const out = alignChatTextWithDraftMarkdown(chat, md);
-    expect(out).toContain("2.00");
-    expect(out).toContain("Вот КП:");
-    expect(out).toContain("конец");
+  it("extracts Товар/Цена/Артикул chat cards", () => {
+    const chat = `
+[Каталог · purolat.com]
+Товар: Винт ГОСТ ISO 7380-1-М10×25-8.8
+Цена: 12.50 RUB
+Артикул / SKU: 45104992510700
+Ссылка: https://purolat.com/product/45104992510700
+
+Товар: Винт М5×16-А4 DIN 7991
+Цена: 8.50 RUB
+Артикул / SKU: 45104992511500
+`;
+    const {
+      extractChatProductBlocks,
+      namesCompatible,
+    } = require("../../../utils/offerKp/draftChatReconcile");
+    const rows = extractChatProductBlocks(chat);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].article).toBe("45104992510700");
+    expect(rows[0].unitPriceNet).toBe(12.5);
+    expect(rows[1].name).toMatch(/М5|M5/);
+    expect(
+      namesCompatible(
+        "Винт ГОСТ ISO 7380-1-М10х25-8.8",
+        "Винт ГОСТ ISO 7380-1-М10×25-8.8"
+      )
+    ).toBe(true);
+    expect(
+      namesCompatible(
+        "Винт ГОСТ ISO 7380-1-М10х25-8.8",
+        "Винт М6-6g×12 DIN 7380-1"
+      )
+    ).toBe(false);
+  });
+
+  it("fills gap from chat SKU only after ShopDB verify + name check", async () => {
+    const inquiryText = [
+      "Винт ГОСТ ISO 7380-1-М10х25-8.8 – 1700 шт.",
+      "Винт М5х16-А4 DIN 7991 – 500 шт.",
+    ].join("\n");
+    const chatText = `
+Товар: Винт ГОСТ ISO 7380-1-М10×25-8.8
+Цена: 99.00 RUB
+Артикул / SKU: SKU-M10
+Товар: Винт М5×16-А4 DIN 7991
+Цена: 88.00 RUB
+Артикул / SKU: SKU-M5
+`;
+    const searchByExactSku = jest.fn(async (skus) => {
+      const sku = skus[0];
+      if (sku === "SKU-M10") {
+        return [{ id: 1, name: "Винт ГОСТ ISO 7380-1-М10×25-8.8", price: 12.5 }];
+      }
+      if (sku === "SKU-M5") {
+        return [{ id: 2, name: "Винт М5×16-А4 DIN 7991", price: 8.5 }];
+      }
+      return [];
+    });
+    const matchLine = jest.fn(async () => {
+      throw new Error("should not rematch when chat SKU works");
+    });
+    const result = await reproduceDraftFillMissing({
+      draft: { lines: [] },
+      inquiryText,
+      matchLine,
+      searchByExactSku,
+      options: { chatText },
+    });
+    expect(result.fromChatSku).toBe(2);
+    expect(result.rematched).toBe(0);
+    expect(result.draft.lines).toHaveLength(2);
+    // Live ShopDB price, not LLM 99.00
+    expect(result.draft.lines[0].unitPriceNet).toBe(12.5);
+    expect(result.draft.lines[1].unitPriceNet).toBe(8.5);
+    expect(matchLine).not.toHaveBeenCalled();
+  });
+
+  it("rejects chat SKU when size does not match inquiry", async () => {
+    const inquiryText = "Винт ГОСТ ISO 7380-1-М10х25-8.8 – 1700 шт.";
+    const chatText = `
+Товар: Винт М6-6g×12 DIN 7380-1
+Цена: 12.50 RUB
+Артикул / SKU: BAD-SKU
+`;
+    const searchByExactSku = jest.fn(async () => [
+      { id: 9, name: "Винт М6-6g×12 DIN 7380-1", price: 12.5 },
+    ]);
+    const matchLine = jest.fn(async (line) => priced(10, 1.11));
+    const result = await reproduceDraftFillMissing({
+      draft: { lines: [] },
+      inquiryText,
+      matchLine,
+      searchByExactSku,
+      options: { chatText },
+    });
+    expect(result.fromChatSku).toBe(0);
+    expect(result.rematched).toBe(1);
+    expect(matchLine).toHaveBeenCalled();
   });
 });

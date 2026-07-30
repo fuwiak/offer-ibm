@@ -124,6 +124,83 @@ function extractChatTableRows(chatText = "") {
   return rows;
 }
 
+/**
+ * Parse LLM chat catalog cards:
+ *   Товар: …
+ *   Цена: 12.50 RUB
+ *   Артикул / SKU: …
+ *   Ссылка: …
+ */
+function extractChatProductBlocks(chatText = "") {
+  const text = String(chatText || "");
+  if (!/Товар\s*:/i.test(text) && !/Артикул\s*\/\s*SKU\s*:/i.test(text)) {
+    return [];
+  }
+  const chunks = text.split(/(?=^\s*(?:\*\*)?Товар\s*:)/im).filter(Boolean);
+  const rows = [];
+  for (const chunk of chunks) {
+    if (!/Товар\s*:/i.test(chunk)) continue;
+    const nameM = chunk.match(/Товар\s*:\s*(.+)/i);
+    const priceM = chunk.match(/Цена\s*:\s*([\d\s.,]+)\s*(\w+)?/i);
+    const skuM = chunk.match(/Артикул\s*\/\s*SKU\s*:\s*([^\s\n*]+)/i);
+    const urlM = chunk.match(/Ссылка\s*:\s*(\S+)/i);
+    const name = (nameM?.[1] || "").replace(/\*+/g, "").trim();
+    const sku = (skuM?.[1] || "").replace(/\*+/g, "").trim();
+    const price = roundMoney(
+      String(priceM?.[1] || "")
+        .replace(/\s/g, "")
+        .replace(",", ".")
+    );
+    if (!name && !sku) continue;
+    rows.push({
+      index: rows.length,
+      requestedName: name,
+      name,
+      article: sku,
+      unitPriceNet: price,
+      productUrl: (urlM?.[1] || "").replace(/[)\].,;]+$/, ""),
+      source: "chat_product_block",
+    });
+  }
+  return rows;
+}
+
+function extractSizeToken(key = "") {
+  const m = String(key).match(/m\d+(?:[.,]\d+)?(?:x\d+(?:[.,]\d+)?){0,3}/i);
+  return m ? m[0].replace(/,/g, ".") : "";
+}
+
+function extractStandardToken(key = "") {
+  const din = String(key).match(/din\s*\d+[-\d]*/i);
+  if (din) return din[0].replace(/\s+/g, "");
+  const gost = String(key).match(
+    /(?:gost|гост)\s*(?:r\s*)?(?:iso\s*)?[\d.]+(?:-\d+)*/i
+  );
+  if (gost) return gost[0].replace(/\s+/g, "");
+  return "";
+}
+
+/** Reject wrong SKU→line pairs (e.g. M6 SKU glued onto M10 inquiry). */
+function namesCompatible(a = "", b = "") {
+  const ka = normalizeKey(a);
+  const kb = normalizeKey(b);
+  if (!ka || !kb) return false;
+  const sizeA = extractSizeToken(ka);
+  const sizeB = extractSizeToken(kb);
+  if (sizeA && sizeB && sizeA !== sizeB) return false;
+  const stdA = extractStandardToken(ka);
+  const stdB = extractStandardToken(kb);
+  if (stdA && stdB && stdA !== stdB) return false;
+  if (ka === kb) return true;
+  if (ka.includes(kb.slice(0, 28)) || kb.includes(ka.slice(0, 28))) return true;
+  const tokensA = new Set(ka.split(" ").filter((t) => t.length > 2));
+  const tokensB = kb.split(" ").filter((t) => t.length > 2);
+  if (!tokensB.length) return false;
+  let hit = 0;
+  for (const t of tokensB) if (tokensA.has(t)) hit += 1;
+  return hit / tokensB.length >= 0.4;
+}
+
 function catalogEvidenceRows(catalogBlocks = []) {
   return (catalogBlocks || [])
     .map((block) => parseCatalogBlock(block))
@@ -137,6 +214,13 @@ function catalogEvidenceRows(catalogBlocks = []) {
       productUrl: p.url || "",
       source: "catalog_block",
     }));
+}
+
+function allChatEvidenceRows(chatText = "", catalogBlocks = []) {
+  const table = extractChatTableRows(chatText);
+  const products = extractChatProductBlocks(chatText);
+  const catalog = catalogEvidenceRows(catalogBlocks);
+  return { table, products, catalog, all: [...table, ...products, ...catalog] };
 }
 
 /**
@@ -158,10 +242,14 @@ function compareDraftToChat({
 } = {}) {
   const inquiryLines = inquiryText ? parseInquiryText(inquiryText) : [];
   const draftLines = Array.isArray(draft?.lines) ? draft.lines : [];
-  const chatRows = extractChatTableRows(chatText);
-  const catalogRows = catalogEvidenceRows(catalogBlocks);
+  const evidence = allChatEvidenceRows(chatText, catalogBlocks);
+  const chatRows = evidence.products.length
+    ? evidence.products
+    : evidence.table;
+  const catalogRows = evidence.catalog;
   const expected =
-    inquiryLines.length || Math.max(draftLines.length, chatRows.length);
+    inquiryLines.length ||
+    Math.max(draftLines.length, chatRows.length, evidence.products.length);
 
   const pricedDraftCount = draftLines.filter(isPricedAcceptedLine).length;
   const missingIndexes = [];
@@ -169,7 +257,7 @@ function compareDraftToChat({
 
   for (let i = 0; i < expected; i++) {
     const draftLine = draftLines[i] || null;
-    const chatRow = chatRows.find((r) => r.index === i) || null;
+    const chatRow = chatRows.find((r) => r.index === i) || chatRows[i] || null;
     const inquiry = inquiryLines[i] || null;
     const key = normalizeKey(
       draftLine
@@ -182,33 +270,42 @@ function compareDraftToChat({
         (normalizeKey(c.name).includes(key.slice(0, 24)) ||
           key.includes(normalizeKey(c.name).slice(0, 24)))
     );
+    const chatHint =
+      chatRow &&
+      namesCompatible(key, chatRow.name || chatRow.requestedName || "")
+        ? chatRow
+        : evidence.products.find((p) =>
+            namesCompatible(key, p.name || p.requestedName || "")
+          ) || null;
 
     if (!isPricedAcceptedLine(draftLine)) {
       missingIndexes.push(i);
       if (
-        (chatRow?.unitPriceNet && chatRow.article) ||
+        (chatHint?.unitPriceNet && chatHint.article) ||
         catalogHit?.unitPriceNet
       ) {
         priceGaps.push({
           index: i,
           draftPrice: roundMoney(draftLine?.unitPriceNet),
-          chatPrice: chatRow?.unitPriceNet || null,
+          chatPrice: chatHint?.unitPriceNet || null,
+          chatSku: chatHint?.article || null,
           catalogPrice: catalogHit?.unitPriceNet || null,
           requestedName:
             draftLine?.requestedName ||
             inquiry?.name ||
-            chatRow?.requestedName ||
+            chatHint?.requestedName ||
             null,
         });
       }
     } else if (
-      chatRow?.unitPriceNet &&
-      Math.abs(Number(draftLine.unitPriceNet) - chatRow.unitPriceNet) > 0.05
+      chatHint?.unitPriceNet &&
+      Math.abs(Number(draftLine.unitPriceNet) - chatHint.unitPriceNet) > 0.05
     ) {
       priceGaps.push({
         index: i,
         draftPrice: roundMoney(draftLine.unitPriceNet),
-        chatPrice: chatRow.unitPriceNet,
+        chatPrice: chatHint.unitPriceNet,
+        chatSku: chatHint.article || null,
         catalogPrice: catalogHit?.unitPriceNet || null,
         requestedName: draftLine.requestedName || null,
         mismatch: true,
@@ -220,6 +317,7 @@ function compareDraftToChat({
     draftLineCount: draftLines.length,
     expectedLineCount: expected,
     chatRowCount: chatRows.length,
+    chatProductBlockCount: evidence.products.length,
     catalogEvidenceCount: catalogRows.length,
     pricedDraftCount,
     missingIndexes,
@@ -227,7 +325,8 @@ function compareDraftToChat({
     needsReproduce:
       missingIndexes.length > 0 ||
       draftLines.length !== expected ||
-      priceGaps.some((g) => !g.mismatch && g.catalogPrice),
+      evidence.products.length > draftLines.length ||
+      priceGaps.some((g) => !g.mismatch && (g.catalogPrice || g.chatSku)),
   };
 }
 
@@ -341,37 +440,119 @@ function applyCatalogEvidenceToLine(line, catalogRows = []) {
 }
 
 /**
+ * Build a draft line from a ShopDB product hit (live price only).
+ */
+function draftLineFromShopProduct(inquiryLine, product, matchedSku = "") {
+  const qty = Number(inquiryLine.quantity);
+  const quantity = Number.isFinite(qty) ? qty : 1;
+  const unitPriceNet = roundMoney(product.price) || 0;
+  const unitNeedsRecalc = Boolean(inquiryLine.needsReview);
+  const priceWithVat = unitPriceNet
+    ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
+    : 0;
+  const lineTotal =
+    unitPriceNet > 0 && !unitNeedsRecalc
+      ? Number((unitPriceNet * quantity).toFixed(2))
+      : 0;
+  return {
+    inquiryRaw: inquiryLine.raw,
+    name: product.name || inquiryLine.name || inquiryLine.raw,
+    requestedName: inquiryLine.name || inquiryLine.raw,
+    article: matchedSku || product.matched_sku || product.sku || "",
+    productId: product.id != null ? String(product.id) : "",
+    quantity,
+    unit: inquiryLine.unit || "шт",
+    priceWithVat,
+    unitPriceNet,
+    lineTotal,
+    weightKg: 0,
+    status: unitPriceNet > 0 ? "В наличии" : "Нет в наличии",
+    kpStatus: unitPriceNet > 0 ? "Точное соответствие" : "Цена по запросу",
+    unitNeedsRecalc,
+    matchType: "exact",
+    analogOf: null,
+    similarSuggestion: null,
+    comment: "Сопоставлено по SKU из ответа чата, цена из ShopDB",
+    thread: inquiryLine.thread,
+    alternatives: [],
+    productUrl: product.url || product.product_url || "",
+    matchSource: "chat_sku_verified",
+  };
+}
+
+/**
+ * If chat suggests a SKU compatible with the inquiry line, verify in ShopDB
+ * and return a priced draft line. Never trusts LLM price alone.
+ */
+async function tryFillFromChatSku(inquiryLine, chatHint, searchByExactSku) {
+  const sku = String(chatHint?.article || "").trim();
+  if (!sku || typeof searchByExactSku !== "function") return null;
+  const inquiryName = inquiryLine.name || inquiryLine.raw || "";
+  const chatName = chatHint.name || chatHint.requestedName || "";
+  if (chatName && !namesCompatible(inquiryName, chatName)) return null;
+
+  const hits = await searchByExactSku([sku], 3);
+  if (!Array.isArray(hits) || !hits.length) return null;
+  const product =
+    hits.find((h) => namesCompatible(inquiryName, h.name || "")) || null;
+  // SKU must match inquiry size/standard — do not accept unrelated catalog hit.
+  if (!product) return null;
+  return draftLineFromShopProduct(inquiryLine, product, sku);
+}
+
+/**
  * Keep current good draft lines; rematch only missing/incomplete indexes.
+ * Prefer chat Товар/SKU cards → ShopDB verify before full matchInquiryLine.
  */
 async function reproduceDraftFillMissing({
   draft = null,
   inquiryText = "",
   catalogBlocks = [],
   matchLine = matchInquiryLine,
+  searchByExactSku = null,
   options = {},
 } = {}) {
   const inquiryLines = parseInquiryText(inquiryText);
+  const chatText = options.chatText || "";
   if (!inquiryLines.length) {
     return {
       draft: draft || { lines: [], subtotal: 0, total: 0 },
       kept: 0,
       rematched: 0,
-      comparison: compareDraftToChat({ draft, inquiryText, catalogBlocks }),
+      fromChatSku: 0,
+      comparison: compareDraftToChat({
+        draft,
+        inquiryText,
+        catalogBlocks,
+        chatText,
+      }),
     };
+  }
+
+  if (typeof searchByExactSku !== "function") {
+    try {
+      searchByExactSku = require("./productSearchAgent").searchByExactSku;
+    } catch {
+      searchByExactSku = null;
+    }
   }
 
   const existing = Array.isArray(draft?.lines) ? [...draft.lines] : [];
   const catalogRows = catalogEvidenceRows(catalogBlocks);
+  const evidence = allChatEvidenceRows(chatText, catalogBlocks);
+  const chatProducts = evidence.products;
   const comparison = compareDraftToChat({
     draft,
     inquiryText,
     catalogBlocks,
-    chatText: options.chatText || "",
+    chatText,
   });
 
   let kept = 0;
   let rematched = 0;
+  let fromChatSku = 0;
   const out = [];
+  const usedChatIndexes = new Set();
 
   for (let i = 0; i < inquiryLines.length; i++) {
     const inquiryLine = inquiryLines[i];
@@ -388,6 +569,42 @@ async function reproduceDraftFillMissing({
       kept += 1;
       out.push(line);
       continue;
+    }
+
+    // Chat card at same index, else best name-compatible unused card.
+    let chatHint =
+      chatProducts[i] &&
+      namesCompatible(
+        inquiryLine.name || inquiryLine.raw || "",
+        chatProducts[i].name || ""
+      )
+        ? chatProducts[i]
+        : null;
+    if (!chatHint) {
+      chatHint =
+        chatProducts.find(
+          (p, idx) =>
+            !usedChatIndexes.has(idx) &&
+            namesCompatible(
+              inquiryLine.name || inquiryLine.raw || "",
+              p.name || ""
+            )
+        ) || null;
+    }
+
+    if (chatHint?.article) {
+      const filled = await tryFillFromChatSku(
+        inquiryLine,
+        chatHint,
+        searchByExactSku
+      );
+      if (filled && isPricedAcceptedLine(filled)) {
+        fromChatSku += 1;
+        const chatIdx = chatProducts.indexOf(chatHint);
+        if (chatIdx >= 0) usedChatIndexes.add(chatIdx);
+        out.push(filled);
+        continue;
+      }
     }
 
     try {
@@ -412,6 +629,7 @@ async function reproduceDraftFillMissing({
     draft: buildDraftFromMatchedLines(out),
     kept,
     rematched,
+    fromChatSku,
     comparison,
   };
 }
@@ -455,10 +673,14 @@ module.exports = {
   normalizeKey,
   isPricedAcceptedLine,
   extractChatTableRows,
+  extractChatProductBlocks,
+  namesCompatible,
   catalogEvidenceRows,
   compareDraftToChat,
   mergeKeepGoodPadMissing,
   applyCatalogEvidenceToLine,
+  draftLineFromShopProduct,
+  tryFillFromChatSku,
   reproduceDraftFillMissing,
   alignChatTextWithDraftMarkdown,
 };

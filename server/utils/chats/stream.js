@@ -967,8 +967,12 @@ async function streamChatWithWorkspace(
           OFFER_KP_INTENTS.EDIT_QUOTE,
         ].includes(routedIntent.primaryIntent)));
 
-  // Mechanism A+B: compare сводка ↔ chat; rematch only missing lines (keep priced).
-  if (shouldEmitQuoteArtifacts && llmCatalog.inquiryDraft?.lines?.length) {
+  // Mechanism A+B: compare сводка ↔ chat (Товар/таблица); fill gaps via ShopDB.
+  const chatHasProductCards = /Товар\s*:/i.test(completeText || "");
+  if (
+    shouldEmitQuoteArtifacts &&
+    (llmCatalog.inquiryDraft?.lines?.length || chatHasProductCards)
+  ) {
     try {
       const {
         compareDraftToChat,
@@ -990,9 +994,9 @@ async function streamChatWithWorkspace(
       });
       diagNote(
         pipelineDiag,
-        `draft↔chat priced=${comparison.pricedDraftCount}/${comparison.expectedLineCount} missing=${comparison.missingIndexes.length}`
+        `draft↔chat priced=${comparison.pricedDraftCount}/${comparison.expectedLineCount} missing=${comparison.missingIndexes.length} chatCards=${comparison.chatProductBlockCount || 0}`
       );
-      if (comparison.needsReproduce) {
+      if (comparison.needsReproduce || chatHasProductCards) {
         const reproduced = await reproduceDraftFillMissing({
           draft: llmCatalog.inquiryDraft,
           inquiryText: inquirySource,
@@ -1008,7 +1012,7 @@ async function streamChatWithWorkspace(
         llmCatalog.inquiryDraft = reproduced.draft;
         diagNote(
           pipelineDiag,
-          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched}`
+          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0}`
         );
         writeResponseChunk(response, {
           uuid,
