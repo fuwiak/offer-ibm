@@ -44,6 +44,10 @@ const {
   applyCommercialFields,
   resolveIndexVersion,
 } = require("./db/layeredCache");
+const {
+  getDurableMatchIdentity,
+  setDurableMatchIdentity,
+} = require("./db/durableMatchStore");
 const { getCanonicalCatalogManifest } = require("./canonicalCatalogIndex");
 
 const {
@@ -96,12 +100,24 @@ async function hydrateLineCommercial(line) {
   return applyCommercialFields(line, commercial);
 }
 
-function getCachedLineMatch(threadId, raw) {
-  return getCachedMatchIdentity(lineMatchIdentityKey(threadId, raw)) || null;
+async function getCachedLineMatch(threadId, raw) {
+  const key = lineMatchIdentityKey(threadId, raw);
+  const ram = getCachedMatchIdentity(key);
+  if (ram) return ram;
+
+  const durable = await getDurableMatchIdentity(key);
+  if (durable) {
+    // Promote durable → RAM so subsequent lines in same request are free.
+    setCachedMatchIdentity(key, durable);
+    return durable;
+  }
+  return null;
 }
 
-function setCachedLineMatch(threadId, raw, value) {
-  setCachedMatchIdentity(lineMatchIdentityKey(threadId, raw), value);
+async function setCachedLineMatch(threadId, raw, value) {
+  const key = lineMatchIdentityKey(threadId, raw);
+  setCachedMatchIdentity(key, value);
+  await setDurableMatchIdentity(key, value).catch(() => false);
 }
 
 function resolveMatchConcurrency(lineCount) {
@@ -585,7 +601,7 @@ function buildUnderspecifiedLine(inquiryLine, completeness) {
 
 async function matchInquiryLine(inquiryLine, options = {}) {
   const cacheRaw = inquiryLine.raw || inquiryLine.name;
-  const cached = getCachedLineMatch(options.threadId, cacheRaw);
+  const cached = await getCachedLineMatch(options.threadId, cacheRaw);
   if (cached) {
     return hydrateLineCommercial({
       ...cached,
@@ -608,7 +624,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     !completeness.hasSku
   ) {
     const line = buildUnderspecifiedLine(inquiryLine, completeness);
-    setCachedLineMatch(options.threadId, cacheRaw, line);
+    await setCachedLineMatch(options.threadId, cacheRaw, line);
     return line;
   }
 
@@ -1139,7 +1155,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     matchType: metric.matchType,
   });
 
-  setCachedLineMatch(options.threadId, cacheRaw, evidenced);
+  await setCachedLineMatch(options.threadId, cacheRaw, evidenced);
   return evidenced;
 }
 
