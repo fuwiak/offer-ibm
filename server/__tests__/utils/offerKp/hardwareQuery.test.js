@@ -30,6 +30,14 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     ]);
   });
 
+  it("drops accessory «с гайкой» and material «сталь 20» from bolt productTypes", () => {
+    expect(
+      parseHardwareQuery(
+        "Болт М10х100 ГОСТ 7805-70 сталь 20 с гайкой М10×100 — 30 кг"
+      ).productTypes
+    ).toEqual(["болт"]);
+  });
+
   it("parses washer diameter-only and d-form", () => {
     expect(parseHardwareQuery("Шайба DIN 433 M 6 оцинк").diameter).toBe("6");
     expect(parseHardwareQuery("Шайба DIN 433 M 6 оцинк").thread).toBeNull();

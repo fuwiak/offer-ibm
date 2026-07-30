@@ -300,6 +300,38 @@ function parseHardwareQuery(message) {
       productTypes.push(type);
     }
   }
+
+  // «Болт … с гайкой» — гайка is an accessory kit note, not a second product type.
+  // Otherwise structured ShopDB AND(болт,гайка) returns nothing from line 1.
+  // Avoid \\b — JS word boundaries are unreliable on Cyrillic even with /u.
+  if (
+    productTypes.includes("болт") &&
+    productTypes.includes("гайка") &&
+    /(?:^|[^\p{L}\p{N}])с\s+гайк/iu.test(lower)
+  ) {
+    const gi = productTypes.indexOf("гайка");
+    if (gi >= 0) productTypes.splice(gi, 1);
+  }
+
+  // «сталь 20» is material grade on fasteners — not catalog type «сталь» (bar stock).
+  const FASTENER_TYPES = new Set([
+    "болт",
+    "гайка",
+    "шайба",
+    "винт",
+    "шпилька",
+    "штанга",
+    "штифт",
+    "анкер",
+    "рым-болт",
+  ]);
+  if (productTypes.some((t) => FASTENER_TYPES.has(t))) {
+    for (const materialLike of ["сталь", "полоса", "квадрат", "круг"]) {
+      const mi = productTypes.indexOf(materialLike);
+      if (mi >= 0) productTypes.splice(mi, 1);
+    }
+  }
+
   // Only fill in the DIN-implied type when the customer named no product
   // type at all ("DIN 933 M10x80" with nothing else) — that's an aid to
   // search recall with zero downstream risk. Union-ing it in on TOP of an

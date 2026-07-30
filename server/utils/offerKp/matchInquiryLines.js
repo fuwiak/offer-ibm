@@ -167,8 +167,56 @@ function buildPendingDraftLine(inquiryLine = {}) {
   });
 }
 
+function slimAlternativeForSse(alt = {}) {
+  if (!alt || typeof alt !== "object") return null;
+  return {
+    productId: alt.productId || undefined,
+    name: alt.name || "",
+    sku: alt.sku || alt.article || "",
+    price: alt.price ?? alt.unitPriceNet ?? 0,
+    stockCount: alt.stockCount ?? 0,
+    matchType: alt.matchType || undefined,
+    status: alt.status || undefined,
+    analogOf: alt.analogOf || undefined,
+  };
+}
+
+/** Keep SSE quote-progress payloads small (avoids mid-stream network aborts). */
+function slimLineForSse(line = {}) {
+  if (!line || typeof line !== "object") return line;
+  const alternatives = Array.isArray(line.alternatives)
+    ? line.alternatives.slice(0, 12).map(slimAlternativeForSse).filter(Boolean)
+    : [];
+  return {
+    inquiryRaw: line.inquiryRaw,
+    name: line.name,
+    requestedName: line.requestedName,
+    article: line.article || line.sku,
+    sku: line.sku || line.article,
+    productId: line.productId,
+    quantity: line.quantity,
+    unit: line.unit,
+    priceWithVat: line.priceWithVat,
+    unitPriceNet: line.unitPriceNet,
+    lineTotal: line.lineTotal,
+    weightKg: line.weightKg,
+    lineWeightKg: line.lineWeightKg,
+    status: line.status,
+    kpStatus: line.kpStatus,
+    matchType: line.matchType,
+    analogOf: line.analogOf,
+    comment: line.comment,
+    allowPrice: line.allowPrice,
+    operatorPriceOverride: line.operatorPriceOverride,
+    pendingMatch: line.pendingMatch,
+    alternatives,
+  };
+}
+
 function draftProgressPayload(partialLines, { stage, completed, total }) {
-  const lines = partialLines.map((line) => line || buildPendingDraftLine({}));
+  const lines = partialLines
+    .map((line) => line || buildPendingDraftLine({}))
+    .map(slimLineForSse);
   return {
     progressStage: stage,
     lineCount: total,
@@ -1288,6 +1336,7 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
 
   const draft = buildDraftFromMatchedLines(matched);
   if (onProgress) {
+    const slimLines = draft.lines.map(slimLineForSse);
     onProgress({
       progressStage: "matched",
       lineCount: lines.length,
@@ -1296,9 +1345,9 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
       quoteDraft: {
         step: 2,
         reference: draft.reference,
-        hardwareLines: draft.lines,
+        hardwareLines: slimLines,
         preview: {
-          lines: draft.lines,
+          lines: slimLines,
           subtotal: draft.subtotal,
           total: draft.total,
           totalWeightKg: draft.totalWeightKg,

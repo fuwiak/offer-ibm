@@ -249,7 +249,22 @@ function safeJSONStringify(obj) {
 }
 
 function writeResponseChunk(response, data) {
-  response.write(`data: ${safeJSONStringify(data)}\n\n`);
+  try {
+    response.write(`data: ${safeJSONStringify(data)}\n\n`);
+  } catch (e) {
+    console.error("[writeResponseChunk]", e?.message || e);
+    try {
+      response.write(
+        `data: ${JSON.stringify({
+          type: "abort",
+          error: "Stream payload serialization failed.",
+          close: true,
+        })}\n\n`
+      );
+    } catch {
+      /* connection already dead */
+    }
+  }
   return;
 }
 
