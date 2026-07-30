@@ -1022,10 +1022,10 @@ async function streamChatWithWorkspace(
         }
         diagNote(
           pipelineDiag,
-          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} chatCards=${reproduced.fromChatCards || cardCount}`
+          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} catalog=${reproduced.fromCatalog || 0} chatCards=${reproduced.fromChatCards || cardCount}`
         );
         console.warn(
-          `[offerKp] stream draft from chat cards=${reproduced.fromChatCards || cardCount} lines=${reproduced.draft?.lines?.length || 0} chatSku=${reproduced.fromChatSku || 0}`
+          `[offerKp] stream draft from chat cards=${reproduced.fromChatCards || cardCount} lines=${reproduced.draft?.lines?.length || 0} kept=${reproduced.kept || 0} chatSku=${reproduced.fromChatSku || 0} catalog=${reproduced.fromCatalog || 0}`
         );
         writeResponseChunk(response, {
           uuid,

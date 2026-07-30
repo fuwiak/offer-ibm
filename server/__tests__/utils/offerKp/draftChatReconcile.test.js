@@ -272,35 +272,62 @@ ID товара (shop_product.id): 206
     expect(matchLine).not.toHaveBeenCalled();
   });
 
-  it("accepts exact SKU hit even when ShopDB name size token differs", async () => {
+  it("keeps priced draft lines when chat invents fake SKUs", async () => {
     const {
       buildDraftFromChatProductCards,
     } = require("../../../utils/offerKp/draftChatReconcile");
-    // Card title says M6 but SKU resolves to M10 in ShopDB — still take SKU price.
     const chatText = `
-Товар: Винт М6×20 оцинкованный
-Цена: 99.00 RUB
-Артикул: 45104992510700
+Товар: Винт ГОСТ ISO 7380-1-М10×25-8.8
+Цена: 12.50 RUB
+Артикул / SKU: 45104992510700
+Товар: Винт М5×16-А4 DIN 7991
+Цена: 8.50 RUB
+Артикул / SKU: 99999999999999
 `;
-    const searchByExactSku = jest.fn(async () => [
-      {
-        id: 11,
-        name: "Винт ГОСТ ISO 7380-1-М10×25-8.8 Zn",
-        price: 12.5,
-      },
-    ]);
+    const existingDraft = {
+      lines: [
+        {
+          requestedName: "Винт ГОСТ ISO 7380-1-М10х25-8.8",
+          name: "Винт ГОСТ ISO 7380-1-М10×25-8.8 Zn",
+          article: "069280140063050",
+          productId: "100",
+          quantity: 1700,
+          unitPriceNet: 12.5,
+          matchType: "exact",
+          allowPrice: true,
+        },
+        {
+          requestedName: "Винт М5х16-А4 DIN 7991",
+          name: "Винт М5×16-А4 DIN 7991",
+          article: "111201000030010",
+          productId: "200",
+          quantity: 500,
+          unitPriceNet: 8.5,
+          matchType: "exact",
+          allowPrice: true,
+        },
+      ],
+    };
+    const searchByExactSku = jest.fn(async () => []);
     const matchLine = jest.fn(async () => {
-      throw new Error("must not rematch");
+      throw new Error("must keep existing priced lines");
     });
     const result = await buildDraftFromChatProductCards({
       chatText,
-      inquiryText: "Винт М6х20 – 100 шт.",
+      inquiryText: [
+        "Винт ГОСТ ISO 7380-1-М10х25-8.8 – 1700 шт.",
+        "Винт М5х16-А4 DIN 7991 – 500 шт.",
+      ].join("\n"),
+      existingDraft,
       searchByExactSku,
       matchLine,
     });
-    expect(result.fromChatSku).toBe(1);
+    expect(result.kept).toBe(2);
+    expect(result.rematched).toBe(0);
     expect(result.draft.lines[0].unitPriceNet).toBe(12.5);
-    expect(result.draft.lines[0].article).toBe("45104992510700");
+    expect(result.draft.lines[0].article).toBe("069280140063050");
+    expect(result.draft.lines[1].unitPriceNet).toBe(8.5);
     expect(matchLine).not.toHaveBeenCalled();
   });
 });
+

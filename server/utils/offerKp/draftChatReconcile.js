@@ -420,16 +420,20 @@ function mergeKeepGoodPadMissing({
  */
 function applyCatalogEvidenceToLine(line, catalogRows = []) {
   if (!line || isPricedAcceptedLine(line)) return line;
+  const rows = Array.isArray(catalogRows) ? catalogRows : [];
   const key = lineRequestKey(line);
-  const hit = catalogRows.find((c) => {
-    const n = normalizeKey(c.name);
-    return (
-      c.unitPriceNet > 0 &&
-      c.productId &&
-      key &&
-      (n.includes(key.slice(0, 24)) || key.includes(n.slice(0, 24)))
-    );
-  });
+  const cardName = line.name || line.requestedName || "";
+  const hit =
+    rows.find((c) => {
+      if (!(c.unitPriceNet > 0 && c.productId)) return false;
+      return (
+        namesCompatible(cardName, c.name || "") ||
+        namesCompatible(key, c.name || "") ||
+        (key &&
+          (normalizeKey(c.name).includes(key.slice(0, 24)) ||
+            key.includes(normalizeKey(c.name).slice(0, 24))))
+      );
+    }) || null;
   if (!hit) return line;
   const qty = Number(line.quantity) || 1;
   const unitPriceNet = hit.unitPriceNet;
@@ -437,16 +441,18 @@ function applyCatalogEvidenceToLine(line, catalogRows = []) {
   return {
     ...line,
     name: hit.name || line.name,
-    productId: hit.productId,
-    article: line.article || "",
+    productId: String(hit.productId),
+    article: line.article || hit.article || "",
     unitPriceNet,
     priceWithVat,
     lineTotal: Number((unitPriceNet * qty).toFixed(2)),
     matchType: line.matchType === "analog" ? "analog" : "exact",
+    allowPrice: true,
     kpStatus:
       line.matchType === "analog" ? "Предложен аналог" : "Точное соответствие",
     productUrl: hit.productUrl || line.productUrl || "",
     comment: line.comment || "Цена из блока каталога ShopDB (reconcile)",
+    matchSource: line.matchSource || "catalog_block",
   };
 }
 
@@ -537,11 +543,14 @@ function syntheticInquiryFromCard(card = {}, inquiry = null) {
 
 /**
  * Authoritative draft: one сводка line per chat Товар card (order preserved).
- * Price only after ShopDB SKU verify; otherwise rematch by card name / stub.
+ * Prefer already-priced ShopDB draft / catalogBlocks — never wipe good prices
+ * just because the LLM invented a SKU in the chat card.
  */
 async function buildDraftFromChatProductCards({
   chatText = "",
   inquiryText = "",
+  existingDraft = null,
+  catalogBlocks = [],
   matchLine = matchInquiryLine,
   searchByExactSku = null,
   options = {},
@@ -552,6 +561,8 @@ async function buildDraftFromChatProductCards({
       draft: null,
       fromChatCards: 0,
       fromChatSku: 0,
+      fromCatalog: 0,
+      kept: 0,
       rematched: 0,
     };
   }
@@ -565,20 +576,61 @@ async function buildDraftFromChatProductCards({
   }
 
   const inquiryLines = inquiryText ? parseInquiryText(inquiryText) : [];
+  const existing = Array.isArray(existingDraft?.lines)
+    ? existingDraft.lines
+    : [];
+  const catalogRows = catalogEvidenceRows(catalogBlocks);
+  const usedExisting = new Set();
   let fromChatSku = 0;
+  let fromCatalog = 0;
+  let kept = 0;
   let rematched = 0;
   const out = [];
+
+  function takeExistingForCard(card, index) {
+    const cardName = card.name || card.requestedName || "";
+    for (let i = 0; i < existing.length; i++) {
+      if (usedExisting.has(i)) continue;
+      const line = existing[i];
+      if (!isPricedAcceptedLine(line)) continue;
+      if (
+        namesCompatible(line.requestedName || "", cardName) ||
+        namesCompatible(line.name || "", cardName)
+      ) {
+        usedExisting.add(i);
+        return line;
+      }
+    }
+    if (
+      !usedExisting.has(index) &&
+      isPricedAcceptedLine(existing[index]) &&
+      namesCompatible(
+        existing[index].requestedName || existing[index].name || "",
+        cardName
+      )
+    ) {
+      usedExisting.add(index);
+      return existing[index];
+    }
+    return null;
+  }
 
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     const inquiry = pickInquiryForChatCard(inquiryLines, card, i);
     const syn = syntheticInquiryFromCard(card, inquiry);
 
-    let line = null;
-    if (card.article && searchByExactSku) {
-      // Exact SKU hit from ShopDB is authoritative for this card row.
-      // Prefer name-compatible product; otherwise still take first SKU hit
-      // (LLM may paraphrase ГОСТ/coating) so chatSku≠0 and prices land in сводка.
+    let line = takeExistingForCard(card, i);
+    if (line) {
+      kept += 1;
+      line = {
+        ...line,
+        requestedName: syn.name || line.requestedName,
+        quantity: syn.quantity || line.quantity,
+      };
+    }
+
+    if (!line && card.article && searchByExactSku) {
       const sku = String(card.article).trim();
       let hits = [];
       try {
@@ -597,15 +649,6 @@ async function buildDraftFromChatProductCards({
         if (product) {
           line = draftLineFromShopProduct(syn, product, sku);
           fromChatSku += 1;
-          if (
-            card.name &&
-            product.name &&
-            !namesCompatible(card.name, product.name)
-          ) {
-            line.comment =
-              (line.comment || "") +
-              " (SKU из чата; название ShopDB отличается от карточки)";
-          }
         }
       }
     }
@@ -626,6 +669,19 @@ async function buildDraftFromChatProductCards({
       }
     }
 
+    const beforePrice = Number(line?.unitPriceNet || 0);
+    line = applyCatalogEvidenceToLine(line, catalogRows);
+    if (
+      Number(line?.unitPriceNet || 0) > beforePrice &&
+      line.productId &&
+      !line.matchSource?.includes("chat_sku")
+    ) {
+      fromCatalog += 1;
+      line.matchSource = line.matchSource || "catalog_block";
+      line.comment =
+        line.comment || "Цена из блока каталога ShopDB (карточка чата)";
+    }
+
     line.requestedName = syn.name || line.requestedName;
     if (!line.name) line.name = card.name;
     if (card.productUrl && !line.productUrl) line.productUrl = card.productUrl;
@@ -637,6 +693,8 @@ async function buildDraftFromChatProductCards({
     draft: buildDraftFromMatchedLines(out),
     fromChatCards: cards.length,
     fromChatSku,
+    fromCatalog,
+    kept,
     rematched,
   };
 }
@@ -657,10 +715,13 @@ async function reproduceDraftFillMissing({
   const chatCards = extractChatProductBlocks(chatText);
 
   // When chat lists catalog cards, they define the сводка rows 1:1.
+  // Keep ShopDB prices already found during matching — do not wipe them.
   if (chatCards.length > 0) {
     const built = await buildDraftFromChatProductCards({
       chatText,
       inquiryText,
+      existingDraft: draft,
+      catalogBlocks,
       matchLine,
       searchByExactSku,
       options,
@@ -671,11 +732,15 @@ async function reproduceDraftFillMissing({
       catalogBlocks,
       chatText,
     });
+    console.warn(
+      `[offerKp] chat-card draft kept=${built.kept} chatSku=${built.fromChatSku} catalog=${built.fromCatalog || 0} rematched=${built.rematched} cards=${built.fromChatCards}`
+    );
     return {
       draft: built.draft,
-      kept: 0,
+      kept: built.kept,
       rematched: built.rematched,
       fromChatSku: built.fromChatSku,
+      fromCatalog: built.fromCatalog || 0,
       fromChatCards: built.fromChatCards,
       comparison,
     };
