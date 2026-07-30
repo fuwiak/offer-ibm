@@ -1,0 +1,239 @@
+{
+  "generatedAt": "2026-07-30T08:02:22.414Z",
+  "seed": "offerkp-2026",
+  "sampleSize": 100,
+  "retrievalLimit": 100,
+  "readiness": {
+    "mysqlOk": true,
+    "configured": true,
+    "activeProducts": 19764,
+    "indexProductCount": 19764,
+    "vectorCount": 19764,
+    "bm25Count": 19764,
+    "indexFresh": true,
+    "indexReady": true,
+    "productCountsMatch": true,
+    "vectorsReady": true,
+    "bm25Ready": true,
+    "retrievers": {
+      "bm25": true,
+      "dense": true,
+      "fusion": "rrf",
+      "compatibleLimit": 45,
+      "analogLimit": 5
+    },
+    "lastSync": "2026-07-30T06:40:21.132Z",
+    "embeddingModel": "MintplexLabs/multilingual-e5-small",
+    "vectorDims": 384,
+    "manifestVersion": 5,
+    "vectorStore": "lancedb",
+    "sync": {
+      "state": "idle",
+      "pid": null,
+      "startedAt": null,
+      "checkpointCount": 0,
+      "checkpointUpdatedAt": null
+    },
+    "mysqlError": null,
+    "vectorError": null,
+    "code": null,
+    "ready": true
+  },
+  "metrics": {
+    "DBQueryAttemptRate": 100,
+    "DBQuerySuccessRate": 100,
+    "RecallAt50": 92,
+    "RecallAt100": 92,
+    "Top1Accuracy": 91,
+    "RerankGivenRecall": 98.91,
+    "AutoAcceptRate": 80,
+    "AutoAcceptPrecision": 100,
+    "AutoAcceptCoverage": 80,
+    "InvalidExactState": 0,
+    "WrongGroundedExact": 0,
+    "WrongPricedExact": 0,
+    "ExactWithoutProductId": 0,
+    "ExactWithoutSku": 0,
+    "ExactWithoutPrice": 0,
+    "SkuPriceContradictsShopDb": 0,
+    "acceptedDecisions": 84,
+    "autoAcceptDecisions": 80,
+    "autoAcceptCorrectDecisions": 80,
+    "exactDecisions": 84,
+    "invalidExactStateDecisions": 0,
+    "wrongGroundedExactDecisions": 0,
+    "wrongPricedExactDecisions": 0
+  },
+  "failures": [
+    {
+      "expectedProductId": "23375",
+      "expectedName": "Гровер DIN  7980 M 14 (3,0x3,0) нерж 1.4310 / ~ ГОСТ 6402-70 (250)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "spec_mismatch",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "33659",
+      "expectedName": "Шайба DIN   988   3x  6x0,15  (1000)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "35282",
+      "expectedName": "Саморез DIN 6928C 3,5x 16 оцинк  (1000)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "similar",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "15883",
+      "expectedName": "Шпонка DIN 6888   3x  6,5 / ГОСТ 24071-97  (100)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "22942",
+      "expectedName": "Заклепка ГОСТ 10300-80   4x  6 алюминий (Al) / ~ DIN  661  (1000)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "30545",
+      "expectedName": "Шайба DIN   988   8x 14x0,3  (1000)",
+      "retrievalRank": 3,
+      "selectedProductId": "30545",
+      "selectedSku": "009880000814030",
+      "matchType": "exact",
+      "reviewReason": null,
+      "autoAccepted": true
+    },
+    {
+      "expectedProductId": "17947",
+      "expectedName": "Пружина DIN 2093   20x 10,2x0,50x1,15 / ~ ГОСТ 3057-90  (1000)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "21803",
+      "expectedName": "Анкер клиновой 10x150 оцинк  (25)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "similar",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "27289",
+      "expectedName": "Саморез универсальный с пот/г 3,5х 40 бел.оцинк PZ  (500)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "similar",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "16925",
+      "expectedName": "Шайба DIN  7603 24x 32x2 медь (Cu)  (100)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "spec_mismatch",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "19541",
+      "expectedName": "Кольцо DIN  472 d 35 нерж 1.4122  (50)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "no_match",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "22317",
+      "expectedName": "Гайка DIN  980V M 18 кл.пр.10 оцинк  (25)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "similar",
+      "reviewReason": "hard_constraint",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "21256",
+      "expectedName": "Саморез DIN 7982 4,8x 19 C-H оцинк  (1000)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "33908",
+      "expectedName": "Штифт DIN   7   2 x 28 / ~ ГОСТ 3128-70 исп. 1  (200)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "19441",
+      "expectedName": "Шайба DIN  7603 20x 24x1,5 медь (Cu)  (100)",
+      "retrievalRank": null,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "no_match",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "25010",
+      "expectedName": "Штифт ГОСТ 3128-70   6 x 28 исп. 1  (50)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "retriever_disagreement",
+      "autoAccepted": false
+    },
+    {
+      "expectedProductId": "16297",
+      "expectedName": "Рым-болт DIN 580 M  6 оцинк / ~ ГОСТ 4751-73  (10)",
+      "retrievalRank": 1,
+      "selectedProductId": null,
+      "selectedSku": null,
+      "matchType": "none",
+      "reviewReason": "underspecified",
+      "autoAccepted": false
+    }
+  ]
+}

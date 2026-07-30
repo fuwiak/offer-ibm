@@ -105,6 +105,26 @@ Audit metrics renamed/split:
 - `ExactWithoutProductId` / `ExactWithoutSku` / `ExactWithoutPrice` / `SkuPriceContradictsShopDb`
 - `RecallAt100` + `RerankGivenRecall` (Top‑1 / Recall@100)
 
+### Lainey re-run after widen (`108d98c`, seed `offerkp-2026`)
+
+Artifact: `graphify-audits/shopdb-metrics-100/audit-100-post-widen.json`
+
+| Метрика | Post-rerank (до widen) | После Top‑100 + contract |
+|--------|------------------------|---------------------------|
+| Recall@50 | 92% | **92%** (без изменения) |
+| Recall@100 | — | **92%** (= @50 → 8 miss не в окне) |
+| Top‑1 | 91% | **91%** |
+| RerankGivenRecall | ~98.9% | **98.91%** |
+| AutoAcceptCoverage | 80% | **80%** |
+| AutoAcceptPrecision | 100% | **100%** |
+| InvalidExactState | 7 (сырой exact без id) | **0** ✓ |
+| WrongGroundedExact | — | **0** ✓ |
+| WrongPricedExact | — | **0** ✓ |
+| SkuPriceContradictsShopDb | 7 (артефакт) | **0** ✓ |
+| exactDecisions | 91 | **84** (−7 demoted) |
+
+**Вердикт re-run:** контракт exact и grounding-метрики исправлены. Widen Top‑50→100 **не** поднял Recall на этом seed — 8 missing нет и в Top‑100 (дырка в candidate generation / hard filters / indexing, не в размере окна). След. рычаг: почему эти 8 не попадают в SQL∪BM25∪dense.
+
 ## 6. Связанные файлы
 
 - `scripts/audit-shopdb-random-sample.cjs`
