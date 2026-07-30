@@ -1,7 +1,9 @@
 const {
   isQuoteDocumentRequest,
+  isQuoteFromPriorContextFollowUp,
   quoteDocumentStatusMessage,
 } = require("../../../utils/offerKp/quoteRequestPhrases");
+const { routeOfferKpMessage } = require("../../../utils/offerKp/intentRouter");
 
 describe("quoteRequestPhrases", () => {
   it("detects short Russian KP commands", () => {
@@ -40,5 +42,23 @@ describe("quoteRequestPhrases", () => {
     expect(
       isQuoteDocumentRequest("@agent: подготовь коммерческое предложение")
     ).toBe(true);
+  });
+
+  it("soft UI follow-up keeps create_quote intent but does not force KP document path", () => {
+    const text =
+      "Создайте коммерческое предложение на основе этих цен и количеств.";
+    expect(isQuoteFromPriorContextFollowUp(text)).toBe(true);
+    expect(isQuoteDocumentRequest(text)).toBe(false);
+    expect(routeOfferKpMessage(text).primaryIntent).toBe("create_quote");
+  });
+
+  it("still forces KP document path for RFQ body or explicit short KP command", () => {
+    expect(isQuoteFromPriorContextFollowUp("сделай КП")).toBe(false);
+    expect(isQuoteDocumentRequest("сделай КП")).toBe(true);
+    expect(
+      isQuoteFromPriorContextFollowUp(
+        "на основе этих цен: болт М8×40 DIN 933 — 100 шт"
+      )
+    ).toBe(false);
   });
 });

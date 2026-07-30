@@ -28,6 +28,34 @@ function hasQuoteMarker(text) {
 }
 
 /**
+ * UI / chat follow-up that points at prior prices/qty («на основе этих цен»),
+ * without a fresh RFQ body. Intent still classifies; do not force the KP
+ * document pipeline or an empty draft panel.
+ */
+function isQuoteFromPriorContextFollowUp(message = "") {
+  const text = String(message || "")
+    .replace(/^@agent\s*:?\s*/i, "")
+    .trim();
+  if (!text) return false;
+  if (
+    !/на основе (этих|текущ|предыдущ|приведённ|указанн)|по (этим|текущим|предыдущим|приведённым|указанным)|these (prices|quantities|items)|based on (these|those|the (above|previous|current))/iu.test(
+      text
+    )
+  ) {
+    return false;
+  }
+  // Real RFQ paste has DIN/ГОСТ/M-size signals. A whole-sentence false positive
+  // from parseInquiry («…на основе этих цен…» → 1 bogus line) must not block.
+  try {
+    const { hasHardwareSignals } = require("./productSearchAgent");
+    if (hasHardwareSignals(text)) return false;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+/**
  * @param {string} message
  * @returns {boolean}
  */
@@ -41,6 +69,9 @@ function isQuoteDocumentRequest(message = "") {
   if (routed.primaryIntent === OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN) {
     return false;
   }
+
+  // Soft follow-up → IntentDecision only (no forced KP file / empty panel path).
+  if (isQuoteFromPriorContextFollowUp(text)) return false;
 
   if (SHORT_QUOTE_COMMAND_RES.some((re) => re.test(text))) return true;
   if (/\b(сделай|сформируй|подготовь|сгенерируй)\s+кп\b/i.test(text)) {
@@ -92,6 +123,7 @@ function quoteDocumentAgentGuidelines() {
 
 module.exports = {
   isQuoteDocumentRequest,
+  isQuoteFromPriorContextFollowUp,
   quoteDocumentStatusMessage,
   quoteDocumentAgentGuidelines,
   hasQuoteMarker,

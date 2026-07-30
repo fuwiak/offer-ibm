@@ -206,12 +206,27 @@ async function streamChatWithWorkspace(
   });
   if (isAgentChat) return;
 
-  // Open KP panel immediately for quote intents — before LLM connect / ShopDB match.
-  // Progress uses offerKpQuotePanel (not statusResponse) so loadingResponse stays.
-  const openQuotePanelEarly =
-    quoteDocumentRequest ||
-    routedIntent?.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
-    routedIntent?.primaryIntent === OFFER_KP_INTENTS.EDIT_QUOTE;
+  // Open KP panel early only when there is real RFQ evidence (attached inquiry /
+  // multi-line paste). Soft follow-ups like «создайте КП на основе этих цен»
+  // (often from UI suggestions) must go through intent → pipeline first — do
+  // not force an empty draft panel. Progress SSE still opens the panel once
+  // matching actually starts.
+  let openQuotePanelEarly = false;
+  if (quoteDocumentRequest || routedIntent?.policy?.allowQuoteMutation) {
+    const combinedInquiry = [...parsedFileTexts, updatedMessage]
+      .filter(Boolean)
+      .join("\n\n");
+    try {
+      const { parseInquiryText } = require("../offerKp/parseInquiry");
+      const inquiryLineCount = parseInquiryText(combinedInquiry).length;
+      openQuotePanelEarly =
+        inquiryLineCount >= 2 ||
+        (parsedFileTexts.length > 0 &&
+          parsedTextHasQuoteSignals(parsedFileTexts.join("\n")));
+    } catch {
+      openQuotePanelEarly = false;
+    }
+  }
   if (openQuotePanelEarly) {
     writeResponseChunk(response, {
       uuid,
@@ -884,17 +899,26 @@ async function streamChatWithWorkspace(
   }
 
   // КП-файлы только при явном запросе КП / create_quote / RFQ-draft.
-  // product_search («Сравни DIN…») даёт каталог в ответе, но не генерирует КП.
+  // Soft UI follow-ups («на основе этих цен») — только IntentDecision + chat;
+  // не форсируем экспорт КП без реального draft/файла.
   let quoteOutputs = [];
+  const {
+    isQuoteFromPriorContextFollowUp,
+  } = require("../offerKp/quoteRequestPhrases");
+  const priorContextFollowUp = isQuoteFromPriorContextFollowUp(updatedMessage);
+  const hasQuoteBody =
+    (llmCatalog.inquiryDraft?.lines?.length || 0) > 0 ||
+    parsedFileTexts.length > 0;
   const shouldEmitQuoteArtifacts =
-    quoteDocumentRequest ||
-    routedIntent.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
-    (llmCatalog.inquiryDraft?.lines?.length > 0 &&
-      [
-        OFFER_KP_INTENTS.PRODUCT_INQUIRY,
-        OFFER_KP_INTENTS.CREATE_QUOTE,
-        OFFER_KP_INTENTS.EDIT_QUOTE,
-      ].includes(routedIntent.primaryIntent));
+    !priorContextFollowUp &&
+    (quoteDocumentRequest ||
+      routedIntent.primaryIntent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+      (hasQuoteBody &&
+        [
+          OFFER_KP_INTENTS.PRODUCT_INQUIRY,
+          OFFER_KP_INTENTS.CREATE_QUOTE,
+          OFFER_KP_INTENTS.EDIT_QUOTE,
+        ].includes(routedIntent.primaryIntent)));
   if (shouldEmitQuoteArtifacts) {
     try {
       markStage(requestTrace, "EXPORT", "start");
