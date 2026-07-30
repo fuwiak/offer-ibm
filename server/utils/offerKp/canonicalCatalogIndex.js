@@ -301,11 +301,10 @@ async function buildVectorMatrix(records) {
 function persistVectorMatrix(vectorBuild) {
   if (!vectorBuild) return false;
   const { ids, hashes, dims, matrix } = vectorBuild;
-  writeAtomicBinary(VECTORS_FILE, Buffer.from(
-    matrix.buffer,
-    matrix.byteOffset,
-    matrix.byteLength
-  ));
+  writeAtomicBinary(
+    VECTORS_FILE,
+    Buffer.from(matrix.buffer, matrix.byteOffset, matrix.byteLength)
+  );
   writeAtomicJson(VECTOR_META_FILE, {
     embeddingModel: embeddingModel(),
     dims,

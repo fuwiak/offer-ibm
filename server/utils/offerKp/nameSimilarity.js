@@ -462,8 +462,7 @@ async function fetchCanonicalCatalogCandidatePool(searchText, limit = 120) {
     }))
     .filter((row) => row.score > 0)
     .sort(
-      (a, b) =>
-        b.score - a.score || Number(b.productId) - Number(a.productId)
+      (a, b) => b.score - a.score || Number(b.productId) - Number(a.productId)
     )
     .slice(0, sqlLimit(limit))
     .map((row) => ({

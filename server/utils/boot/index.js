@@ -78,7 +78,10 @@ function bootSSL(app, port = 3001) {
           } = require("../offerKp/canonicalCatalogIndex");
           scheduleCanonicalCatalogSync();
         } catch (e) {
-          console.warn("[ShopDB] catalog index schedule failed:", e?.message || e);
+          console.warn(
+            "[ShopDB] catalog index schedule failed:",
+            e?.message || e
+          );
         }
         console.log(
           `Primary server in HTTPS mode listening on ${host}:${port}`
@@ -145,7 +148,10 @@ function bootHTTP(app, port = 3001) {
         } = require("../offerKp/canonicalCatalogIndex");
         scheduleCanonicalCatalogSync();
       } catch (e) {
-        console.warn("[ShopDB] catalog index schedule failed:", e?.message || e);
+        console.warn(
+          "[ShopDB] catalog index schedule failed:",
+          e?.message || e
+        );
       }
       console.log(`Primary server in HTTP mode listening on ${host}:${port}`);
     })

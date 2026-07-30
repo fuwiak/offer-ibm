@@ -14,7 +14,8 @@ function mergeCandidateMeta(previous, next) {
     _canonicalText: previous._canonicalText || next._canonicalText,
     _embeddingSimilarity:
       previous._embeddingSimilarity ?? next._embeddingSimilarity ?? null,
-    _denseSimilarity: previous._denseSimilarity ?? next._denseSimilarity ?? null,
+    _denseSimilarity:
+      previous._denseSimilarity ?? next._denseSimilarity ?? null,
     _canonicalSimilarity:
       previous._canonicalSimilarity ?? next._canonicalSimilarity ?? null,
     _rrfScore: Math.max(previous._rrfScore || 0, next._rrfScore || 0),
