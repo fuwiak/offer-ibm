@@ -48,7 +48,7 @@ function normalizeKey(value = "") {
     .replace(/[–—−]/g, "-")
     .replace(/[х×]/gi, "x")
     .replace(/\s+/g, " ")
-    .replace(/[^\p{L}\p{N}.x\-]+/gu, " ")
+    .replace(/[^\p{L}\p{N}.x-]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -87,7 +87,10 @@ function extractChatTableRows(chatText = "") {
     const line = raw.trim();
     if (!line.startsWith("|")) continue;
     if (/^\|\s*-+/.test(line)) continue;
-    if (/\bзаявк|\boffered|\bартикул|\bкол-во/i.test(line) && /\|\s*#\s*\|/i.test(line) === false) {
+    if (
+      /\bзаявк|\boffered|\bартикул|\bкол-во/i.test(line) &&
+      /\|\s*#\s*\|/i.test(line) === false
+    ) {
       // header-ish row without numeric index
       if (!/^\|\s*\d+\s*\|/.test(line)) continue;
     }
@@ -158,8 +161,7 @@ function compareDraftToChat({
   const chatRows = extractChatTableRows(chatText);
   const catalogRows = catalogEvidenceRows(catalogBlocks);
   const expected =
-    inquiryLines.length ||
-    Math.max(draftLines.length, chatRows.length);
+    inquiryLines.length || Math.max(draftLines.length, chatRows.length);
 
   const pricedDraftCount = draftLines.filter(isPricedAcceptedLine).length;
   const missingIndexes = [];
@@ -255,7 +257,9 @@ function mergeKeepGoodPadMissing({
 } = {}) {
   const existing = Array.isArray(draft?.lines) ? draft.lines : [];
   if (!inquiryLines.length) {
-    return draft || { lines: existing, subtotal: 0, total: 0, totalWeightKg: 0 };
+    return (
+      draft || { lines: existing, subtotal: 0, total: 0, totalWeightKg: 0 }
+    );
   }
 
   const makeStub =
@@ -425,7 +429,6 @@ function alignChatTextWithDraftMarkdown(chatText = "", draftMarkdown = "") {
     return `${text.trim()}\n\n${md}`.trim();
   }
   // Drop from first data-row table through contiguous table/separator lines.
-  let end = tableStart;
   const lines = text.slice(tableStart).split("\n");
   let i = 0;
   // include optional header rows immediately above if present
@@ -438,7 +441,9 @@ function alignChatTextWithDraftMarkdown(chatText = "", draftMarkdown = "") {
   ) {
     headerBack += 1;
   }
-  const prefix = beforeLines.slice(0, beforeLines.length - headerBack).join("\n");
+  const prefix = beforeLines
+    .slice(0, beforeLines.length - headerBack)
+    .join("\n");
   while (i < lines.length && (/^\|/.test(lines[i]) || lines[i].trim() === "")) {
     i += 1;
   }
