@@ -738,6 +738,86 @@ function offerKpEndpoints(app) {
   );
 
   /**
+   * GET /offerKp/memory/stats
+   * Audit counts for the namespaced experience memory (vectors are not exposed).
+   */
+  app.get(
+    "/offerKp/memory/stats",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (_request, response) => {
+      try {
+        const {
+          getExperienceMemoryStats,
+        } = require("../utils/offerKp/experienceMemory");
+        response.status(200).json(getExperienceMemoryStats());
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
+   * POST /offerKp/memory/teach
+   * Store an operator-confirmed layout/extraction/field correction in one
+   * explicit namespace. The server controls trust; clients cannot promote an
+   * automatic model prediction by supplying their own trust level.
+   */
+  app.post(
+    "/offerKp/memory/teach",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const body = reqBody(request);
+        const {
+          MEMORY_NAMESPACES,
+          recordExperienceEvent,
+          rememberExperience,
+        } = require("../utils/offerKp/experienceMemory");
+        const namespace = String(body.namespace || "").trim();
+        const retrievalText = String(body.retrievalText || "").trim();
+        if (!MEMORY_NAMESPACES.has(namespace)) {
+          return response.status(400).json({ error: "Unsupported namespace." });
+        }
+        if (!retrievalText) {
+          return response
+            .status(400)
+            .json({ error: "retrievalText required." });
+        }
+        const event = recordExperienceEvent("memory_operator_confirmed", {
+          input: retrievalText.slice(0, 4_000),
+          corrected_output: body.payload || {},
+          pipeline_stage: namespace,
+          operator_changed: true,
+          user_id: response.locals.offerKpUser?.id ?? null,
+          trust_level: "operator_confirmed",
+        });
+        const saved = await rememberExperience({
+          namespace,
+          retrievalText,
+          canonicalText: body.canonicalText || null,
+          payload: body.payload || {},
+          trustLevel: "operator_confirmed",
+          sourceEventId: event?.id || null,
+        });
+        if (!saved) {
+          return response.status(503).json({
+            error:
+              "Memory embedding unavailable. Check OpenRouter key and embedding model.",
+          });
+        }
+        return response.status(200).json({
+          success: true,
+          id: saved.id,
+          namespace: saved.namespace,
+          trustLevel: saved.trust_level,
+        });
+      } catch (e) {
+        return response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
    * POST /offerKp/quotes/xlsx
    * Экспорт КП в XLSX для 1С.
    */

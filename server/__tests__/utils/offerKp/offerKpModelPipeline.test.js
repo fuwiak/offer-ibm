@@ -13,6 +13,8 @@ const {
   extractJsonArray,
   inquiryTextFromOcrJsonLines,
   normalizeVisionOcrResponse,
+  validateOcrLines,
+  buildVisionPrompt,
 } = require("../../../utils/offerKp/offerKpVisionOcr");
 
 describe("offerKpModelPipeline", () => {
@@ -119,5 +121,26 @@ describe("vision OCR JSON normalize", () => {
     );
     expect(normalized.format).toBe("text");
     expect(normalized.text).toContain("Болт DIN 933");
+  });
+
+  it("rejects non-positive quantities before accepting OCR", () => {
+    expect(
+      validateOcrLines([
+        { name_verbatim: "Болт DIN 933 M10x80", quantity: 0, unit: "шт" },
+      ])
+    ).toMatchObject({
+      valid: false,
+      errors: ["row_1:invalid_quantity"],
+    });
+  });
+
+  it("adds memory and validator feedback to the OCR retry prompt", () => {
+    const prompt = buildVisionPrompt({
+      memoryContext: "Проверенный результат: M10x80 — 200 шт",
+      retryFeedback: "row_1:invalid_quantity",
+    });
+    expect(prompt).toContain("M10x80 — 200 шт");
+    expect(prompt).toContain("row_1:invalid_quantity");
+    expect(prompt).toContain("Не копируй количество");
   });
 });

@@ -152,6 +152,7 @@ async function enrichDocumentsWithOfferKpOcr({
   try {
     const ocrResult = await visionOcrPdf(pdfPath, {
       workspace,
+      contextText: beforeText,
       onPage: ({ pageNumber, total }) => {
         onProgress?.({
           type: "ocr_progress",

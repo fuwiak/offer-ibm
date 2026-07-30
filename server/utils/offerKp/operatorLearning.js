@@ -71,7 +71,9 @@ function rowFromRecord(rec) {
   if (!rec || typeof rec !== "object") return null;
   const sourceName = String(rec.sourceName || "").trim();
   if (!sourceName) return null;
-  const matchType = String(rec.matchType || "").trim().toLowerCase();
+  const matchType = String(rec.matchType || "")
+    .trim()
+    .toLowerCase();
   if (!VALID_MATCH_TYPES.has(matchType)) return null;
   const sku = rec.sku != null ? String(rec.sku).trim() : "";
   if (!sku && matchType !== "none") return null;
@@ -146,7 +148,9 @@ function listOperatorLearningExamples() {
 }
 
 function inferMatchType(example = {}) {
-  const raw = String(example.matchType || "").trim().toLowerCase();
+  const raw = String(example.matchType || "")
+    .trim()
+    .toLowerCase();
   if (VALID_MATCH_TYPES.has(raw)) return raw;
   const status = String(example.status || "").toLowerCase();
   if (/аналог|analog|zamiennik/.test(status)) return "analog";
@@ -192,6 +196,12 @@ function normalizeTeachExample(example = {}) {
     lineIndex: example.lineIndex ?? null,
     userId: example.userId != null ? Number(example.userId) : null,
     sourceFile: "operator",
+    rawOcr: example.rawOcr ? String(example.rawOcr).trim() : null,
+    quantity:
+      example.quantity != null && Number.isFinite(Number(example.quantity))
+        ? Number(example.quantity)
+        : null,
+    unit: example.unit ? String(example.unit).trim() : null,
   };
   return { ok: true, record };
 }
@@ -244,6 +254,72 @@ async function teachExamples(examples = [], opts = {}) {
 
   if (opts.warmEmbeddings !== false && taught.length) {
     warmEmbeddingsAsync(taught);
+  }
+  if (taught.length) {
+    const {
+      recordExperienceEvent,
+      rememberExperienceAsync,
+    } = require("./experienceMemory");
+    for (const record of taught) {
+      const event = recordExperienceEvent("operator_learning_confirmed", {
+        input: record.sourceName,
+        corrected_output: {
+          sku: record.sku,
+          matched_name: record.matchedName,
+          match_type: record.matchType,
+          quantity: record.quantity,
+          unit: record.unit,
+        },
+        pipeline_stage: "operator_confirmation",
+        operator_changed: true,
+        trust_level: "operator_confirmed",
+      });
+      rememberExperienceAsync({
+        namespace:
+          record.matchType === "none"
+            ? "negative_memory"
+            : "match_correction_memory",
+        retrievalText: [
+          `RAW: ${record.sourceName}`,
+          record.matchedName ? `MATCHED: ${record.matchedName}` : "",
+          record.sku ? `SKU: ${record.sku}` : "",
+          `MATCH_TYPE: ${record.matchType}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        payload: {
+          source_text: record.sourceName,
+          selected_sku: record.sku,
+          matched_name: record.matchedName,
+          match_type: record.matchType,
+        },
+        trustLevel: "operator_confirmed",
+        sourceEventId: event?.id || null,
+      });
+      if (record.rawOcr || record.quantity != null) {
+        rememberExperienceAsync({
+          namespace: "extraction_example_memory",
+          retrievalText: [
+            `RAW_OCR: ${record.rawOcr || record.sourceName}`,
+            `NAME: ${record.sourceName}`,
+            record.quantity != null ? `QUANTITY: ${record.quantity}` : "",
+            record.unit ? `UNIT: ${record.unit}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          payload: {
+            raw_ocr: record.rawOcr || record.sourceName,
+            structured_output: {
+              source_name: record.sourceName,
+              quantity: record.quantity,
+              unit: record.unit,
+            },
+          },
+          trustLevel: "operator_confirmed",
+          sourceEventId: event?.id || null,
+        });
+      }
+    }
   }
 
   return {

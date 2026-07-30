@@ -1,3 +1,4 @@
+const path = require("path");
 const llmDefaults = require("../../config/offerKp.llm.defaults");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const {
@@ -14,13 +15,13 @@ const {
   resolvePipelineVisionModel,
   ensurePipelineModelLoaded,
 } = require("./offerKpModelPipeline");
+const { OFFER_KP_DETERMINISTIC_SAMPLING } = require("./deterministicSampling");
+const { RESPONSE_FORMATS, parseOcrLinesPayload } = require("./llmJsonSchema");
 const {
-  OFFER_KP_DETERMINISTIC_SAMPLING,
-} = require("./deterministicSampling");
-const {
-  RESPONSE_FORMATS,
-  parseOcrLinesPayload,
-} = require("./llmJsonSchema");
+  recordExperienceEvent,
+  rememberExperienceAsync,
+  retrieveExperiences,
+} = require("./experienceMemory");
 
 /** Legacy plain-text OCR (fallback when JSON parse fails). */
 const VISION_OCR_PROMPT = `Извлеки весь текст с изображения заявки/спецификации.
@@ -44,6 +45,69 @@ const VISION_OCR_JSON_PROMPT = `Ты — OCR глаз для заявки на �
 - Количество — только колонка количества; НЕ путай с ценой и размером.
 - Не выдумывай цены, SKU, остатки и ссылки — их нет в твоей роли.
 - Если таблица пуста — верни {"lines":[]}.`;
+
+function formatExtractionMemory(examples = []) {
+  if (!examples.length) return "";
+  const rows = examples.map((row) => {
+    const payload = row.payload || {};
+    const output = payload.structured_output || payload;
+    return [
+      `Вход: ${payload.raw_ocr || row.retrieval_text}`,
+      `Проверенный результат: ${JSON.stringify(output)}`,
+    ].join("\n");
+  });
+  return [
+    "Похожие проверенные примеры извлечения. Используй только как подсказку структуры; значения считывай с текущего изображения:",
+    ...rows,
+  ].join("\n\n");
+}
+
+function validateOcrLines(lines = []) {
+  const errors = [];
+  const warnings = [];
+  const seen = new Set();
+  if (!Array.isArray(lines) || !lines.length) {
+    errors.push("no_rows_extracted");
+    return { valid: false, errors, warnings };
+  }
+
+  lines.forEach((row, index) => {
+    const name = String(
+      row?.name_verbatim || row?.name || row?.title || row?.[0] || ""
+    ).trim();
+    const quantity = Number(
+      row?.quantity ?? row?.qty ?? row?.count ?? row?.[1]
+    );
+    const unit = String(row?.unit || row?.ед || row?.[2] || "").trim();
+    if (!name) errors.push(`row_${index + 1}:empty_name`);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      errors.push(`row_${index + 1}:invalid_quantity`);
+    } else if (quantity > 1_000_000) {
+      warnings.push(`row_${index + 1}:implausible_quantity`);
+    }
+    if (!unit) warnings.push(`row_${index + 1}:missing_unit`);
+    const key = `${name.toLowerCase()}|${quantity}|${unit.toLowerCase()}`;
+    if (seen.has(key)) warnings.push(`row_${index + 1}:duplicate_row`);
+    seen.add(key);
+  });
+  return { valid: errors.length === 0, errors, warnings };
+}
+
+function buildVisionPrompt({ memoryContext = "", retryFeedback = "" } = {}) {
+  return [
+    VISION_OCR_JSON_PROMPT,
+    memoryContext,
+    retryFeedback
+      ? [
+          "Предыдущая попытка не прошла кодовую проверку.",
+          `Ошибки: ${retryFeedback}`,
+          "Перечитай таблицу и исправь только ошибки извлечения. Не копируй количество в размер или наименование.",
+        ].join("\n")
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
 
 function lmStudioChatUrl() {
   const base =
@@ -132,11 +196,7 @@ function inquiryTextFromOcrJsonLines(lines = []) {
         return `${index + 1}. ${name}${qtyPart}`;
       }
       const name = String(
-        row.name_verbatim ||
-          row.name ||
-          row.title ||
-          row.наименование ||
-          ""
+        row.name_verbatim || row.name || row.title || row.наименование || ""
       ).trim();
       if (!name) return "";
       const qty = row.qty ?? row.quantity ?? row.кол_во ?? row.count;
@@ -178,7 +238,12 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
   const useJson = opts.json !== false;
-  const prompt = useJson ? VISION_OCR_JSON_PROMPT : VISION_OCR_PROMPT;
+  const prompt = useJson
+    ? buildVisionPrompt({
+        memoryContext: opts.memoryContext,
+        retryFeedback: opts.retryFeedback,
+      })
+    : VISION_OCR_PROMPT;
 
   const body = {
     model: resolvedModel,
@@ -248,6 +313,30 @@ async function visionOcrPdf(pdfPath, opts = {}) {
   let modelId =
     endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
   const startedAt = Date.now();
+  const contextText = String(opts.contextText || "").trim();
+  const extractionMemories = contextText
+    ? await retrieveExperiences("extraction_example_memory", contextText, {
+        limit: 3,
+        minSimilarity: 0.55,
+      })
+    : [];
+  const layoutMemories = contextText
+    ? await retrieveExperiences("document_layout_memory", contextText, {
+        limit: 2,
+        minSimilarity: 0.58,
+      })
+    : [];
+  const memoryContext = formatExtractionMemory([
+    ...layoutMemories,
+    ...extractionMemories,
+  ]);
+  const startEvent = recordExperienceEvent("extraction_started", {
+    input_id: path.basename(pdfPath),
+    input_preview: contextText.slice(0, 2_000),
+    pipeline_stage: "vision_ocr",
+    model: endpoint.modelId,
+    retrieved_examples: extractionMemories.length + layoutMemories.length,
+  });
 
   if (!endpoint.teacher) {
     try {
@@ -284,17 +373,35 @@ async function visionOcrPdf(pdfPath, opts = {}) {
       page: pageNumber,
       total: pages.length,
     });
-    let raw = await visionOcrImageBuffer(buffer, modelId, { json: true });
+    let raw = await visionOcrImageBuffer(buffer, modelId, {
+      json: true,
+      memoryContext,
+    });
     let normalized = normalizeVisionOcrResponse(raw);
+    let validation = validateOcrLines(normalized.lines || []);
 
-    // Prefer a second constrained JSON call over free-text fallback.
-    if (normalized.format !== "json" || !normalized.text) {
-      raw = await visionOcrImageBuffer(buffer, modelId, { json: true });
+    // Retry the page with deterministic validator feedback instead of asking
+    // the model the same question twice.
+    if (
+      normalized.format !== "json" ||
+      !normalized.text ||
+      !validation.valid ||
+      validation.warnings.length > 0
+    ) {
+      raw = await visionOcrImageBuffer(buffer, modelId, {
+        json: true,
+        memoryContext,
+        retryFeedback: [...validation.errors, ...validation.warnings].join(
+          ", "
+        ),
+      });
       normalized = normalizeVisionOcrResponse(raw);
+      validation = validateOcrLines(normalized.lines || []);
     }
     if (normalized.format !== "json" || !normalized.text) {
       raw = await visionOcrImageBuffer(buffer, modelId, { json: false });
       normalized = normalizeVisionOcrResponse(raw);
+      validation = validateOcrLines(normalized.lines || []);
     }
 
     if (normalized.format === "json" && normalized.lines) {
@@ -309,6 +416,8 @@ async function visionOcrPdf(pdfPath, opts = {}) {
       format: normalized.format,
       model: modelId,
       teacher: endpoint.teacher || false,
+      validationErrors: validation.errors,
+      validationWarnings: validation.warnings,
     });
   }
 
@@ -325,6 +434,36 @@ async function visionOcrPdf(pdfPath, opts = {}) {
     model: modelId,
     teacher: endpoint.teacher || false,
   });
+
+  const finalValidation = validateOcrLines(allLines);
+  const completedEvent = recordExperienceEvent("extraction_completed", {
+    input_id: path.basename(pdfPath),
+    source_event_id: startEvent?.id || null,
+    raw_output: allLines,
+    model: modelId,
+    pipeline_stage: "vision_ocr",
+    validation_errors: finalValidation.errors,
+    validation_warnings: finalValidation.warnings,
+    trust_level: "automatic_prediction",
+  });
+  // Automatic output is retained for audit/analytics but is intentionally not
+  // eligible for positive retrieval until an operator confirms it.
+  if (fullText) {
+    rememberExperienceAsync({
+      namespace: "extraction_example_memory",
+      retrievalText: [
+        `RAW_OCR: ${contextText.slice(0, 4_000) || fullText.slice(0, 4_000)}`,
+        `EXTRACTED: ${fullText.slice(0, 4_000)}`,
+      ].join("\n"),
+      payload: {
+        raw_ocr: contextText.slice(0, 4_000) || null,
+        structured_output: allLines,
+        validation: finalValidation,
+      },
+      trustLevel: "automatic_prediction",
+      sourceEventId: completedEvent?.id || null,
+    });
+  }
 
   return {
     text: fullText,
@@ -343,4 +482,7 @@ module.exports = {
   extractJsonArray,
   inquiryTextFromOcrJsonLines,
   normalizeVisionOcrResponse,
+  formatExtractionMemory,
+  validateOcrLines,
+  buildVisionPrompt,
 };
