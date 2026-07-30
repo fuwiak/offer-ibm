@@ -550,7 +550,7 @@ export default function QuoteDraftTable() {
       showToast(
         t("draftTable.cheapestAnalogsEmpty", {
           defaultValue:
-            "Нет строк с аналогами в альтернативах (или уже выбраны).",
+            "Нет строк с меню альтернатив (нужно ≥2 варианта) или уже выбран лучший на складе.",
         }),
         "info"
       );
@@ -589,7 +589,7 @@ export default function QuoteDraftTable() {
     showToast(
       t("draftTable.cheapestAnalogsSuccess", {
         count: picks.length,
-        defaultValue: "Подобрано дешёвых аналогов: {{count}}",
+        defaultValue: "Подставлено из наличия: {{count}}",
       }),
       "success"
     );
@@ -725,7 +725,7 @@ export default function QuoteDraftTable() {
             onClick={applyCheapestAnalogs}
             title={t("draftTable.cheapestAnalogsTitle", {
               defaultValue:
-                "Одним кликом подставить самый дешёвый аналог из альтернатив по каждой строке",
+                "Подставить по каждой строке самый дешёвый вариант из меню «Аналоги», который есть на складе",
             })}
             className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover"
           >
