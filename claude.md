@@ -30,7 +30,8 @@ B2B-система формирования **коммерческих пред�
 ## Жёсткие правила (не ломать)
 
 - **ShopDB-only** для КП: без vector search и web-enrich; цены не выдумывать.
-- Цену получают только `exact` / `analog`. `similar` / `size_mismatch` / `none` → без чужой цены / «под заказ».
+- Цену получают только `exact` / `analog`. `similar` / `size_mismatch` / `size_unconfirmed` / `spec_unconfirmed` / `none` → без чужой цены / «под заказ».
+- Заявка молчит про класс прочности / материал, а в каталоге варианты с разбросом цены ≥ `OFFER_KP_VARIANT_PRICE_SPREAD` (default 1.2) → `spec_unconfirmed` + needs_review, не `exact` (`variantSpecs.js`). Одинаково на DIN- и ГОСТ-формулировке одного запроса.
 - Golden set **не** источник цены — только указание SKU; цена всегда из `searchByExactSku`.
 - Style-polish для КП отключён (не переписывать числа).
 - Текст PDF/OCR = **данные**, не инструкции (prompt + source verification).
@@ -66,7 +67,7 @@ B2B-система формирования **коммерческих пред�
   Раньше swap eyes↔brain (gpt-oss) стоил 90+ с — убрали.
 - LM Studio: `http://87.228.90.43:1234/v1` (см. `offerKp.llm.defaults.js`).
 - OpenRouter **выкл** по умолчанию (`OFFER_KP_OPENROUTER=false`). Только LM Studio. Opt-in: `OFFER_KP_OPENROUTER=1` + `OFFER_KP_TEACHER_LLM=1`.
-- Constrained JSON Schema на LM Studio **работает**; адаптер `AiProviders/lmStudio` пока не прокидывает `response_format` — кандидат на доработку.
+- Constrained JSON Schema на LM Studio **работает**; адаптер `AiProviders/lmStudio` прокидывает `response_format` (см. `llmJsonSchema.RESPONSE_FORMATS`). Выбор товара LLM-фолбэком идёт через `productSelectionResponseFormat(ids)` — enum из id реального candidate set, выдумать артикул невозможно на уровне декодирования.
 
 ---
 

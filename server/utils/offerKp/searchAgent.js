@@ -39,7 +39,7 @@ const {
   compareByDeterministicTieBreak,
 } = require("./deterministicSampling");
 const {
-  RESPONSE_FORMATS,
+  productSelectionResponseFormat,
   parseProductSelectionPayload,
 } = require("./llmJsonSchema");
 
@@ -544,7 +544,11 @@ async function pickProductsWithLlm(
     const { textResponse } = await LLMConnector.getChatCompletion(
       messages,
       resolveOfferKpChatSampling({
-        response_format: RESPONSE_FORMATS.productSelection,
+        // Enum over exactly the presented ids — decoding cannot produce a
+        // product outside the candidate set.
+        response_format: productSelectionResponseFormat(
+          presented.map((p) => p.id)
+        ),
       })
     );
     const ids = parseLlmProductIds(textResponse);

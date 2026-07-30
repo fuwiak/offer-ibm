@@ -10,6 +10,7 @@ const REVIEW_REASONS = Object.freeze({
   SIZE_UNCONFIRMED: "size_unconfirmed",
   SIZE_MISMATCH: "size_mismatch",
   SPEC_MISMATCH: "spec_mismatch",
+  SPEC_UNCONFIRMED: "spec_unconfirmed",
   NO_MATCH: "no_match",
   UNDERSPECIFIED: "underspecified",
   UNIT_RECALC: "unit_recalc",
@@ -32,6 +33,7 @@ const REVIEW_REASONS = Object.freeze({
  *   hasPrice?: boolean,
  *   retrieverDisagreement?: boolean,
  *   underspecified?: boolean,
+ *   variantAmbiguous?: boolean,
  *   goldenNone?: boolean,
  *   matchError?: boolean,
  * }} input
@@ -41,11 +43,17 @@ function resolveReviewReason(input = {}) {
   if (input.matchError) return REVIEW_REASONS.MATCH_ERROR;
   if (input.goldenNone) return REVIEW_REASONS.GOLDEN_NONE;
   if (input.underspecified) return REVIEW_REASONS.UNDERSPECIFIED;
+  // Request omitted a price-differentiating spec (strength class / material)
+  // while the catalog holds variants priced apart — operator must pick.
+  if (input.variantAmbiguous) return REVIEW_REASONS.SPEC_UNCONFIRMED;
   if (input.retrieverDisagreement) return REVIEW_REASONS.RETRIEVER_DISAGREEMENT;
   if (input.outOfDistribution) return REVIEW_REASONS.OUT_OF_DISTRIBUTION;
   if (input.hardConstraint) return REVIEW_REASONS.HARD_CONSTRAINT;
   if (input.selectiveReject) {
-    if (input.gateReason === "low_ltr_margin" || input.gateReason === "low_bayes") {
+    if (
+      input.gateReason === "low_ltr_margin" ||
+      input.gateReason === "low_bayes"
+    ) {
       return REVIEW_REASONS.LOW_CONFIDENCE;
     }
     return REVIEW_REASONS.SELECTIVE_REJECT;
@@ -69,8 +77,10 @@ function resolveReviewReason(input = {}) {
   if (!input.accepted) {
     if (input.matchType === "size_unconfirmed")
       return REVIEW_REASONS.SIZE_UNCONFIRMED;
-    if (input.matchType === "size_mismatch") return REVIEW_REASONS.SIZE_MISMATCH;
-    if (input.matchType === "spec_mismatch") return REVIEW_REASONS.SPEC_MISMATCH;
+    if (input.matchType === "size_mismatch")
+      return REVIEW_REASONS.SIZE_MISMATCH;
+    if (input.matchType === "spec_mismatch")
+      return REVIEW_REASONS.SPEC_MISMATCH;
     return REVIEW_REASONS.NO_MATCH;
   }
 

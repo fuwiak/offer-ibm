@@ -11,12 +11,22 @@ const {
 } = require("./productSearchAgent");
 const { classifyProductMatch, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
-const { resolveProductPrice } = require("./priceResolve");
+const priceResolve = require("./priceResolve");
+const configuredOptPriceCategoryId =
+  priceResolve.configuredOptPriceCategoryId || (() => null);
+const resolveProductPriceWithSource =
+  priceResolve.resolveProductPriceWithSource ||
+  ((product, skuRows, optPriceRows) => ({
+    price:
+      priceResolve.resolveProductPrice?.(product, skuRows, optPriceRows) || 0,
+    source: null,
+  }));
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const {
   signaturesMatchForPricing,
   buildProductSignature,
 } = require("./canonicalProductText");
+const { detectVariantAmbiguity, variantPricingKey } = require("./variantSpecs");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { recordSearchMetric } = require("./searchMetrics");
 const { withLineEvidence, MATCH_RULES_VERSION } = require("./matchEvidence");
@@ -188,7 +198,11 @@ function pickBestInquiryAlternative(alternatives = []) {
       let placed = false;
       for (const group of groups) {
         if (
-          signaturesMatchForPricing(group[0]._signature, candidate._signature)
+          signaturesMatchForPricing(
+            group[0]._signature,
+            candidate._signature
+          ) &&
+          variantPricingKey(group[0].name) === variantPricingKey(candidate.name)
         ) {
           group.push(candidate);
           placed = true;
@@ -237,13 +251,15 @@ function emptyProductStock() {
     sku: "",
     skuName: "",
     price: 0,
+    priceSource: null,
+    optPriceRows: [],
     stockCount: 0,
     skus: [],
   };
 }
 
 function skuPositivePrice(sku = {}) {
-  return positivePrice(sku.price) || positivePrice(sku.compare_price);
+  return positivePrice(sku.price);
 }
 
 function isSkuInStock(sku = {}) {
@@ -299,13 +315,23 @@ async function fetchProductStocks(productIds = []) {
   if (!ids.length) return byProduct;
 
   const placeholders = ids.map(() => "?").join(",");
+  const optCategoryId = configuredOptPriceCategoryId();
+  const optJoin = optCategoryId
+    ? `LEFT JOIN shop_opt_prices op
+         ON op.sku_id = s.id AND op.user_category_id = ?`
+    : "";
+  const optSelect = optCategoryId
+    ? "op.price AS opt_price"
+    : "NULL AS opt_price";
   const rows = await query(
-    `SELECT ${S.productId} AS product_id, ${S.sku} AS sku,
-            ${S.name} AS sku_name, price, compare_price, count, available
-     FROM ${TABLES.productSkus}
-     WHERE ${S.productId} IN (${placeholders})
-     ORDER BY ${S.productId}, count DESC, ${S.sku} ASC`,
-    ids
+    `SELECT s.${S.productId} AS product_id, s.${S.sku} AS sku,
+            s.${S.name} AS sku_name, s.price, s.compare_price,
+            s.count, s.available, ${optSelect}
+     FROM ${TABLES.productSkus} s
+     ${optJoin}
+     WHERE s.${S.productId} IN (${placeholders})
+     ORDER BY s.${S.productId}, s.count DESC, s.${S.sku} ASC`,
+    optCategoryId ? [optCategoryId, ...ids] : ids
   );
 
   const grouped = new Map();
@@ -323,11 +349,15 @@ async function fetchProductStocks(productIds = []) {
       0
     );
     const bestSku = pickBestPricedSku(skus) || {};
-    const skuPrice = skuPositivePrice(bestSku) || resolveProductPrice({}, skus);
+    const resolved = resolveProductPriceWithSource({}, skus);
     byProduct.set(key, {
       sku: bestSku.sku || "",
       skuName: bestSku.sku_name || "",
-      price: skuPrice,
+      price: resolved.price,
+      priceSource: resolved.source,
+      optPriceRows: skus
+        .filter((row) => Number(row.opt_price) > 0)
+        .map((row) => ({ price: row.opt_price })),
       stockCount: totalStock,
       skus,
     });
@@ -557,6 +587,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   let alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
+    const resolvedPrice = resolveProductPriceWithSource(
+      product,
+      stock.skus,
+      stock.optPriceRows
+    );
     const classification = classifyProductMatch(searchText, {
       ...product,
       ...stock,
@@ -566,7 +601,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       productId: String(product.id),
       name: product.name,
       sku: stock.sku,
-      price: stock.price || resolveProductPrice(product) || 0,
+      price: resolvedPrice.price || 0,
+      priceSource: resolvedPrice.source || null,
       stockCount: stock.stockCount,
       // Operator-verified matchType from the golden set wins over the
       // heuristic classifier; stock-derived status still comes from live data.
@@ -615,6 +651,16 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (retrieverDisagreement && accepted && best.matchType === "exact") {
     accepted = false;
   }
+  // Request silent about strength class / material while the catalog holds
+  // variants priced severalfold apart → quoting any of them is a guess.
+  // Same abstention on the DIN and the ГОСТ path.
+  const variantAmbiguity = detectVariantAmbiguity({
+    queryText: searchText,
+    alternatives,
+  });
+  if (variantAmbiguity && accepted) {
+    accepted = false;
+  }
 
   let matchGates = null;
   if (matchEnrichmentEnabled() && alternatives.length) {
@@ -651,7 +697,10 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         price: Number(similar.price) || 0,
         productUrl: similar.productUrl,
       };
-    } else if (best && (underspecifiedSize || retrieverDisagreement)) {
+    } else if (
+      best &&
+      (underspecifiedSize || retrieverDisagreement || variantAmbiguity)
+    ) {
       similarSuggestion = {
         productId: best.productId,
         name: best.name,
@@ -684,7 +733,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ? best.status
       : STATUS.OUT_OF_STOCK;
 
-  if (underspecifiedSize || retrieverDisagreement) {
+  if (underspecifiedSize || retrieverDisagreement || variantAmbiguity) {
     status = STATUS.NEEDS_REVIEW;
   }
   if (matchGates?.gateRejected || matchGates?.anomaly?.outOfDistribution) {
@@ -695,7 +744,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   // Статус для таблицы КП (фиксированный словарь из регламента КП).
   let kpStatus;
-  if (underspecifiedSize || retrieverDisagreement || matchGates?.gateRejected) {
+  if (
+    underspecifiedSize ||
+    retrieverDisagreement ||
+    variantAmbiguity ||
+    matchGates?.gateRejected
+  ) {
     kpStatus = "Требуется проверка";
   } else if (!accepted) {
     kpStatus = "Нет в базе";
@@ -727,6 +781,17 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       `Расхождение поиска: lexical=${retrieverDisagreement.lexicalProductId}, embedding=${retrieverDisagreement.embeddingProductId} — требуется подтверждение`
     );
   }
+  if (variantAmbiguity) {
+    const label =
+      variantAmbiguity.field === "material"
+        ? "материал (сталь / нержавейка)"
+        : "класс прочности";
+    commentParts.push(
+      `В заявке не указан ${label}; в каталоге варианты ${variantAmbiguity.values.join(" / ")} — ` +
+        `цена от ${variantAmbiguity.minPrice.toFixed(2)} до ${variantAmbiguity.maxPrice.toFixed(2)} RUB. ` +
+        `Требуется уточнение, цена не назначена`
+    );
+  }
   if (matchGates?.anomaly?.outOfDistribution) {
     commentParts.push(
       `Аномалия ввода (${(matchGates.anomaly.reasons || []).join(", ")}) — автосопоставление отключено`
@@ -742,7 +807,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       `АНАЛОГ: вместо «${inquiryLine.name}» предложен «${best.name}»` +
         (best.analogOf ? ` (${best.analogOf})` : "")
     );
-  } else if (!accepted && !underspecifiedSize) {
+  } else if (!accepted && !underspecifiedSize && !variantAmbiguity) {
     commentParts.push("Точный товар отсутствует. Подходящий аналог не найден");
     if (best?.matchType === "spec_mismatch") {
       const labels = {
@@ -782,7 +847,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     ? best.matchType
     : underspecifiedSize
       ? "none"
-      : best?.matchType || "none";
+      : variantAmbiguity
+        ? // Must not stay "exact": every price-eligibility check downstream
+          // (refreshDraftPrices, matchEvidence, prompts) keys off matchType.
+          "spec_unconfirmed"
+        : best?.matchType || "none";
   const reviewReason = resolveReviewReason({
     accepted,
     matchType: displayMatchType,
@@ -793,6 +862,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     underspecified: underspecifiedSize,
     goldenNone: !accepted && override?.matchType === "none",
     outOfDistribution: !!matchGates?.anomaly?.outOfDistribution,
+    variantAmbiguous: !!variantAmbiguity,
     hardConstraint: (best?.constraintViolations || []).length > 0 && !accepted,
     selectiveReject: !!matchGates?.gateRejected && !accepted,
     gateReason: matchGates?.gateReason || null,
@@ -845,7 +915,29 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const evidenced = withLineEvidence(matchedLine, {
     requestId: options.requestId || null,
   });
-  recordSearchMetric({
+  const candidateIds = candidates.map((candidate) => String(candidate.id));
+  const denseHitCount = candidates.filter(
+    (candidate) =>
+      candidate._denseSimilarity != null ||
+      (candidate._matchSources || candidate.shopMatchSources || []).includes(
+        "catalog_dense"
+      )
+  ).length;
+  const sqlHitCount = candidates.filter((candidate) => {
+    const sources = candidate._matchSources || candidate.shopMatchSources || [];
+    return sources.some((source) =>
+      [
+        "structured",
+        "product_fields",
+        "sku",
+        "category",
+        "search_index",
+        "name_cosine_pool",
+        "name_cosine",
+      ].includes(source)
+    );
+  }).length;
+  const metric = {
     matchType: evidenced.matchType,
     source: evidenced.matchSource,
     strategies: matchStrategies,
@@ -855,6 +947,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     threadId: options.threadId || null,
     requestId: options.requestId || null,
     productId: evidenced.productId || null,
+    selectedProductId: accepted ? best?.productId || null : null,
+    selectedSku: accepted ? best?.sku || null : null,
+    priceSource: accepted ? best?.priceSource || null : null,
+    candidateIds,
+    sqlHitCount,
+    denseHitCount,
     failureReason: !accepted
       ? best?.mismatchReason || reviewReason || best?.matchType || null
       : null,
@@ -864,6 +962,18 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     algorithmProfile: DETERMINISTIC_MATCH_PROFILE.id,
     rulesVersion: MATCH_RULES_VERSION,
     evidence: evidenced.evidence,
+  };
+  recordSearchMetric(metric);
+  require("./shopDbLog").info("match decision", {
+    requestId: options.requestId || null,
+    sqlHits: sqlHitCount,
+    denseHits: denseHitCount,
+    candidateIds,
+    selectedProductId: metric.selectedProductId,
+    selectedSku: metric.selectedSku,
+    priceSource: metric.priceSource,
+    rejectReason: metric.failureReason,
+    matchType: metric.matchType,
   });
 
   setCachedLineMatch(options.threadId, cacheRaw, evidenced);

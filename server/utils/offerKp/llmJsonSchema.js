@@ -29,8 +29,14 @@ const ocrLineSchema = Joi.alternatives().try(
     qty: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
     quantity: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
     unit: Joi.string().allow("").optional(),
-    din: Joi.alternatives().try(Joi.string(), Joi.number()).allow(null).optional(),
-    gost: Joi.alternatives().try(Joi.string(), Joi.number()).allow(null).optional(),
+    din: Joi.alternatives()
+      .try(Joi.string(), Joi.number())
+      .allow(null)
+      .optional(),
+    gost: Joi.alternatives()
+      .try(Joi.string(), Joi.number())
+      .allow(null)
+      .optional(),
     notes: Joi.string().allow("", null).optional(),
     source_page: Joi.number().integer().optional(),
     source_row: Joi.number().integer().optional(),
@@ -152,6 +158,48 @@ const RESPONSE_FORMATS = Object.freeze({
 });
 
 /**
+ * Constrained decoding over the *actual* candidate set: the enum makes an
+ * invented product id physically unemittable, instead of relying on a
+ * post-hoc filter. Falls back to the open integer schema when the id list is
+ * empty or too large for a schema (LM Studio compiles enums into the grammar).
+ *
+ * @param {Array<number|string>} candidateIds ids presented to the model
+ * @returns {object} OpenAI-compatible response_format payload
+ */
+function productSelectionResponseFormat(candidateIds = []) {
+  // Not parseProductIdArray(): its 20-id answer cap would silently drop
+  // candidates out of the enum, i.e. out of the model's reach.
+  const ids = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(candidateIds) ? candidateIds : []) {
+    const id = Number(raw);
+    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  if (!ids.length || ids.length > 200) return RESPONSE_FORMATS.productSelection;
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "product_selection",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          product_ids: {
+            type: "array",
+            maxItems: Math.min(ids.length, 20),
+            items: { type: "integer", enum: ids },
+          },
+        },
+        required: ["product_ids"],
+        additionalProperties: false,
+      },
+    },
+  };
+}
+
+/**
  * @param {unknown} value
  * @returns {number[]} positive integer product ids (deduped, order preserved)
  */
@@ -161,10 +209,7 @@ function parseProductIdArray(value) {
   const seen = new Set();
   for (const v of value) {
     const { error, value: item } = Joi.alternatives()
-      .try(
-        Joi.number().integer().positive(),
-        Joi.string().pattern(/^\d+$/)
-      )
+      .try(Joi.number().integer().positive(), Joi.string().pattern(/^\d+$/))
       .validate(v, { convert: true });
     if (error) continue;
     const id = typeof item === "number" ? item : parseInt(String(item), 10);
@@ -220,6 +265,7 @@ module.exports = {
   ocrLinesArraySchema,
   INTENT_CATEGORY_ENUM,
   RESPONSE_FORMATS,
+  productSelectionResponseFormat,
   parseProductIdArray,
   parseProductSelectionPayload,
   parseOcrLinesArray,
