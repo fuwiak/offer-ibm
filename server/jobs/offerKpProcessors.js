@@ -36,7 +36,7 @@ async function processGpuOcrJob(job) {
     };
   }
 
-  const { visionOcrPdf } = require("../utils/offerKp/offerKpVisionOcr");
+  const { visionOcrFile } = require("../utils/offerKp/offerKpVisionOcr");
 
   await setJobStatus(jobId, {
     stage: "ocr",
@@ -45,8 +45,9 @@ async function processGpuOcrJob(job) {
     filename: data.originalFilename || null,
   });
 
-  const result = await visionOcrPdf(data.pdfPath, {
+  const result = await visionOcrFile(data.pdfPath, {
     contextText: data.contextText || "",
+    originalFilename: data.originalFilename || "",
     onPage: async ({ pageNumber, total }) => {
       const progress =
         total > 0 ? Math.min(99, Math.round((pageNumber / total) * 100)) : 50;
@@ -164,26 +165,34 @@ async function processExportJob(job) {
     const {
       refreshDraftPricesFromShopDb,
     } = require("../utils/offerKp/refreshDraftPrices");
-    const { fetchProductStocks } = require("../utils/offerKp/matchInquiryLines");
+    const {
+      fetchProductStocks,
+    } = require("../utils/offerKp/matchInquiryLines");
     if (
       typeof refreshDraftPricesFromShopDb === "function" &&
       Array.isArray(quoteData.lines)
     ) {
       await refreshDraftPricesFromShopDb(quoteData, fetchProductStocks);
     }
-  } catch (_) {
+  } catch {
     /* best-effort — export still proceeds with draft prices */
   }
 
   let result;
   if (format === "pdf") {
-    const { generateQuotePdf } = require("../utils/offerKpApp/generateQuotePdf");
+    const {
+      generateQuotePdf,
+    } = require("../utils/offerKpApp/generateQuotePdf");
     result = await generateQuotePdf(quoteData);
   } else if (format === "xlsx") {
-    const { generateQuoteXlsx } = require("../utils/offerKpApp/generateQuoteXlsx");
+    const {
+      generateQuoteXlsx,
+    } = require("../utils/offerKpApp/generateQuoteXlsx");
     result = await generateQuoteXlsx(quoteData);
   } else {
-    const { generateQuoteDocx } = require("../utils/offerKpApp/generateQuoteDocx");
+    const {
+      generateQuoteDocx,
+    } = require("../utils/offerKpApp/generateQuoteDocx");
     result = await generateQuoteDocx(quoteData);
   }
 

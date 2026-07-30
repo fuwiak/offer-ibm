@@ -21,6 +21,10 @@ function gateCodeFromFlags(flags = {}) {
 function shopDbGateFailure(flags = {}) {
   const code = gateCodeFromFlags(flags);
   if (!code) return null;
+  // NO_MATCH is informational (nothing found) — chat must still answer.
+  // Only infrastructure gates abort the turn (UI otherwise shows
+  // "Could not respond to message. Reason: NO_MATCH").
+  if (code === "NO_MATCH") return null;
   return {
     code,
     text: SHOP_DB_GATE_MESSAGES[code] || SHOP_DB_GATE_MESSAGES.DB_UNAVAILABLE,

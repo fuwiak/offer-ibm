@@ -4,7 +4,8 @@ const { textQualityReport } = require("./pdfTextQuality");
 const { assessInquiryTextQuality } = require("./inquiryTextQuality");
 const { parseInquiryText } = require("./parseInquiry");
 const {
-  isPdfFilename,
+  isImageFilename,
+  isVisionOcrFilename,
   resolveOriginalFilePath,
 } = require("../parsedFileOriginal");
 const { directUploadsPath } = require("../files");
@@ -55,6 +56,8 @@ function assessInquiryTableIntegrity(text = "") {
 
 function documentsNeedVisionOcr(documents = []) {
   const combined = documents.map((d) => d?.pageContent || "").join("\n");
+  // Empty collector output (typical for photo/Tesseract miss) → must run VL.
+  if (!String(combined || "").trim()) return true;
   const pageCount = Math.max(1, documents.length);
   const pdfReport = textQualityReport(combined, pageCount);
   const inquiryReport = assessInquiryTextQuality(combined);
@@ -126,6 +129,7 @@ function applyVisionOcrText(documents, text, meta = {}) {
 
 /**
  * Resident Qwen3-VL corrects collector/Tesseract text when table integrity is bad.
+ * Also runs for uploaded photos (images) — Tesseract alone is not enough for RFQ scans.
  */
 async function enrichDocumentsWithOfferKpOcr({
   documents = [],
@@ -133,10 +137,17 @@ async function enrichDocumentsWithOfferKpOcr({
   originalFilename = "",
   workspace = null,
   onProgress = null,
+  force = false,
 } = {}) {
   if (!isOfferKpVisionOcrEnabled()) return documents;
-  if (!originalLocation || !isPdfFilename(originalFilename)) return documents;
-  if (!documentsNeedVisionOcr(documents)) return documents;
+  if (!originalLocation || !isVisionOcrFilename(originalFilename)) {
+    return documents;
+  }
+  const isImage = isImageFilename(originalFilename);
+  // Photos: always prefer Qwen-VL. PDFs: only when collector text is weak/empty.
+  if (!force && !isImage && !documentsNeedVisionOcr(documents)) {
+    return documents;
+  }
 
   const pdfPath = resolveOriginalFilePath(originalLocation);
   if (!pdfPath) return documents;
@@ -178,7 +189,7 @@ async function enrichDocumentsWithOfferKpOcr({
       return documents;
     }
 
-    if (!isVisionOcrImprovement(beforeText, text)) {
+    if (!isImage && !force && !isVisionOcrImprovement(beforeText, text)) {
       offerKpLog(
         "warn",
         "OfferKP ingest: vision OCR skipped — not better than collector",
@@ -200,6 +211,7 @@ async function enrichDocumentsWithOfferKpOcr({
         chars: text.length,
         format: lines ? "json" : "text",
         engine,
+        isImage,
       }
     );
 
@@ -241,9 +253,47 @@ async function enrichDocumentsWithOfferKpOcr({
   }
 }
 
+/**
+ * When collector returns nothing (empty Tesseract on photo), still OCR the
+ * archived original and build a synthetic document for chat context.
+ */
+async function ocrArchivedOriginalAsDocuments({
+  originalLocation = null,
+  originalFilename = "",
+  workspace = null,
+  onProgress = null,
+} = {}) {
+  if (!isOfferKpVisionOcrEnabled()) return [];
+  if (!originalLocation || !isVisionOcrFilename(originalFilename)) return [];
+
+  const stub = [
+    {
+      id: 0,
+      title: originalFilename,
+      pageContent: "",
+      docSource: isImageFilename(originalFilename)
+        ? "image file uploaded by the user."
+        : "pdf file uploaded by the user.",
+      token_count_estimate: 0,
+    },
+  ];
+  const enriched = await enrichDocumentsWithOfferKpOcr({
+    documents: stub,
+    originalLocation,
+    originalFilename,
+    workspace,
+    onProgress,
+    force: true,
+  });
+  const text = enriched?.[0]?.pageContent || "";
+  if (!text.trim()) return [];
+  return enriched;
+}
+
 module.exports = {
   isOfferKpVisionOcrEnabled,
   assessInquiryTableIntegrity,
   documentsNeedVisionOcr,
   enrichDocumentsWithOfferKpOcr,
+  ocrArchivedOriginalAsDocuments,
 };

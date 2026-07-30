@@ -238,6 +238,7 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
   const endpoint = resolveVisionOcrEndpoint();
   const resolvedModel = endpoint.modelId || modelId;
   const useJson = opts.json !== false;
+  const mime = opts.mime || "image/png";
   const prompt = useJson
     ? buildVisionPrompt({
         memoryContext: opts.memoryContext,
@@ -255,7 +256,7 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
           {
             type: "image_url",
             image_url: {
-              url: `data:image/png;base64,${base64}`,
+              url: `data:${mime};base64,${base64}`,
               detail: "high",
             },
           },
@@ -306,65 +307,14 @@ async function visionOcrImageBuffer(imageBuffer, modelId, opts = {}) {
 }
 
 /**
- * Чтение PDF через Qwen3-VL Thinking (eyes) → JSON lines → inquiry text.
+ * Run Qwen-VL OCR over one or more page image buffers (shared by PDF + photo).
  */
-async function visionOcrPdf(pdfPath, opts = {}) {
+async function visionOcrPageBuffers(pages, modelId, opts = {}) {
   const endpoint = resolveVisionOcrEndpoint();
-  let modelId =
-    endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
-  const startedAt = Date.now();
-  const contextText = String(opts.contextText || "").trim();
-  const extractionMemories = contextText
-    ? await retrieveExperiences("extraction_example_memory", contextText, {
-        limit: 3,
-        minSimilarity: 0.55,
-      })
-    : [];
-  const layoutMemories = contextText
-    ? await retrieveExperiences("document_layout_memory", contextText, {
-        limit: 2,
-        minSimilarity: 0.58,
-      })
-    : [];
-  const memoryContext = formatExtractionMemory([
-    ...layoutMemories,
-    ...extractionMemories,
-  ]);
-  const startEvent = recordExperienceEvent("extraction_started", {
-    input_id: path.basename(pdfPath),
-    input_preview: contextText.slice(0, 2_000),
-    pipeline_stage: "vision_ocr",
-    model: endpoint.modelId,
-    retrieved_examples: extractionMemories.length + layoutMemories.length,
-  });
-
-  if (!endpoint.teacher) {
-    try {
-      const loaded = await ensurePipelineModelLoaded("vision", {
-        workspace: opts.workspace || null,
-      });
-      modelId = loaded.modelId || modelId;
-    } catch (error) {
-      offerKpLog("warn", "Vision OCR: failed to load eyes model", {
-        model: modelId,
-        error: error?.message || String(error),
-      });
-      throw error;
-    }
-  }
-
-  const pages = await renderPdfPages(pdfPath, {
-    dpi: Number(process.env.OFFER_KP_VISION_OCR_DPI) || 150,
-    onPage: opts.onPage,
-  });
-
-  if (!pages.length) {
-    throw new Error("Vision OCR: no pages rendered from PDF");
-  }
-
   const parts = [];
   const allLines = [];
   let usedJson = false;
+  const mime = opts.mime || "image/png";
 
   for (const { pageNumber, buffer } of pages) {
     opts.onProgress?.({
@@ -375,13 +325,12 @@ async function visionOcrPdf(pdfPath, opts = {}) {
     });
     let raw = await visionOcrImageBuffer(buffer, modelId, {
       json: true,
-      memoryContext,
+      memoryContext: opts.memoryContext,
+      mime,
     });
     let normalized = normalizeVisionOcrResponse(raw);
     let validation = validateOcrLines(normalized.lines || []);
 
-    // Retry the page with deterministic validator feedback instead of asking
-    // the model the same question twice.
     if (
       normalized.format !== "json" ||
       !normalized.text ||
@@ -390,16 +339,20 @@ async function visionOcrPdf(pdfPath, opts = {}) {
     ) {
       raw = await visionOcrImageBuffer(buffer, modelId, {
         json: true,
-        memoryContext,
+        memoryContext: opts.memoryContext,
         retryFeedback: [...validation.errors, ...validation.warnings].join(
           ", "
         ),
+        mime,
       });
       normalized = normalizeVisionOcrResponse(raw);
       validation = validateOcrLines(normalized.lines || []);
     }
     if (normalized.format !== "json" || !normalized.text) {
-      raw = await visionOcrImageBuffer(buffer, modelId, { json: false });
+      raw = await visionOcrImageBuffer(buffer, modelId, {
+        json: false,
+        mime,
+      });
       normalized = normalizeVisionOcrResponse(raw);
       validation = validateOcrLines(normalized.lines || []);
     }
@@ -426,38 +379,104 @@ async function visionOcrPdf(pdfPath, opts = {}) {
       parts.filter(Boolean).join("\n\n")
     : parts.filter(Boolean).join("\n\n");
 
-  offerKpLog("info", "Vision OCR PDF complete", {
-    pages: pages.length,
-    chars: fullText.length,
+  return {
+    text: fullText,
+    lines: usedJson ? allLines : null,
     format: usedJson ? "json" : "text",
+    modelId,
+    engine: usedJson ? "qwen3-vl-thinking-json" : endpoint.engine,
+    usedJson,
+    allLines,
+  };
+}
+
+async function prepareVisionOcrSession(filePath, opts = {}) {
+  const endpoint = resolveVisionOcrEndpoint();
+  let modelId =
+    endpoint.modelId || opts.modelId || resolvePipelineVisionModel();
+  const contextText = String(opts.contextText || "").trim();
+  const extractionMemories = contextText
+    ? await retrieveExperiences("extraction_example_memory", contextText, {
+        limit: 3,
+        minSimilarity: 0.55,
+      })
+    : [];
+  const layoutMemories = contextText
+    ? await retrieveExperiences("document_layout_memory", contextText, {
+        limit: 2,
+        minSimilarity: 0.58,
+      })
+    : [];
+  const memoryContext = formatExtractionMemory([
+    ...layoutMemories,
+    ...extractionMemories,
+  ]);
+  const startEvent = recordExperienceEvent("extraction_started", {
+    input_id: path.basename(filePath),
+    input_preview: contextText.slice(0, 2_000),
+    pipeline_stage: "vision_ocr",
+    model: endpoint.modelId,
+    retrieved_examples: extractionMemories.length + layoutMemories.length,
+  });
+
+  if (!endpoint.teacher) {
+    try {
+      const loaded = await ensurePipelineModelLoaded("vision", {
+        workspace: opts.workspace || null,
+      });
+      modelId = loaded.modelId || modelId;
+    } catch (error) {
+      offerKpLog("warn", "Vision OCR: failed to load eyes model", {
+        model: modelId,
+        error: error?.message || String(error),
+      });
+      throw error;
+    }
+  }
+
+  return { endpoint, modelId, contextText, memoryContext, startEvent };
+}
+
+function finalizeVisionOcrResult({
+  filePath,
+  contextText,
+  startEvent,
+  modelId,
+  startedAt,
+  endpoint,
+  result,
+}) {
+  offerKpLog("info", "Vision OCR complete", {
+    file: path.basename(filePath),
+    pages: result.usedJson ? (result.allLines?.length ? "json" : 0) : null,
+    chars: result.text.length,
+    format: result.format,
     durationMs: Date.now() - startedAt,
     model: modelId,
     teacher: endpoint.teacher || false,
   });
 
-  const finalValidation = validateOcrLines(allLines);
+  const finalValidation = validateOcrLines(result.allLines || []);
   const completedEvent = recordExperienceEvent("extraction_completed", {
-    input_id: path.basename(pdfPath),
+    input_id: path.basename(filePath),
     source_event_id: startEvent?.id || null,
-    raw_output: allLines,
+    raw_output: result.allLines,
     model: modelId,
     pipeline_stage: "vision_ocr",
     validation_errors: finalValidation.errors,
     validation_warnings: finalValidation.warnings,
     trust_level: "automatic_prediction",
   });
-  // Automatic output is retained for audit/analytics but is intentionally not
-  // eligible for positive retrieval until an operator confirms it.
-  if (fullText) {
+  if (result.text) {
     rememberExperienceAsync({
       namespace: "extraction_example_memory",
       retrievalText: [
-        `RAW_OCR: ${contextText.slice(0, 4_000) || fullText.slice(0, 4_000)}`,
-        `EXTRACTED: ${fullText.slice(0, 4_000)}`,
+        `RAW_OCR: ${contextText.slice(0, 4_000) || result.text.slice(0, 4_000)}`,
+        `EXTRACTED: ${result.text.slice(0, 4_000)}`,
       ].join("\n"),
       payload: {
         raw_ocr: contextText.slice(0, 4_000) || null,
-        structured_output: allLines,
+        structured_output: result.allLines,
         validation: finalValidation,
       },
       trustLevel: "automatic_prediction",
@@ -466,16 +485,101 @@ async function visionOcrPdf(pdfPath, opts = {}) {
   }
 
   return {
-    text: fullText,
-    lines: usedJson ? allLines : null,
-    format: usedJson ? "json" : "text",
+    text: result.text,
+    lines: result.lines,
+    format: result.format,
     modelId,
-    engine: usedJson ? "qwen3-vl-thinking-json" : endpoint.engine,
+    engine: result.engine,
   };
+}
+
+/**
+ * Photo / scan image → Qwen3-VL JSON lines → inquiry text.
+ */
+async function visionOcrImageFile(imagePath, opts = {}) {
+  const fs = require("fs");
+  const { imageMimeFromFilename } = require("../parsedFileOriginal");
+  const startedAt = Date.now();
+  const { endpoint, modelId, contextText, memoryContext, startEvent } =
+    await prepareVisionOcrSession(imagePath, opts);
+
+  if (!fs.existsSync(imagePath)) {
+    throw new Error(`Vision OCR: image not found (${imagePath})`);
+  }
+  const buffer = fs.readFileSync(imagePath);
+  const mime = opts.mime || imageMimeFromFilename(imagePath);
+  const result = await visionOcrPageBuffers(
+    [{ pageNumber: 1, buffer }],
+    modelId,
+    {
+      memoryContext,
+      onProgress: opts.onProgress,
+      mime,
+    }
+  );
+
+  return finalizeVisionOcrResult({
+    filePath: imagePath,
+    contextText,
+    startEvent,
+    modelId,
+    startedAt,
+    endpoint,
+    result,
+  });
+}
+
+/**
+ * PDF or image path → vision OCR.
+ */
+async function visionOcrFile(filePath, opts = {}) {
+  const { isImageFilename, isPdfFilename } = require("../parsedFileOriginal");
+  if (isImageFilename(filePath) || opts.asImage) {
+    return visionOcrImageFile(filePath, opts);
+  }
+  if (!isPdfFilename(filePath) && opts.forceImage) {
+    return visionOcrImageFile(filePath, opts);
+  }
+  return visionOcrPdf(filePath, opts);
+}
+
+/**
+ * Чтение PDF через Qwen3-VL Thinking (eyes) → JSON lines → inquiry text.
+ */
+async function visionOcrPdf(pdfPath, opts = {}) {
+  const startedAt = Date.now();
+  const { endpoint, modelId, contextText, memoryContext, startEvent } =
+    await prepareVisionOcrSession(pdfPath, opts);
+
+  const pages = await renderPdfPages(pdfPath, {
+    dpi: Number(process.env.OFFER_KP_VISION_OCR_DPI) || 150,
+    onPage: opts.onPage,
+  });
+
+  if (!pages.length) {
+    throw new Error("Vision OCR: no pages rendered from PDF");
+  }
+
+  const result = await visionOcrPageBuffers(pages, modelId, {
+    memoryContext,
+    onProgress: opts.onProgress,
+  });
+
+  return finalizeVisionOcrResult({
+    filePath: pdfPath,
+    contextText,
+    startEvent,
+    modelId,
+    startedAt,
+    endpoint,
+    result,
+  });
 }
 
 module.exports = {
   visionOcrPdf,
+  visionOcrImageFile,
+  visionOcrFile,
   visionOcrImageBuffer,
   VISION_OCR_PROMPT,
   VISION_OCR_JSON_PROMPT,

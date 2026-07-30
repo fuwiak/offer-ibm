@@ -38,13 +38,13 @@ function cachedToResult(cached) {
 
 /**
  * Always try durable OCR (Redis→disk) before GPU.
- * Then queue (if enabled) or inline visionOcrPdf — and persist result.
+ * Then queue (if enabled) or inline visionOcrFile (PDF or photo) — and persist.
  */
 async function runQueuedVisionOcr(pdfPath, opts = {}) {
-  const { visionOcrPdf } = require("../offerKpVisionOcr");
+  const { visionOcrFile } = require("../offerKpVisionOcr");
 
   if (!pdfPath || !fs.existsSync(pdfPath)) {
-    return visionOcrPdf(pdfPath, opts);
+    return visionOcrFile(pdfPath, opts);
   }
 
   let fileHash = null;
@@ -56,7 +56,7 @@ async function runQueuedVisionOcr(pdfPath, opts = {}) {
       "[offerKp:ocr] jobId build failed — GPU without cache:",
       error?.message || error
     );
-    return visionOcrPdf(pdfPath, opts);
+    return visionOcrFile(pdfPath, opts);
   }
 
   // 1) Redis → disk — GPU last resort
@@ -121,7 +121,7 @@ async function runQueuedVisionOcr(pdfPath, opts = {}) {
     fromCache: false,
     jobId,
   });
-  const result = await visionOcrPdf(pdfPath, opts);
+  const result = await visionOcrFile(pdfPath, opts);
   const text = typeof result === "string" ? result : result?.text || "";
   const lines =
     typeof result === "object" && result ? result.lines || null : null;

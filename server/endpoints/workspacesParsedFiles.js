@@ -15,7 +15,7 @@ const {
   countContentLines,
   isTabularFilename,
 } = require("../utils/parsedFilePreview");
-const { archiveUploadedPdfOriginal } = require("../utils/parsedFileOriginal");
+const { archiveUploadedOriginal } = require("../utils/parsedFileOriginal");
 const {
   hasRestrictedContent,
   getRestrictedMessage,
@@ -23,6 +23,7 @@ const {
 const { writeResponseChunk } = require("../utils/helpers/chat/responses");
 const {
   enrichDocumentsWithOfferKpOcr,
+  ocrArchivedOriginalAsDocuments,
 } = require("../utils/offerKp/offerKpDocumentIngest");
 
 /** FormData may send the literal string "null"/"undefined" — treat those as absent. */
@@ -320,23 +321,38 @@ function workspaceParsedFilesEndpoints(app) {
           });
         }
 
-        const originalLocation = archiveUploadedPdfOriginal(originalname);
+        const originalLocation = archiveUploadedOriginal(originalname);
 
-        const { success, reason, documents } =
+        let { success, reason, documents } =
           await Collector.parseDocument(originalname);
+        // Collector/Tesseract often returns empty for photos of RFQ tables.
+        // Fall back to archived original + Qwen-VL vision OCR.
         if (!success || !documents?.[0]) {
-          return response.status(500).json({
-            success: false,
-            error: reason || "No document returned from collector",
+          const visionDocs = await ocrArchivedOriginalAsDocuments({
+            originalLocation,
+            originalFilename: originalname,
+            workspace,
+          });
+          if (visionDocs?.[0]?.pageContent?.trim()) {
+            documents = visionDocs;
+            success = true;
+            reason = null;
+          } else {
+            return response.status(500).json({
+              success: false,
+              error: reason || "No document returned from collector",
+            });
+          }
+        } else {
+          documents = await enrichDocumentsWithOfferKpOcr({
+            documents,
+            originalLocation,
+            originalFilename: originalname,
+            workspace,
           });
         }
 
-        const enrichedDocuments = await enrichDocumentsWithOfferKpOcr({
-          documents,
-          originalLocation,
-          originalFilename: originalname,
-          workspace,
-        });
+        const enrichedDocuments = documents;
 
         const firstPageText = enrichedDocuments?.[0]?.pageContent || "";
         if (hasRestrictedContent(firstPageText)) {
@@ -439,28 +455,42 @@ function workspaceParsedFilesEndpoints(app) {
 
         send({ type: "stage", stage: "uploaded", filename: originalname });
 
-        const originalLocation = archiveUploadedPdfOriginal(originalname);
+        const originalLocation = archiveUploadedOriginal(originalname);
 
-        const { success, reason, documents } =
+        let { success, reason, documents } =
           await Collector.parseDocumentStream(originalname, {}, (event) =>
             send(event)
           );
 
         if (!success || !documents?.[0]) {
-          send({
-            type: "error",
-            error: reason || "No document returned from collector",
+          const visionDocs = await ocrArchivedOriginalAsDocuments({
+            originalLocation,
+            originalFilename: originalname,
+            workspace,
+            onProgress: send,
           });
-          return response.end();
+          if (visionDocs?.[0]?.pageContent?.trim()) {
+            documents = visionDocs;
+            success = true;
+            reason = null;
+          } else {
+            send({
+              type: "error",
+              error: reason || "No document returned from collector",
+            });
+            return response.end();
+          }
+        } else {
+          documents = await enrichDocumentsWithOfferKpOcr({
+            documents,
+            originalLocation,
+            originalFilename: originalname,
+            workspace,
+            onProgress: send,
+          });
         }
 
-        const enrichedDocuments = await enrichDocumentsWithOfferKpOcr({
-          documents,
-          originalLocation,
-          originalFilename: originalname,
-          workspace,
-          onProgress: send,
-        });
+        const enrichedDocuments = documents;
 
         const firstPageText = enrichedDocuments?.[0]?.pageContent || "";
         if (hasRestrictedContent(firstPageText)) {
@@ -517,7 +547,7 @@ function workspaceParsedFilesEndpoints(app) {
         console.error(e.message, e);
         try {
           send({ type: "error", error: "A processing error occurred." });
-        } catch (_) {
+        } catch {
           /* response may already be closed */
         }
         return response.end();
