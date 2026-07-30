@@ -87,6 +87,15 @@ const DOCUMENT_QUESTION_PATTERNS = [
   /(?:покажи|выведи).{0,25}(?:позиц|таблиц).{0,25}(?:кп|черновик|предложен|сводк)/iu,
   /(?:объясни|расскажи|уточни|почему).{0,45}(?:строк|позиц|матч|статус|почем).{0,35}(?:в\s+кп|в\s+черновик|в\s+таблиц|в\s+сводк)/iu,
   /(?:что\s+у\s+нас\s+в|что\s+сейчас\s+в).{0,15}(?:кп|черновик|сводк|предложен)/iu,
+  // EN/PL: show OCR / extracted text from uploaded photo or PDF.
+  /(?:show|display|print|dump|give|get).{0,35}(?:extracted|ocr|parsed|recognized|vision).{0,25}(?:text|content|lines?|result)/iu,
+  /(?:show|display).{0,20}(?:extracted\s+text|ocr\s+text|parsed\s+text|recognized\s+text)/iu,
+  /(?:extracted|ocr|parsed|recognized)\s+text/iu,
+  /(?:what|which).{0,25}(?:did\s+you|was).{0,25}(?:extract|ocr|read|parse|recognize).{0,40}(?:from|in)?.{0,20}(?:pdf|photo|image|file|upload|scan|document)?/iu,
+  /(?:покажи|выведи|дай|покажите).{0,35}(?:извлеч[её]нн|распознанн|ocr|vision).{0,25}(?:текст|содержим|строк|результат)/iu,
+  /(?:текст|содержим).{0,30}(?:из\s+ocr|из\s+фото|из\s+скан|из\s+pdf|после\s+ocr|с\s+фото)/iu,
+  /(?:poka[zż]|pokaz|wyswietl|wyświetl).{0,35}(?:wyodrebnion|wyodrębnion|rozpoznan|ocr|extracted).{0,25}(?:tekst|text|tresc|treść)/iu,
+  /(?:tekst|tre[sś]c).{0,30}(?:z\s+ocr|z\s+pdf|z\s+zdjec|z\s+zdjęc|po\s+ocr)/iu,
 ];
 
 const SYSTEM_HELP_PATTERNS = [
@@ -95,6 +104,11 @@ const SYSTEM_HELP_PATTERNS = [
   /(?:откуда|как).{0,35}(?:система|offerkp).{0,30}(?:бер[её]т|получает).{0,20}цен/iu,
   /как\s+(?:выбрать|подтвердить).{0,30}(?:аналог|товар|позици)/iu,
   /какие.{0,25}(?:формат|тип).{0,20}файл.{0,20}(?:поддерж|можно)/iu,
+  // Technical / ops questions about OfferKP pipeline (not weather etc.).
+  /(?:how\s+(?:does|do|to)|what\s+is|explain).{0,40}(?:ocr|vision|matching|pipeline|queue|shopdb|intent|enrich)/iu,
+  /(?:как\s+работает|что\s+такое|объясни).{0,40}(?:ocr|vision|matching|pipeline|очеред|shopdb|intent|enrich)/iu,
+  /(?:jak\s+dzia[łl]a|co\s+to\s+jest).{0,40}(?:ocr|vision|matching|pipeline|shopdb)/iu,
+  /(?:почему|why|dlaczego).{0,40}(?:не\s+(?:распознал|извл[её]к|прочитал)|no\s+(?:ocr|extract|match)|nie\s+(?:rozpozna|ocr))/iu,
 ];
 
 /** Aggregate / schema questions about ShopDB (not a product SKU lookup). */
@@ -539,6 +553,43 @@ function routeOfferKpMessage(input = "") {
       signals: { productSignalCount },
     });
   }
+
+  // In-domain technical / ops wording must not fall into OUT_OF_SCOPE block
+  // ("Этот чат работает с товарами…"). Prefer document or system help.
+  const domainTechnical =
+    /(?:\bocr\b|extracted|vision\s*ocr|pipeline|bullmq|shopdb|matching|enrich|intent|заявк|pdf|фото|photo|image|скан|scan|upload|прикрепл|attachment|черновик|сводк|offerkp|очеред)/iu.test(
+      text
+    );
+  if (domainTechnical) {
+    const aboutDocumentText =
+      /(?:text|текст|tekst|содержим|extract|ocr|прочитал|распознал|parse|photo|image|pdf|файл|document|скан)/iu.test(
+        text
+      );
+    if (aboutDocumentText) {
+      addIntent(I.DOCUMENT_QUESTION);
+      return buildResult({
+        primaryIntent: I.DOCUMENT_QUESTION,
+        intents,
+        confidence: 0.85,
+        signals: { productSignalCount, domainTechnical: true },
+        policyOverrides: {
+          allowShopDbSearch: false,
+          allowQuoteMutation: false,
+          allowCatalogPriceUse: false,
+          allowExport: false,
+          answerMode: "document",
+        },
+      });
+    }
+    addIntent(I.SYSTEM_HELP);
+    return buildResult({
+      primaryIntent: I.SYSTEM_HELP,
+      intents,
+      confidence: 0.85,
+      signals: { productSignalCount, domainTechnical: true },
+    });
+  }
+
   return buildResult({
     primaryIntent: I.OUT_OF_SCOPE,
     intents,

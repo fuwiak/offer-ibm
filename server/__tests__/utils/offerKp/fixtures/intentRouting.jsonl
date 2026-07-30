@@ -201,3 +201,9 @@
 {"text":"Какие покрытия встречаются у болтов?","intent":"data_question","allowShopDbSearch":true,"allowQuoteMutation":false}
 {"text":"что сейчас в КП?","intent":"document_question","allowQuoteMutation":false}
 {"text":"какая сумма в черновике?","intent":"document_question","allowQuoteMutation":false}
+{"text":"show extracted text","intent":"document_question","allowQuoteMutation":false}
+{"text":"Show OCR text","intent":"document_question","allowQuoteMutation":false}
+{"text":"покажи извлечённый текст","intent":"document_question","allowQuoteMutation":false}
+{"text":"pokaż tekst z OCR","intent":"document_question","allowQuoteMutation":false}
+{"text":"how does OCR work?","intent":"system_help","allowShopDbSearch":false}
+{"text":"как работает vision OCR?","intent":"system_help","allowShopDbSearch":false}

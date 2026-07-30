@@ -21,6 +21,12 @@ describe("OfferKP immediate casual reply", () => {
     ).toBeNull();
   });
 
+  it("does not block technical document / OCR questions", () => {
+    expect(resolveOfferKpImmediateReply("show extracted text")).toBeNull();
+    expect(resolveOfferKpImmediateReply("покажи извлечённый текст")).toBeNull();
+    expect(resolveOfferKpImmediateReply("how does OCR work?")).toBeNull();
+  });
+
   it("keeps out-of-scope prompts away from contaminated LLM history", () => {
     expect(resolveOfferKpImmediateReply("какая погода завтра?")).toContain(
       "Этот чат работает"
