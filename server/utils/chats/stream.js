@@ -966,6 +966,82 @@ async function streamChatWithWorkspace(
           OFFER_KP_INTENTS.CREATE_QUOTE,
           OFFER_KP_INTENTS.EDIT_QUOTE,
         ].includes(routedIntent.primaryIntent)));
+
+  // Mechanism A+B: compare сводка ↔ chat; rematch only missing lines (keep priced).
+  if (shouldEmitQuoteArtifacts && llmCatalog.inquiryDraft?.lines?.length) {
+    try {
+      const {
+        compareDraftToChat,
+        reproduceDraftFillMissing,
+        alignChatTextWithDraftMarkdown,
+      } = require("../offerKp/draftChatReconcile");
+      const {
+        buildQuoteMarkdownFromDraft,
+      } = require("../offerKp/inquiryDraftPrompt");
+      const sourceTexts = (parsedFileTexts || []).filter(Boolean);
+      const inquirySource = sourceTexts.length
+        ? sourceTexts.join("\n\n")
+        : String(updatedMessage || "");
+      const comparison = compareDraftToChat({
+        draft: llmCatalog.inquiryDraft,
+        chatText: completeText || "",
+        catalogBlocks: llmCatalog.catalogBlocks || [],
+        inquiryText: inquirySource,
+      });
+      diagNote(
+        pipelineDiag,
+        `draft↔chat priced=${comparison.pricedDraftCount}/${comparison.expectedLineCount} missing=${comparison.missingIndexes.length}`
+      );
+      if (comparison.needsReproduce) {
+        const reproduced = await reproduceDraftFillMissing({
+          draft: llmCatalog.inquiryDraft,
+          inquiryText: inquirySource,
+          catalogBlocks: llmCatalog.catalogBlocks || [],
+          options: {
+            workspace,
+            chatHistory: rawHistory,
+            parsedFileTexts,
+            chatText: completeText || "",
+            requestId: uuid,
+          },
+        });
+        llmCatalog.inquiryDraft = reproduced.draft;
+        diagNote(
+          pipelineDiag,
+          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched}`
+        );
+        writeResponseChunk(response, {
+          uuid,
+          type: "offerKpQuotePanel",
+          content: {
+            documentPanelView: "draftTable",
+            progressStage: "matched",
+            quoteDraft: {
+              step: 2,
+              reference: reproduced.draft.reference,
+              hardwareLines: reproduced.draft.lines,
+              preview: {
+                lines: reproduced.draft.lines,
+                subtotal: reproduced.draft.subtotal,
+                total: reproduced.draft.total,
+                totalWeightKg: reproduced.draft.totalWeightKg,
+              },
+            },
+          },
+        });
+        const groundedMd = buildQuoteMarkdownFromDraft(reproduced.draft);
+        if (groundedMd) {
+          completeText = alignChatTextWithDraftMarkdown(
+            completeText || "",
+            groundedMd
+          );
+        }
+      }
+    } catch (e) {
+      console.error("[offerKp] draft↔chat reconcile:", e?.message || e);
+    }
+  }
+
   if (shouldEmitQuoteArtifacts) {
     try {
       markStage(requestTrace, "EXPORT", "start");

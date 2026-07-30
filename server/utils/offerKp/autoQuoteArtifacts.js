@@ -395,16 +395,50 @@ async function emitAutoQuoteArtifacts({
     }
   }
 
-  // N позиций на входе = N строк в обоих документах. При любой ошибке или
-  // неполном результате ShopDB возвращаем полный перечень без выдуманных цен.
+  // N позиций на входе = N строк. Не затираем уже найденные цены —
+  // дополняем только недостающие слоты (merge), а не rebuild unmatched.
   if (
     inquiryLines.length > 0 &&
     Number(draft?.lines?.length || 0) !== inquiryLines.length
   ) {
+    const {
+      mergeKeepGoodPadMissing,
+    } = require("./draftChatReconcile");
     console.warn(
-      `[offerKp] quote line invariant fallback: source=${inquiryLines.length}, matched=${draft?.lines?.length || 0}`
+      `[offerKp] quote line invariant merge: source=${inquiryLines.length}, matched=${draft?.lines?.length || 0}`
     );
-    draft = buildUnmatchedDraftFromInquiry(inquiryLines);
+    draft = mergeKeepGoodPadMissing({
+      draft,
+      inquiryLines,
+      unmatchedFactory: (line) => buildUnmatchedDraftFromInquiry([line]).lines[0],
+    });
+  }
+
+  // Compare + fill-missing: keep priced exact/analog, rematch only gaps.
+  try {
+    const {
+      compareDraftToChat,
+      reproduceDraftFillMissing,
+    } = require("./draftChatReconcile");
+    const comparison = compareDraftToChat({
+      draft,
+      inquiryText: inquirySource,
+      catalogBlocks,
+    });
+    if (comparison.needsReproduce) {
+      const reproduced = await reproduceDraftFillMissing({
+        draft,
+        inquiryText: inquirySource,
+        catalogBlocks,
+        options: { workspace, chatHistory, parsedFileTexts },
+      });
+      draft = reproduced.draft;
+      console.warn(
+        `[offerKp] draft↔chat reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} missing=${comparison.missingIndexes.length}`
+      );
+    }
+  } catch (e) {
+    console.error("[offerKp] draftChatReconcile:", e?.message || e);
   }
 
   const products = (catalogBlocks || []).map(parseCatalogBlock).filter(Boolean);
