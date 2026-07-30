@@ -113,7 +113,9 @@ function extractStandardNumbers(text) {
   for (const m of raw.matchAll(GOST_STANDARD_RE)) {
     numbers.add(m[1]);
   }
-  for (const m of raw.matchAll(/\biso\s*[- ]?\s*(\d{4})(?:[a-z])?(?![0-9])/gi)) {
+  for (const m of raw.matchAll(
+    /\biso\s*[- ]?\s*(\d{4})(?:[a-z])?(?![0-9])/gi
+  )) {
     numbers.add(m[1]);
   }
   for (const m of raw.matchAll(/\b(\d{4,5})\s*[-–]\s*\d{2}\b/g)) {
