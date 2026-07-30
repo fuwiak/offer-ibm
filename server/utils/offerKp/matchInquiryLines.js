@@ -77,6 +77,61 @@ function resolveMatchConcurrency(lineCount) {
   return lineCount > 1 ? 2 : 1;
 }
 
+/**
+ * Placeholder row right after parse — сводка shows all extracted lines
+ * immediately; ShopDB fill replaces each index as matching completes.
+ */
+function buildPendingDraftLine(inquiryLine = {}) {
+  const quantity = Number(inquiryLine.quantity);
+  return withLineEvidence({
+    inquiryRaw: inquiryLine.raw,
+    name: inquiryLine.name || inquiryLine.raw || "",
+    requestedName: inquiryLine.name || inquiryLine.raw || "",
+    article: "",
+    productId: "",
+    quantity: Number.isFinite(quantity) ? quantity : 1,
+    unit: inquiryLine.unit || "шт",
+    priceWithVat: 0,
+    unitPriceNet: 0,
+    lineTotal: 0,
+    weightKg: 0,
+    lineWeightKg: 0,
+    status: STATUS.NEEDS_REVIEW,
+    kpStatus: "Поиск в каталоге…",
+    unitNeedsRecalc: true,
+    matchType: "none",
+    analogOf: null,
+    similarSuggestion: null,
+    comment: "Распознано из заявки — идёт сопоставление с ShopDB",
+    thread: inquiryLine.thread,
+    alternatives: [],
+    matchSource: "pending",
+    pendingMatch: true,
+    allowPrice: false,
+    retrievedAt: new Date().toISOString(),
+  });
+}
+
+function draftProgressPayload(partialLines, { stage, completed, total }) {
+  const lines = partialLines.map((line) => line || buildPendingDraftLine({}));
+  return {
+    progressStage: stage,
+    lineCount: total,
+    matchedCount: completed,
+    total,
+    quoteDraft: {
+      step: 2,
+      hardwareLines: lines,
+      preview: {
+        lines,
+        subtotal: 0,
+        total: 0,
+        totalWeightKg: 0,
+      },
+    },
+  };
+}
+
 function positivePrice(value) {
   const price = Number(value);
   return Number.isFinite(price) && price > 0 ? price : 0;
@@ -866,16 +921,30 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
   const concurrency = resolveMatchConcurrency(lines.length);
   const onProgress =
     typeof options.onProgress === "function" ? options.onProgress : null;
+  const matchLine =
+    typeof options.matchLine === "function"
+      ? options.matchLine
+      : matchInquiryLine;
   let completed = 0;
   let lastEmitAt = 0;
-  const partialLines = new Array(lines.length);
+  // Full N stubs first — UI shows extracted RFQ rows; fill prices in place.
+  const partialLines = lines.map((line) => buildPendingDraftLine(line));
+  if (onProgress) {
+    onProgress(
+      draftProgressPayload(partialLines, {
+        stage: "searching",
+        completed: 0,
+        total: lines.length,
+      })
+    );
+  }
 
   const matched = await mapWithConcurrency(
     lines,
     concurrency,
     async (line, index) => {
       try {
-        const result = await matchInquiryLine(line, {
+        const result = await matchLine(line, {
           ...options,
           requestId: options.requestId || null,
           parsedFileTexts: options.parsedFileTexts || null,
@@ -883,31 +952,23 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
         partialLines[index] = result;
         completed += 1;
         const now = Date.now();
-        // Emit ~every 400ms or on first/last line to avoid SSE flood.
+        // Per-line for small RFQs (visible progressive fill); throttle large ones.
+        const emitEveryLine = lines.length <= 24;
         if (
           onProgress &&
-          (completed === 1 ||
+          (emitEveryLine ||
+            completed === 1 ||
             completed === lines.length ||
-            now - lastEmitAt >= 400)
+            now - lastEmitAt >= 200)
         ) {
           lastEmitAt = now;
-          const ready = partialLines.filter(Boolean);
-          onProgress({
-            progressStage: "searching",
-            lineCount: lines.length,
-            matchedCount: completed,
-            total: lines.length,
-            quoteDraft: {
-              step: 2,
-              hardwareLines: ready,
-              preview: {
-                lines: ready,
-                subtotal: 0,
-                total: 0,
-                totalWeightKg: 0,
-              },
-            },
-          });
+          onProgress(
+            draftProgressPayload(partialLines, {
+              stage: "searching",
+              completed,
+              total: lines.length,
+            })
+          );
         }
         return result;
       } catch (e) {
@@ -916,6 +977,15 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
         const fallback = buildLineMatchErrorFallback(line, e);
         partialLines[index] = fallback;
         completed += 1;
+        if (onProgress) {
+          onProgress(
+            draftProgressPayload(partialLines, {
+              stage: "searching",
+              completed,
+              total: lines.length,
+            })
+          );
+        }
         return fallback;
       }
     }
@@ -964,6 +1034,7 @@ module.exports = {
   matchInquiryToDraft,
   matchInquiryLine,
   buildLineMatchErrorFallback,
+  buildPendingDraftLine,
   fetchProductStock,
   fetchProductStocks,
   pickBestInquiryAlternative,

@@ -30,7 +30,10 @@ const {
   SKU_COLUMNS: S,
 } = require("./db/schema");
 const { parseInquiryText } = require("./parseInquiry");
-const { matchInquiryToDraft } = require("./matchInquiryLines");
+const {
+  matchInquiryToDraft,
+  buildPendingDraftLine,
+} = require("./matchInquiryLines");
 const {
   STATUS,
   classifyProductMatch,
@@ -361,6 +364,9 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     typeof options.onProgress === "function" ? options.onProgress : null;
 
   if (onProgress) {
+    const stubLines = lines
+      .slice(0, maxLines)
+      .map((line) => buildPendingDraftLine(line));
     onProgress({
       progressStage: "parsing",
       lineCount: maxLines,
@@ -368,8 +374,13 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
       total: maxLines,
       quoteDraft: {
         step: 2,
-        hardwareLines: [],
-        preview: { lines: [], subtotal: 0, total: 0, totalWeightKg: 0 },
+        hardwareLines: stubLines,
+        preview: {
+          lines: stubLines,
+          subtotal: 0,
+          total: 0,
+          totalWeightKg: 0,
+        },
       },
     });
   }
