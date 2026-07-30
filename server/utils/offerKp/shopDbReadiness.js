@@ -145,11 +145,11 @@ async function computeShopDbReadiness() {
       fusion: "rrf",
       compatibleLimit: Math.max(
         1,
-        parseInt(process.env.SHOP_DB_RRF_COMPATIBLE_LIMIT, 10) || 45
+        parseInt(process.env.SHOP_DB_RRF_COMPATIBLE_LIMIT, 10) || 90
       ),
       analogLimit: Math.max(
         0,
-        parseInt(process.env.SHOP_DB_RRF_ANALOG_LIMIT, 10) || 5
+        parseInt(process.env.SHOP_DB_RRF_ANALOG_LIMIT, 10) || 10
       ),
     },
     lastSync: manifest?.createdAt || null,

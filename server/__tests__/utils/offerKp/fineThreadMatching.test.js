@@ -105,4 +105,19 @@ describe("classifyProductMatch material gate", () => {
     });
     expect(result.matchType).toBe("exact");
   });
+
+  it("self-matches нерж / медь catalog names (no foldHomoglyph material miss)", () => {
+    expect(
+      classifyProductMatch("Гровер DIN 7980 нерж 1.4310", {
+        name: "Гровер DIN 7980 нерж 1.4310",
+        stockCount: 10,
+      }).matchType
+    ).toBe("exact");
+    expect(
+      classifyProductMatch("Шайба DIN 7603 медь 24×32×2", {
+        name: "Шайба DIN 7603 медь 24×32×2",
+        stockCount: 10,
+      }).matchType
+    ).toBe("exact");
+  });
 });

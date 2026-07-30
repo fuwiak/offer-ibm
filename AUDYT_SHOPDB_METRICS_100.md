@@ -123,7 +123,23 @@ Artifact: `graphify-audits/shopdb-metrics-100/audit-100-post-widen.json`
 | SkuPriceContradictsShopDb | 7 (артефакт) | **0** ✓ |
 | exactDecisions | 91 | **84** (−7 demoted) |
 
-**Вердикт re-run:** контракт exact и grounding-метрики исправлены. Widen Top‑50→100 **не** поднял Recall на этом seed — 8 missing нет и в Top‑100 (дырка в candidate generation / hard filters / indexing, не в размере окна). След. рычаг: почему эти 8 не попадают в SQL∪BM25∪dense.
+### Critical fix (2026-07-30): Top-100 was fake
+
+Root causes of «Recall@100 == Recall@50»:
+
+1. `sqlLimit()` capped at **50** in productSearchAgent / shopDbSearch / searchAgent
+2. cache key used `sqlLimit(limit)` → Top-100 collided with Top-50
+3. `deploy-lainey-sync.sh` forced BM25=40 / denseRescue=10 / RRF 45+5
+
+Also fixed:
+
+- `mergeProductHits` keeps `_bm25Score` / `_denseSimilarity` / `_rrfScore` / …
+- material gate uses **raw** product name (not foldHomoglyph `nepж`/`meдь`)
+- DIN letter suffixes (`6928C`, `980V`)
+- decimal dimensions (`3,5x40`, `20x24x1,5`) without stealing MxL tails
+
+Audit now reports `MaxRetrievalHits` + `RetrievalWindowHonored`.
+
 
 ## 6. Связанные файлы
 

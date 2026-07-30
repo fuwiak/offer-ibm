@@ -100,7 +100,9 @@ const STATUS = {
 };
 
 const GOST_STANDARD_RE = /(?:gost|гост)\s*[- ]?\s*(\d{4,5})/gi;
-const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{1,5})\b/gi;
+// Letter suffix (DIN 6928C / DIN 980V) is part of the standard family — capture
+// digits; optional trailing Latin/Cyrillic letter must not break the match.
+const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{1,5})(?:[a-zа-я])?(?![0-9])/gi;
 
 function extractStandardNumbers(text) {
   const raw = String(text || "");
@@ -111,7 +113,7 @@ function extractStandardNumbers(text) {
   for (const m of raw.matchAll(GOST_STANDARD_RE)) {
     numbers.add(m[1]);
   }
-  for (const m of raw.matchAll(/\biso\s*[- ]?\s*(\d{4})\b/gi)) {
+  for (const m of raw.matchAll(/\biso\s*[- ]?\s*(\d{4})(?:[a-z])?(?![0-9])/gi)) {
     numbers.add(m[1]);
   }
   for (const m of raw.matchAll(/\b(\d{4,5})\s*[-–]\s*\d{2}\b/g)) {
@@ -303,9 +305,16 @@ function requestedSpecsMatch(
   }
   // Material is an identity field, not a nicety: нерж A4 is not нерж A2 and
   // латунь is not steel, and the price gap runs several times over.
+  // Always extract from raw catalog name — normalizeForMatch() folds Cyrillic
+  // homoglyphs (нерж→nepж, медь→meдь) and extractMaterial then misses.
   const requestedMaterial = extractMaterial(requestText);
-  if (requestedMaterial && extractMaterial(nameNorm) !== requestedMaterial) {
-    return { ok: false, reason: "material" };
+  if (requestedMaterial) {
+    const candidateMaterial = extractMaterial(
+      options.productName || options.rawName || ""
+    );
+    if (candidateMaterial !== requestedMaterial) {
+      return { ok: false, reason: "material" };
+    }
   }
   if (parsed.coating && !/оцинк|цинк|ocink|cink|\bzn\b|zinc/i.test(nameNorm)) {
     return { ok: false, reason: "coating" };
@@ -473,7 +482,9 @@ function classifyProductMatch(requestText, product) {
         };
       }
       if (!size.ok) continue;
-      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText);
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText, {
+        productName: product.name || "",
+      });
       if (!specs.ok) {
         return {
           matchType: "spec_mismatch",
@@ -503,6 +514,7 @@ function classifyProductMatch(requestText, product) {
 
       const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText, {
         allowBetterStrength: true,
+        productName: product.name || "",
       });
       if (!specs.ok) {
         return {

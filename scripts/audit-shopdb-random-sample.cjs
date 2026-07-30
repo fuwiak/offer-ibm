@@ -70,6 +70,7 @@ async function main() {
   let recall50 = 0;
   let recall100 = 0;
   let top1 = 0;
+  let maxHitsSeen = 0;
   let exactDecisions = 0;
   let invalidExactState = 0;
   let wrongGroundedExact = 0;
@@ -96,6 +97,7 @@ async function main() {
       const hits = retrieval.products || [];
       const expectedId = String(expected.id);
       const rank = hits.findIndex((row) => String(row.id) === expectedId);
+      if (hits.length > maxHitsSeen) maxHitsSeen = hits.length;
       if (rank >= 0) {
         recall100 += 1;
         if (rank < 50) recall50 += 1;
@@ -251,6 +253,8 @@ async function main() {
       DBQuerySuccessRate: pct(dbSuccess, dbAttempts),
       RecallAt50: pct(recall50, products.length),
       RecallAt100: pct(recall100, products.length),
+      MaxRetrievalHits: maxHitsSeen,
+      RetrievalWindowHonored: maxHitsSeen > 50 || retrievalLimit <= 50,
       Top1Accuracy: pct(top1, products.length),
       RerankGivenRecall:
         recall100 > 0 ? pct(Math.min(top1, recall100), recall100) : 0,

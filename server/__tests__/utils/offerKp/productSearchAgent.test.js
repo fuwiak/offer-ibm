@@ -7,6 +7,8 @@ const {
   hasHardwareSignals,
   isCatalogRelayRequest,
   runProductSearchAgent,
+  mergeProductHits,
+  sqlLimit,
 } = require("../../../utils/offerKp/productSearchAgent");
 const { parseHardwareQuery } = require("../../../utils/offerKp/hardwareQuery");
 
@@ -111,5 +113,44 @@ describe("productSearchAgent query parsing", () => {
     expect(result.products).toEqual([]);
     expect(result.strategies).toEqual([]);
     expect(result.signals.intent.primaryIntent).toBe("unsafe_or_forbidden");
+  });
+});
+
+describe("productSearchAgent retrieval plumbing", () => {
+  it("allows sqlLimit of 100 for Top-100 windows", () => {
+    expect(sqlLimit(100)).toBe(100);
+    expect(sqlLimit(50)).toBe(50);
+  });
+
+  it("keeps BM25/dense/RRF scores when merging SQL then RAG hits", () => {
+    const merged = mergeProductHits([
+      [
+        {
+          id: 1,
+          name: "Болт",
+          _matchSources: ["structured"],
+          _bm25Score: null,
+        },
+      ],
+      [
+        {
+          id: 1,
+          name: "Болт",
+          _matchSources: ["catalog_bm25", "catalog_dense"],
+          _bm25Score: 8.2,
+          _denseSimilarity: 0.77,
+          _rrfScore: 0.03,
+          _embeddingSimilarity: 0.71,
+          _nameSimilarity: 0.9,
+        },
+      ],
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]._bm25Score).toBe(8.2);
+    expect(merged[0]._denseSimilarity).toBe(0.77);
+    expect(merged[0]._rrfScore).toBe(0.03);
+    expect(merged[0].shopMatchSources).toEqual(
+      expect.arrayContaining(["structured", "catalog_bm25", "catalog_dense"])
+    );
   });
 });

@@ -88,4 +88,29 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(p.thread).toEqual({ size: "2.5", length: "10" });
     expect(p.productTypes).toEqual(["винт"]);
   });
+
+  it("parses DIN letter suffixes (6928C / 980V)", () => {
+    expect(parseHardwareQuery("Винт DIN 6928C M3,5x16").dinNumbers).toContain(
+      "6928"
+    );
+    expect(parseHardwareQuery("Гайка DIN 980V M10").dinNumbers).toContain(
+      "980"
+    );
+  });
+
+  it("parses decimal pin DxL without stealing MxL tails", () => {
+    expect(parseHardwareQuery("Штифт 3,5x40").dimensions).toEqual({
+      a: "3.5",
+      b: "40",
+      c: null,
+    });
+    expect(parseHardwareQuery("Шайба 20×24×1,5").dimensions).toEqual({
+      a: "20",
+      b: "24",
+      c: "1.5",
+    });
+    const mxl = parseHardwareQuery("Винт DIN 6928C M3,5x16");
+    expect(mxl.dimensions).toBeNull();
+    expect(mxl.thread).toEqual({ size: "3.5", length: "16" });
+  });
 });

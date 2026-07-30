@@ -25,7 +25,7 @@ const PRODUCT_SELECT = `
 `;
 
 function sqlLimit(limit) {
-  return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
+  return Math.max(1, Math.min(200, parseInt(limit, 10) || 5));
 }
 
 function buildTermClause(columns, terms, params) {

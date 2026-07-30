@@ -106,7 +106,7 @@ function normalizeForMatch(text) {
 }
 
 function sqlLimit(limit) {
-  return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
+  return Math.max(1, Math.min(200, parseInt(limit, 10) || 5));
 }
 
 function parseExtendedHardwareQuery(message) {
@@ -119,7 +119,9 @@ function parseExtendedHardwareQuery(message) {
     const v = String(n || "").trim();
     if (v && !standardNumbers.includes(v)) standardNumbers.push(v);
   };
-  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{3,5})\b/gi)) {
+  for (const m of raw.matchAll(
+    /\bdin\s*[- ]?\s*(\d{3,5})(?:[a-zа-я])?(?![0-9])/gi
+  )) {
     pushStd(m[1]);
   }
   for (const m of raw.matchAll(

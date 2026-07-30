@@ -74,8 +74,9 @@ const RETRIEVAL_WINDOW = Math.max(
   Math.min(100, parseInt(process.env.SHOP_DB_RETRIEVAL_WINDOW, 10) || 100)
 );
 
+/** Cap for SQL / agent LIMIT clauses — must allow Top-100 output windows. */
 function sqlLimit(limit) {
-  return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
+  return Math.max(1, Math.min(200, parseInt(limit, 10) || 5));
 }
 
 function historyMessageText(entry) {
@@ -270,6 +271,42 @@ async function searchByExactSku(skuCodes, limit) {
   return mapSearchRows(rows, "exact_sku", [TABLES.product, TABLES.productSkus]);
 }
 
+function mergeRetrievalMeta(previous, next) {
+  if (!previous) return next;
+  if (!next) return previous;
+  const maxNum = (a, b) => {
+    const left = Number(a);
+    const right = Number(b);
+    if (!Number.isFinite(left)) return Number.isFinite(right) ? right : a ?? b;
+    if (!Number.isFinite(right)) return left;
+    return Math.max(left, right);
+  };
+  return {
+    _canonicalText: previous._canonicalText || next._canonicalText || null,
+    _signature: previous._signature || next._signature || null,
+    _signatureHard: [
+      ...new Set([
+        ...(previous._signatureHard || []),
+        ...(next._signatureHard || []),
+      ]),
+    ],
+    _bm25Score: maxNum(previous._bm25Score, next._bm25Score),
+    _denseSimilarity: maxNum(previous._denseSimilarity, next._denseSimilarity),
+    _embeddingSimilarity: maxNum(
+      previous._embeddingSimilarity,
+      next._embeddingSimilarity
+    ),
+    _nameSimilarity: maxNum(previous._nameSimilarity, next._nameSimilarity),
+    _rrfScore: maxNum(previous._rrfScore, next._rrfScore),
+    _canonicalSimilarity: maxNum(
+      previous._canonicalSimilarity,
+      next._canonicalSimilarity
+    ),
+    _retrievalMatchType:
+      previous._retrievalMatchType || next._retrievalMatchType || null,
+  };
+}
+
 function mergeProductHits(batches) {
   const byId = new Map();
 
@@ -291,8 +328,10 @@ function mergeProductHits(batches) {
       }
 
       const prev = byId.get(id);
+      const meta = mergeRetrievalMeta(prev, row);
       for (const t of tables) prev._tables.add(t);
       for (const s of sources) prev._matchSources.add(s);
+      Object.assign(prev, meta);
       prev._exactSku = prev._exactSku || !!row._exactSku;
       if (row.matched_sku) prev.matched_sku = row.matched_sku;
     }
@@ -348,7 +387,9 @@ function buildProductSearchAgentCacheKey({
   });
   return makeCacheKey("productSearchAgent", [
     searchText,
-    sqlLimit(limit),
+    // Requested output window (not sqlLimit-capped) so Top-50 ≠ Top-100 cache.
+    String(Math.max(1, Math.min(200, parseInt(limit, 10) || 10))),
+    `retrievalWindow=${RETRIEVAL_WINDOW}`,
     String(message || "").trim(),
     parsedTexts.join("\n\n"),
   ]);
@@ -603,6 +644,9 @@ async function runProductSearchAgent({
 
 module.exports = {
   RETRIEVAL_WINDOW,
+  sqlLimit,
+  mergeProductHits,
+  mergeRetrievalMeta,
   buildProductSearchText,
   collectPriorHardwareContext,
   extractSkuCodes,

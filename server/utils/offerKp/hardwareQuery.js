@@ -242,7 +242,10 @@ function parseHardwareQuery(message) {
     const v = String(n || "").trim();
     if (v && !dinNumbers.includes(v)) dinNumbers.push(v);
   };
-  for (const m of raw.matchAll(/\bdin\s*[- ]?\s*(\d{1,5})\b/gi)) {
+  // DIN 6928C / DIN 980V — optional letter suffix after digits.
+  for (const m of raw.matchAll(
+    /\bdin\s*[- ]?\s*(\d{1,5})(?:[a-zа-я])?(?![0-9])/gi
+  )) {
     pushStd(m[1]);
   }
   // ГОСТ 7805 / ГОСТ Р 7805 — but not «ГОСТ Р ИСО 1207» (handled below).
@@ -253,7 +256,7 @@ function parseHardwareQuery(message) {
   }
   // ISO / ИСО / ГОСТ Р ИСО / ГОСТ ISO — RFQ often has only ISO, no DIN.
   for (const m of raw.matchAll(
-    /(?:(?:gost|гост)\s*(?:р(?:ф)?\s*)?)?(?:исо|iso)\s*[- ]?\s*(\d{3,5})\b/gi
+    /(?:(?:gost|гост)\s*(?:р(?:ф)?\s*)?)?(?:исо|iso)\s*[- ]?\s*(\d{3,5})(?:[a-z])?(?![0-9])/gi
   )) {
     pushStd(m[1]);
   }
@@ -266,14 +269,20 @@ function parseHardwareQuery(message) {
   }
 
   let dimensions = null;
+  // Decimal-aware DxL / DxDxT (3,5x40 / 20x24x1,5). Do not steal the tail of
+  // MxL like m3,5x16 → 5x16 (comma is a word boundary in JS \b).
   const dimMatch =
-    normalized.match(/\b(\d+)\s*x\s*(\d+)\s*x\s*(\d+)\b/i) ||
-    normalized.match(/\b(\d+)\s*x\s*(\d+)\b/i);
-  if (dimMatch && !normalized.match(/\bm\s*\d+\s*x\s*\d+/i)) {
+    normalized.match(
+      /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
+    ) ||
+    normalized.match(
+      /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
+    );
+  if (dimMatch) {
     dimensions = {
-      a: dimMatch[1],
-      b: dimMatch[2],
-      c: dimMatch[3] || null,
+      a: String(dimMatch[1]).replace(",", "."),
+      b: String(dimMatch[2]).replace(",", "."),
+      c: dimMatch[3] ? String(dimMatch[3]).replace(",", ".") : null,
     };
   }
 
