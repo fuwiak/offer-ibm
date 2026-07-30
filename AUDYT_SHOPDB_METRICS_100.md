@@ -61,31 +61,60 @@ Env:
 
 JSONL prod: `autoAccepted`, `rerankMargin` в `searchMetrics` → `offerkp metrics` / `report-shopdb-metrics.cjs`.
 
-## 4. Post-rerank 100-run (2026-07-30)
+## 4. Post-rerank 100-run на Lainey (2026-07-30)
 
-**Статус: не завершён.** Полный локальный прогон `node scripts/audit-shopdb-random-sample.cjs --sample 100 --seed offerkp-2026` слишком долгий (embedding/BM25/index на каждый из 100 × matchInquiryLine); прерван до JSON summary.
-
-Итого честных цифр «после Orama + Top-50 rerank» на тех же 100 пока нет. Сравнивать только:
-
-- baseline §1 (готово),
-- schema новых метрик §2 (в коде),
-- следующий полный прогон на Lainey / с тёплым catalog index.
-
-Команда повторного прогона на сервере (после `yarn deploy:lainey`):
+**Статус: завершён.** Host `87.228.90.43`, app `/opt/offer-kp/app`, READY≈`890afca`, index warm: products=bm25=vectors=19764.
 
 ```bash
-cd /opt/offer-ibm   # или актуальный deploy root
+cd /opt/offer-kp/app
 node scripts/audit-shopdb-random-sample.cjs --sample 100 --seed offerkp-2026
+# → /opt/offer-kp/data/audit-100-offerkp-2026.json
 ```
 
-Результат вставить сюда в §4 и обновить graphify snapshot.
+| Метрика | Baseline | Lainey post-rerank |
+|--------|----------|-------------------|
+| DBQueryAttemptRate | 100% | **100%** |
+| DBQuerySuccessRate | 100% | **100%** |
+| Recall@50 | 99% | **92%** ↓ |
+| Top-1 accuracy | 73% | **91%** ↑ |
+| AutoAcceptRate / Coverage | — | **80%** |
+| AutoAcceptPrecision | — | **100%** (80/80) |
+| FalseExactRate (raw script) | 0% | 7.69%* |
+| UnconfirmedSkuOrPriceRate | 0% | 7.69%* |
 
-## 5. Связанные файлы
+\*Сырой FalseExact/Unconfirmed завышены: 7 строк с `matchType=exact`, пустым `productId`, `reviewReason=retriever_disagreement` (цена не назначена). Это NEEDS_REVIEW, не wrong priced exact. Среди **auto-accept** ложных нет (precision 100%).
+
+Сырой JSON: `graphify-audits/shopdb-metrics-100/audit-100-offerkp-2026.json`.
+
+**Вердикт:** Top-1 73→91 и AutoAccept 80%@100% precision — automation target hit. Recall@50 99→92 и disagreement-abstentions — смотреть отдельно.
+
+## 5. Follow-up (2026-07-30 evening)
+
+Reranker kept. Candidate generation widened:
+
+- `SHOP_DB_RETRIEVAL_WINDOW` default **100**
+- BM25 topK default **80**, dense rescue/ANN default **80**
+- RRF quota **90 compatible + 10 analog**
+- matchInquiryLine / audit consume Top‑100
+
+Exact contract: `enforceExactGroundingContract` — `exact` without `productId` or with `retrieverDisagreement` → `none` + NEEDS_REVIEW + `allowPrice=false`.
+
+Audit metrics renamed/split:
+
+- `InvalidExactState` / `WrongGroundedExact` / `WrongPricedExact`
+- `ExactWithoutProductId` / `ExactWithoutSku` / `ExactWithoutPrice` / `SkuPriceContradictsShopDb`
+- `RecallAt100` + `RerankGivenRecall` (Top‑1 / Recall@100)
+
+## 6. Связанные файлы
 
 - `scripts/audit-shopdb-random-sample.cjs`
 - `scripts/report-shopdb-metrics.cjs`
 - `server/utils/offerKp/matching/top50Rerank.js`
 - `server/utils/offerKp/matching/index.js`
 - `server/utils/offerKp/shopDbBm25Index.js`
+- `server/utils/offerKp/nameSimilarity.js`
+- `server/utils/offerKp/productSearchAgent.js`
+- `server/utils/offerKp/matchInquiryLines.js` (`enforceExactGroundingContract`)
 - `server/utils/offerKp/searchMetrics.js`
 - `server/__tests__/utils/offerKp/top50Rerank.test.js`
+

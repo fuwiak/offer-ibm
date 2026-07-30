@@ -4,6 +4,7 @@ const {
   pickBestInquiryAlternative,
   pickBestPricedSku,
   resolveMatchConcurrency,
+  enforceExactGroundingContract,
 } = require("../../../utils/offerKp/matchInquiryLines");
 const { STATUS } = require("../../../utils/offerKp/analogRules");
 
@@ -196,5 +197,50 @@ describe("matchInquiryLine price acceptance", () => {
     jest.dontMock("../../../utils/offerKp/analogRules");
     jest.dontMock("../../../utils/offerKp/db/client");
     jest.dontMock("../../../utils/offerKp/priceResolve");
+  });
+});
+
+describe("enforceExactGroundingContract", () => {
+  it("demotes exact without productId", () => {
+    const out = enforceExactGroundingContract({
+      matchType: "exact",
+      productId: "",
+      status: STATUS.IN_STOCK,
+      kpStatus: "Точное соответствие",
+      allowPrice: true,
+    });
+    expect(out.matchType).toBe("none");
+    expect(out.productId).toBe("");
+    expect(out.status).toBe(STATUS.NEEDS_REVIEW);
+    expect(out.allowPrice).toBe(false);
+    expect(out.demoted).toBe(true);
+  });
+
+  it("demotes exact on retriever disagreement even with productId", () => {
+    const out = enforceExactGroundingContract({
+      matchType: "exact",
+      productId: "123",
+      retrieverDisagreement: { lexicalProductId: "1", embeddingProductId: "2" },
+      allowPrice: true,
+      status: STATUS.IN_STOCK,
+      kpStatus: "Точное соответствие",
+    });
+    expect(out.matchType).toBe("none");
+    expect(out.productId).toBe("");
+    expect(out.allowPrice).toBe(false);
+  });
+
+  it("keeps grounded exact", () => {
+    const out = enforceExactGroundingContract({
+      matchType: "exact",
+      productId: "123",
+      allowPrice: true,
+      status: STATUS.IN_STOCK,
+      kpStatus: "Точное соответствие",
+    });
+    expect(out.matchType).toBe("exact");
+    expect(out.productId).toBe("123");
+    expect(out.allowPrice).toBe(true);
+    expect(out.demoted).toBe(false);
   });
 });

@@ -33,7 +33,7 @@ function enabled() {
 function topK() {
   return Math.max(
     1,
-    Math.min(100, parseInt(process.env.SHOP_DB_BM25_TOP_K, 10) || 40)
+    Math.min(100, parseInt(process.env.SHOP_DB_BM25_TOP_K, 10) || 80)
   );
 }
 

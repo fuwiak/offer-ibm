@@ -66,23 +66,25 @@ const EMBEDDING_STANDALONE_MIN = Number(
 );
 
 function denseRescueTopK() {
+  // Dense is an independent RRF leg — keep it wide enough that recall@100
+  // is not capped by a tiny ANN shortlist (was 10 → missed catalog hits).
   return Math.max(
     1,
-    Math.min(25, parseInt(process.env.SHOP_DB_DENSE_RESCUE_TOP_K, 10) || 10)
+    Math.min(100, parseInt(process.env.SHOP_DB_DENSE_RESCUE_TOP_K, 10) || 80)
   );
 }
 
 function compatibleCandidateLimit() {
   return Math.max(
     1,
-    Math.min(50, parseInt(process.env.SHOP_DB_RRF_COMPATIBLE_LIMIT, 10) || 45)
+    Math.min(100, parseInt(process.env.SHOP_DB_RRF_COMPATIBLE_LIMIT, 10) || 90)
   );
 }
 
 function analogCandidateLimit() {
   return Math.max(
     0,
-    Math.min(5, parseInt(process.env.SHOP_DB_RRF_ANALOG_LIMIT, 10) || 5)
+    Math.min(15, parseInt(process.env.SHOP_DB_RRF_ANALOG_LIMIT, 10) || 10)
   );
 }
 

@@ -144,6 +144,34 @@ function draftProgressPayload(partialLines, { stage, completed, total }) {
 }
 
 /**
+ * Exact must be grounded. Retriever disagreement / missing productId must not
+ * leave matchType=exact (InvalidExactState) — demote to none + NEEDS_REVIEW.
+ */
+function enforceExactGroundingContract(input = {}) {
+  const matchType = input.matchType || "none";
+  const productId = String(input.productId || "").trim();
+  const disagreement = !!input.retrieverDisagreement;
+  if (matchType === "exact" && (!productId || disagreement)) {
+    return {
+      matchType: "none",
+      productId: "",
+      status: STATUS.NEEDS_REVIEW,
+      kpStatus: "Требуется проверка",
+      allowPrice: false,
+      demoted: true,
+    };
+  }
+  return {
+    matchType,
+    productId,
+    status: input.status,
+    kpStatus: input.kpStatus,
+    allowPrice: !!input.allowPrice,
+    demoted: false,
+  };
+}
+
+/**
  * Retrieval merge steps keep `_matchSources` as a Set (productSearchAgent /
  * shopDbSearch) while exposing `shopMatchSources` as an array. Metrics must
  * accept both: a Set here used to throw and turn every line into match_error.
@@ -599,7 +627,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         message: searchText,
         chatHistory: options.chatHistory,
         workspace: options.workspace,
-        limit: 50,
+        limit: 100,
         // A single inquiry line must be ranked on its own. Prepending the complete
         // PDF made every line share almost the same search text and candidates.
         parsedFileTexts: null,
@@ -616,7 +644,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
           searchText,
           parsed: parseHardwareQuery(searchText),
           existingProducts: [],
-          limit: 50,
+          limit: 100,
           workspace: options.workspace,
         });
         products = fallback.products || [];
@@ -626,8 +654,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   }
 
   // Stock lookup is already batched, so validate the full retrieval window.
-  // Truncating it to five could hide the cheapest valid positive-price analog.
-  const candidates = products.slice(0, 50);
+  // Truncating it early could hide the correct SKU before Top-10 rerank.
+  const candidates = products.slice(0, 100);
   const retrieverDisagreement = detectRetrieverDisagreement(candidates);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   let alternatives = candidates.map((product) => {
@@ -916,7 +944,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   }
 
   const retrievedAt = new Date().toISOString();
-  const displayMatchType = accepted
+  let displayMatchType = accepted
     ? best.matchType
     : underspecifiedSize
       ? "none"
@@ -924,13 +952,37 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         ? // Must not stay "exact": every price-eligibility check downstream
           // (refreshDraftPrices, matchEvidence, prompts) keys off matchType.
           "spec_unconfirmed"
-        : best?.matchType || "none";
+        : retrieverDisagreement
+          ? "none"
+          : best?.matchType || "none";
+
+  let lineProductId = accepted ? best.productId || "" : "";
+  let lineStatus = status;
+  let lineAllowPrice = accepted && hasPrice;
+  let lineKpStatus = kpStatus;
+
+  const grounded = enforceExactGroundingContract({
+    matchType: displayMatchType,
+    productId: lineProductId,
+    retrieverDisagreement,
+    status: lineStatus,
+    kpStatus: lineKpStatus,
+    allowPrice: lineAllowPrice,
+  });
+  displayMatchType = grounded.matchType;
+  lineProductId = grounded.productId;
+  lineStatus = grounded.status;
+  lineKpStatus = grounded.kpStatus;
+  lineAllowPrice = grounded.allowPrice;
+
   const reviewReason = resolveReviewReason({
-    accepted,
+    accepted:
+      !!lineProductId &&
+      (displayMatchType === "exact" || displayMatchType === "analog"),
     matchType: displayMatchType,
     mismatchReason: best?.mismatchReason || null,
     unitNeedsRecalc,
-    hasPrice,
+    hasPrice: lineAllowPrice && hasPrice,
     retrieverDisagreement: !!retrieverDisagreement,
     underspecified: underspecifiedSize,
     goldenNone: !accepted && override?.matchType === "none",
@@ -943,27 +995,28 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   const matchedLine = {
     inquiryRaw: inquiryLine.raw,
-    name: accepted ? best.name : inquiryLine.name,
+    name: accepted && lineProductId ? best.name : inquiryLine.name,
     requestedName: inquiryLine.name,
-    article: accepted ? best.sku || "" : "",
-    productId: accepted ? best.productId || "" : "",
+    article: accepted && lineProductId ? best.sku || "" : "",
+    productId: lineProductId,
     quantity: qty,
     unit: inquiryLine.unit || "шт",
-    priceWithVat,
-    unitPriceNet: unitPrice,
-    lineTotal,
+    priceWithVat: lineAllowPrice ? priceWithVat : 0,
+    unitPriceNet: lineAllowPrice ? unitPrice : 0,
+    lineTotal: lineAllowPrice ? lineTotal : 0,
     weightKg,
     lineWeightKg,
-    status,
-    kpStatus,
+    status: lineStatus,
+    kpStatus: lineKpStatus,
     unitNeedsRecalc,
     matchType: displayMatchType,
-    analogOf: accepted ? best.analogOf || null : null,
+    analogOf: accepted && lineProductId ? best.analogOf || null : null,
     similarSuggestion,
     comment: commentParts.join("; "),
     thread: inquiryLine.thread,
     alternatives,
-    productUrl: accepted ? best.productUrl : undefined,
+    productUrl:
+      accepted && lineProductId ? best.productUrl : undefined,
     // Provenance (persisted on the line, not only in metrics)
     matchSource:
       best?.matchSource ||
@@ -975,9 +1028,9 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     missingAttributes: underspecifiedSize ? completeness.missing : [],
     retrieverDisagreement,
     retrievedAt,
-    priceSnapshot: hasPrice ? unitPrice : null,
-    priceSource: accepted ? best?.priceSource || null : null,
-    allowPrice: accepted && hasPrice,
+    priceSnapshot: lineAllowPrice && hasPrice ? unitPrice : null,
+    priceSource: lineAllowPrice ? best?.priceSource || null : null,
+    allowPrice: lineAllowPrice,
     // Matching enrichment (constraints / LTR / selective / conformal / AL)
     anomaly: matchGates?.anomaly || null,
     conformalSet: matchGates?.conformal || null,
@@ -1238,4 +1291,5 @@ module.exports = {
   calculateTotalWeightKg,
   buildDraftFromMatchedLines,
   detectRetrieverDisagreement,
+  enforceExactGroundingContract,
 };

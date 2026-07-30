@@ -46,6 +46,10 @@ async function main() {
     Math.min(300, parseInt(option("--sample", "100"), 10) || 100)
   );
   const seed = String(option("--seed", "offerkp-2026")).slice(0, 64);
+  const retrievalLimit = Math.max(
+    50,
+    Math.min(100, parseInt(option("--retrieval-limit", "100"), 10) || 100)
+  );
   const readiness = await getShopDbReadiness({ force: true });
   if (!readiness.ready) {
     const error = new Error(readiness.code || "INDEX_NOT_READY");
@@ -64,13 +68,21 @@ async function main() {
   let dbAttempts = 0;
   let dbSuccess = 0;
   let recall50 = 0;
+  let recall100 = 0;
   let top1 = 0;
-  let falseExact = 0;
   let exactDecisions = 0;
+  let invalidExactState = 0;
+  let wrongGroundedExact = 0;
+  let wrongPricedExact = 0;
   let accepted = 0;
   let autoAccept = 0;
   let autoAcceptCorrect = 0;
+  let exactWithoutProductId = 0;
+  let exactWithoutSku = 0;
+  let exactWithoutPrice = 0;
+  let skuPriceContradictsShopDb = 0;
   const acceptedRows = [];
+  const allDecisions = [];
   const failures = [];
 
   for (const expected of products) {
@@ -78,13 +90,16 @@ async function main() {
     try {
       const retrieval = await runProductSearchAgent({
         message: expected.name,
-        limit: 50,
+        limit: retrievalLimit,
       });
       dbSuccess += 1;
       const hits = retrieval.products || [];
       const expectedId = String(expected.id);
       const rank = hits.findIndex((row) => String(row.id) === expectedId);
-      if (rank >= 0) recall50 += 1;
+      if (rank >= 0) {
+        recall100 += 1;
+        if (rank < 50) recall50 += 1;
+      }
       if (rank === 0) top1 += 1;
 
       const decision = await matchInquiryLine(
@@ -96,24 +111,37 @@ async function main() {
         },
         { requestId: `random-audit:${seed}:${expected.id}` }
       );
+      allDecisions.push(decision);
       const pricedMatch = ["exact", "analog"].includes(decision.matchType);
-      // Auto-accept = priced match that did not fall into operator review.
       const autoAccepted =
         pricedMatch &&
         decision.status !== "Требует проверки" &&
         decision.kpStatus !== "Требуется проверка" &&
-        !decision.reviewReason;
+        !decision.reviewReason &&
+        !!decision.productId;
 
-      if (pricedMatch) {
-        accepted += 1;
-        // False exact = wrong *priced* exact only. Abstentions that keep
-        // matchType=exact with empty productId (e.g. retriever_disagreement)
-        // are NEEDS_REVIEW, not false exacts.
-        if (decision.matchType === "exact" && decision.productId) {
-          exactDecisions += 1;
-          if (String(decision.productId) !== expectedId) falseExact += 1;
+      if (decision.matchType === "exact") {
+        exactDecisions += 1;
+        if (!decision.productId || decision.retrieverDisagreement) {
+          invalidExactState += 1;
+          if (!decision.productId) exactWithoutProductId += 1;
+        } else if (String(decision.productId) !== expectedId) {
+          wrongGroundedExact += 1;
+          if (Number(decision.unitPriceNet) > 0) wrongPricedExact += 1;
         }
-        if (decision.productId) acceptedRows.push(decision);
+        if (decision.productId && !decision.article) exactWithoutSku += 1;
+        if (
+          decision.productId &&
+          Number(decision.unitPriceNet || 0) <= 0 &&
+          decision.allowPrice !== false
+        ) {
+          exactWithoutPrice += 1;
+        }
+      }
+
+      if (pricedMatch && decision.productId) {
+        accepted += 1;
+        acceptedRows.push(decision);
       }
       if (autoAccepted) {
         autoAccept += 1;
@@ -182,15 +210,13 @@ async function main() {
     if (!optByProduct.has(key)) optByProduct.set(key, []);
     optByProduct.get(key).push(row);
   }
-  let unconfirmedSkuOrPrice = 0;
   for (const decision of acceptedRows) {
+    if (decision.matchType !== "exact") continue;
     const live = liveByProduct.get(Number(decision.productId)) || [];
     const sku = String(decision.article || "");
     const price = Number(decision.unitPriceNet || 0);
     const source = String(decision.priceSource || "");
     const skuConfirmed = live.some((row) => String(row.sku || "") === sku);
-    // A zero price is an explicit "price missing" outcome, not an
-    // unconfirmed price claim. Only positive prices need source verification.
     let priceConfirmed = price <= 0 && !source;
     if (source === "shop_product_skus.price") {
       priceConfirmed = live.some(
@@ -211,35 +237,40 @@ async function main() {
           Math.abs(Number(row.opt_price) - price) < 0.005
       );
     }
-    if (!skuConfirmed || !priceConfirmed) unconfirmedSkuOrPrice += 1;
+    if (!skuConfirmed || !priceConfirmed) skuPriceContradictsShopDb += 1;
   }
 
   const result = {
     generatedAt: new Date().toISOString(),
     seed,
     sampleSize: products.length,
+    retrievalLimit,
     readiness,
     metrics: {
       DBQueryAttemptRate: pct(dbAttempts, products.length),
       DBQuerySuccessRate: pct(dbSuccess, dbAttempts),
       RecallAt50: pct(recall50, products.length),
+      RecallAt100: pct(recall100, products.length),
       Top1Accuracy: pct(top1, products.length),
-      // AutoAccept*: precision of automated priced matches vs coverage of sample.
-      // FalseExact=0 alone is cheap if everything goes to NEEDS_REVIEW.
+      RerankGivenRecall:
+        recall100 > 0 ? pct(Math.min(top1, recall100), recall100) : 0,
       AutoAcceptRate: pct(autoAccept, products.length),
       AutoAcceptPrecision: pct(autoAcceptCorrect, autoAccept),
       AutoAcceptCoverage: pct(autoAccept, products.length),
-      FalseExactRate: pct(falseExact, exactDecisions),
-      UnconfirmedSkuOrPriceRate: pct(
-        unconfirmedSkuOrPrice,
-        Math.max(accepted, 1)
-      ),
+      InvalidExactState: pct(invalidExactState, Math.max(exactDecisions, 1)),
+      WrongGroundedExact: pct(wrongGroundedExact, Math.max(exactDecisions, 1)),
+      WrongPricedExact: pct(wrongPricedExact, Math.max(exactDecisions, 1)),
+      ExactWithoutProductId: exactWithoutProductId,
+      ExactWithoutSku: exactWithoutSku,
+      ExactWithoutPrice: exactWithoutPrice,
+      SkuPriceContradictsShopDb: skuPriceContradictsShopDb,
       acceptedDecisions: accepted,
       autoAcceptDecisions: autoAccept,
       autoAcceptCorrectDecisions: autoAcceptCorrect,
       exactDecisions,
-      falseExactDecisions: falseExact,
-      unconfirmedSkuOrPriceDecisions: unconfirmedSkuOrPrice,
+      invalidExactStateDecisions: invalidExactState,
+      wrongGroundedExactDecisions: wrongGroundedExact,
+      wrongPricedExactDecisions: wrongPricedExact,
     },
     failures: failures.slice(0, 50),
   };

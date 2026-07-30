@@ -73,7 +73,7 @@ function denseEnabled() {
 function denseTopK() {
   return Math.max(
     1,
-    Math.min(200, parseInt(process.env.SHOP_DB_CATALOG_DENSE_TOP_K, 10) || 50)
+    Math.min(200, parseInt(process.env.SHOP_DB_CATALOG_DENSE_TOP_K, 10) || 80)
   );
 }
 

@@ -91,12 +91,12 @@ describe("ShopDB BM25F catalog index", () => {
     expect(hits.map((hit) => hit.productId)).toEqual([1]);
   });
 
-  it("keeps a 45 compatible + 5 approved analog candidate window", () => {
-    const compatible = Array.from({ length: 48 }, (_, index) => ({
+  it("keeps a 90 compatible + 10 approved analog candidate window", () => {
+    const compatible = Array.from({ length: 95 }, (_, index) => ({
       id: index + 1,
       name: `Болт DIN 933 M10x25 8.8 оцинкованный ${index}`,
     }));
-    const analogs = Array.from({ length: 8 }, (_, index) => ({
+    const analogs = Array.from({ length: 15 }, (_, index) => ({
       id: index + 101,
       name: `Болт ISO 4017 M10x25 8.8 оцинкованный ${index}`,
     }));
@@ -107,12 +107,12 @@ describe("ShopDB BM25F catalog index", () => {
     const selected = applyCatalogCandidateQuota(
       "Болт DIN 933 M10x25 8.8 оцинк",
       [...compatible, wrongSize, ...analogs],
-      50
+      100
     );
-    expect(selected).toHaveLength(50);
+    expect(selected).toHaveLength(100);
     expect(
       selected.filter((item) => item._retrievalMatchType === "analog")
-    ).toHaveLength(5);
+    ).toHaveLength(10);
     expect(selected.some((item) => item.id === 999)).toBe(false);
   });
 });

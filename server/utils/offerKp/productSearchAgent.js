@@ -69,7 +69,10 @@ const PRODUCT_SELECT = `
 const SKU_RE = /\b(\d{8,18})\b/g;
 const ART_PREFIX_RE =
   /(?:арт\.?|art\.?|sku\s*:?\s*#?\s*|код\s*:?\s*)(\d{5,18})/gi;
-const RETRIEVAL_WINDOW = 50;
+const RETRIEVAL_WINDOW = Math.max(
+  50,
+  Math.min(100, parseInt(process.env.SHOP_DB_RETRIEVAL_WINDOW, 10) || 100)
+);
 
 function sqlLimit(limit) {
   return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
