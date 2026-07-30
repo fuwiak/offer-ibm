@@ -600,58 +600,121 @@ async function getShopDbContext(message, options = {}) {
     };
   }
 
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(
-      () => reject(new Error("SHOP_DB_TIMEOUT")),
-      SHOP_DB_ENRICH_TIMEOUT_MS
-    )
-  );
+  const searchText = buildProductSearchText(effectiveMessage, options);
 
-  /** Filled as soon as inquiry matching finishes — used on timeout (no full retry). */
-  const partial = { inquiryEnrich: null };
+  shopDbLog.enrichStart({
+    messageLen: effectiveMessage.length,
+    searchTextLen: searchText.length,
+    maxDocs,
+    searchAgent: true,
+    parsedFiles: parsedFileTexts.length,
+    timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
+  });
 
-  const runEnrich = async () => {
-    const searchText = buildProductSearchText(effectiveMessage, options);
-
-    shopDbLog.enrichStart({
-      messageLen: effectiveMessage.length,
-      searchTextLen: searchText.length,
-      maxDocs,
-      searchAgent: true,
-      parsedFiles: parsedFileTexts.length,
-      timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
+  // Line-by-line RFQ matching must finish — a short Promise.race used to abort
+  // mid-match (empty draft + orphaned work) and surface as SSE "network error".
+  let inquiryEnrich;
+  try {
+    inquiryEnrich = await enrichInquiryLinesFromPdf(effectiveMessage, options);
+  } catch (e) {
+    const target = getShopDbTarget();
+    shopDbLog.enrichError(e, {
+      target,
+      code: e?.code,
+      hint: formatShopDbConnectionHint({
+        target,
+        error: e?.message,
+        code: e?.code,
+      }),
     });
+    return {
+      contextTexts: [],
+      sources: [],
+      flags: {
+        shopDbError: true,
+        shopDbMessage: e?.message || String(e),
+        shopDbTarget: target,
+      },
+    };
+  }
 
-    const inquiryEnrich = await enrichInquiryLinesFromPdf(
-      effectiveMessage,
-      options
-    );
-    partial.inquiryEnrich = inquiryEnrich;
+  const inquiryLineCount = Number(
+    inquiryEnrich.inquiryDraft?.lines?.length ||
+      inquiryEnrich.contextTexts?.length ||
+      0
+  );
+  const skipBlobSearch = inquiryLineCount >= 2;
 
-    // Multi-line RFQ: line-by-line matchInquiry already ran. A second
-    // blob search over the whole paste OR-pollutes DIN/ISO/M-size signals
-    // and burns the enrich timeout — skip it when we have ≥2 inquiry lines.
-    const inquiryLineCount = Number(
-      inquiryEnrich.inquiryDraft?.lines?.length ||
-        inquiryEnrich.contextTexts?.length ||
-        0
-    );
-    const skipBlobSearch = inquiryLineCount >= 2;
-    const agentResult = skipBlobSearch
-      ? {
-          products: [],
-          strategies: ["skipped_blob_after_inquiry_lines"],
-          signals: { searchTerms: extractSearchTerms(searchText) },
-          tablesUsed: [],
-        }
-      : await runProductSearchAgent({
+  let agentResult;
+  if (skipBlobSearch) {
+    agentResult = {
+      products: [],
+      strategies: ["skipped_blob_after_inquiry_lines"],
+      signals: { searchTerms: extractSearchTerms(searchText) },
+      tablesUsed: [],
+    };
+  } else {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("SHOP_DB_TIMEOUT")),
+          SHOP_DB_ENRICH_TIMEOUT_MS
+        )
+      );
+      agentResult = await Promise.race([
+        runProductSearchAgent({
           message: effectiveMessage,
           chatHistory: options.chatHistory || options.history || null,
           workspace: options.workspace || null,
           limit: maxDocs * 3,
           parsedFileTexts,
+        }),
+        timeoutPromise,
+      ]);
+    } catch (e) {
+      if (e?.message === "SHOP_DB_TIMEOUT") {
+        shopDbLog.warn("enrich timeout — returning inquiry draft only", {
+          timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
+          inquiryLines: inquiryLineCount,
         });
+        return {
+          contextTexts: inquiryEnrich.contextTexts || [],
+          sources: inquiryEnrich.sources || [],
+          inquiryDraft: inquiryEnrich.inquiryDraft || null,
+          flags: {
+            shopDbTimeout: true,
+            shopDbPartial: true,
+            shopDbSearchHitCount: inquiryEnrich.contextTexts?.length || 0,
+            shopDbDocCount: inquiryEnrich.contextTexts?.length || 0,
+            shopDbInquiryLineCount: inquiryLineCount,
+          },
+        };
+      }
+      const target = getShopDbTarget();
+      shopDbLog.enrichError(e, {
+        target,
+        code: e?.code,
+        hint: formatShopDbConnectionHint({
+          target,
+          error: e?.message,
+          code: e?.code,
+        }),
+      });
+      return {
+        contextTexts: inquiryEnrich.contextTexts || [],
+        sources: inquiryEnrich.sources || [],
+        inquiryDraft: inquiryEnrich.inquiryDraft || null,
+        flags: {
+          shopDbError: true,
+          shopDbMessage: e?.message || String(e),
+          shopDbTarget: target,
+          shopDbPartial: inquiryLineCount > 0,
+        },
+      };
+    }
+  }
 
+  try {
     const inquiryIds = inquiryEnrich.productIds || new Set();
     const ranked = agentResult.products
       .filter((p) => !inquiryIds.has(Number(p.id)))
@@ -765,42 +828,7 @@ async function getShopDbContext(message, options = {}) {
       inquiryDraft: inquiryEnrich.inquiryDraft || null,
       flags,
     };
-  };
-
-  try {
-    return await Promise.race([runEnrich(), timeoutPromise]);
   } catch (e) {
-    if (e?.message === "SHOP_DB_TIMEOUT") {
-      const inquiryEnrich = partial.inquiryEnrich;
-      if (inquiryEnrich?.inquiryDraft?.lines?.length) {
-        shopDbLog.warn("enrich timeout — returning partial inquiry draft", {
-          timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS,
-          inquiryLines: inquiryEnrich.inquiryDraft.lines.length,
-        });
-        return {
-          contextTexts: inquiryEnrich.contextTexts || [],
-          sources: inquiryEnrich.sources || [],
-          inquiryDraft: inquiryEnrich.inquiryDraft,
-          flags: {
-            shopDbTimeout: true,
-            shopDbPartial: true,
-            shopDbSearchHitCount: inquiryEnrich.contextTexts?.length || 0,
-            shopDbDocCount: inquiryEnrich.contextTexts?.length || 0,
-            shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
-          },
-        };
-      }
-      shopDbLog.enrichTimeout({ timeoutMs: SHOP_DB_ENRICH_TIMEOUT_MS });
-      return {
-        contextTexts: [],
-        sources: [],
-        flags: {
-          shopDbTimeout: true,
-          shopDbSearchHitCount: 0,
-          shopDbDocCount: 0,
-        },
-      };
-    }
     const target = getShopDbTarget();
     shopDbLog.enrichError(e, {
       target,
@@ -812,12 +840,14 @@ async function getShopDbContext(message, options = {}) {
       }),
     });
     return {
-      contextTexts: [],
-      sources: [],
+      contextTexts: inquiryEnrich.contextTexts || [],
+      sources: inquiryEnrich.sources || [],
+      inquiryDraft: inquiryEnrich.inquiryDraft || null,
       flags: {
         shopDbError: true,
         shopDbMessage: e?.message || String(e),
         shopDbTarget: target,
+        shopDbPartial: inquiryLineCount > 0,
       },
     };
   }

@@ -282,7 +282,14 @@ const Workspace = {
       headers: baseHeaders(),
     });
 
-    const data = await response.json();
+    const raw = await response.text();
+    const data = safeJsonParse(raw, {
+      success: false,
+      error:
+        response.status >= 500
+          ? `Upload failed (HTTP ${response.status}). Server returned a non-JSON page — retry after deploy finishes.`
+          : `Upload failed (HTTP ${response.status}).`,
+    });
     return { response, data };
   },
   parseFile: async function (slug, formData) {
@@ -292,7 +299,14 @@ const Workspace = {
       headers: baseHeaders(),
     });
 
-    const data = await response.json();
+    const raw = await response.text();
+    const data = safeJsonParse(raw, {
+      success: false,
+      error:
+        response.status >= 500
+          ? `Parse failed (HTTP ${response.status}). Server returned a non-JSON page — retry after deploy finishes.`
+          : `Parse failed (HTTP ${response.status}).`,
+    });
     return { response, data };
   },
 

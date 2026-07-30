@@ -39,6 +39,29 @@ async function streamChatWithWorkspace(
   const language = options?.language || null;
   const clientQuoteDraft = options?.quoteDraft || null;
   const uuid = uuidv4();
+
+  // Keep SSE alive from the first await (chat-command planner / ShopDB / history).
+  // Without an early ping, long pre-match work looks like a dead connection and
+  // proxies/browsers surface HTML error pages as "Unexpected token '<'".
+  const sseHeartbeat = setInterval(() => {
+    try {
+      if (!response.writableEnded && !response.destroyed) {
+        response.write(": offerkp-ping\n\n");
+      }
+    } catch {
+      /* client gone */
+    }
+  }, 8000);
+  const stopSseHeartbeat = () => {
+    try {
+      clearInterval(sseHeartbeat);
+    } catch {
+      /* ignore */
+    }
+  };
+  response.once?.("close", stopSseHeartbeat);
+  response.once?.("finish", stopSseHeartbeat);
+
   const commandMessage = await grepCommand(message, user);
   const {
     planOfferKpChatCommand,
@@ -548,23 +571,7 @@ async function streamChatWithWorkspace(
   });
 
   // Keep SSE alive during long ShopDB matching / LM Studio warmup.
-  const sseHeartbeat = setInterval(() => {
-    try {
-      if (!response.writableEnded && !response.destroyed) {
-        response.write(": offerkp-ping\n\n");
-      }
-    } catch {
-      /* client gone */
-    }
-  }, 8000);
-  const stopSseHeartbeat = () => {
-    try {
-      clearInterval(sseHeartbeat);
-    } catch {
-      /* ignore */
-    }
-  };
-  response.once?.("close", stopSseHeartbeat);
+  // Heartbeat interval already started at the top of this function.
 
   const writeMatchProgressSafe = (payload = {}) => {
     try {

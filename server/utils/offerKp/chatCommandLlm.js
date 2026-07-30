@@ -166,6 +166,39 @@ async function planOfferKpChatCommand(
   if (!chatCommandLlmEnabled()) return null;
   const text = String(message || "").trim();
   if (!text) return null;
+
+  // Fast path: short «сделай кп» / rule-confident routes must not block SSE on
+  // a full LM Studio round-trip (was causing proxy HTML / "network error").
+  try {
+    const { isQuoteCommandOnly } = require("./quoteRequestPhrases");
+    if (isQuoteCommandOnly(text)) {
+      offerKpLog("info", "Chat command LLM skipped — quote command only", {
+        snippet: text.slice(0, 120),
+      });
+      return null;
+    }
+  } catch {
+    /* optional */
+  }
+  const rule = routeOfferKpMessage(text);
+  if (
+    Number(rule?.confidence) >= 0.9 &&
+    [
+      OFFER_KP_INTENTS.CREATE_QUOTE,
+      OFFER_KP_INTENTS.CASUAL_OR_TEST,
+      OFFER_KP_INTENTS.UNSAFE_OR_FORBIDDEN,
+      OFFER_KP_INTENTS.SYSTEM_HELP,
+      OFFER_KP_INTENTS.OUT_OF_SCOPE,
+    ].includes(rule.primaryIntent)
+  ) {
+    offerKpLog("info", "Chat command LLM skipped — rule confidence", {
+      intent: rule.primaryIntent,
+      confidence: rule.confidence,
+      snippet: text.slice(0, 120),
+    });
+    return null;
+  }
+
   try {
     const connector = await getLLMProviderWithFallback({
       provider: workspace?.chatProvider || null,
