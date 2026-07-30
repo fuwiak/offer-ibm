@@ -131,7 +131,9 @@ function pickBestInquiryAlternative(alternatives = []) {
     for (const candidate of candidates) {
       let placed = false;
       for (const group of groups) {
-        if (signaturesMatchForPricing(group[0]._signature, candidate._signature)) {
+        if (
+          signaturesMatchForPricing(group[0]._signature, candidate._signature)
+        ) {
           group.push(candidate);
           placed = true;
           break;
