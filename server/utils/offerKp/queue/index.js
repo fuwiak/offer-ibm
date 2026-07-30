@@ -19,6 +19,7 @@ const {
   acquireIndexSyncLock,
   releaseIndexSyncLock,
 } = require("./cacheStore");
+const { getDurableOcr, setDurableOcr } = require("./durableOcrStore");
 const {
   gpuQueue,
   matchingQueue,
@@ -50,6 +51,8 @@ module.exports = {
   subscribeJobEvents,
   getOcrCache,
   setOcrCache,
+  getDurableOcr,
+  setDurableOcr,
   getRetrievalCache,
   setRetrievalCache,
   getPriceCache,

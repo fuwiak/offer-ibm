@@ -5,7 +5,7 @@ const { QueueEvents } = require("bullmq");
 const { isOfferKpQueueEnabled } = require("./constants");
 const { enqueueOcrJob } = require("./enqueue");
 const { getJobStatus, subscribeJobEvents } = require("./statusStore");
-const { getOcrCache } = require("./cacheStore");
+const { getOcrCache, setOcrCache } = require("./cacheStore");
 const { fileHashFromPath, buildOfferKpJobId } = require("./jobKey");
 const {
   pipelineVersion,
@@ -15,84 +15,132 @@ const {
 } = require("./constants");
 const { bullmqConnectionOpts } = require("./redisClient");
 
+function resolveJobIdForPdf(pdfPath) {
+  const fileHash = fileHashFromPath(fs, pdfPath);
+  const jobId = buildOfferKpJobId({
+    fileHash,
+    pipelineVersion: pipelineVersion(),
+    modelId: visionModelId(),
+    ocrPromptVersion: ocrPromptVersion(),
+  });
+  return { fileHash, jobId };
+}
+
+function cachedToResult(cached) {
+  return {
+    text: cached.text,
+    lines: cached.lines || null,
+    engine: cached.engine || "qwen3-vl-cached",
+    fromCache: true,
+    cacheSource: cached.source || "cache",
+  };
+}
+
 /**
- * Run vision OCR via BullMQ GPU queue (concurrency 1) when enabled.
- * Falls back to inline `visionOcrPdf` if queue/Redis unavailable.
- *
- * @param {string} pdfPath
- * @param {{
- *   workspace?: object,
- *   contextText?: string,
- *   originalFilename?: string,
- *   onPage?: Function,
- *   onProgress?: Function,
- * }} opts
+ * Always try durable OCR (Redis→disk) before GPU.
+ * Then queue (if enabled) or inline visionOcrPdf — and persist result.
  */
 async function runQueuedVisionOcr(pdfPath, opts = {}) {
   const { visionOcrPdf } = require("../offerKpVisionOcr");
-
-  if (!isOfferKpQueueEnabled()) {
-    return visionOcrPdf(pdfPath, opts);
-  }
 
   if (!pdfPath || !fs.existsSync(pdfPath)) {
     return visionOcrPdf(pdfPath, opts);
   }
 
-  let enqueued;
+  let fileHash = null;
+  let jobId = null;
   try {
-    const fileHash = fileHashFromPath(fs, pdfPath);
-    enqueued = await enqueueOcrJob({
-      fileHash,
-      pdfPath,
-      originalFilename: opts.originalFilename || "",
-      workspaceSlug: opts.workspace?.slug || null,
-      contextText: opts.contextText || "",
-    });
+    ({ fileHash, jobId } = resolveJobIdForPdf(pdfPath));
   } catch (error) {
     console.warn(
-      "[offerKp:queue] enqueue OCR failed — inline fallback:",
+      "[offerKp:ocr] jobId build failed — GPU without cache:",
       error?.message || error
     );
     return visionOcrPdf(pdfPath, opts);
   }
 
-  if (!enqueued?.ok || enqueued.skipped) {
-    return visionOcrPdf(pdfPath, opts);
-  }
-
-  if (enqueued.fromCache && enqueued.cached) {
+  // 1) Redis → disk — GPU last resort
+  const pre = await getOcrCache(jobId);
+  if (pre?.text) {
     opts.onProgress?.({
       type: "stage",
       stage: "vision-ocr",
       fromCache: true,
-      jobId: enqueued.jobId,
+      cacheSource: pre.source || "cache",
+      jobId,
     });
-    return {
-      text: enqueued.cached.text,
-      lines: enqueued.cached.lines || null,
-      engine: enqueued.cached.engine || "qwen3-vl-cached",
-    };
+    return cachedToResult(pre);
   }
 
-  const jobId = enqueued.jobId;
+  // 2) BullMQ GPU worker (serialized concurrency 1)
+  if (isOfferKpQueueEnabled()) {
+    try {
+      const enqueued = await enqueueOcrJob({
+        fileHash,
+        pdfPath,
+        originalFilename: opts.originalFilename || "",
+        workspaceSlug: opts.workspace?.slug || null,
+        contextText: opts.contextText || "",
+      });
+
+      if (enqueued?.ok && !enqueued.skipped) {
+        if (enqueued.fromCache && enqueued.cached?.text) {
+          opts.onProgress?.({
+            type: "stage",
+            stage: "vision-ocr",
+            fromCache: true,
+            jobId: enqueued.jobId,
+          });
+          return cachedToResult(enqueued.cached);
+        }
+
+        opts.onProgress?.({
+          type: "stage",
+          stage: "vision-ocr-queued",
+          jobId: enqueued.jobId,
+          deduped: !!enqueued.deduped,
+        });
+
+        const mid = await getOcrCache(enqueued.jobId);
+        if (mid?.text) return cachedToResult(mid);
+
+        return waitForOcrJob(enqueued.jobId, opts);
+      }
+    } catch (error) {
+      console.warn(
+        "[offerKp:queue] enqueue OCR failed — inline GPU:",
+        error?.message || error
+      );
+    }
+  }
+
+  // 3) Inline GPU — then durable persist
   opts.onProgress?.({
     type: "stage",
-    stage: "vision-ocr-queued",
+    stage: "vision-ocr",
+    fromCache: false,
     jobId,
-    deduped: !!enqueued.deduped,
   });
+  const result = await visionOcrPdf(pdfPath, opts);
+  const text = typeof result === "string" ? result : result?.text || "";
+  const lines =
+    typeof result === "object" && result ? result.lines || null : null;
+  const engine =
+    (typeof result === "object" && result?.engine) || "qwen3-vl-inline";
 
-  const cachedMid = await getOcrCache(jobId);
-  if (cachedMid?.text) {
-    return {
-      text: cachedMid.text,
-      lines: cachedMid.lines || null,
-      engine: cachedMid.engine || "qwen3-vl-cached",
-    };
+  if (text.trim()) {
+    await setOcrCache(jobId, {
+      text,
+      lines,
+      engine,
+      pdfPath,
+      fileHash,
+    }).catch(() => {});
   }
 
-  return waitForOcrJob(jobId, opts);
+  return typeof result === "string"
+    ? { text: result, lines: null, engine, fromCache: false }
+    : { ...result, fromCache: false };
 }
 
 async function waitForOcrJob(jobId, opts = {}) {
@@ -128,7 +176,6 @@ async function waitForOcrJob(jobId, opts = {}) {
       });
     });
 
-    // Also listen to BullMQ QueueEvents for completion (belt + suspenders).
     events = new QueueEvents(QUEUE_NAMES.GPU, {
       connection: bullmqConnectionOpts(),
     });
@@ -139,18 +186,13 @@ async function waitForOcrJob(jobId, opts = {}) {
       const status = await getJobStatus(jobId);
       if (status?.state === "completed") {
         const cached = await getOcrCache(jobId);
-        if (cached?.text) {
-          return {
-            text: cached.text,
-            lines: cached.lines || null,
-            engine: cached.engine || "qwen3-vl-queue",
-          };
-        }
+        if (cached?.text) return cachedToResult(cached);
         if (status.result?.text) {
           return {
             text: status.result.text,
             lines: status.result.lines || null,
             engine: status.result.engine || "qwen3-vl-queue",
+            fromCache: false,
           };
         }
       }
@@ -169,6 +211,7 @@ async function waitForOcrJob(jobId, opts = {}) {
 module.exports = {
   runQueuedVisionOcr,
   waitForOcrJob,
+  resolveJobIdForPdf,
   buildOfferKpJobId,
   pipelineVersion,
   ocrPromptVersion,

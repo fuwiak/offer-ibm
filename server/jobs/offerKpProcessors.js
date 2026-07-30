@@ -7,6 +7,7 @@
 
 const { setJobStatus } = require("../utils/offerKp/queue/statusStore");
 const {
+  getOcrCache,
   setOcrCache,
   acquireIndexSyncLock,
   releaseIndexSyncLock,
@@ -15,6 +16,26 @@ const {
 async function processGpuOcrJob(job) {
   const data = job.data || {};
   const jobId = data.jobId || job.id;
+
+  // Durable hit — skip GPU entirely (Redis → disk).
+  const cached = await getOcrCache(jobId);
+  if (cached?.text) {
+    await setJobStatus(jobId, {
+      stage: "done",
+      state: "completed",
+      progress: 100,
+      fromCache: true,
+      cacheSource: cached.source || "cache",
+      result: { chars: cached.text.length, engine: cached.engine || null },
+    });
+    return {
+      ok: true,
+      chars: cached.text.length,
+      engine: cached.engine,
+      fromCache: true,
+    };
+  }
+
   const { visionOcrPdf } = require("../utils/offerKp/offerKpVisionOcr");
 
   await setJobStatus(jobId, {
@@ -46,7 +67,13 @@ async function processGpuOcrJob(job) {
   const engine =
     (typeof result === "object" && result?.engine) || "qwen3-vl-queue";
 
-  await setOcrCache(jobId, { text, lines, engine, pdfPath: data.pdfPath });
+  await setOcrCache(jobId, {
+    text,
+    lines,
+    engine,
+    pdfPath: data.pdfPath,
+    fileHash: data.fileHash || null,
+  });
   await setJobStatus(jobId, {
     stage: "done",
     state: "completed",
@@ -54,7 +81,7 @@ async function processGpuOcrJob(job) {
     result: { chars: text.length, engine },
   });
 
-  return { ok: true, chars: text.length, engine };
+  return { ok: true, chars: text.length, engine, fromCache: false };
 }
 
 async function processMatchingJob(job) {
