@@ -1,0 +1,236 @@
+{
+  "communities": {
+    "0": [
+      "index",
+      "index_activelearningscore",
+      "index_aggregateweaklabels",
+      "index_applyblocking",
+      "index_applyconstraintstoalternative",
+      "index_conformalcandidateset",
+      "index_detectanomaly",
+      "index_enrichalternatives",
+      "index_enrichmatchdecision",
+      "index_logevidencescore",
+      "index_rankwithltr",
+      "index_reranktop50_isidentityrival_minacceptmargin",
+      "index_resolveexpert",
+      "index_selectivepredict"
+    ],
+    "1": [
+      "learningtorank",
+      "learningtorank_default_weights",
+      "learningtorank_feature_names_extractmatchfeatures",
+      "learningtorank_ltrenabled",
+      "learningtorank_rankwithltr",
+      "learningtorank_scorefeatures",
+      "matchfeatures",
+      "matchfeatures_aligntechnicalnames",
+      "matchfeatures_bool01",
+      "matchfeatures_extractmatchfeatures",
+      "matchfeatures_extractthread_extractstandardnumbers_threadmatchesexact_getequivalentstandards",
+      "matchfeatures_feature_names",
+      "matchfeatures_parsehardwarequery_normalizeformatch_product_type_roots",
+      "matchfeatures_validatecandidate"
+    ],
+    "2": [
+      "shopdbbm25index",
+      "shopdbbm25index_cleantext",
+      "shopdbbm25index_create_insertmultiple_search",
+      "shopdbbm25index_createbm25index",
+      "shopdbbm25index_documentfields",
+      "shopdbbm25index_enabled",
+      "shopdbbm25index_field_boosts",
+      "shopdbbm25index_foldhomoglyphs_normalizesearchtext",
+      "shopdbbm25index_getshopdbbm25index",
+      "shopdbbm25index_resetshopdbbm25index",
+      "shopdbbm25index_searchablefield",
+      "shopdbbm25index_sizetext",
+      "shopdbbm25index_technicaltokens",
+      "shopdbbm25index_topk"
+    ],
+    "3": [
+      "audit_shopdb_random_sample",
+      "audit_shopdb_random_sample_configuredoptpricecategoryid",
+      "audit_shopdb_random_sample_getshopdbreadiness",
+      "audit_shopdb_random_sample_loadenv",
+      "audit_shopdb_random_sample_main",
+      "audit_shopdb_random_sample_matchinquiryline",
+      "audit_shopdb_random_sample_option",
+      "audit_shopdb_random_sample_path",
+      "audit_shopdb_random_sample_pct",
+      "audit_shopdb_random_sample_printresult",
+      "audit_shopdb_random_sample_query_resetpool",
+      "audit_shopdb_random_sample_runproductsearchagent"
+    ],
+    "4": [
+      "index_decidematchgates",
+      "top50rerank",
+      "top50rerank_envfloat",
+      "top50rerank_envint",
+      "top50rerank_hardconflictcount",
+      "top50rerank_identityrerankscore",
+      "top50rerank_isidentityrival",
+      "top50rerank_minacceptmargin",
+      "top50rerank_reranktop50",
+      "top50rerank_top10limit",
+      "top50rerank_typerank"
+    ],
+    "5": [
+      "report_shopdb_metrics",
+      "report_shopdb_metrics_fs",
+      "report_shopdb_metrics_loadenv",
+      "report_shopdb_metrics_main",
+      "report_shopdb_metrics_metrics_file_ismetricsenabled",
+      "report_shopdb_metrics_parseargs",
+      "report_shopdb_metrics_path",
+      "report_shopdb_metrics_pct",
+      "report_shopdb_metrics_readalllines"
+    ],
+    "6": [
+      "costsensitive",
+      "costsensitive_costsensitivedecision",
+      "costsensitive_estimateacceptcost",
+      "costsensitive_exactacceptthresholds",
+      "costsensitive_match_costs"
+    ],
+    "7": [
+      "metricssnapshot"
+    ]
+  },
+  "cohesion": {
+    "0": 0.15384615384615385,
+    "1": 0.2087912087912088,
+    "2": 0.24175824175824176,
+    "3": 0.21212121212121213,
+    "4": 0.36363636363636365,
+    "5": 0.3055555555555556,
+    "6": 0.6,
+    "7": 1.0
+  },
+  "gods": [
+    {
+      "id": "top50rerank_reranktop50",
+      "label": "rerankTop50()",
+      "degree": 9
+    },
+    {
+      "id": "learningtorank_rankwithltr",
+      "label": "rankWithLtr()",
+      "degree": 6
+    },
+    {
+      "id": "top50rerank_minacceptmargin",
+      "label": "minAcceptMargin()",
+      "degree": 5
+    },
+    {
+      "id": "audit_shopdb_random_sample_main",
+      "label": "main()",
+      "degree": 4
+    },
+    {
+      "id": "index_enrichalternatives",
+      "label": "enrichAlternatives()",
+      "degree": 4
+    },
+    {
+      "id": "index_decidematchgates",
+      "label": "decideMatchGates()",
+      "degree": 4
+    },
+    {
+      "id": "matchfeatures_extractmatchfeatures",
+      "label": "extractMatchFeatures()",
+      "degree": 4
+    },
+    {
+      "id": "report_shopdb_metrics_main",
+      "label": "main()",
+      "degree": 4
+    },
+    {
+      "id": "shopdbbm25index_cleantext",
+      "label": "cleanText()",
+      "degree": 4
+    },
+    {
+      "id": "shopdbbm25index_searchablefield",
+      "label": "searchableField()",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "enrichAlternatives()",
+      "target": "rankWithLtr()",
+      "source_files": [
+        "index.js",
+        "learningToRank.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "enrichAlternatives()",
+      "target": "rerankTop50()",
+      "source_files": [
+        "index.js",
+        "top50Rerank.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "decideMatchGates()",
+      "target": "isIdentityRival()",
+      "source_files": [
+        "index.js",
+        "top50Rerank.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories"
+    },
+    {
+      "source": "decideMatchGates()",
+      "target": "minAcceptMargin()",
+      "source_files": [
+        "index.js",
+        "top50Rerank.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories"
+    },
+    {
+      "source": "rankWithLtr()",
+      "target": "extractMatchFeatures()",
+      "source_files": [
+        "learningToRank.js",
+        "matchFeatures.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `rerankTop50()` connect `top50Rerank.js` to `index.js`?",
+      "why": "High betweenness centrality (0.023) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `rankWithLtr()` connect `learningToRank.js` to `index.js`?",
+      "why": "High betweenness centrality (0.019) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `path`, `{ loadEnv }`, `{ query, resetPool }` to the rest of the system?",
+      "why": "32 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}
