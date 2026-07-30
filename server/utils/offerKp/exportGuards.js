@@ -122,6 +122,9 @@ function stripIllegalPrices(lines = []) {
       const matchType = String(line.matchType || "none");
       const eligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);
       if (eligible && line.allowPrice !== false) return line;
+      if (line.operatorPriceOverride && Number(line.unitPriceNet) > 0) {
+        return line;
+      }
       return {
         ...line,
         unitPriceNet: 0,
@@ -135,7 +138,29 @@ function stripIllegalPrices(lines = []) {
   );
 }
 
+/**
+ * Recalculate draft.subtotal / total from lineTotal after strip/refresh.
+ * @param {object} draft
+ * @param {number} [vatRate]
+ */
+function recalcQuoteDraftTotals(draft = {}, vatRate = 0.2) {
+  const lines = Array.isArray(draft.lines) ? draft.lines : [];
+  const subtotal = Number(
+    lines
+      .reduce((sum, line) => sum + (Number(line.lineTotal) || 0), 0)
+      .toFixed(2)
+  );
+  return {
+    ...draft,
+    lines,
+    subtotal,
+    total: subtotal,
+    vatRate: draft.vatRate ?? vatRate,
+  };
+}
+
 module.exports = {
   assertExportGuards,
   stripIllegalPrices,
+  recalcQuoteDraftTotals,
 };

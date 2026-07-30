@@ -8,7 +8,7 @@ const { writeResponseChunk } = require("../helpers/chat/responses");
 const { wantsFileCreation } = require("../chats/agents");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { generateQuotePdf } = require("../offerKpApp/generateQuotePdf");
-const { generateDocxFromMarkdown } = require("../offerKpApp/docxFromMarkdown");
+const { generateQuoteDocx } = require("../offerKpApp/generateQuoteDocx");
 const { QUOTE_BRAND, localeForCountry } = require("../offerKpApp/quoteBrand");
 const { matchInquiryToDraft } = require("./matchInquiryLines");
 const { parseInquiryText } = require("./parseInquiry");
@@ -448,10 +448,11 @@ async function emitAutoQuoteArtifacts({
 
   // Soft-strip illegal prices before export; hard-fail on N-line / invented SKU.
   if (draft?.lines?.length) {
-    draft = {
+    const { recalcQuoteDraftTotals } = require("./exportGuards");
+    draft = recalcQuoteDraftTotals({
       ...draft,
       lines: attachDraftEvidence(stripIllegalPrices(draft.lines)),
-    };
+    });
     const guard = assertExportGuards({
       sourceLines: inquiryLines.length ? inquiryLines : draft.lines,
       quoteLines: draft.lines,
@@ -531,18 +532,19 @@ async function emitAutoQuoteArtifacts({
   }
 
   const subtotal =
-    draft?.subtotal ?? lines.reduce((s, l) => s + l.lineTotal, 0);
+    draft?.subtotal != null
+      ? Number(draft.subtotal)
+      : lines.reduce((s, l) => s + (Number(l.lineTotal) || 0), 0);
   const shipping = 0;
   const total = subtotal + shipping;
   const { currency, vatRate } = localeForCountry(meta.customer.country);
-  const vatAmount = Number((total * vatRate).toFixed(2));
   const reference =
     draft?.reference ||
     generateQuoteReference({
       prefix: QUOTE_BRAND.referencePrefix,
     });
 
-  const quoteData = {
+  let quoteData = {
     reference,
     customer: meta.customer,
     contact: QUOTE_BRAND.defaultContact,
@@ -555,19 +557,63 @@ async function emitAutoQuoteArtifacts({
     createdAt: new Date(),
   };
 
+  // Re-ground ShopDB prices + guards before any file render (same path as UI export).
+  try {
+    const {
+      finalizeQuoteForExport,
+    } = require("./finalizeQuoteForExport");
+    const finalized = await finalizeQuoteForExport(quoteData, {
+      sourceLines: inquiryLines,
+      failClosedOnShopDbError: true,
+      requireSnapshot: true,
+    });
+    if (!finalized.ok) {
+      console.error(
+        "[offerKp] finalizeQuoteForExport blocked auto artifacts:",
+        finalized.error,
+        finalized.message
+      );
+      writeResponseChunk(response, {
+        uuid,
+        type: "offerKpQuotePanel",
+        content: {
+          documentPanelView: "draftTable",
+          progressStage: "matched",
+          quoteDraft: {
+            step: 2,
+            reference: draft?.reference || null,
+            hardwareLines: draft?.lines || lines,
+            preview: {
+              lines: draft?.lines || lines,
+              subtotal: draft?.subtotal ?? subtotal,
+              total: draft?.total ?? total,
+              totalWeightKg: draft?.totalWeightKg,
+            },
+          },
+        },
+      });
+      return false;
+    }
+    quoteData = finalized.quoteData;
+  } catch (e) {
+    console.error("[offerKp] finalizeQuoteForExport:", e?.message || e);
+    return false;
+  }
+
   const markdown = buildMarkdownQuote({
-    reference,
-    customer: meta.customer,
-    lines,
-    subtotal,
-    shipping,
-    total,
+    reference: quoteData.reference || reference,
+    customer: quoteData.customer || meta.customer,
+    lines: quoteData.lines,
+    subtotal: quoteData.subtotal,
+    shipping: quoteData.shipping || 0,
+    total: quoteData.total,
     currency,
-    vatRate,
-    vatAmount,
+    vatRate: quoteData.vatRate ?? vatRate,
+    vatAmount: Number(
+      ((quoteData.total || 0) * (quoteData.vatRate ?? vatRate)).toFixed(2)
+    ),
   });
 
-  const safeRef = reference.replace(/[^\w-]+/g, "_");
   // Обязательное создание файлов: при ошибке — один повтор, статус не выдумываем.
   async function runWithRetry(label, factory) {
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -587,17 +633,12 @@ async function emitAutoQuoteArtifacts({
 
   const [pdfOutcome, docxOutcome] = await Promise.all([
     runWithRetry("PDF", () => generateQuotePdf(quoteData)),
-    runWithRetry("DOCX", () =>
-      generateDocxFromMarkdown({
-        markdown,
-        filename: `KP-${safeRef}.docx`,
-      })
-    ),
+    runWithRetry("DOCX", () => generateQuoteDocx(quoteData)),
   ]);
   const pdf = pdfOutcome.file;
   const docx = docxOutcome.file;
 
-  const stats = computeQuoteLineStats(lines);
+  const stats = computeQuoteLineStats(quoteData.lines);
 
   if (!pdf && !docx) {
     // Оба инструмента упали: вернуть готовое содержание КП + ошибку, без ложного успеха.

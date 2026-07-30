@@ -21,6 +21,9 @@ const resolveProductPriceWithSource =
       priceResolve.resolveProductPrice?.(product, skuRows, optPriceRows) || 0,
     source: null,
   }));
+const resolveSkuRowPrice =
+  priceResolve.resolveSkuRowPrice ||
+  ((skuRow) => resolveProductPriceWithSource({}, skuRow ? [skuRow] : []));
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const {
   signaturesMatchForPricing,
@@ -403,6 +406,7 @@ async function fetchProductStock(productId) {
 function emptyProductStock() {
   return {
     sku: "",
+    skuId: null,
     skuName: "",
     price: 0,
     priceSource: null,
@@ -478,7 +482,7 @@ async function fetchProductStocks(productIds = []) {
     ? "op.price AS opt_price"
     : "NULL AS opt_price";
   const rows = await query(
-    `SELECT s.${S.productId} AS product_id, s.${S.sku} AS sku,
+    `SELECT s.id AS sku_id, s.${S.productId} AS product_id, s.${S.sku} AS sku,
             s.${S.name} AS sku_name, s.price, s.compare_price,
             s.count, s.available, ${optSelect}
      FROM ${TABLES.productSkus} s
@@ -503,15 +507,17 @@ async function fetchProductStocks(productIds = []) {
       0
     );
     const bestSku = pickBestPricedSku(skus) || {};
-    const resolved = resolveProductPriceWithSource({}, skus);
+    // Price MUST come from the chosen SKU row — never from another variant.
+    const resolved = resolveSkuRowPrice(bestSku);
     byProduct.set(key, {
       sku: bestSku.sku || "",
+      skuId: bestSku.sku_id != null ? Number(bestSku.sku_id) : null,
       skuName: bestSku.sku_name || "",
       price: resolved.price,
       priceSource: resolved.source,
       optPriceRows: skus
         .filter((row) => Number(row.opt_price) > 0)
-        .map((row) => ({ price: row.opt_price })),
+        .map((row) => ({ price: row.opt_price, sku_id: row.sku_id })),
       stockCount: totalStock,
       skus,
     });

@@ -63,6 +63,41 @@ function rejectUnconfirmedReview(response, quoteData = {}) {
   return true;
 }
 
+/**
+ * Re-ground prices from ShopDB + export guards before rendering any format.
+ * @returns {Promise<object|null>} finalized quoteData or null if response already sent
+ */
+async function finalizeOrReject(response, quoteData) {
+  const {
+    finalizeQuoteForExport,
+  } = require("../utils/offerKp/finalizeQuoteForExport");
+  const finalized = await finalizeQuoteForExport(quoteData, {
+    failClosedOnShopDbError: true,
+    requireSnapshot: true,
+  });
+  if (!finalized.ok) {
+    const status =
+      finalized.error === "shopdb_unavailable"
+        ? 503
+        : finalized.error === "empty_quote"
+          ? 400
+          : 422;
+    response.status(status).json({
+      error: finalized.message || "Export blocked by server-side price guards.",
+      code: finalized.error || "OFFER_KP_EXPORT_BLOCKED",
+      violations: finalized.violations || [],
+    });
+    return null;
+  }
+  return finalized.quoteData;
+}
+
+function markdownLooksCommercial(markdown = "") {
+  return /(?:цена|руб|₽|unit\s*price|price\s*net|итого|subtotal|vat|ндс|\d+[.,]\d{2}\s*(?:руб|₽|pln|zł))/iu.test(
+    String(markdown)
+  );
+}
+
 function offerKpEndpoints(app) {
   if (!app) return;
 
@@ -382,11 +417,14 @@ function offerKpEndpoints(app) {
         }
 
         if (rejectUnconfirmedReview(response, quoteData)) return;
+        quoteData = await finalizeOrReject(response, quoteData);
+        if (!quoteData) return;
         const result = await generateQuotePdf(quoteData);
         response.status(200).json({
           filename: result.filename,
           storageFilename: result.storageFilename,
           fileSize: result.fileSize,
+          priceSnapshotId: quoteData.priceSnapshotId || null,
         });
       } catch (e) {
         console.error("[offerKp] PDF generation error:", e);
@@ -474,11 +512,14 @@ function offerKpEndpoints(app) {
         }
 
         if (rejectUnconfirmedReview(response, quoteData)) return;
+        quoteData = await finalizeOrReject(response, quoteData);
+        if (!quoteData) return;
         const result = await generateQuoteDocx(quoteData);
         response.status(200).json({
           filename: result.filename,
           storageFilename: result.storageFilename,
           fileSize: result.fileSize,
+          priceSnapshotId: quoteData.priceSnapshotId || null,
         });
       } catch (e) {
         console.error("[offerKp] DOCX generation error:", e);
@@ -503,6 +544,14 @@ function offerKpEndpoints(app) {
         const { markdown, filename } = reqBody(request);
         if (!markdown || typeof markdown !== "string") {
           return response.status(400).json({ error: "Markdown is required" });
+        }
+        // Commercial quotes with prices must go through /quotes/docx + finalize.
+        if (markdownLooksCommercial(markdown)) {
+          return response.status(422).json({
+            error:
+              "Markdown export with prices is disabled. Use /offerKp/quotes/docx with the quote draft so ShopDB prices are re-verified.",
+            code: "OFFER_KP_MARKDOWN_PRICES_BLOCKED",
+          });
         }
         const result = await generateDocxFromMarkdown({ markdown, filename });
         response.status(200).json({
@@ -845,11 +894,14 @@ function offerKpEndpoints(app) {
           quoteData = { ...formatted, lines: formatted.preview?.lines || [] };
         }
         if (rejectUnconfirmedReview(response, quoteData)) return;
+        quoteData = await finalizeOrReject(response, quoteData);
+        if (!quoteData) return;
         const result = await generateQuoteXlsx(quoteData);
         response.status(200).json({
           filename: result.filename,
           storageFilename: result.storageFilename,
           fileSize: result.fileSize,
+          priceSnapshotId: quoteData.priceSnapshotId || null,
         });
       } catch (e) {
         console.error("[offerKp] XLSX generation error:", e);

@@ -160,23 +160,20 @@ async function processExportJob(job) {
     format,
   });
 
-  // Re-read prices from ShopDB right before export (authoritative).
-  try {
-    const {
-      refreshDraftPricesFromShopDb,
-    } = require("../utils/offerKp/refreshDraftPrices");
-    const {
-      fetchProductStocks,
-    } = require("../utils/offerKp/matchInquiryLines");
-    if (
-      typeof refreshDraftPricesFromShopDb === "function" &&
-      Array.isArray(quoteData.lines)
-    ) {
-      await refreshDraftPricesFromShopDb(quoteData, fetchProductStocks);
-    }
-  } catch {
-    /* best-effort — export still proceeds with draft prices */
+  // Authoritative ShopDB refresh + export guards (fail-closed).
+  const {
+    finalizeQuoteForExport,
+  } = require("../utils/offerKp/finalizeQuoteForExport");
+  const finalized = await finalizeQuoteForExport(quoteData, {
+    failClosedOnShopDbError: true,
+    requireSnapshot: true,
+  });
+  if (!finalized.ok) {
+    throw new Error(
+      `export blocked: ${finalized.error || "guards"} — ${finalized.message || ""}`
+    );
   }
+  quoteData = finalized.quoteData;
 
   let result;
   if (format === "pdf") {

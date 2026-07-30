@@ -150,17 +150,14 @@ async function runQuotePipeline(input = {}) {
   }
 
   const built = await runTracedStage(trace, "BUILD_QUOTE", () => {
-    const subtotal = lines.reduce(
-      (sum, l) => sum + (Number(l.lineTotal) || 0),
-      0
-    );
+    const { recalcQuoteDraftTotals } = require("./exportGuards");
     return {
-      ...draft,
-      lines,
-      subtotal: Number(subtotal.toFixed(2)),
-      total: Number(subtotal.toFixed(2)),
-      requestId: trace.requestId,
-      evidence: lines.map((l) => l.evidence).filter(Boolean),
+      ...recalcQuoteDraftTotals({
+        ...draft,
+        lines,
+        requestId: trace.requestId,
+        evidence: lines.map((l) => l.evidence).filter(Boolean),
+      }),
     };
   });
 
