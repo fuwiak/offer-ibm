@@ -22,6 +22,18 @@ const { getLLMProviderWithFallback } = require("../helpers");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const { resolveOfferKpChatSampling } = require("./deterministicSampling");
 const { RESPONSE_FORMATS } = require("./llmJsonSchema");
+const {
+  resolveOpenRouterApiKey,
+  resolveOpenRouterBaseUrl,
+  resolveOpenRouterHeaders,
+} = require("../offerKpApp/openRouterEnv");
+const {
+  recordExperienceEvent,
+  rememberExperienceAsync,
+  retrieveExperiences,
+} = require("./experienceMemory");
+
+const DEFAULT_INTENT_MODEL = "deepseek/deepseek-v4-flash";
 
 const JUDGE_CATEGORIES = [
   OFFER_KP_INTENTS.PRODUCT_INQUIRY,
@@ -50,6 +62,57 @@ out_of_scope — вопрос вне тематики крепежа/КП (по�
 
 function intentLlmJudgeEnabled() {
   return process.env.OFFER_KP_INTENT_LLM_JUDGE !== "false";
+}
+
+function resolveIntentModel() {
+  return (
+    String(process.env.OFFER_KP_INTENT_MODEL || "").trim() ||
+    DEFAULT_INTENT_MODEL
+  );
+}
+
+function formatIntentMemory(examples = []) {
+  if (!examples.length) return "";
+  return [
+    "Похожие ранее проверенные решения (только подсказка, классифицируй текущий текст самостоятельно):",
+    ...examples.map(
+      (row) =>
+        `- ${JSON.stringify(row.payload?.user_text || row.retrieval_text)} → ${
+          row.payload?.intent || row.canonical_text
+        }`
+    ),
+  ].join("\n");
+}
+
+async function callOpenRouterIntentJudge(messages) {
+  const apiKey = resolveOpenRouterApiKey();
+  if (!apiKey) return null;
+  const response = await fetch(
+    `${resolveOpenRouterBaseUrl()}/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        ...resolveOpenRouterHeaders(),
+      },
+      body: JSON.stringify({
+        model: resolveIntentModel(),
+        messages,
+        ...resolveOfferKpChatSampling({
+          response_format: RESPONSE_FORMATS.intentCategory,
+        }),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    }
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      body?.error?.message || body?.message || `HTTP ${response.status}`
+    );
+  }
+  return String(body?.choices?.[0]?.message?.content || "");
 }
 
 function parseIntentAnswer(text) {
@@ -85,24 +148,68 @@ async function classifyAmbiguousIntentWithLlm(text, { workspace = null } = {}) {
   if (!trimmed) return null;
 
   try {
-    const LLMConnector = await getLLMProviderWithFallback({
-      provider: workspace?.chatProvider || null,
-      model: workspace?.chatModel || null,
+    const memories = await retrieveExperiences("intent_memory", trimmed, {
+      limit: 3,
+      minSimilarity: 0.58,
     });
+    const memoryBlock = formatIntentMemory(memories);
     const messages = [
-      { role: "system", content: INTENT_JUDGE_PROMPT },
+      {
+        role: "system",
+        content: [INTENT_JUDGE_PROMPT, memoryBlock]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
       { role: "user", content: trimmed.slice(0, 600) },
     ];
-    const { textResponse } = await LLMConnector.getChatCompletion(
-      messages,
-      resolveOfferKpChatSampling({
-        response_format: RESPONSE_FORMATS.intentCategory,
-      })
-    );
+    let textResponse = null;
+    let model = resolveIntentModel();
+    try {
+      textResponse = await callOpenRouterIntentJudge(messages);
+    } catch (error) {
+      offerKpLog("warn", "OpenRouter intent judge failed, using fallback", {
+        model,
+        error: error?.message || String(error),
+      });
+    }
+    if (textResponse == null) {
+      const LLMConnector = await getLLMProviderWithFallback({
+        provider: workspace?.chatProvider || null,
+        model: workspace?.chatModel || null,
+      });
+      const result = await LLMConnector.getChatCompletion(
+        messages,
+        resolveOfferKpChatSampling({
+          response_format: RESPONSE_FORMATS.intentCategory,
+        })
+      );
+      textResponse = result.textResponse;
+      model = workspace?.chatModel || "workspace_fallback";
+    }
     const category = parseIntentAnswer(textResponse);
+    const event = recordExperienceEvent("intent_classified", {
+      input: trimmed.slice(0, 2_000),
+      output: category,
+      model,
+      pipeline_stage: "intent",
+      retrieved_examples: memories.length,
+      trust_level: category ? "teacher_verified_by_code" : "teacher_only",
+    });
+    if (category) {
+      rememberExperienceAsync({
+        namespace: "intent_memory",
+        retrievalText: `USER_TEXT: ${trimmed}\nINTENT_MEANING: ${category}`,
+        canonicalText: category,
+        payload: { user_text: trimmed, intent: category },
+        trustLevel: "teacher_verified_by_code",
+        sourceEventId: event?.id || null,
+      });
+    }
     offerKpLog("info", "Ambiguous intent LLM judge", {
       category,
       snippet: trimmed.slice(0, 120),
+      model,
+      memories: memories.length,
     });
     return category;
   } catch (err) {
@@ -136,6 +243,9 @@ async function resolveOfferKpIntent(text, { workspace = null } = {}) {
 
 module.exports = {
   JUDGE_CATEGORIES,
+  DEFAULT_INTENT_MODEL,
+  resolveIntentModel,
+  formatIntentMemory,
   intentLlmJudgeEnabled,
   parseIntentAnswer,
   classifyAmbiguousIntentWithLlm,

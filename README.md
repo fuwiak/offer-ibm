@@ -28,7 +28,7 @@
 | Server | Node.js + Express, Prisma (SQLite app-данных) |
 | Каталог | ShopDB — MySQL (Shop-Script / purolat.com) |
 | Collector | Парсинг / OCR вложений |
-| LLM | LM Studio: резидентная `qwen/qwen3-vl-8b` на T4; опц. OpenRouter teacher |
+| LLM | LM Studio: резидентная `qwen/qwen3-vl-8b` на T4; DeepSeek V4 Flash для сложного intent |
 | Прод | systemd `offer-kp` + `offer-kp-collector`, nginx → `:3001` |
 
 Домен: `server/utils/offerKp/`. UI: `frontend/src/components/OfferKp/`.
@@ -78,6 +78,9 @@ yarn deploy:lainey
 | `DB_*` | ShopDB MySQL |
 | `SHOP_DB_ENRICH=1` | каталожный enrich |
 | `SHOP_BASE_URL` | ссылки на товары |
+| `OFFER_KP_INTENT_MODEL` | intent judge OpenRouter (`deepseek/deepseek-v4-flash`) |
+| `OFFER_KP_EXPERIENCE_MEMORY` | namespace-память intent/OCR/matching |
+| `OFFER_KP_MEMORY_EMBEDDING_MODEL` | embedding model OpenRouter для памяти |
 | `SHOP_DB_EMBEDDING_SIMILARITY` | embedding rerank (1/0) |
 | `SHOP_DB_GOLDEN_CORRECTIONS` | override из golden CSV |
 | `SHOP_DB_METRICS_ENABLED` | JSONL метрик matching |

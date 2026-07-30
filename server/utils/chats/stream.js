@@ -129,6 +129,14 @@ async function streamChatWithWorkspace(
     requestId: uuid,
   });
   setTraceIntent(requestTrace, routedIntent);
+  try {
+    const { captureIntentDecision } = require("../offerKp/experienceMemory");
+    captureIntentDecision(commandMessage, routedIntent, {
+      source: routedIntent?.signals?.llmJudge ? "deepseek_judge" : "router",
+    });
+  } catch {
+    /* experience memory must never block a chat request */
+  }
   markStage(requestTrace, "INTENT", "ok", {
     intent: routedIntent.primaryIntent,
   });
