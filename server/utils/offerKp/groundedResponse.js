@@ -165,12 +165,16 @@ function formatGroundedDraftCard(line = {}) {
 
   const price = Number(line.unitPriceNet || line.unitPrice || 0);
   const publicUrl = resolvePublicProductUrl(line);
+  const safeName = String(name).replace(/\[/g, "(").replace(/\]/g, ")");
   const rows = [
     "[Каталог · purolat.com]",
-    `Товар: ${name}`,
+    publicUrl
+      ? `Товар: [${safeName}](${publicUrl})`
+      : `Товар: ${name}`,
     price > 0 ? `Цена: ${price.toFixed(2)} RUB` : "Цена: по запросу",
     line.article ? `Артикул / SKU: ${String(line.article).trim()}` : null,
     `ID товара (shop_product.id): ${productId}`,
+    // Bare URL kept for price/SKU harness parsers; markdown linkify + Товар link for UI.
     publicUrl ? `Ссылка: ${publicUrl}` : null,
   ].filter(Boolean);
   return rows.join("\n");

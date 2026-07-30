@@ -10,6 +10,8 @@ import { v4 } from "uuid";
 const markdown = markdownIt({
   html: Appearance.get("renderHTML") ?? false,
   typographer: true,
+  // Bare https://… in catalog cards ("Ссылка: …") must be clickable.
+  linkify: true,
   highlight: function (code, lang) {
     const uuid = v4();
     const theme =

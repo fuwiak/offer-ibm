@@ -4,15 +4,21 @@ function mdLinkTitle(t) {
 }
 
 function sourceUrl(source) {
-  if (source?.url) return source.url;
-  return String(source?.chunkSource || "").replace(/^link:\/\//, "");
+  if (source?.url) return String(source.url).trim();
+  const fromChunk = String(source?.chunkSource || "").replace(/^link:\/\//, "").trim();
+  return fromChunk;
+}
+
+function isCatalogDocSource(docSource) {
+  const d = String(docSource || "");
+  return d === "Каталог" || d.startsWith("Каталог");
 }
 
 function mapLinkLines(items, defaultTitle) {
   return items.map((s) => {
     const url = sourceUrl(s);
     const title = s.title || defaultTitle;
-    if (!url) return `- ${title}`;
+    if (!url || !/^https?:\/\//i.test(url)) return `- ${title}`;
     return `- [${mdLinkTitle(title)}](${url})`;
   });
 }
@@ -31,7 +37,19 @@ function buildExternalLinksSection(sources) {
     (s) => s.docSource === "Google" || s.docSource === "Google (изображения)"
   );
   const searxngSources = arr.filter((s) => s.docSource === "SearXNG");
-  const catalogSources = arr.filter((s) => s.docSource === "Каталог");
+  // Inquiry enrich uses "Каталог · PDF"; product search uses "Каталог".
+  const catalogRaw = arr.filter((s) => isCatalogDocSource(s.docSource));
+  const catalogSeen = new Set();
+  const catalogSources = [];
+  for (const s of catalogRaw) {
+    const key =
+      (s.shopProductId != null && String(s.shopProductId)) ||
+      sourceUrl(s) ||
+      s.title;
+    if (!key || catalogSeen.has(key)) continue;
+    catalogSeen.add(key);
+    catalogSources.push(s);
+  }
   const parts = [];
   // Sekcja ELI (polskie akty prawne — Dziennik Ustaw / Monitor Polski).
   if (eliSources.length > 0) {
@@ -86,4 +104,5 @@ function buildExternalLinksSection(sources) {
 module.exports = {
   buildExternalLinksSection,
   sourceUrl,
+  isCatalogDocSource,
 };

@@ -557,6 +557,41 @@ async function streamChatWithWorkspace(
     externalContexts,
     { resolvedIntent: routedIntent }
   );
+  if (llmCatalog.hardFailure) {
+    const { code, text, readiness } = llmCatalog.hardFailure;
+    markStage(requestTrace, "SHOPDB_GATE", "fail", { code });
+    finalizeTrace(requestTrace, { status: "fail", error: code });
+    const gateMetrics = {
+      grounding: "shopdb_hard_gate",
+      shopDbCode: code,
+      shopDbReadiness: readiness,
+      offerKpTrace: summarizeTrace(requestTrace),
+    };
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: text,
+      sources: [],
+      close: true,
+      error: code,
+      metrics: gateMetrics,
+    });
+    await WorkspaceChats.new({
+      workspaceId: workspace.id,
+      prompt: message,
+      response: {
+        text,
+        sources: [],
+        type: chatMode,
+        attachments,
+        metrics: gateMetrics,
+      },
+      threadId: thread?.id || null,
+      include: false,
+      user,
+    });
+    return;
+  }
   const userPromptWithDraft = await applyInquiryDraftToUserPrompt(
     llmCatalog.userPrompt,
     {
@@ -763,7 +798,8 @@ async function streamChatWithWorkspace(
     });
   } else if (forceShopDbCatalogChat) {
     completeText =
-      "Позиции подтверждены в ShopDB (MySQL). Сводка и цены — во вкладке «Сводка позиций».\n\n" +
+      "Позиции подтверждены в ShopDB (MySQL). Сводка и цены — во вкладке «Сводка позиций». " +
+      "Откройте ссылки на карточки товаров ниже, чтобы сверить SKU и цену.\n\n" +
       shopDbGroundedCards +
       "\n\n_Источник: каталог purolat.com (MySQL)._";
     metrics = { grounding: "shopdb_catalog_cards" };
@@ -1031,24 +1067,17 @@ async function streamChatWithWorkspace(
           OFFER_KP_INTENTS.EDIT_QUOTE,
         ].includes(routedIntent.primaryIntent)));
 
-  // Mechanism A+B: build сводка from chat Товар cards (1:1) before export.
-  // Keep a copy of the raw chat — alignChatTextWithDraftMarkdown must NOT run
-  // before emitAutoQuoteArtifacts, or Товар cards vanish and artifacts rematch
-  // overwrites the panel with a short/unpriced draft.
-  const chatTextForDraft = String(completeText || "");
-  const chatHasProductCards = /Товар\s*:/i.test(chatTextForDraft);
+  // Draft input is inquiry/OCR + ShopDB only. Generated chat text is output,
+  // never evidence for SKU, price, URL, or quote line count.
   const shouldReconcileDraft =
-    chatHasProductCards ||
-    (shouldEmitQuoteArtifacts &&
-      Boolean(llmCatalog.inquiryDraft?.lines?.length));
+    shouldEmitQuoteArtifacts && Boolean(llmCatalog.inquiryDraft?.lines?.length);
 
   if (shouldReconcileDraft) {
     try {
       const {
-        compareDraftToChat,
+        compareDraftToInquiry,
         reproduceDraftFillMissing,
         alignChatTextWithDraftMarkdown,
-        extractChatProductBlocks,
       } = require("../offerKp/draftChatReconcile");
       const {
         buildQuoteMarkdownFromDraft,
@@ -1057,18 +1086,16 @@ async function streamChatWithWorkspace(
       const inquirySource = sourceTexts.length
         ? sourceTexts.join("\n\n")
         : String(updatedMessage || "");
-      const cardCount = extractChatProductBlocks(chatTextForDraft).length;
-      const comparison = compareDraftToChat({
+      const comparison = compareDraftToInquiry({
         draft: llmCatalog.inquiryDraft,
-        chatText: chatTextForDraft,
         catalogBlocks: llmCatalog.catalogBlocks || [],
         inquiryText: inquirySource,
       });
       diagNote(
         pipelineDiag,
-        `draft↔chat priced=${comparison.pricedDraftCount}/${comparison.expectedLineCount} missing=${comparison.missingIndexes.length} chatCards=${cardCount}`
+        `draft grounded priced=${comparison.pricedDraftCount}/${comparison.expectedLineCount} missing=${comparison.missingIndexes.length}`
       );
-      if (cardCount > 0 || comparison.needsReproduce) {
+      if (comparison.needsReproduce) {
         const reproduced = await reproduceDraftFillMissing({
           draft: llmCatalog.inquiryDraft,
           inquiryText: inquirySource,
@@ -1077,7 +1104,6 @@ async function streamChatWithWorkspace(
             workspace,
             chatHistory: rawHistory,
             parsedFileTexts,
-            chatText: chatTextForDraft,
             requestId: uuid,
           },
         });
@@ -1086,10 +1112,10 @@ async function streamChatWithWorkspace(
         }
         diagNote(
           pipelineDiag,
-          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} catalog=${reproduced.fromCatalog || 0} chatCards=${reproduced.fromChatCards || cardCount}`
+          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} catalog=${reproduced.fromCatalog || 0}`
         );
         console.warn(
-          `[offerKp] stream draft from chat cards=${reproduced.fromChatCards || cardCount} lines=${reproduced.draft?.lines?.length || 0} kept=${reproduced.kept || 0} chatSku=${reproduced.fromChatSku || 0} catalog=${reproduced.fromCatalog || 0}`
+          `[offerKp] stream grounded draft lines=${reproduced.draft?.lines?.length || 0} kept=${reproduced.kept || 0} rematched=${reproduced.rematched || 0} catalog=${reproduced.fromCatalog || 0}`
         );
         writeResponseChunk(response, {
           uuid,
@@ -1110,16 +1136,12 @@ async function streamChatWithWorkspace(
             },
           },
         });
-        // Do not replace Товар cards in chat — user-facing catalog text stays.
-        // Only append grounded table when chat had no product cards.
-        if (!chatHasProductCards) {
-          const groundedMd = buildQuoteMarkdownFromDraft(reproduced.draft);
-          if (groundedMd) {
-            completeText = alignChatTextWithDraftMarkdown(
-              completeText || "",
-              groundedMd
-            );
-          }
+        const groundedMd = buildQuoteMarkdownFromDraft(reproduced.draft);
+        if (groundedMd) {
+          completeText = alignChatTextWithDraftMarkdown(
+            completeText || "",
+            groundedMd
+          );
         }
       }
     } catch (e) {
@@ -1127,7 +1149,7 @@ async function streamChatWithWorkspace(
     }
   }
 
-  if (shouldEmitQuoteArtifacts || chatHasProductCards) {
+  if (shouldEmitQuoteArtifacts) {
     try {
       markStage(requestTrace, "EXPORT", "start");
       const {
@@ -1142,8 +1164,6 @@ async function streamChatWithWorkspace(
         chatHistory: rawHistory,
         parsedFileTexts,
         inquiryDraft: llmCatalog.inquiryDraft,
-        // Raw chat with Товар cards — never the post-align text.
-        chatText: chatTextForDraft,
       });
       if (quoteArtifacts?.summaryText) {
         completeText = `${completeText || ""}${quoteArtifacts.summaryText}`;

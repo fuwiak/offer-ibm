@@ -39,7 +39,10 @@ const {
   classifyProductMatch,
   detectAnalogIntent,
 } = require("./analogRules");
-const { resolveProductPrice } = require("./priceResolve");
+const {
+  configuredOptPriceCategoryId,
+  resolveProductPrice,
+} = require("./priceResolve");
 const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
 
 const MAX_EXCERPT_CHARS = 2200;
@@ -53,6 +56,7 @@ const FEATURE_TABLES = [
   TABLES.productFeatures,
   TABLES.feature,
   TABLES.featureValueVarchar,
+  TABLES.featureValueDimension,
   TABLES.productSkus,
 ];
 
@@ -142,13 +146,20 @@ async function loadFeatureLines(productIds) {
 
   const placeholders = ids.map(() => "?").join(",");
   const sql = `
-    SELECT pf.product_id, f.name AS feature_name, fv.value AS feature_value
+    SELECT pf.product_id, f.name AS feature_name,
+           COALESCE(
+             v.value,
+             NULLIF(TRIM(CONCAT(CAST(d.value AS CHAR), ' ', COALESCE(d.unit, ''))), '')
+           ) AS feature_value
     FROM ${TABLES.productFeatures} pf
     INNER JOIN ${TABLES.feature} f ON f.id = pf.feature_id
-    INNER JOIN ${TABLES.featureValueVarchar} fv ON fv.id = pf.feature_value_id
+    LEFT JOIN ${TABLES.featureValueVarchar} v
+      ON f.type = 'varchar' AND v.id = pf.feature_value_id
+    LEFT JOIN ${TABLES.featureValueDimension} d
+      ON f.type LIKE 'dimension.%' AND d.id = pf.feature_value_id
     WHERE pf.product_id IN (${placeholders})
+      AND (v.id IS NOT NULL OR d.id IS NOT NULL)
     ORDER BY pf.product_id, f.name
-    LIMIT 200
   `;
   const rows = await query(sql, ids);
   for (const row of rows) {
@@ -169,15 +180,24 @@ async function loadProductSkus(productIds) {
   if (!ids.length) return map;
 
   const placeholders = ids.map(() => "?").join(",");
+  const optCategoryId = configuredOptPriceCategoryId();
+  const optJoin = optCategoryId
+    ? `LEFT JOIN shop_opt_prices op
+         ON op.sku_id = s.id AND op.user_category_id = ?`
+    : "";
+  const optSelect = optCategoryId
+    ? "op.price AS opt_price"
+    : "NULL AS opt_price";
   const sql = `
-    SELECT ${S.productId} AS product_id, ${S.sku} AS sku, ${S.name} AS sku_name,
-           price, compare_price, count, available
-    FROM ${TABLES.productSkus}
-    WHERE ${S.productId} IN (${placeholders})
-    ORDER BY ${S.productId}, sort ASC
-    LIMIT 100
+    SELECT s.${S.productId} AS product_id, s.${S.sku} AS sku,
+           s.${S.name} AS sku_name, s.price, s.compare_price,
+           s.count, s.available, ${optSelect}
+    FROM ${TABLES.productSkus} s
+    ${optJoin}
+    WHERE s.${S.productId} IN (${placeholders})
+    ORDER BY s.${S.productId}, s.sort ASC
   `;
-  const rows = await query(sql, ids);
+  const rows = await query(sql, optCategoryId ? [optCategoryId, ...ids] : ids);
   for (const row of rows) {
     const pid = row.product_id;
     if (!map.has(pid)) map.set(pid, []);
@@ -194,7 +214,11 @@ function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
     product.category_url,
     product.product_url
   );
-  const effectivePrice = resolveProductPrice(product, skuRows);
+  const effectivePrice = resolveProductPrice(
+    product,
+    skuRows,
+    skuRows.map((row) => ({ price: row.opt_price }))
+  );
   const priceStr = formatPrice(effectivePrice, product.currency);
   const compareStr =
     effectivePrice > 0 &&
@@ -216,8 +240,14 @@ function buildProductExcerpt(product, featureLines, skuRows, baseUrl) {
     priceStr ? `Цена: ${priceStr}` : null,
     compareStr ? `Старая цена: ${compareStr}` : null,
     product.currency ? `Валюта: ${product.currency}` : null,
-    `Ссылка: ${url}`,
+    url ? `Ссылка: ${url}` : null,
   ].filter(Boolean);
+
+  // Clickable title for chat markdown (linkify also covers bare Ссылка URL).
+  if (url && /^https?:\/\//i.test(url)) {
+    const safe = String(name).replace(/\[/g, "(").replace(/\]/g, ")");
+    lines[0] = `[Каталог · ${baseUrl.replace(/^https?:\/\//, "")}] [${safe}](${url})`;
+  }
 
   if (skuRows?.length) {
     lines.push("SKU (shop_product_skus):");
@@ -510,6 +540,35 @@ async function getShopDbContext(message, options = {}) {
     };
   }
 
+  const { getShopDbReadiness } = require("./shopDbReadiness");
+  const readiness = await getShopDbReadiness();
+  if (!readiness.ready) {
+    const code = readiness.code || "INDEX_NOT_READY";
+    shopDbLog.error("catalog readiness gate rejected request", {
+      code,
+      mysqlOk: readiness.mysqlOk,
+      activeProducts: readiness.activeProducts,
+      indexProductCount: readiness.indexProductCount,
+      vectorCount: readiness.vectorCount,
+      indexFresh: readiness.indexFresh,
+      sync: readiness.sync,
+    });
+    return {
+      contextTexts: [],
+      sources: [],
+      flags: {
+        shopDbGateCode: code,
+        shopDbUnavailable: code === "DB_UNAVAILABLE",
+        shopDbIndexNotReady: code === "INDEX_NOT_READY",
+        shopDbError: code === "DB_UNAVAILABLE",
+        shopDbMessage: code,
+        shopDbDocCount: 0,
+        shopDbSearchHitCount: 0,
+        shopDbReadiness: readiness,
+      },
+    };
+  }
+
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(
       () => reject(new Error("SHOP_DB_TIMEOUT")),
@@ -653,21 +712,27 @@ async function getShopDbContext(message, options = {}) {
       urls: sources.map((s) => s.url),
     });
 
+    const flags = {
+      shopDbSearchHitCount:
+        agentResult.products.length + (inquiryEnrich.contextTexts?.length || 0),
+      shopDbDocCount: contextTexts.length,
+      shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
+      shopDbTerms: searchTerms,
+      shopDbTablesUsed: [...allTablesUsed].sort(),
+      shopDbMatchStrategies,
+      shopDbTimeout: false,
+      shopDbReadiness: readiness,
+    };
+    if (flags.shopDbSearchHitCount === 0) {
+      flags.shopDbGateCode = "NO_MATCH";
+      flags.shopDbNoMatch = true;
+    }
+
     return {
       contextTexts,
       sources,
       inquiryDraft: inquiryEnrich.inquiryDraft || null,
-      flags: {
-        shopDbSearchHitCount:
-          agentResult.products.length +
-          (inquiryEnrich.contextTexts?.length || 0),
-        shopDbDocCount: contextTexts.length,
-        shopDbInquiryLineCount: inquiryEnrich.contextTexts?.length || 0,
-        shopDbTerms: searchTerms,
-        shopDbTablesUsed: [...allTablesUsed].sort(),
-        shopDbMatchStrategies,
-        shopDbTimeout: false,
-      },
+      flags,
     };
   };
 
@@ -737,4 +802,5 @@ module.exports = {
   parseHardwareQuery,
   buildShopDbTablesFooter,
   ENRICH_TABLES,
+  loadFeatureLines,
 };

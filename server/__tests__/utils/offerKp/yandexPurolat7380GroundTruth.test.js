@@ -110,6 +110,7 @@ describe("Yandex purolat ISO 7380-1 M10x25 10.9 ground truth", () => {
       `ID товара (shop_product.id): ${YANDEX_PRODUCT.productId}`
     );
     expect(cards).toContain(`Ссылка: ${YANDEX_PRODUCT.publicUrl}`);
+    expect(cards).toContain(`](${YANDEX_PRODUCT.publicUrl})`);
     expect(cards).not.toContain("/product/073801");
     expect(cards).not.toContain("/product/451049");
   });
