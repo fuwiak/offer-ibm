@@ -109,8 +109,10 @@ function recordOperatorCorrection(event = {}) {
     candidateCount: 0,
     source: "operator",
     strategies: ["operator_correction"],
-    oldValue: event.oldValue != null ? String(event.oldValue).slice(0, 200) : null,
-    newValue: event.newValue != null ? String(event.newValue).slice(0, 200) : null,
+    oldValue:
+      event.oldValue != null ? String(event.oldValue).slice(0, 200) : null,
+    newValue:
+      event.newValue != null ? String(event.newValue).slice(0, 200) : null,
   });
 }
 
