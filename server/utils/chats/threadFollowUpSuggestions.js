@@ -21,6 +21,8 @@ Rules:
 - Each question is one concise sentence, max ${MAX_QUESTION_CHARS} characters.
 - Questions must be actionable and specific to the conversation (catalog, quotes, analogs, stock, documents) — not generic "tell me more".
 - If recovery notes mention missing catalog, empty DOCX template, or missing prices — suggest diagnostics ("what went wrong?") and concrete fixes ("rebuild quote from catalog").
+- Suggest only actions supported by OfferKP: product/catalog search with a concrete product from context, create/update quote, read current quote total/count/summary, or supported draft edits.
+- Never suggest external/web/Yandex facts. External suggestions require a separate source-labelled execution path and are disabled here.
 - Do not repeat the user's last question verbatim.
 - Return ONLY a JSON array of ${MAX_SUGGESTIONS} strings. No markdown, no commentary.`;
 
@@ -52,6 +54,64 @@ function trimHistoryForPrompt(history = [], limit = 6) {
     })
     .filter(Boolean)
     .join("\n");
+}
+
+function followUpLanguage(prompt = "", hint = null) {
+  const normalizedHint = String(hint || "").toLowerCase();
+  if (normalizedHint.startsWith("ru")) return "ru";
+  if (normalizedHint.startsWith("pl")) return "pl";
+  if (normalizedHint.startsWith("en")) return "en";
+  const text = String(prompt || "");
+  if (/[а-яё]/iu.test(text)) return "ru";
+  if (/[ąćęłńóśźż]|\b(?:jaka|ile|ofert|pozycj|suma)\b/iu.test(text))
+    return "pl";
+  return "en";
+}
+
+function buildDraftFollowUpSuggestions({
+  quoteDraft = null,
+  prompt = "",
+  language = null,
+} = {}) {
+  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  if (!Array.isArray(lines) || !lines.length) return [];
+
+  const lang = followUpLanguage(prompt, language);
+  const hasUsableAlternatives = lines.some((line) =>
+    (line?.alternatives || []).some((alt) => {
+      const price = Number(alt?.price ?? alt?.unitPriceNet);
+      const stock = Number(alt?.stockCount ?? alt?.count ?? alt?.stock);
+      return Number.isFinite(price) && price > 0 && stock > 0;
+    })
+  );
+  const pools = {
+    ru: {
+      total: "Какова общая сумма заказа по текущему списку?",
+      count: "Сколько позиций сейчас в текущем списке?",
+      summary: "Покажи краткий итог текущего списка: позиции и общую сумму",
+      cheapest: "Подставь самые дешёвые доступные аналоги в текущую сводку",
+    },
+    pl: {
+      total: "Jaka jest łączna suma bieżącej listy?",
+      count: "Ile pozycji znajduje się teraz na bieżącej liście?",
+      summary: "Pokaż krótkie podsumowanie bieżącej listy: pozycje i sumę",
+      cheapest: "Zastosuj najtańsze dostępne zamienniki w bieżącym zestawieniu",
+    },
+    en: {
+      total: "What is the total for the current item list?",
+      count: "How many items are currently in the list?",
+      summary: "Show a short summary of the current list: items and total",
+      cheapest:
+        "Apply the cheapest available alternatives to the current draft",
+    },
+  };
+  const labels = pools[lang];
+  const latest = String(prompt || "").toLowerCase();
+  const ordered = /сумм|total|suma/iu.test(latest)
+    ? [labels.summary, labels.count]
+    : [labels.total, labels.summary, labels.count];
+  if (hasUsableAlternatives) ordered.unshift(labels.cheapest);
+  return mergeFollowUpSuggestions(ordered, []);
 }
 
 function parseSuggestionsFromLlmText(raw = "") {
@@ -152,6 +212,7 @@ function extractAgentTurnForFollowUps(chats = []) {
  * @param {object[]} [opts.chatHistory]
  * @param {string|null} [opts.language]
  * @param {boolean} [opts.catalogInjected]
+ * @param {object|null} [opts.quoteDraft]
  * @returns {Promise<{ suggestions: string[], variant: "recovery"|"continue", issues: string[] }>}
  */
 async function generateThreadFollowUpSuggestions({
@@ -162,6 +223,7 @@ async function generateThreadFollowUpSuggestions({
   chatHistory = [],
   language = null,
   catalogInjected = false,
+  quoteDraft = null,
 }) {
   if (!threadFollowUpSuggestionsEnabled()) {
     return { suggestions: [], variant: "continue", issues: [] };
@@ -184,6 +246,15 @@ async function generateThreadFollowUpSuggestions({
     language,
   });
   const variant = issues.length ? "recovery" : "continue";
+  const draftSuggestions = buildDraftFollowUpSuggestions({
+    quoteDraft,
+    prompt,
+    language,
+  });
+
+  if (draftSuggestions.length) {
+    return { suggestions: draftSuggestions, variant: "continue", issues: [] };
+  }
 
   let llmSuggestions = [];
   try {
@@ -243,6 +314,7 @@ async function emitThreadFollowUpSuggestions({
   chatHistory = [],
   language = null,
   catalogInjected = false,
+  quoteDraft = null,
 }) {
   if (!thread?.id || !response) return [];
 
@@ -254,6 +326,7 @@ async function emitThreadFollowUpSuggestions({
     chatHistory,
     language,
     catalogInjected,
+    quoteDraft,
   });
 
   if (!suggestions.length) return [];
@@ -275,6 +348,7 @@ module.exports = {
   parseSuggestionsFromLlmText,
   mergeFollowUpSuggestions,
   extractAgentTurnForFollowUps,
+  buildDraftFollowUpSuggestions,
   generateThreadFollowUpSuggestions,
   emitThreadFollowUpSuggestions,
   MAX_SUGGESTIONS,

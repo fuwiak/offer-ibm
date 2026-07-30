@@ -9,6 +9,7 @@ const {
   parseSuggestionsFromLlmText,
   mergeFollowUpSuggestions,
   extractAgentTurnForFollowUps,
+  buildDraftFollowUpSuggestions,
 } = require("../../../utils/chats/threadFollowUpSuggestions");
 
 describe("threadFollowUpRecovery", () => {
@@ -71,5 +72,40 @@ describe("threadFollowUpSuggestions", () => {
     expect(turn.prompt).toBe("сделай кп");
     expect(turn.assistantText).toContain("offer.docx");
     expect(turn.assistantText).toContain("шаблон");
+  });
+
+  it("builds only executable follow-ups from the current KP draft", () => {
+    const suggestions = buildDraftFollowUpSuggestions({
+      prompt: "Покажи текущую сводку",
+      quoteDraft: {
+        hardwareLines: [
+          {
+            quantity: 2,
+            unitPriceNet: 50,
+            alternatives: [{ price: 40, stockCount: 5 }],
+          },
+        ],
+      },
+    });
+    expect(suggestions).toEqual([
+      "Подставь самые дешёвые доступные аналоги в текущую сводку",
+      "Какова общая сумма заказа по текущему списку?",
+      "Покажи краткий итог текущего списка: позиции и общую сумму",
+    ]);
+  });
+
+  it("does not suggest analog mutation when the draft has no usable alternatives", () => {
+    const suggestions = buildDraftFollowUpSuggestions({
+      prompt: "Jaka jest oferta?",
+      language: "pl",
+      quoteDraft: {
+        hardwareLines: [{ quantity: 1, unitPriceNet: 10, alternatives: [] }],
+      },
+    });
+    expect(suggestions).toEqual([
+      "Jaka jest łączna suma bieżącej listy?",
+      "Pokaż krótkie podsumowanie bieżącej listy: pozycje i sumę",
+      "Ile pozycji znajduje się teraz na bieżącej liście?",
+    ]);
   });
 });

@@ -70,7 +70,11 @@ async function streamChatWithWorkspace(
       ? isExecutableDraftCommand(chatCommandPlan.command)
       : looksLikeDraftEdit(commandMessage) || uiCmd;
 
-    async function replyDraftEditAndStop(text, metrics) {
+    async function replyDraftEditAndStop(
+      text,
+      metrics,
+      followUpDraft = clientQuoteDraft
+    ) {
       writeResponseChunk(response, {
         uuid,
         type: "textResponse",
@@ -95,6 +99,27 @@ async function streamChatWithWorkspace(
         include: false,
         user,
       });
+      if (thread?.id) {
+        try {
+          const {
+            emitThreadFollowUpSuggestions,
+          } = require("./threadFollowUpSuggestions");
+          await emitThreadFollowUpSuggestions({
+            response,
+            uuid,
+            workspace,
+            user,
+            thread,
+            prompt: message,
+            assistantText: text,
+            chatHistory: [],
+            language,
+            quoteDraft: followUpDraft,
+          });
+        } catch (error) {
+          console.warn("[threadFollowUp] draft reply:", error?.message || error);
+        }
+      }
     }
 
     if (isDraftReadCommand(chatCommandPlan?.command)) {
@@ -113,7 +138,7 @@ async function streamChatWithWorkspace(
             total: readResult.total,
             currency: readResult.currency,
           },
-        });
+        }, clientQuoteDraft);
         return;
       }
     }
@@ -162,7 +187,7 @@ async function streamChatWithWorkspace(
         await replyDraftEditAndStop(editResult.reply, {
           grounding: "operator_draft_edit",
           draftEdits: editResult.applied,
-        });
+        }, editResult.quoteDraft);
         return;
       }
       if (
@@ -174,7 +199,7 @@ async function streamChatWithWorkspace(
         await replyDraftEditAndStop(editResult.reply, {
           grounding: "operator_draft_edit_miss",
           reason: editResult.reason,
-        });
+        }, clientQuoteDraft);
         return;
       }
     }
@@ -214,6 +239,30 @@ async function streamChatWithWorkspace(
       include: false,
       user,
     });
+    if (thread?.id) {
+      try {
+        const {
+          emitThreadFollowUpSuggestions,
+        } = require("./threadFollowUpSuggestions");
+        await emitThreadFollowUpSuggestions({
+          response,
+          uuid,
+          workspace,
+          user,
+          thread,
+          prompt: message,
+          assistantText: immediateReply,
+          chatHistory: [],
+          language,
+          quoteDraft: clientQuoteDraft,
+        });
+      } catch (error) {
+        console.warn(
+          "[threadFollowUp] immediate reply:",
+          error?.message || error
+        );
+      }
+    }
     return;
   }
 
@@ -1478,6 +1527,17 @@ async function streamChatWithWorkspace(
           chatHistory: rawHistory,
           language,
           catalogInjected: Boolean(llmCatalog.catalogInjected),
+          quoteDraft: llmCatalog.inquiryDraft?.lines?.length
+            ? {
+                hardwareLines: llmCatalog.inquiryDraft.lines,
+                preview: {
+                  lines: llmCatalog.inquiryDraft.lines,
+                  subtotal: llmCatalog.inquiryDraft.subtotal,
+                  total: llmCatalog.inquiryDraft.total,
+                  totalWeightKg: llmCatalog.inquiryDraft.totalWeightKg,
+                },
+              }
+            : clientQuoteDraft,
         });
       } catch (e) {
         console.warn("[threadFollowUp] stream:", e?.message || e);
