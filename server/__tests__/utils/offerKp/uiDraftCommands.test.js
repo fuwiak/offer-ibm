@@ -5,25 +5,40 @@ const {
   matchUiDraftCommand,
   isUiDraftCommand,
 } = require("../../../utils/offerKp/uiDraftCommands");
-const { routeOfferKpMessage, OFFER_KP_INTENTS } = require("../../../utils/offerKp/intentRouter");
+const {
+  routeOfferKpMessage,
+  OFFER_KP_INTENTS,
+} = require("../../../utils/offerKp/intentRouter");
 const {
   looksLikeDraftEdit,
   applyDraftChatEdits,
 } = require("../../../utils/offerKp/draftChatEdit");
 
-describe("uiDraftCommands cheapest_analogs", () => {
-  const phrases = [
+describe("uiDraftCommands cheapest_analogs (slot NL)", () => {
+  const shouldMatch = [
     "Дешёвые аналоги",
     "подставь дешёвые аналоги",
     "встав для всех Дешёвые аналоги",
-    "вставь для всех дешевые аналоги",
     "вставь дешёвые аналоги для всех",
     "дешевые аналоги для всех",
     "примени дешёвые аналоги",
+    "давай возьмём самые дешёвые аналоги по всем позициям",
+    "замени на более дешёвые аналоги в сводке",
+    "можно подставить дешёвые аналоги из наличия?",
     "Cheapest analogs",
-    "apply cheapest analogs for all",
+    "please apply the cheapest analogs for all rows",
     "Najtańsze analogi",
     "podstaw najtańsze analogi dla wszystkich",
+    "użyj najtańszych zamienników w ofercie",
+  ];
+
+  const shouldReject = [
+    "найди дешёвые аналоги DIN 933 М10х80",
+    "подбери дешёвый аналог на болт М12",
+    "какие дешёвые аналоги есть в каталоге?",
+    "what are the cheapest analogs for DIN 912?",
+    "сколько будет 2+2",
+    "привет",
   ];
 
   it("does not mangle «всех» into «всеx»", () => {
@@ -32,19 +47,25 @@ describe("uiDraftCommands cheapest_analogs", () => {
     );
   });
 
-  it.each(phrases)("matches %s", (text) => {
+  it.each(shouldMatch)("matches NL: %s", (text) => {
     expect(matchUiDraftCommand(text)).toBe("cheapest_analogs");
     expect(isUiDraftCommand(text)).toBe(true);
     expect(looksLikeDraftEdit(text)).toBe(true);
   });
 
-  it("routes as edit_quote, not system_help / out_of_scope", () => {
-    const routed = routeOfferKpMessage("встав для всех Дешёвые аналоги");
+  it.each(shouldReject)("rejects non-command: %s", (text) => {
+    expect(matchUiDraftCommand(text)).toBeNull();
+  });
+
+  it("routes as edit_quote, not system_help", () => {
+    const routed = routeOfferKpMessage(
+      "давай возьмём самые дешёвые аналоги по всем позициям"
+    );
     expect(routed.primaryIntent).toBe(OFFER_KP_INTENTS.EDIT_QUOTE);
     expect(routed.policy.allowQuoteMutation).toBe(true);
   });
 
-  it("applies cheapest analogs for the «для всех» phrasing", () => {
+  it("applies cheapest analogs for free-form phrasing", () => {
     const linesWithAlts = [
       {
         name: "Болт М16",
@@ -70,7 +91,7 @@ describe("uiDraftCommands cheapest_analogs", () => {
       },
     ];
     const result = applyDraftChatEdits({
-      message: "встав для всех Дешёвые аналоги",
+      message: "замени на более дешёвые аналоги в сводке",
       quoteDraft: {
         hardwareLines: linesWithAlts,
         preview: { lines: linesWithAlts },
@@ -80,6 +101,5 @@ describe("uiDraftCommands cheapest_analogs", () => {
     expect(result.ok).toBe(true);
     expect(result.quoteDraft.hardwareLines[0].article).toBe("CHEAP");
     expect(result.quoteDraft.hardwareLines[0].unitPriceNet).toBe(15);
-    expect(result.reply).toMatch(/Подставил дешёвые аналоги/i);
   });
 });

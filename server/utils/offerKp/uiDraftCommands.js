@@ -1,8 +1,13 @@
 "use strict";
 
 /**
- * Map UI button / chip labels (RU/PL/EN) to draft chat command ids.
- * Exact normalized label match OR phrase patterns → same action as the button.
+ * Map natural-language chat → draft UI command ids.
+ *
+ * Design: slot matching, not an endless phrase whitelist.
+ * A command fires when required semantic slots co-occur; optional
+ * action / scope slots raise confidence. Catalog search questions
+ * («найди дешёвые аналоги DIN 933») are rejected so ShopDB search
+ * still owns those.
  */
 
 function normalizeCommandText(value = "") {
@@ -16,53 +21,63 @@ function normalizeCommandText(value = "") {
     .trim();
 }
 
+const CHEAP_SLOT =
+  /(?:дешев|наименьш\w*\s+цен|самой?\s+низк\w*\s+цен|cheapest|lowest\s+price|lower\s+price|najta[nń]sz|taniejsz|najni[zż]sz\w*\s+cen)/iu;
+
+const ANALOG_SLOT =
+  /(?:аналог|analog|zamiennik|alternativ|заменител)/iu;
+
+const APPLY_SLOT =
+  /(?:вставь?|подставь|поставь|примени|выбери|сделай|замени|поменяй|обнови|возьми|бери|проставь|подтяни|apply|use|set|pick|choose|podstaw|zamie[nń]|u[zż]yj|wybierz)/iu;
+
+const SCOPE_ALL_SLOT =
+  /(?:для\s+всех|по\s+всем|во\s+всех|на\s+все|всем\s+строк|все\s+позиц|всех\s+позиц|for\s+all|all\s+rows|all\s+lines|dla\s+wszystk|we\s+wszystk|w\s+(?:кп|сводк|черновик|таблиц|kp|ofercie|draft))/iu;
+
+const CATALOG_SEARCH_SLOT =
+  /(?:найди|подбери|ищу|поищи|есть\s+ли|что\s+есть|сравни|search|find|look\s+up|compare|szukaj|znajd[zź]|por[oó]wnaj)/iu;
+
+const PRODUCT_QUERY_SLOT =
+  /(?:^|[^\p{L}\p{N}])(?:din|гост|gost|iso|болт|гайк|шайб|винт|шпильк|м\s*\d|m\s*\d)/iu;
+
+const QUESTION_SLOT =
+  /(?:^(?:какой|какая|какие|сколько|есть\s+ли|можно\s+ли|что\s+за|what|which|how|czy|ile|jakie)(?:$|[^\p{L}\p{N}])|\?\s*$)/iu;
+
 /**
- * Curated labels from frontend locales (draftTable / quote / home chips).
- * Keep in sync when renaming buttons in offerKp i18n.
+ * Each command: optional exact i18n labels + matchSlots(norm, raw) for NL.
  */
 const UI_DRAFT_COMMANDS = [
   {
     id: "cheapest_analogs",
     labels: [
-      // draftTable.cheapestAnalogs
       "дешевые аналоги",
       "najtańsze analogi",
       "najtanze analogi",
       "cheapest analogs",
-      // common operator paraphrases / titles
-      "подставить дешевые аналоги",
-      "выбрать дешевые аналоги",
-      "применить дешевые аналоги",
-      "подставь дешевые аналоги",
-      "выбери дешевые аналоги",
-      "вставь дешевые аналоги",
-      "встав дешевые аналоги",
-      "вставь для всех дешевые аналоги",
-      "встав для всех дешевые аналоги",
-      "вставь дешевые аналоги для всех",
-      "встав дешевые аналоги для всех",
-      "поставь дешевые аналоги для всех",
-      "подставь дешевые аналоги для всех",
-      "дешевые аналоги для всех",
-      "дешевые аналоги по всем",
-      "apply cheapest analogs",
-      "apply cheapest analogs for all",
-      "cheapest analogs for all",
-      "podstaw najtańsze analogi",
-      "podstaw najtanze analogi",
-      "podstaw najtańsze analogi dla wszystkich",
-      "podstaw najtanze analogi dla wszystkich",
     ],
-    patterns: [
-      // Bare button label
-      /^(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог\w*|analog\w*)$/iu,
-      // Verb + optional «для всех / for all» + cheapest analogs
-      /(?:вставь?|подставь|поставь|примени|выбери|apply|podstaw)\w*.{0,60}(?:для\s+всех|по\s+всем|во\s+всех|на\s+все|for\s+all|dla\s+wszystk\w*)?.{0,40}(?:дешев\w*|cheapest|najta[nń]sz\w*).{0,25}(?:аналог\w*|analog\w*)/iu,
-      // «дешёвые аналоги» + for-all (any order after the noun phrase)
-      /(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог\w*|analog\w*).{0,40}(?:для\s+всех|по\s+всем|во\s+всех|for\s+all|dla\s+wszystk\w*|в\s+(?:кп|сводк|черновик|таблиц))/iu,
-      // for-all first, then button name
-      /(?:для\s+всех|по\s+всем|во\s+всех|for\s+all).{0,40}(?:дешев\w*|cheapest|najta[nń]sz\w*).{0,25}(?:аналог\w*|analog\w*)/iu,
-    ],
+    matchSlots(norm) {
+      // Required: cheap + analog somewhere in the utterance.
+      if (!CHEAP_SLOT.test(norm) || !ANALOG_SLOT.test(norm)) return false;
+
+      // Leave catalog questions alone («найди дешёвые аналоги DIN 933»).
+      if (CATALOG_SEARCH_SLOT.test(norm) && PRODUCT_QUERY_SLOT.test(norm)) {
+        return false;
+      }
+      // Pure Q without apply/scope («какие дешёвые аналоги есть?»).
+      if (
+        QUESTION_SLOT.test(norm) &&
+        !APPLY_SLOT.test(norm) &&
+        !SCOPE_ALL_SLOT.test(norm)
+      ) {
+        return false;
+      }
+
+      const words = norm.split(/\s+/).filter(Boolean);
+      // Short button-like: «дешёвые аналоги», «встав дешёвые аналоги».
+      if (words.length <= 8) return true;
+      // Explicit apply or «for all / in KP» → draft command regardless of length.
+      if (APPLY_SLOT.test(norm) || SCOPE_ALL_SLOT.test(norm)) return true;
+      return false;
+    },
   },
 ];
 
@@ -73,11 +88,11 @@ function matchUiDraftCommand(message = "") {
   if (!norm) return null;
 
   for (const cmd of UI_DRAFT_COMMANDS) {
-    for (const label of cmd.labels) {
+    for (const label of cmd.labels || []) {
       if (norm === normalizeCommandText(label)) return cmd.id;
     }
-    for (const re of cmd.patterns || []) {
-      if (re.test(raw) || re.test(norm)) return cmd.id;
+    if (typeof cmd.matchSlots === "function" && cmd.matchSlots(norm, raw)) {
+      return cmd.id;
     }
   }
   return null;
@@ -92,4 +107,8 @@ module.exports = {
   UI_DRAFT_COMMANDS,
   matchUiDraftCommand,
   isUiDraftCommand,
+  CHEAP_SLOT,
+  ANALOG_SLOT,
+  APPLY_SLOT,
+  SCOPE_ALL_SLOT,
 };
