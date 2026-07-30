@@ -17,14 +17,18 @@ const {
   isGoldenCorrectionsEnabled,
 } = require("../../../utils/offerKp/goldenCorrections");
 
-// Catalog dumps stay out of the repo (.gitignore) — regenerate locally with
-// scripts/generate-shopdb-golden-sample.cjs. Their rows are asserted only when
-// the file is actually present.
+// Private MySQL dump stays out of the repo (.gitignore) — regenerate locally
+// with scripts/generate-shopdb-golden-sample.cjs. Asserted only when present.
 const SHOPDB_SAMPLE = path.resolve(
   __dirname,
   "../../../../test_files/Shopdb_random_100.expected.csv"
 );
+const RAG_SELFMATCH = path.resolve(
+  __dirname,
+  "../../../../test_files/Rag_catalog_selfmatch_100.expected.csv"
+);
 const hasShopdbSample = fs.existsSync(SHOPDB_SAMPLE);
+const hasRagSelfmatch = fs.existsSync(RAG_SELFMATCH);
 
 describe("golden matching set (test_files matched_sku columns)", () => {
   beforeAll(() => {
@@ -37,9 +41,14 @@ describe("golden matching set (test_files matched_sku columns)", () => {
 
   it("loads verified matching rows from the committed CSVs", () => {
     const examples = listMatchExamples();
-    // Prostoy (7) + Yandex (1) + inquiry_ISO7380 (5), plus 100 more when the
-    // local ShopDB sample has been generated.
-    expect(examples.length).toBeGreaterThanOrEqual(hasShopdbSample ? 113 : 13);
+    // Prostoy (7) + Yandex (1) + inquiry_ISO7380 (5) + Rag_catalog_selfmatch (100)
+    // + optional local Shopdb_random_100. Map key = normalized source_name, so
+    // catalog self-match overlap between samples can collapse a few rows.
+    const minCommitted = hasRagSelfmatch ? 110 : 13;
+    expect(examples.length).toBeGreaterThanOrEqual(minCommitted);
+    if (hasShopdbSample) {
+      expect(examples.length).toBeGreaterThanOrEqual(minCommitted + 90);
+    }
 
     const skus = new Set(examples.map((e) => e.sku));
     // Prostoy_zapros_s_nashimi_artikulami_1
@@ -58,6 +67,11 @@ describe("golden matching set (test_files matched_sku columns)", () => {
     expect(skus.has("073801000080025")).toBe(true);
     expect(skus.has("073801000060012")).toBe(true);
     expect(skus.has("073801000060020")).toBe(true);
+    // Rag_catalog_selfmatch_100 (seed offerkp-rag-2026) — from Lainey RAG index
+    if (hasRagSelfmatch) {
+      expect(skus.has("004710000680000")).toBe(true);
+      expect(skus.has("009335100100014")).toBe(true);
+    }
     // Shopdb_random_100 (seed offerkp-golden-2026), local-only
     if (hasShopdbSample) {
       expect(skus.has("106428102160150")).toBe(true);

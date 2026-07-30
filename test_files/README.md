@@ -70,3 +70,16 @@ yarn test:golden
 
 Ручные правки оператора в сводке позиций + заполнение `matched_sku` в golden —  
 главный способ растить качество без LoRA.
+
+### RAG catalog self-match (committed)
+
+`Rag_catalog_selfmatch_100.expected.csv` — 100 товаров из live RAG-снимка
+(`server/storage/shopdb-index/canonical-products.json`, seed `offerkp-rag-2026`).
+Query = имя каталога → свой SKU (`exact`). Обновление:
+
+```bash
+# сначала rsync canonical-products.json с Lainey shopdb-index
+node scripts/renew-golden-from-rag.cjs
+```
+
+Приватный MySQL-сэмпл `Shopdb_random_*` — локально, в git не класть.
