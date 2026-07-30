@@ -1012,7 +1012,7 @@ async function streamChatWithWorkspace(
         llmCatalog.inquiryDraft = reproduced.draft;
         diagNote(
           pipelineDiag,
-          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0}`
+          `draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} chatCards=${reproduced.fromChatCards || 0}`
         );
         writeResponseChunk(response, {
           uuid,
@@ -1061,6 +1061,7 @@ async function streamChatWithWorkspace(
         chatHistory: rawHistory,
         parsedFileTexts,
         inquiryDraft: llmCatalog.inquiryDraft,
+        chatText: completeText || "",
       });
       if (quoteArtifacts?.summaryText) {
         completeText = `${completeText || ""}${quoteArtifacts.summaryText}`;

@@ -47,6 +47,8 @@ function normalizeKey(value = "") {
     .toLowerCase()
     .replace(/[–—−]/g, "-")
     .replace(/[х×]/gi, "x")
+    // Cyrillic м before digits → Latin m (M10x25 size tokens)
+    .replace(/м(\d)/gi, "m$1")
     .replace(/\s+/g, " ")
     .replace(/[^\p{L}\p{N}.x-]+/gu, " ")
     .replace(/\s+/g, " ")
@@ -166,8 +168,10 @@ function extractChatProductBlocks(chatText = "") {
 }
 
 function extractSizeToken(key = "") {
-  const m = String(key).match(/m\d+(?:[.,]\d+)?(?:x\d+(?:[.,]\d+)?){0,3}/i);
-  return m ? m[0].replace(/,/g, ".") : "";
+  const m = String(key).match(/[mм]\d+(?:[.,]\d+)?(?:x\d+(?:[.,]\d+)?){0,3}/i);
+  return m
+    ? m[0].toLowerCase().replace(/,/g, ".").replace(/^м/, "m")
+    : "";
 }
 
 function extractStandardToken(key = "") {
@@ -501,6 +505,111 @@ async function tryFillFromChatSku(inquiryLine, chatHint, searchByExactSku) {
 }
 
 /**
+ * Pick inquiry qty/name for a chat card (by compatible name, else index).
+ */
+function pickInquiryForChatCard(inquiryLines = [], card = {}, index = 0) {
+  const cardName = card.name || card.requestedName || "";
+  const byName = inquiryLines.find((line) =>
+    namesCompatible(line.name || line.raw || "", cardName)
+  );
+  if (byName) return byName;
+  return inquiryLines[index] || null;
+}
+
+function syntheticInquiryFromCard(card = {}, inquiry = null) {
+  const quantity = Number(inquiry?.quantity);
+  return {
+    raw: inquiry?.raw || card.name || "",
+    name: inquiry?.name || card.name || "",
+    quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+    unit: inquiry?.unit || "шт",
+    thread: inquiry?.thread || null,
+    needsReview: Boolean(inquiry?.needsReview),
+  };
+}
+
+/**
+ * Authoritative draft: one сводка line per chat Товар card (order preserved).
+ * Price only after ShopDB SKU verify; otherwise rematch by card name / stub.
+ */
+async function buildDraftFromChatProductCards({
+  chatText = "",
+  inquiryText = "",
+  matchLine = matchInquiryLine,
+  searchByExactSku = null,
+  options = {},
+} = {}) {
+  const cards = extractChatProductBlocks(chatText);
+  if (!cards.length) {
+    return {
+      draft: null,
+      fromChatCards: 0,
+      fromChatSku: 0,
+      rematched: 0,
+    };
+  }
+
+  if (typeof searchByExactSku !== "function") {
+    try {
+      searchByExactSku = require("./productSearchAgent").searchByExactSku;
+    } catch {
+      searchByExactSku = null;
+    }
+  }
+
+  const inquiryLines = inquiryText ? parseInquiryText(inquiryText) : [];
+  let fromChatSku = 0;
+  let rematched = 0;
+  const out = [];
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const inquiry = pickInquiryForChatCard(inquiryLines, card, i);
+    const syn = syntheticInquiryFromCard(card, inquiry);
+
+    let line = null;
+    if (card.article && searchByExactSku) {
+      // Verify against card title (chat) + ShopDB product name — not inquiry alone.
+      const hits = await searchByExactSku([String(card.article).trim()], 3);
+      const product = Array.isArray(hits)
+        ? hits.find((h) => namesCompatible(card.name || "", h.name || "")) ||
+          hits.find((h) => namesCompatible(syn.name || "", h.name || "")) ||
+          null
+        : null;
+      if (product) {
+        line = draftLineFromShopProduct(syn, product, card.article);
+        fromChatSku += 1;
+      }
+    }
+
+    if (!line) {
+      try {
+        line = await matchLine(syn, {
+          ...options,
+          requestId: options.requestId || null,
+        });
+        rematched += 1;
+      } catch (error) {
+        rematched += 1;
+        line = buildLineMatchErrorFallback(syn, error);
+      }
+    }
+
+    line.requestedName = syn.name || line.requestedName;
+    if (!line.name) line.name = card.name;
+    if (card.productUrl && !line.productUrl) line.productUrl = card.productUrl;
+    out.push(line);
+  }
+
+  return {
+    draft: buildDraftFromMatchedLines(out),
+    fromChatCards: cards.length,
+    fromChatSku,
+    rematched,
+  };
+}
+
+/**
  * Keep current good draft lines; rematch only missing/incomplete indexes.
  * Prefer chat Товар/SKU cards → ShopDB verify before full matchInquiryLine.
  */
@@ -512,14 +621,42 @@ async function reproduceDraftFillMissing({
   searchByExactSku = null,
   options = {},
 } = {}) {
-  const inquiryLines = parseInquiryText(inquiryText);
   const chatText = options.chatText || "";
+  const chatCards = extractChatProductBlocks(chatText);
+
+  // When chat lists catalog cards, they define the сводка rows 1:1.
+  if (chatCards.length > 0) {
+    const built = await buildDraftFromChatProductCards({
+      chatText,
+      inquiryText,
+      matchLine,
+      searchByExactSku,
+      options,
+    });
+    const comparison = compareDraftToChat({
+      draft: built.draft,
+      inquiryText,
+      catalogBlocks,
+      chatText,
+    });
+    return {
+      draft: built.draft,
+      kept: 0,
+      rematched: built.rematched,
+      fromChatSku: built.fromChatSku,
+      fromChatCards: built.fromChatCards,
+      comparison,
+    };
+  }
+
+  const inquiryLines = parseInquiryText(inquiryText);
   if (!inquiryLines.length) {
     return {
       draft: draft || { lines: [], subtotal: 0, total: 0 },
       kept: 0,
       rematched: 0,
       fromChatSku: 0,
+      fromChatCards: 0,
       comparison: compareDraftToChat({
         draft,
         inquiryText,
@@ -571,7 +708,6 @@ async function reproduceDraftFillMissing({
       continue;
     }
 
-    // Chat card at same index, else best name-compatible unused card.
     let chatHint =
       chatProducts[i] &&
       namesCompatible(
@@ -630,6 +766,7 @@ async function reproduceDraftFillMissing({
     kept,
     rematched,
     fromChatSku,
+    fromChatCards: 0,
     comparison,
   };
 }
@@ -681,6 +818,8 @@ module.exports = {
   applyCatalogEvidenceToLine,
   draftLineFromShopProduct,
   tryFillFromChatSku,
+  pickInquiryForChatCard,
+  buildDraftFromChatProductCards,
   reproduceDraftFillMissing,
   alignChatTextWithDraftMarkdown,
 };

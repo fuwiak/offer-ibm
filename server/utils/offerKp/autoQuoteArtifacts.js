@@ -366,6 +366,7 @@ async function emitAutoQuoteArtifacts({
   chatHistory = null,
   parsedFileTexts = [],
   inquiryDraft = null,
+  chatText = "",
 }) {
   // При наличии файла именно он определяет перечень строк. Сообщение пользователя
   // служит командой и не должно дублировать/расширять приложенную заявку.
@@ -397,44 +398,58 @@ async function emitAutoQuoteArtifacts({
 
   // N позиций на входе = N строк. Не затираем уже найденные цены —
   // дополняем только недостающие слоты (merge), а не rebuild unmatched.
+  // Skip when chat Товар cards will define the draft 1:1 below.
+  const {
+    extractChatProductBlocks,
+  } = require("./draftChatReconcile");
+  const earlyChatCards = extractChatProductBlocks(String(chatText || ""));
   if (
+    !earlyChatCards.length &&
     inquiryLines.length > 0 &&
     Number(draft?.lines?.length || 0) !== inquiryLines.length
   ) {
-    const {
-      mergeKeepGoodPadMissing,
-    } = require("./draftChatReconcile");
+    const { mergeKeepGoodPadMissing } = require("./draftChatReconcile");
     console.warn(
       `[offerKp] quote line invariant merge: source=${inquiryLines.length}, matched=${draft?.lines?.length || 0}`
     );
     draft = mergeKeepGoodPadMissing({
       draft,
       inquiryLines,
-      unmatchedFactory: (line) => buildUnmatchedDraftFromInquiry([line]).lines[0],
+      unmatchedFactory: (line) =>
+        buildUnmatchedDraftFromInquiry([line]).lines[0],
     });
   }
 
-  // Compare + fill-missing: keep priced exact/analog, rematch only gaps.
+  // Compare + fill / build 1:1 from chat Товар cards when present.
   try {
     const {
       compareDraftToChat,
       reproduceDraftFillMissing,
+      extractChatProductBlocks,
     } = require("./draftChatReconcile");
+    const chatSource = String(chatText || "").trim();
+    const chatCards = extractChatProductBlocks(chatSource);
     const comparison = compareDraftToChat({
       draft,
       inquiryText: inquirySource,
       catalogBlocks,
+      chatText: chatSource,
     });
-    if (comparison.needsReproduce) {
+    if (chatCards.length > 0 || comparison.needsReproduce) {
       const reproduced = await reproduceDraftFillMissing({
         draft,
         inquiryText: inquirySource,
         catalogBlocks,
-        options: { workspace, chatHistory, parsedFileTexts },
+        options: {
+          workspace,
+          chatHistory,
+          parsedFileTexts,
+          chatText: chatSource,
+        },
       });
       draft = reproduced.draft;
       console.warn(
-        `[offerKp] draft↔chat reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} missing=${comparison.missingIndexes.length}`
+        `[offerKp] draft↔chat reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} chatCards=${reproduced.fromChatCards || chatCards.length} missing=${comparison.missingIndexes.length}`
       );
     }
   } catch (e) {
@@ -451,7 +466,12 @@ async function emitAutoQuoteArtifacts({
       lines: attachDraftEvidence(stripIllegalPrices(draft.lines)),
     };
     const guard = assertExportGuards({
-      sourceLines: inquiryLines,
+      // When draft was built from chat Товар cards, chat defines N — not raw parse.
+      sourceLines:
+        draft?.lines?.length &&
+        draft.lines.some((l) => l.matchSource === "chat_sku_verified")
+          ? draft.lines
+          : inquiryLines,
       quoteLines: draft.lines,
       draft,
     });
@@ -498,7 +518,11 @@ async function emitAutoQuoteArtifacts({
       }))
     : buildQuoteLinesFromCatalog(products.slice(0, 5), meta);
 
-  if (inquiryLines.length > 0 && lines.length !== inquiryLines.length) {
+  if (
+    inquiryLines.length > 0 &&
+    lines.length !== inquiryLines.length &&
+    lines.length !== (draft?.lines?.length || 0)
+  ) {
     throw new Error(
       `Quote line invariant violated: source=${inquiryLines.length}, output=${lines.length}`
     );

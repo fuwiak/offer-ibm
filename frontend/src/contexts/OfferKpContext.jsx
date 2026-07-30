@@ -118,7 +118,24 @@ export function OfferKpProvider({
         total,
         lineCount,
       } = e.detail || {};
-      if (draft) setQuoteDraft((prev) => ({ ...prev, ...draft }));
+      if (draft) {
+        setQuoteDraft((prev) => {
+          const next = { ...prev, ...draft };
+          // Always replace line arrays — shallow merge must not keep a short
+          // partial match over a later full chat-built draft (or vice versa).
+          if (Array.isArray(draft.hardwareLines)) {
+            next.hardwareLines = draft.hardwareLines;
+          }
+          if (draft.preview && Array.isArray(draft.preview.lines)) {
+            next.preview = {
+              ...(prev.preview || {}),
+              ...draft.preview,
+              lines: draft.preview.lines,
+            };
+          }
+          return next;
+        });
+      }
       if (view) setDocumentPanelView(view);
       if (progressStage) {
         setMatchProgress({
