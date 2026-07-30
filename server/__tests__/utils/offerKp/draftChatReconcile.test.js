@@ -271,4 +271,36 @@ ID товара (shop_product.id): 206
     expect(result.draft.lines[0].unitPriceNet).toBe(12.5);
     expect(matchLine).not.toHaveBeenCalled();
   });
+
+  it("accepts exact SKU hit even when ShopDB name size token differs", async () => {
+    const {
+      buildDraftFromChatProductCards,
+    } = require("../../../utils/offerKp/draftChatReconcile");
+    // Card title says M6 but SKU resolves to M10 in ShopDB — still take SKU price.
+    const chatText = `
+Товар: Винт М6×20 оцинкованный
+Цена: 99.00 RUB
+Артикул: 45104992510700
+`;
+    const searchByExactSku = jest.fn(async () => [
+      {
+        id: 11,
+        name: "Винт ГОСТ ISO 7380-1-М10×25-8.8 Zn",
+        price: 12.5,
+      },
+    ]);
+    const matchLine = jest.fn(async () => {
+      throw new Error("must not rematch");
+    });
+    const result = await buildDraftFromChatProductCards({
+      chatText,
+      inquiryText: "Винт М6х20 – 100 шт.",
+      searchByExactSku,
+      matchLine,
+    });
+    expect(result.fromChatSku).toBe(1);
+    expect(result.draft.lines[0].unitPriceNet).toBe(12.5);
+    expect(result.draft.lines[0].article).toBe("45104992510700");
+    expect(matchLine).not.toHaveBeenCalled();
+  });
 });

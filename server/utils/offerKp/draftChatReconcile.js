@@ -137,7 +137,11 @@ function extractChatTableRows(chatText = "") {
  */
 function extractChatProductBlocks(chatText = "") {
   const text = String(chatText || "");
-  if (!/Товар\s*:/i.test(text) && !/Артикул\s*\/\s*SKU\s*:/i.test(text)) {
+  if (
+    !/Товар\s*:/i.test(text) &&
+    !/Артикул\s*(?:\/\s*SKU)?\s*:/i.test(text) &&
+    !/\bSKU\s*:/i.test(text)
+  ) {
     return [];
   }
   const chunks = text.split(/(?=^\s*(?:\*\*)?Товар\s*:)/im).filter(Boolean);
@@ -146,7 +150,10 @@ function extractChatProductBlocks(chatText = "") {
     if (!/Товар\s*:/i.test(chunk)) continue;
     const nameM = chunk.match(/Товар\s*:\s*(.+)/i);
     const priceM = chunk.match(/Цена\s*:\s*([\d\s.,]+)\s*(\w+)?/i);
-    const skuM = chunk.match(/Артикул\s*\/\s*SKU\s*:\s*([^\s\n*]+)/i);
+    const skuM =
+      chunk.match(/Артикул\s*\/\s*SKU\s*:\s*([^\s\n*|]+)/i) ||
+      chunk.match(/Артикул\s*:\s*([^\s\n*|]+)/i) ||
+      chunk.match(/\bSKU\s*:\s*([^\s\n*|]+)/i);
     const urlM = chunk.match(/Ссылка\s*:\s*(\S+)/i);
     const name = (nameM?.[1] || "").replace(/\*+/g, "").trim();
     const sku = (skuM?.[1] || "").replace(/\*+/g, "").trim();
@@ -569,16 +576,37 @@ async function buildDraftFromChatProductCards({
 
     let line = null;
     if (card.article && searchByExactSku) {
-      // Verify against card title (chat) + ShopDB product name — not inquiry alone.
-      const hits = await searchByExactSku([String(card.article).trim()], 3);
-      const product = Array.isArray(hits)
-        ? hits.find((h) => namesCompatible(card.name || "", h.name || "")) ||
+      // Exact SKU hit from ShopDB is authoritative for this card row.
+      // Prefer name-compatible product; otherwise still take first SKU hit
+      // (LLM may paraphrase ГОСТ/coating) so chatSku≠0 and prices land in сводка.
+      const sku = String(card.article).trim();
+      let hits = [];
+      try {
+        hits = await searchByExactSku([sku], 3);
+      } catch (e) {
+        console.warn(
+          `[offerKp] chat card SKU lookup failed ${sku}:`,
+          e?.message || e
+        );
+      }
+      if (Array.isArray(hits) && hits.length) {
+        const product =
+          hits.find((h) => namesCompatible(card.name || "", h.name || "")) ||
           hits.find((h) => namesCompatible(syn.name || "", h.name || "")) ||
-          null
-        : null;
-      if (product) {
-        line = draftLineFromShopProduct(syn, product, card.article);
-        fromChatSku += 1;
+          hits[0];
+        if (product) {
+          line = draftLineFromShopProduct(syn, product, sku);
+          fromChatSku += 1;
+          if (
+            card.name &&
+            product.name &&
+            !namesCompatible(card.name, product.name)
+          ) {
+            line.comment =
+              (line.comment || "") +
+              " (SKU из чата; название ShopDB отличается от карточки)";
+          }
+        }
       }
     }
 
@@ -593,11 +621,15 @@ async function buildDraftFromChatProductCards({
         rematched += 1;
         line = buildLineMatchErrorFallback(syn, error);
       }
+      if (line && !line.matchSource) {
+        line.matchSource = "chat_card_rematch";
+      }
     }
 
     line.requestedName = syn.name || line.requestedName;
     if (!line.name) line.name = card.name;
     if (card.productUrl && !line.productUrl) line.productUrl = card.productUrl;
+    line.fromChatCard = true;
     out.push(line);
   }
 

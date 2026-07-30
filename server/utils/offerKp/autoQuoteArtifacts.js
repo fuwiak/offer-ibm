@@ -460,16 +460,24 @@ async function emitAutoQuoteArtifacts({
   if (!draft?.lines?.length && !products.length) return false;
 
   // Soft-strip illegal prices before export; hard-fail on N-line / invented SKU.
+  const draftFromChatCards =
+    earlyChatCards.length > 0 &&
+    Number(draft?.lines?.length || 0) === earlyChatCards.length;
   if (draft?.lines?.length) {
     draft = {
       ...draft,
       lines: attachDraftEvidence(stripIllegalPrices(draft.lines)),
     };
     const guard = assertExportGuards({
-      // When draft was built from chat Товар cards, chat defines N — not raw parse.
+      // Chat Товар cards define N 1:1 — do not compare to parseInquiryText count.
       sourceLines:
-        draft?.lines?.length &&
-        draft.lines.some((l) => l.matchSource === "chat_sku_verified")
+        draftFromChatCards ||
+        draft.lines.some(
+          (l) =>
+            l.matchSource === "chat_sku_verified" ||
+            l.matchSource === "chat_card_rematch" ||
+            l.fromChatCard
+        )
           ? draft.lines
           : inquiryLines,
       quoteLines: draft.lines,
@@ -480,6 +488,26 @@ async function emitAutoQuoteArtifacts({
         "[offerKp] exportGuards blocked quote artifacts:",
         guard.violations.map((v) => v.id).join(", ")
       );
+      // Still push сводка to the panel — files blocked, draft must update.
+      writeResponseChunk(response, {
+        uuid,
+        type: "offerKpQuotePanel",
+        content: {
+          documentPanelView: "draftTable",
+          progressStage: "matched",
+          quoteDraft: {
+            step: 2,
+            reference: draft.reference || null,
+            hardwareLines: draft.lines,
+            preview: {
+              lines: draft.lines,
+              subtotal: draft.subtotal,
+              total: draft.total,
+              totalWeightKg: draft.totalWeightKg,
+            },
+          },
+        },
+      });
       return false;
     }
   }
