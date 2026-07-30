@@ -9,7 +9,7 @@ WorkingDirectory=/opt/offer-kp/app/server
 Environment=NODE_ENV=production
 Environment=STORAGE_DIR=/opt/offer-kp/data
 Environment=OFFER_KP_QUEUE=1
-Environment=OFFER_KP_MATCHING_WORKER_CONCURRENCY=2
+Environment=OFFER_KP_MATCHING_WORKER_CONCURRENCY=1
 Environment=OFFER_KP_EXPORT_WORKER_CONCURRENCY=2
 EnvironmentFile=-/opt/offer-kp/app/server/.env
 ExecStart=/usr/local/bin/node /opt/offer-kp/app/server/jobs/offerKp-cpu-worker.js

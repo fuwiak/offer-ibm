@@ -134,10 +134,15 @@ describe("resolveMatchConcurrency", () => {
     }
   });
 
-  it("limits the default SQL fan-out to two inquiry lines", () => {
+  it("defaults to one inquiry line to avoid ONNX SEGV under RAM pressure", () => {
     delete process.env.OFFER_KP_MATCH_CONCURRENCY;
     expect(resolveMatchConcurrency(1)).toBe(1);
-    expect(resolveMatchConcurrency(20)).toBe(2);
+    expect(resolveMatchConcurrency(20)).toBe(1);
+  });
+
+  it("honors OFFER_KP_MATCH_CONCURRENCY when set", () => {
+    process.env.OFFER_KP_MATCH_CONCURRENCY = "3";
+    expect(resolveMatchConcurrency(20)).toBe(3);
   });
 });
 

@@ -70,9 +70,11 @@ class ShopDbEmbedder extends NativeEmbedder {
       process.env.SHOP_DB_CATALOG_EMBED_CONCURRENCY,
       10
     );
+    // Default 4 (was 25): large batches + parallel match lines SEGV onnx on
+    // Lainey (15GB, LM Studio ~9GB, no swap). Override via env if needed.
     this.maxConcurrentChunks = Math.min(
-      256,
-      Math.max(1, Number.isFinite(configured) ? configured : 25)
+      64,
+      Math.max(1, Number.isFinite(configured) ? configured : 4)
     );
   }
 

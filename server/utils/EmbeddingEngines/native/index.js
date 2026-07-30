@@ -3,6 +3,7 @@ const fs = require("fs");
 const { toChunks, reportEmbeddingProgress } = require("../../helpers");
 const { v4 } = require("uuid");
 const { SUPPORTED_NATIVE_EMBEDDING_MODELS } = require("./constants");
+const { withOnnxLock } = require("./onnxLock");
 
 class NativeEmbedder {
   static defaultModel = "Xenova/all-MiniLM-L6-v2";
@@ -246,6 +247,12 @@ class NativeEmbedder {
   // While this does take a while, it is zero set up and is 100% free and on-instance.
   // It still may crash depending on other elements at play - so no promises it works under all conditions.
   async embedChunks(textChunks = []) {
+    // Serialize all ONNX work process-wide — concurrent xenova/ort sessions
+    // segfault under memory pressure (Lainey: SEGV mid ShopDB match stream).
+    return withOnnxLock(() => this.#embedChunksUnlocked(textChunks));
+  }
+
+  async #embedChunksUnlocked(textChunks = []) {
     const tmpFilePath = this.#tempfilePath();
     const chunks = toChunks(textChunks, this.maxConcurrentChunks);
     const chunkLen = chunks.length;

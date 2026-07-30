@@ -109,9 +109,10 @@ function resolveMatchConcurrency(lineCount) {
   if (Number.isFinite(envCap) && envCap > 0) {
     return Math.max(1, Math.min(16, envCap));
   }
-  // Each line can fan out into several SQL searches. Keeping only two lines
-  // active avoids filling the small MySQL pool with dozens of queued queries.
-  return lineCount > 1 ? 2 : 1;
+  // Default 1 on tight hosts: parallel lines fan out ONNX embeds and caused
+  // offer-kp SEGV (signal 11) mid-stream on Lainey. Raise via env if RAM OK.
+  if (lineCount <= 1) return 1;
+  return 1;
 }
 
 /**
