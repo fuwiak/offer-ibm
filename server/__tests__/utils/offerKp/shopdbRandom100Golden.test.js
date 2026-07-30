@@ -20,7 +20,11 @@ const CSV = path.resolve(
   "../../../../test_files/Shopdb_random_100.expected.csv"
 );
 
-describe("Shopdb_random_100 matching golden set", () => {
+// Local-only dump from ShopDB (gitignored). Generate:
+//   node scripts/generate-shopdb-golden-sample.cjs
+const describeOrSkip = fs.existsSync(CSV) ? describe : describe.skip;
+
+describeOrSkip("Shopdb_random_100 matching golden set", () => {
   beforeAll(() => {
     reloadGoldenCorrections();
   });

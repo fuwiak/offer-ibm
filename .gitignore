@@ -44,3 +44,7 @@ tmp/
 # Upstream / deploy artifacts
 aws_cf_deploy_anythingllm.json
 cli/offerkp-ops
+
+# Private ShopDB samples (generate locally — never commit catalog dumps)
+test_files/Shopdb_random*.expected.csv
+test_files/Shopdb_random*.csv

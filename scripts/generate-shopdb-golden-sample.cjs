@@ -9,6 +9,8 @@
  * Ground truth = catalog self-match (name → first SKU, match_type=exact).
  * Price is never stored — runtime always resolves from ShopDB.
  *
+ * PRIVATE: output is gitignored (test_files/Shopdb_random*). Do not commit.
+ *
  * Usage:
  *   node scripts/generate-shopdb-golden-sample.cjs
  *   node scripts/generate-shopdb-golden-sample.cjs --sample 100 --seed offerkp-2026
