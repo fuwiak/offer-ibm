@@ -9,7 +9,8 @@ function normalizeCommandText(value = "") {
   return String(value || "")
     .toLowerCase()
     .replace(/ё/g, "е")
-    .replace(/[×х]/giu, "x")
+    // Size separator only (М10×80 / М10х80) — do NOT turn «всех» into «всеx».
+    .replace(/(\d)\s*[×х]\s*(\d)/giu, "$1x$2")
     .replace(/[^\p{L}\p{N}.]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -34,14 +35,33 @@ const UI_DRAFT_COMMANDS = [
       "применить дешевые аналоги",
       "подставь дешевые аналоги",
       "выбери дешевые аналоги",
+      "вставь дешевые аналоги",
+      "встав дешевые аналоги",
+      "вставь для всех дешевые аналоги",
+      "встав для всех дешевые аналоги",
+      "вставь дешевые аналоги для всех",
+      "встав дешевые аналоги для всех",
+      "поставь дешевые аналоги для всех",
+      "подставь дешевые аналоги для всех",
+      "дешевые аналоги для всех",
+      "дешевые аналоги по всем",
       "apply cheapest analogs",
+      "apply cheapest analogs for all",
+      "cheapest analogs for all",
       "podstaw najtańsze analogi",
       "podstaw najtanze analogi",
+      "podstaw najtańsze analogi dla wszystkich",
+      "podstaw najtanze analogi dla wszystkich",
     ],
     patterns: [
-      /^(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог|analog)/iu,
-      /^(?:подставь|выбери|примени|поставь|apply|podstaw).{0,40}(?:дешев|cheapest|najta[nń]sz).{0,25}(?:аналог|analog)/iu,
-      /(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог\w*|analog\w*)(?:\s+в\s+(?:кп|сводк|черновик|таблиц))?$/iu,
+      // Bare button label
+      /^(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог\w*|analog\w*)$/iu,
+      // Verb + optional «для всех / for all» + cheapest analogs
+      /(?:вставь?|подставь|поставь|примени|выбери|apply|podstaw)\w*.{0,60}(?:для\s+всех|по\s+всем|во\s+всех|на\s+все|for\s+all|dla\s+wszystk\w*)?.{0,40}(?:дешев\w*|cheapest|najta[nń]sz\w*).{0,25}(?:аналог\w*|analog\w*)/iu,
+      // «дешёвые аналоги» + for-all (any order after the noun phrase)
+      /(?:дешев\w*|cheapest|najta[nń]sze)\s+(?:аналог\w*|analog\w*).{0,40}(?:для\s+всех|по\s+всем|во\s+всех|for\s+all|dla\s+wszystk\w*|в\s+(?:кп|сводк|черновик|таблиц))/iu,
+      // for-all first, then button name
+      /(?:для\s+всех|по\s+всем|во\s+всех|for\s+all).{0,40}(?:дешев\w*|cheapest|najta[nń]sz\w*).{0,25}(?:аналог\w*|analog\w*)/iu,
     ],
   },
 ];

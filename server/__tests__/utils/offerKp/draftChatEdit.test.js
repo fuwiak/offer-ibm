@@ -117,6 +117,7 @@ describe("draftChatEdit", () => {
     expect(looksLikeDraftEdit("Najtańsze analogi")).toBe(true);
     expect(looksLikeDraftEdit("Cheapest analogs")).toBe(true);
     expect(looksLikeDraftEdit("подставь дешёвые аналоги")).toBe(true);
+    expect(looksLikeDraftEdit("встав для всех Дешёвые аналоги")).toBe(true);
 
     const linesWithAlts = [
       {
