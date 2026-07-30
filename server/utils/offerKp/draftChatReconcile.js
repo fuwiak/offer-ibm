@@ -43,16 +43,18 @@ function parseCatalogBlock(block = "") {
 }
 
 function normalizeKey(value = "") {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[–—−]/g, "-")
-    .replace(/[х×]/gi, "x")
-    // Cyrillic м before digits → Latin m (M10x25 size tokens)
-    .replace(/м(\d)/gi, "m$1")
-    .replace(/\s+/g, " ")
-    .replace(/[^\p{L}\p{N}.x-]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    String(value || "")
+      .toLowerCase()
+      .replace(/[–—−]/g, "-")
+      .replace(/[х×]/gi, "x")
+      // Cyrillic м before digits → Latin m (M10x25 size tokens)
+      .replace(/м(\d)/gi, "m$1")
+      .replace(/\s+/g, " ")
+      .replace(/[^\p{L}\p{N}.x-]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 function roundMoney(n) {
@@ -169,9 +171,7 @@ function extractChatProductBlocks(chatText = "") {
 
 function extractSizeToken(key = "") {
   const m = String(key).match(/[mм]\d+(?:[.,]\d+)?(?:x\d+(?:[.,]\d+)?){0,3}/i);
-  return m
-    ? m[0].toLowerCase().replace(/,/g, ".").replace(/^м/, "m")
-    : "";
+  return m ? m[0].toLowerCase().replace(/,/g, ".").replace(/^м/, "m") : "";
 }
 
 function extractStandardToken(key = "") {
