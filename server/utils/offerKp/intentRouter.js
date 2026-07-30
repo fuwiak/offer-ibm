@@ -184,12 +184,24 @@ function normalizeIntentText(text = "") {
   } catch {
     // parseInquiry may not be available in isolated tests — keep raw.
   }
-  return t
-    .replace(/^@agent\s*:?\s*/i, "")
-    .replace(/[ё]/gi, (ch) => (ch === "Ё" ? "Е" : "е"))
-    .replace(/(\d)\s*[х×*]\s*(\d)/gi, "$1x$2")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    t
+      .replace(/^@agent\s*:?\s*/i, "")
+      // UI chrome sometimes pasted into the prompt box.
+      .replace(/\s*(?:с|with)?\s*Current Context\s*\(\d+\s*files?\)\s*$/i, "")
+      // Latin lookalikes before Cyrillic (OCR / wrong keyboard): "cделай" → "сделай".
+      .replace(/[cC](?=[\u0400-\u04FF])/g, (ch) => (ch === "C" ? "С" : "с"))
+      .replace(/[aA](?=[\u0400-\u04FF])/g, (ch) => (ch === "A" ? "А" : "а"))
+      .replace(/[eE](?=[\u0400-\u04FF])/g, (ch) => (ch === "E" ? "Е" : "е"))
+      .replace(/[oO](?=[\u0400-\u04FF])/g, (ch) => (ch === "O" ? "О" : "о"))
+      .replace(/[pP](?=[\u0400-\u04FF])/g, (ch) => (ch === "P" ? "Р" : "р"))
+      .replace(/[xX](?=[\u0400-\u04FF])/g, (ch) => (ch === "X" ? "Х" : "х"))
+      .replace(/[yY](?=[\u0400-\u04FF])/g, (ch) => (ch === "Y" ? "У" : "у"))
+      .replace(/[ёЁ]/gi, (ch) => (ch === "Ё" ? "Е" : "е"))
+      .replace(/(\d)\s*[х×*]\s*(\d)/gi, "$1x$2")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 const NORMALIZED_START_PROMPTS = new Map(
@@ -299,13 +311,13 @@ function routeOfferKpMessage(input = "") {
   }
 
   const explicitQuote =
-    /(?:начать с|начн[её]м с|сделай|сделать|сформируй|подготовь|сгенерируй|создай|выгрузи|экспортируй|[сc]остав(?:ь|ить)?|собери).{0,55}(?:(?:^|[^\p{L}\p{N}])кп(?:$|[^\p{L}\p{N}])|коммерческ|оферт|quote|proposal)/iu.test(
+    /(?:начать с|начн[её]м с|[сc]делай|[сc]делать|[сc]формируй|подготовь|[сc]генерируй|[сc]оздай|выгрузи|экспортируй|[сc]остав(?:ь|ить)?|[сc]обери).{0,55}(?:(?:^|[^\p{L}\p{N}])кп(?:$|[^\p{L}\p{N}])|коммерческ|оферт|quote|proposal)/iu.test(
       text
     ) ||
     /(?:(?:^|[^\p{L}\p{N}])кп(?:$|[^\p{L}\p{N}])|коммерческ|оферт|quote).{0,45}(?:pdf|docx|word|документ|таблиц)/iu.test(
       text
     ) ||
-    /сделай.{0,25}документ.{0,40}(?:текущ|этим|данн).{0,20}(?:позиц|товар|черновик)/iu.test(
+    /[сc]делай.{0,25}документ.{0,40}(?:текущ|этим|данн).{0,20}(?:позиц|товар|черновик)/iu.test(
       text
     ) ||
     /(?:просьб\w+|просим|прошу|просьба).{0,50}(?:направить|выслать|подготовить|сформировать|прислать|направьте).{0,50}(?:предложен|кп|оферт|коммерческ)/iu.test(

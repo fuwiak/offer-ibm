@@ -1,15 +1,19 @@
 const { wantsFileCreation } = require("../chats/agents");
-const { OFFER_KP_INTENTS, routeOfferKpMessage } = require("./intentRouter");
+const {
+  OFFER_KP_INTENTS,
+  routeOfferKpMessage,
+  normalizeIntentText,
+} = require("./intentRouter");
 
 /** Короткие фразы «сделай КП» / oferta — сразу @agent + Word/PDF. */
 const SHORT_QUOTE_COMMAND_RES = [
-  /^сделай\s+кп\b/i,
-  /^сделать\s+кп\b/i,
-  /^сформируй\s+кп\b/i,
+  /^[сc]делай\s+кп\b/i,
+  /^[сc]делать\s+кп\b/i,
+  /^[сc]формируй\s+кп\b/i,
   /^подготовь\s+кп\b/i,
-  /^сгенерируй\s+кп\b/i,
-  /^сделай\s+коммерческ/i,
-  /^сделать\s+коммерческ/i,
+  /^[сc]генерируй\s+кп\b/i,
+  /^[сc]делай\s+коммерческ/i,
+  /^[сc]делать\s+коммерческ/i,
   /^zrob\s+(kp|ofert)/i,
   /^zrób\s+(kp|ofertę|oferte|ofert)/i,
   /^przygotuj\s+(kp|ofert)/i,
@@ -33,9 +37,7 @@ function hasQuoteMarker(text) {
  * document pipeline or an empty draft panel.
  */
 function isQuoteFromPriorContextFollowUp(message = "") {
-  const text = String(message || "")
-    .replace(/^@agent\s*:?\s*/i, "")
-    .trim();
+  const text = normalizeIntentText(message);
   if (!text) return false;
   if (
     !/на основе (этих|текущ|предыдущ|приведённ|указанн)|по (этим|текущим|предыдущим|приведённым|указанным)|these (prices|quantities|items)|based on (these|those|the (above|previous|current))/iu.test(
@@ -56,13 +58,39 @@ function isQuoteFromPriorContextFollowUp(message = "") {
 }
 
 /**
+ * True when the user message is only a KP command (no RFQ body of its own).
+ * Used to avoid treating «сделай кп» as a ShopDB product line.
+ */
+function isQuoteCommandOnly(message = "") {
+  const text = normalizeIntentText(message);
+  if (!text) return false;
+  if (!isQuoteDocumentRequest(text)) return false;
+  // Keep messages that also carry RFQ / product signals.
+  try {
+    const { hasHardwareSignals } = require("./productSearchAgent");
+    if (hasHardwareSignals(text)) return false;
+  } catch {
+    /* ignore */
+  }
+  if (/\n/.test(String(message || "")) && String(message).trim().length > 80) {
+    return false;
+  }
+  return (
+    SHORT_QUOTE_COMMAND_RES.some((re) => re.test(text)) ||
+    (text.length <= 120 &&
+      hasQuoteMarker(text) &&
+      /[сc]делай|[сc]делать|[сc]формируй|подготовь|zrob|zrób|przygotuj|wygeneruj|make|create|generate/i.test(
+        text
+      ))
+  );
+}
+
+/**
  * @param {string} message
  * @returns {boolean}
  */
 function isQuoteDocumentRequest(message = "") {
-  const text = String(message || "")
-    .replace(/^@agent\s*:?\s*/i, "")
-    .trim();
+  const text = normalizeIntentText(message);
   if (!text) return false;
 
   const routed = routeOfferKpMessage(text);
@@ -74,7 +102,7 @@ function isQuoteDocumentRequest(message = "") {
   if (isQuoteFromPriorContextFollowUp(text)) return false;
 
   if (SHORT_QUOTE_COMMAND_RES.some((re) => re.test(text))) return true;
-  if (/\b(сделай|сформируй|подготовь|сгенерируй)\s+кп\b/i.test(text)) {
+  if (/\b([сc]делай|[сc]формируй|подготовь|[сc]генерируй)\s+кп\b/i.test(text)) {
     return true;
   }
   if (wantsFileCreation(text)) return true;
@@ -82,7 +110,7 @@ function isQuoteDocumentRequest(message = "") {
   if (
     text.length <= 120 &&
     hasQuoteMarker(text) &&
-    /сделай|сделать|сформируй|подготовь|zrob|zrób|przygotuj|wygeneruj|make|create|generate/i.test(
+    /[сc]делай|[сc]делать|[сc]формируй|подготовь|zrob|zrób|przygotuj|wygeneruj|make|create|generate/i.test(
       text
     )
   ) {
@@ -124,6 +152,7 @@ function quoteDocumentAgentGuidelines() {
 module.exports = {
   isQuoteDocumentRequest,
   isQuoteFromPriorContextFollowUp,
+  isQuoteCommandOnly,
   quoteDocumentStatusMessage,
   quoteDocumentAgentGuidelines,
   hasQuoteMarker,

@@ -386,7 +386,19 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     };
   }
 
-  const combined = [parsedFileTexts.join("\n\n"), text]
+  // «сделай кп» / Latin-c «cделай кп» is a command, not an RFQ product line.
+  // Prefer attached file OCR; never invent a ShopDB stub from the command alone.
+  let inquiryBody = text;
+  try {
+    const { isQuoteCommandOnly } = require("./quoteRequestPhrases");
+    if (isQuoteCommandOnly(text)) {
+      inquiryBody = "";
+    }
+  } catch {
+    /* optional */
+  }
+
+  const combined = [parsedFileTexts.join("\n\n"), inquiryBody]
     .filter(Boolean)
     .join("\n\n");
   const lines = parseInquiryText(combined);

@@ -13,6 +13,10 @@ describe("quoteRequestPhrases", () => {
     expect(isQuoteDocumentRequest("извлечь продукты и сделай кп под них")).toBe(
       true
     );
+    expect(isQuoteDocumentRequest("cделай кп")).toBe(true);
+    expect(
+      isQuoteDocumentRequest("cделай кп с Current Context (1 files)")
+    ).toBe(true);
   });
 
   it("detects Polish KP commands", () => {
@@ -59,6 +63,17 @@ describe("quoteRequestPhrases", () => {
       isQuoteFromPriorContextFollowUp(
         "на основе этих цен: болт М8×40 DIN 933 — 100 шт"
       )
+    ).toBe(false);
+  });
+
+  it("treats Latin-c KP commands as command-only (not a product line)", () => {
+    const {
+      isQuoteCommandOnly,
+    } = require("../../../utils/offerKp/quoteRequestPhrases");
+    expect(isQuoteCommandOnly("cделай кп")).toBe(true);
+    expect(isQuoteCommandOnly("сделай кп")).toBe(true);
+    expect(
+      isQuoteCommandOnly("болт М10х50 DIN 933 — 100 шт\nсделай кп")
     ).toBe(false);
   });
 });

@@ -366,9 +366,48 @@ async function streamChatWithWorkspace(
     attachedInquiryLineCount >= 2 ||
     (parsedTextHasQuoteSignals(parsedFileTexts.join("\n")) &&
       (attachmentOnlyPrompt ||
-        routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS));
+        routedIntent.primaryIntent === OFFER_KP_INTENTS.AMBIGUOUS ||
+        routedIntent.primaryIntent === OFFER_KP_INTENTS.OUT_OF_SCOPE ||
+        routedIntent.primaryIntent === OFFER_KP_INTENTS.CASUAL_OR_TEST));
   let quoteDocumentRequest =
     isQuoteDocumentRequest(commandMessage) || attachmentQuoteRequest;
+
+  // Short «сделай КП» with an attached RFQ file: always create_quote from OCR,
+  // never treat the command text itself as a ShopDB product name.
+  if (
+    parsedFileTexts.length > 0 &&
+    attachedInquiryLineCount >= 1 &&
+    isQuoteDocumentRequest(commandMessage)
+  ) {
+    quoteDocumentRequest = true;
+    if (
+      ![
+        OFFER_KP_INTENTS.CREATE_QUOTE,
+        OFFER_KP_INTENTS.EDIT_QUOTE,
+        OFFER_KP_INTENTS.PRODUCT_INQUIRY,
+      ].includes(routedIntent.primaryIntent)
+    ) {
+      routedIntent = {
+        ...routedIntent,
+        primaryIntent: OFFER_KP_INTENTS.CREATE_QUOTE,
+        intent: OFFER_KP_INTENTS.CREATE_QUOTE,
+        intents: Array.from(
+          new Set([
+            OFFER_KP_INTENTS.CREATE_QUOTE,
+            ...(routedIntent.intents || []),
+          ])
+        ),
+        confidence: Math.max(Number(routedIntent.confidence) || 0, 0.95),
+        policy: {
+          ...(routedIntent.policy || {}),
+          allowShopDbSearch: true,
+          allowQuoteMutation: true,
+          allowCatalogPriceUse: true,
+          allowExport: true,
+        },
+      };
+    }
+  }
 
   if (
     !quoteDocumentRequest &&
