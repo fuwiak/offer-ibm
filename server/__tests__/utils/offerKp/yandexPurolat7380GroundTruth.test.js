@@ -56,8 +56,21 @@ describe("Yandex purolat ISO 7380-1 M10x25 10.9 ground truth", () => {
     ).toBe(true);
   });
 
-  it("golden override maps inquiry → SKU 073801000100025", () => {
-    const hit = findGoldenCorrection([YANDEX_PRODUCT.inquiry]);
+  it("golden override maps the real .txt fixture → SKU 073801000100025", () => {
+    // matchInquiryLine looks up findGoldenCorrection([line.raw, line.name]) —
+    // parsed from the actual .txt fixture, not the free-text inquiry string
+    // above (which has a different layout: article inline vs. on its own
+    // line). The CSV source_name must match parseInquiryText's `name` output
+    // for the real fixture, or the override silently never fires in prod.
+    const { parseInquiryText } = require("../../../utils/offerKp/parseInquiry");
+    const root = path.join(__dirname, "../../../../test_files");
+    const raw = fs.readFileSync(
+      path.join(root, "Yandex_purolat_ISO7380_M10x25_10.9.txt"),
+      "utf8"
+    );
+    const [line] = parseInquiryText(raw);
+    expect(line).toBeDefined();
+    const hit = findGoldenCorrection([line.raw, line.name]);
     expect(hit).not.toBeNull();
     expect(hit.sku).toBe(YANDEX_PRODUCT.sku);
     expect(hit.matchType).toBe("exact");
