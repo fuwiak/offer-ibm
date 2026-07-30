@@ -260,6 +260,7 @@ export function OfferKpProvider({
       threadQuoteFiles,
       syncThreadQuoteFiles,
       matchProgress,
+      setMatchProgress,
       activeChatEmpty,
       setActiveChatEmpty,
     }),
@@ -332,6 +333,7 @@ export function useOfferKp() {
       threadQuoteFiles: [],
       syncThreadQuoteFiles: () => {},
       matchProgress: null,
+      setMatchProgress: () => {},
       activeChatEmpty: true,
       setActiveChatEmpty: () => {},
     }

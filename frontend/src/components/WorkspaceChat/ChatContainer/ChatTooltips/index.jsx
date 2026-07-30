@@ -34,6 +34,12 @@ export function ChatTooltips() {
         className="tooltip !text-xs"
       />
       <Tooltip
+        id="run-again-user-text"
+        place="bottom"
+        delayShow={300}
+        className="tooltip !text-xs"
+      />
+      <Tooltip
         id="copy-assistant-text"
         place="bottom"
         delayShow={300}

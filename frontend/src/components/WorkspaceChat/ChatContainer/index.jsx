@@ -43,6 +43,9 @@ import OfferKpConversationView from "@/components/OfferKp/OfferKpConversationVie
 import { threadNameFromPrompt } from "@/utils/offerKp/threadNameFromPrompt";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import { extractQuoteFilesFromHistory, mergeQuoteFiles } from "@/utils/offerKp/quoteFileDownload";
+import { quoteDraftPayloadForChat } from "@/utils/offerKp/slimQuoteDraftForChat";
+import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
+import { clearQuoteDraft } from "@/utils/offerKp/quoteDraftStorage";
 
 export default function ChatContainer({
   workspace,
@@ -76,6 +79,8 @@ export default function ChatContainer({
   const { chatHistoryRef } = useChatContainerQuickScroll();
   const pendingMessageChecked = useRef(false);
   const pendingResetRef = useRef(false);
+  /** Skip sending stale quoteDraft on next stream (edit / run-again rematch). */
+  const omitQuoteDraftRef = useRef(false);
 
   useEffect(() => {
     setChatHistory(knownHistory ?? []);
@@ -183,9 +188,27 @@ export default function ChatContainer({
     resetTranscript();
   }
 
+  /** Clear КП draft so the thread rematches from scratch (Run again / edit Submit). */
+  function prepareOfferKpRematch() {
+    if (!offerKpMode) return;
+    omitQuoteDraftRef.current = true;
+    clearQuoteDraft(workspace.slug, activeThreadSlug);
+    offerKp?.setQuoteDraft?.(INITIAL_QUOTE_DRAFT);
+    offerKp?.setQuotePdfUrl?.(null);
+    offerKp?.setMatchProgress?.(null);
+    offerKp?.setDocumentPanelView?.("draftTable");
+    offerKp?.setDocumentPanelOpen?.(true);
+  }
+
   const regenerateAssistantMessage = (chatId) => {
     const updatedHistory = chatHistory.slice(0, -1);
     const lastUserMessage = updatedHistory.slice(-1)[0];
+    const firstUser = chatHistory.find((m) => m.role === "user");
+    const isFirstTurn =
+      !!firstUser &&
+      !!lastUserMessage &&
+      firstUser.chatId === lastUserMessage.chatId;
+    if (isFirstTurn) prepareOfferKpRematch();
     Workspace.deleteChats(workspace.slug, [chatId])
       .then(() =>
         sendCommand({
@@ -196,6 +219,31 @@ export default function ChatContainer({
         })
       )
       .catch((e) => console.error(e));
+  };
+
+  /**
+   * Edit / Run again from a user message: truncate thread, wipe later chats,
+   * reset КП draft, resubmit so matching recalculates.
+   */
+  const rerunFromUserMessage = async ({
+    chatId,
+    text,
+    attachments = [],
+  } = {}) => {
+    if (!chatId || !text) return;
+    const idx = chatHistory.findIndex((msg) => msg.chatId === chatId);
+    if (idx < 0) return;
+    const updatedHistory = chatHistory.slice(0, idx + 1).map((msg, i, arr) =>
+      i === arr.length - 1 ? { ...msg, content: text, attachments } : msg
+    );
+    prepareOfferKpRematch();
+    await Workspace.deleteEditedChats(workspace.slug, activeThreadSlug, chatId);
+    sendCommand({
+      text,
+      autoSubmit: true,
+      history: updatedHistory,
+      attachments,
+    });
   };
 
   /**
@@ -348,6 +396,15 @@ export default function ChatContainer({
           )
         : null;
 
+      const sendDraft =
+        !omitQuoteDraftRef.current && offerKpMode
+          ? quoteDraftPayloadForChat(
+              offerKp?.quoteDraft,
+              promptMessage.userMessage
+            )
+          : null;
+      omitQuoteDraftRef.current = false;
+
       await Workspace.multiplexStream({
         workspaceSlug: workspace.slug,
         threadSlug: activeThreadSlug,
@@ -367,18 +424,7 @@ export default function ChatContainer({
           ),
         attachments,
         conversationMemory: conversationMemory || null,
-        quoteDraft:
-          offerKpMode && offerKp?.quoteDraft?.hardwareLines?.length
-            ? {
-                reference: offerKp.quoteDraft.reference,
-                customer: offerKp.quoteDraft.customer,
-                vatRate: offerKp.quoteDraft.vatRate,
-                hardwareLines: offerKp.quoteDraft.hardwareLines,
-                preview: offerKp.quoteDraft.preview,
-                doc: offerKp.quoteDraft.doc,
-                step: offerKp.quoteDraft.step,
-              }
-            : null,
+        quoteDraft: sendDraft,
       });
       return;
     }
@@ -520,6 +566,7 @@ export default function ChatContainer({
             loadingResponse={loadingResponse}
             files={files}
             regenerateAssistantMessage={regenerateAssistantMessage}
+            rerunFromUserMessage={rerunFromUserMessage}
             websocket={websocket}
             setChatHistory={setChatHistory}
             navigate={navigate}
@@ -608,6 +655,7 @@ export default function ChatContainer({
                   sendCommand={sendCommand}
                   updateHistory={setChatHistory}
                   regenerateAssistantMessage={regenerateAssistantMessage}
+                  rerunFromUserMessage={rerunFromUserMessage}
                   websocket={websocket}
                   offerKpMode={false}
                 />

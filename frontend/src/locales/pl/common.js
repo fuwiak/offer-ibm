@@ -1231,6 +1231,9 @@ const TRANSLATIONS = {
     copy: "Kopiuj",
     regenerate: "Generuj ponownie",
     regenerate_response: "Wygeneruj ponownie odpowiedź",
+    run_again: "Uruchom ponownie",
+    run_again_tooltip:
+      "Przelicz wątek od tej wiadomości (usunie późniejsze odpowiedzi i przebuduje tabelę KP)",
     good_response: "Dobra odpowiedź",
     more_actions: "Więcej działań",
     fork: "Utwórz rozgałęzienie",
@@ -1263,7 +1266,7 @@ const TRANSLATIONS = {
     },
     submit: "Prześlij",
     edit_info_user:
-      '"Wyślij" powoduje ponowne wygenerowanie odpowiedzi przez sztuczną inteligencję. "Zapisz" aktualizuje tylko Twoje wiadomości.',
+      '"Prześlij" przelicza wątek od tej wiadomości (usuwa późniejsze odpowiedzi i przebudowuje tabelę KP). "Zapisz" aktualizuje tylko tekst.',
     edit_info_assistant:
       "Twoje zmiany zostaną zapisane bezpośrednio w tej odpowiedzi.",
     see_less: "Zobacz mniej",

@@ -1300,6 +1300,9 @@ const TRANSLATIONS = {
     copy: "Copy",
     regenerate: "Regenerate",
     regenerate_response: "Regenerate response",
+    run_again: "Run again",
+    run_again_tooltip:
+      "Re-run this prompt from scratch (clears later replies and recalculates the quote draft)",
     good_response: "Good response",
     more_actions: "More actions",
     sources: "Sources",
@@ -1314,7 +1317,7 @@ const TRANSLATIONS = {
     edit_prompt: "Edit prompt",
     edit_response: "Edit response",
     edit_info_user:
-      '"Submit" regenerates the AI response. "Save" updates your message only.',
+      '"Submit" re-runs the thread from this message (clears later replies and recalculates the quote). "Save" updates the text only.',
     edit_info_assistant:
       "Your changes will be saved directly to this response.",
     see_less: "See Less",

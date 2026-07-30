@@ -33,6 +33,7 @@ export default forwardRef(function (
     sendCommand,
     updateHistory,
     regenerateAssistantMessage,
+    rerunFromUserMessage = null,
     websocket = null,
     offerKpMode = false,
   },
@@ -112,19 +113,22 @@ export default forwardRef(function (
       return;
     }
 
-    // "Submit" on a user message: auto-regenerate the response and delete all
-    // messages post modified message
+    // "Submit" on a user message: truncate thread + rematch (Run again).
     if (role === "user") {
-      // remove all messages after the edited message
-      // technically there are two chatIds per-message pair, this will split the first.
+      if (typeof rerunFromUserMessage === "function") {
+        await rerunFromUserMessage({
+          chatId,
+          text: editedMessage,
+          attachments,
+        });
+        return;
+      }
+      // Fallback without OfferKP rematch helper (legacy chat shell).
       const updatedHistory = history.slice(
         0,
         history.findIndex((msg) => msg.chatId === chatId) + 1
       );
-
-      // update last message in history to edited message
       updatedHistory[updatedHistory.length - 1].content = editedMessage;
-      // remove all edited messages after the edited message in backend
       await Workspace.deleteEditedChats(workspace.slug, threadSlug, chatId);
       sendCommand({
         text: editedMessage,
@@ -172,6 +176,7 @@ export default forwardRef(function (
         workspace,
         history,
         regenerateAssistantMessage,
+        rerunFromUserMessage,
         saveEditedMessage,
         forkThread,
         websocket,
@@ -180,6 +185,7 @@ export default forwardRef(function (
       workspace,
       history,
       regenerateAssistantMessage,
+      rerunFromUserMessage,
       saveEditedMessage,
       forkThread,
       websocket,
@@ -281,14 +287,20 @@ function buildMessages({
   history,
   workspace,
   regenerateAssistantMessage,
+  rerunFromUserMessage,
   saveEditedMessage,
   forkThread,
   websocket,
 }) {
+  const firstUserChatId = history.find((m) => m.role === "user")?.chatId;
   return history.reduce((acc, props, index) => {
     const isLastBotReply =
       index === history.length - 1 && props.role === "assistant";
     const messageKey = props.uuid || `history-${index}`;
+    const isFirstUserMessage =
+      props.role === "user" &&
+      !!props.chatId &&
+      props.chatId === firstUserChatId;
 
     if (
       props?.type === "statusResponse" &&
@@ -353,7 +365,9 @@ function buildMessages({
           error={props.error}
           attachments={props.attachments}
           regenerateMessage={regenerateAssistantMessage}
+          rerunFromUserMessage={rerunFromUserMessage}
           isLastMessage={isLastBotReply}
+          isFirstUserMessage={isFirstUserMessage}
           saveEditedMessage={saveEditedMessage}
           forkThread={forkThread}
           metrics={props.metrics}

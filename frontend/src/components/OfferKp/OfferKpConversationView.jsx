@@ -34,6 +34,7 @@ export default function OfferKpConversationView({
   setChatHistory,
   navigate,
   offerKp,
+  rerunFromUserMessage,
 }) {
   const isEmpty = chatHistory.length === 0;
   const isThreadView = !!activeThreadSlug;
@@ -93,6 +94,7 @@ export default function OfferKpConversationView({
                 sendCommand={sendCommand}
                 updateHistory={setChatHistory}
                 regenerateAssistantMessage={regenerateAssistantMessage}
+                rerunFromUserMessage={rerunFromUserMessage}
                 websocket={websocket}
                 offerKpMode={true}
               />

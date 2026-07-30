@@ -42,3 +42,9 @@ export function saveQuoteDraft(workspaceSlug, threadSlug, draft) {
     })
   );
 }
+
+/** Drop persisted draft so «Run again» / edit-first-message rematch from scratch. */
+export function clearQuoteDraft(workspaceSlug, threadSlug) {
+  if (!workspaceSlug) return;
+  localStorage.removeItem(storageKey(workspaceSlug, threadSlug));
+}

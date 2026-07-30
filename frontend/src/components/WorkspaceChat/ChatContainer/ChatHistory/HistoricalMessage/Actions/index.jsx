@@ -1,6 +1,11 @@
 import React, { memo, useState } from "react";
 import useCopyText from "@/hooks/useCopyText";
-import { Check, ThumbsUp, ArrowsClockwise, Copy } from "@phosphor-icons/react";
+import {
+  Check,
+  ThumbsUp,
+  ArrowsClockwise,
+  Copy,
+} from "@phosphor-icons/react";
 import Workspace from "@/models/workspace";
 import { EditMessageAction } from "./EditMessage";
 import RenderMetrics from "./RenderMetrics";
@@ -13,11 +18,14 @@ const Actions = ({
   chatId,
   slug,
   isLastMessage,
+  isFirstUserMessage = false,
   regenerateMessage,
+  rerunFromUserMessage = null,
   forkThread,
   isEditing,
   role,
   metrics = {},
+  attachments = [],
 }) => {
   const { t } = useTranslation();
   const [selectedFeedback, setSelectedFeedback] = useState(feedbackScore);
@@ -28,16 +36,34 @@ const Actions = ({
     setSelectedFeedback(updatedFeedback);
   };
 
+  const showAlways =
+    role === "user" && (isFirstUserMessage || !!rerunFromUserMessage);
+
   return (
     <div
       className={`flex w-full flex-wrap items-center gap-y-1 ${role === "user" ? "justify-end" : "justify-between"}`}
     >
       <div className="flex justify-start items-center gap-x-[8px]">
-        <div className="md:group-hover:opacity-100 transition-all duration-300 md:opacity-0 flex justify-start items-center gap-x-[8px]">
+        <div
+          className={`${
+            showAlways
+              ? "opacity-100"
+              : "md:group-hover:opacity-100 md:opacity-0"
+          } transition-all duration-300 flex justify-start items-center gap-x-[8px]`}
+        >
           <div
             className={`flex justify-start items-center gap-x-[8px] ${role === "user" ? "flex-row-reverse" : ""}`}
           >
             <CopyMessage message={message} />
+            {role === "user" && !isEditing && !!rerunFromUserMessage && (
+              <RunAgainMessage
+                chatId={chatId}
+                message={message}
+                attachments={attachments}
+                rerunFromUserMessage={rerunFromUserMessage}
+                emphasize={isFirstUserMessage}
+              />
+            )}
             {role !== "user" && isLastMessage && !isEditing && (
               <RegenerateMessage
                 regenerateMessage={regenerateMessage}
@@ -135,6 +161,46 @@ function RegenerateMessage({ regenerateMessage, chatId }) {
         aria-label={t("chat_window.regenerate")}
       >
         <ArrowsClockwise size={20} className="mb-1" weight="fill" />
+      </button>
+    </div>
+  );
+}
+
+/** Resubmit this user prompt; wipe later turns + КП draft (thread rematch). */
+function RunAgainMessage({
+  chatId,
+  message,
+  attachments = [],
+  rerunFromUserMessage,
+  emphasize = false,
+}) {
+  const { t } = useTranslation();
+  if (!chatId || typeof rerunFromUserMessage !== "function") return null;
+  return (
+    <div className="mt-3 relative">
+      <button
+        type="button"
+        onClick={() =>
+          rerunFromUserMessage({
+            chatId,
+            text: message,
+            attachments,
+          })
+        }
+        data-tooltip-id="run-again-user-text"
+        data-tooltip-content={t("chat_window.run_again_tooltip")}
+        className={`border-none ${
+          emphasize
+            ? "text-theme-text-primary light:text-slate-800"
+            : "text-zinc-300 light:text-slate-500"
+        }`}
+        aria-label={t("chat_window.run_again")}
+      >
+        <ArrowsClockwise
+          size={emphasize ? 22 : 20}
+          className="mb-1"
+          weight="fill"
+        />
       </button>
     </div>
   );

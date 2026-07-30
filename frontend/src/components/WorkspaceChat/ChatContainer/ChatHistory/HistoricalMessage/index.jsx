@@ -32,7 +32,9 @@ const HistoricalMessage = ({
   feedbackScore = null,
   chatId = null,
   isLastMessage = false,
+  isFirstUserMessage = false,
   regenerateMessage,
+  rerunFromUserMessage = null,
   saveEditedMessage,
   forkThread,
   metrics = {},
@@ -116,11 +118,14 @@ const HistoricalMessage = ({
             chatId={chatId}
             slug={workspace?.slug}
             isLastMessage={isLastMessage}
+            isFirstUserMessage={isFirstUserMessage}
             regenerateMessage={regenerateMessage}
+            rerunFromUserMessage={rerunFromUserMessage}
             isEditing={isEditing}
             role={role}
             forkThread={forkThread}
             metrics={metrics}
+            attachments={attachments}
           />
         </div>
       </div>
@@ -178,7 +183,9 @@ const HistoricalMessage = ({
             chatId={chatId}
             slug={workspace?.slug}
             isLastMessage={isLastMessage}
+            isFirstUserMessage={false}
             regenerateMessage={regenerateMessage}
+            rerunFromUserMessage={null}
             isEditing={isEditing}
             role={role}
             forkThread={forkThread}
@@ -203,6 +210,7 @@ export default memo(
     return (
       prevProps.message === nextProps.message &&
       prevProps.isLastMessage === nextProps.isLastMessage &&
+      prevProps.isFirstUserMessage === nextProps.isFirstUserMessage &&
       prevProps.chatId === nextProps.chatId &&
       // Reference-equality first: JSON.stringify of RAG sources (large text
       // excerpts) ran for EVERY historical message on EVERY streaming chunk.
