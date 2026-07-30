@@ -825,38 +825,77 @@ async function streamChatWithWorkspace(
         }
       }
     } catch (genErr) {
-      recordPipelineFailure(pipelineDiag, genErr);
-      const abortError = formatAbortError(genErr, pipelineDiag);
-      markStage(requestTrace, "GENERATION", "fail", {
-        error: abortError,
-        matchedCount: pipelineDiag.matchedCount,
-        total: pipelineDiag.total,
-      });
-      finalizeTrace(requestTrace, { status: "fail", error: abortError });
-      writeResponseChunk(response, {
-        uuid,
-        sources,
-        type: "abort",
-        textResponse: null,
-        close: true,
-        error: abortError,
-        metrics: { offerKpTrace: summarizeTrace(requestTrace) },
-      });
-      await WorkspaceChats.new({
-        workspaceId: workspace.id,
-        prompt: message,
-        response: {
-          text: "",
+      // Soft-recover RFQ/ShopDB flows when LM Studio dies mid-generation
+      // (OOM / ECONNREFUSED). Prefer draft-aware reply over opaque abort.
+      const genMsg = String(genErr?.message || genErr || "");
+      const looksLikeLmsDown =
+        /connection error|econnrefused|fetch failed|socket hang up|network/i.test(
+          genMsg
+        );
+      if (
+        looksLikeLmsDown &&
+        shouldContinueWithoutChatLlm(routedIntent, quoteDocumentRequest)
+      ) {
+        completeText = buildLlmDownChatReply({
+          draft: llmCatalog.inquiryDraft,
+          requestId: uuid,
+        });
+        metrics = {
+          grounding: "llm_down_shopdb_continue",
+          generationError: genMsg.slice(0, 200),
+        };
+        diagNote(
+          pipelineDiag,
+          `generation soft-recover: ${genMsg.slice(0, 80)}`
+        );
+        markStage(requestTrace, "GENERATION", "skip", {
+          reason: "llm_connection_error_soft",
+          matchedCount: pipelineDiag.matchedCount,
+          total: pipelineDiag.total,
+        });
+        writeResponseChunk(response, {
+          uuid,
           sources,
-          type: chatMode,
-          attachments,
+          type: "textResponseChunk",
+          textResponse: completeText,
+          close: true,
+          error: false,
+          metrics,
+        });
+      } else {
+        recordPipelineFailure(pipelineDiag, genErr);
+        const abortError = formatAbortError(genErr, pipelineDiag);
+        markStage(requestTrace, "GENERATION", "fail", {
+          error: abortError,
+          matchedCount: pipelineDiag.matchedCount,
+          total: pipelineDiag.total,
+        });
+        finalizeTrace(requestTrace, { status: "fail", error: abortError });
+        writeResponseChunk(response, {
+          uuid,
+          sources,
+          type: "abort",
+          textResponse: null,
+          close: true,
+          error: abortError,
           metrics: { offerKpTrace: summarizeTrace(requestTrace) },
-        },
-        threadId: thread?.id || null,
-        include: false,
-        user,
-      });
-      return;
+        });
+        await WorkspaceChats.new({
+          workspaceId: workspace.id,
+          prompt: message,
+          response: {
+            text: "",
+            sources,
+            type: chatMode,
+            attachments,
+            metrics: { offerKpTrace: summarizeTrace(requestTrace) },
+          },
+          threadId: thread?.id || null,
+          include: false,
+          user,
+        });
+        return;
+      }
     }
   }
 

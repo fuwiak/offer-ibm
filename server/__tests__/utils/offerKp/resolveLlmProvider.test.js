@@ -353,6 +353,22 @@ describe("resolveLlmProvider", () => {
     expect(resolved.provider).toBe("lmstudio");
     expect(resolved.teacher).toBe(false);
   });
+
+  it("getLLMProvider preserves llmUnreachable from useResolved fallback", () => {
+    const { getLLMProvider } = require("../../../utils/helpers");
+    const llm = getLLMProvider({
+      provider: "lmstudio",
+      model: "qwen/qwen3-vl-8b",
+      useResolved: true,
+      llmUnreachable: true,
+      lmStudioReachable: false,
+      fallbackReason: "lmstudio_unreachable",
+    });
+    expect(llm.constructor.name).toBe("LMStudioLLM");
+    expect(llm.llmUnreachable).toBe(true);
+    expect(llm.lmStudioReachable).toBe(false);
+    expect(llm.fallbackReason).toBe("lmstudio_unreachable");
+  });
 });
 
 describe("pickRunnableLmStudioModel", () => {

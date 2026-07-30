@@ -1,16 +1,23 @@
 [Unit]
 Description=LM Studio local server
 After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 User=root
 Environment=PATH=/root/.lmstudio/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+# Prefer keeping the resident model alive under memory pressure (OOM often
+# killed LMS node-MainThread ~8GB while offer-kp sync was also embedding).
+OOMScoreAdjust=-500
 ExecStart=/root/.lmstudio/bin/lms server start --port 1234
 ExecStartPost=/opt/offer-kp/app/docker/lmstudio-load-brain.sh
 ExecStop=/root/.lmstudio/bin/lms server stop
-Restart=no
+# Previously Restart=no left :1234 down after OOM until manual start.
+Restart=on-failure
+RestartSec=15
 
 [Install]
 WantedBy=multi-user.target

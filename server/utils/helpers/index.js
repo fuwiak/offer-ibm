@@ -138,6 +138,8 @@ function getLLMProvider({
   displayProvider = null,
   fallbackReason = null,
   openRouterFallback = undefined,
+  llmUnreachable = undefined,
+  lmStudioReachable = undefined,
 } = {}) {
   const {
     resolveLlmProviderAndModel,
@@ -146,6 +148,8 @@ function getLLMProvider({
   // Trust an already-resolved result from getLLMProviderWithFallback.
   // Re-running resolveLlmProviderAndModel() would re-enable teacher OpenRouter
   // even after egress was probed down — that caused Connection error to users.
+  // Keep llmUnreachable / lmStudioReachable: dropping them made stream.js call
+  // a dead LM Studio and surface opaque "Connection error" mid-generation.
   const resolved =
     useResolved && provider
       ? {
@@ -157,6 +161,9 @@ function getLLMProvider({
           fallbackReason: fallbackReason || null,
           displayProvider: displayProvider || provider,
           displayModel: displayModel || model,
+          llmUnreachable: llmUnreachable === true,
+          lmStudioReachable:
+            lmStudioReachable === undefined ? undefined : lmStudioReachable,
         }
       : resolveLlmProviderAndModel({ provider, model });
 
