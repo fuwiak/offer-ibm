@@ -24,6 +24,7 @@ const { assessInquiryCompleteness } = require("./inquiryCompleteness");
 const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
 const { stripMessengerExportNoise } = require("./parseInquiry");
+const { buildProductUrl, getShopBaseUrl } = require("./productUrl");
 
 const {
   DETERMINISTIC_MATCH_PROFILE,
@@ -575,7 +576,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       status: classification.status,
       analogOf: classification.analogOf,
       mismatchReason: classification.mismatchReason || null,
-      productUrl: product.product_url || product.url,
+      productUrl: buildProductUrl(
+        getShopBaseUrl(),
+        product.category_url,
+        product.product_url || product.url
+      ),
       matchSource: isOverrideMatch ? "golden_override" : undefined,
     };
   });

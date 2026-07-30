@@ -127,6 +127,26 @@ function collectAllowedCatalogFacts(draft = null, catalogBlocks = []) {
 }
 
 /**
+ * Absolute shop URL from draft/SQL fields. Draft often stores only the
+ * product slug (shop_product.url) — never invent /product/{sku}.
+ */
+function resolvePublicProductUrl(line = {}) {
+  const raw = String(line.productUrl || line.url || "").trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  try {
+    const { buildProductUrl, getShopBaseUrl } = require("./productUrl");
+    const slug = raw && !raw.includes("://") ? raw : "";
+    const categoryUrl = String(
+      line.categoryUrl || line.category_url || ""
+    ).trim();
+    if (!slug && !categoryUrl) return "";
+    return buildProductUrl(getShopBaseUrl(), categoryUrl, slug);
+  } catch {
+    return "";
+  }
+}
+
+/**
  * One chat card from a ShopDB-backed draft line. Omits Ссылка/SKU unless real.
  */
 function formatGroundedDraftCard(line = {}) {
@@ -144,41 +164,51 @@ function formatGroundedDraftCard(line = {}) {
   }
 
   const price = Number(line.unitPriceNet || line.unitPrice || 0);
+  const publicUrl = resolvePublicProductUrl(line);
   const rows = [
     "[Каталог · purolat.com]",
     `Товар: ${name}`,
     price > 0 ? `Цена: ${price.toFixed(2)} RUB` : "Цена: по запросу",
     line.article ? `Артикул / SKU: ${String(line.article).trim()}` : null,
     `ID товара (shop_product.id): ${productId}`,
-    // Ссылка only when ShopDB gave a URL — never invent /product/{fakeSku}.
-    line.productUrl && /^https?:\/\//i.test(String(line.productUrl))
-      ? `Ссылка: ${String(line.productUrl).trim()}`
-      : null,
+    publicUrl ? `Ссылка: ${publicUrl}` : null,
   ].filter(Boolean);
   return rows.join("\n");
 }
 
+function findCatalogBlockForLine(line = {}, catalogBlocks = []) {
+  const blocks = (catalogBlocks || [])
+    .map((b) => String(b || "").trim())
+    .filter((b) => /\[Каталог\s*·/i.test(b));
+  const productId = line.productId != null ? String(line.productId).trim() : "";
+  if (productId) {
+    const byId = blocks.find((b) =>
+      new RegExp(`ID товара[^:\\n]*:\\s*${productId}\\b`, "i").test(b)
+    );
+    if (byId) return byId;
+  }
+  const nameKey = String(line.name || line.requestedName || "")
+    .toLowerCase()
+    .replace(/[×х]/gi, "x")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40);
+  if (nameKey.length >= 12) {
+    return (
+      blocks.find((b) =>
+        b.toLowerCase().replace(/[×х]/gi, "x").includes(nameKey.slice(0, 28))
+      ) || null
+    );
+  }
+  return null;
+}
+
 /**
- * Build chat catalog cards only from SQL-backed draft / enrich blocks.
+ * Build chat catalog cards for every draft line (matched + stubs).
+ * Prefer SQL enrich blocks (real Ссылка); else format from draft fields.
  */
 function buildGroundedCatalogCardsFromDraft(draft = null, catalogBlocks = []) {
   const lines = Array.isArray(draft?.lines) ? draft.lines : [];
-  const matched = lines.filter(
-    (l) =>
-      l &&
-      l.productId &&
-      (l.matchType === "exact" ||
-        l.matchType === "analog" ||
-        Number(l.unitPriceNet || 0) > 0)
-  );
-
-  if (matched.length) {
-    return matched
-      .map((l) => formatGroundedDraftCard(l))
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
   const blocks = (catalogBlocks || [])
     .map((b) => String(b || "").trim())
     .filter(
@@ -186,8 +216,18 @@ function buildGroundedCatalogCardsFromDraft(draft = null, catalogBlocks = []) {
         /\[Каталог\s*·/i.test(b) &&
         (/ID товара/i.test(b) || /Ссылка:\s*https?:\/\//i.test(b))
     );
-  if (!blocks.length) return "";
-  return blocks.join("\n\n");
+
+  if (!lines.length) {
+    return blocks.join("\n\n");
+  }
+
+  const cards = lines.map((line) => {
+    const block = findCatalogBlockForLine(line, blocks);
+    if (block) return block;
+    return formatGroundedDraftCard(line);
+  });
+
+  return cards.filter(Boolean).join("\n\n");
 }
 
 function stripLlmCatalogSections(text = "") {
@@ -282,4 +322,5 @@ module.exports = {
   collectAllowedCatalogFacts,
   chatHasInventedCatalogFacts,
   formatGroundedDraftCard,
+  resolvePublicProductUrl,
 };
