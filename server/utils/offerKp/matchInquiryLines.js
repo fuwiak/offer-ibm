@@ -13,6 +13,10 @@ const { classifyProductMatch, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const { resolveProductPrice } = require("./priceResolve");
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
+const {
+  signaturesMatchForPricing,
+  buildProductSignature,
+} = require("./canonicalProductText");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { recordSearchMetric } = require("./searchMetrics");
 const { withLineEvidence, MATCH_RULES_VERSION } = require("./matchEvidence");
@@ -81,10 +85,16 @@ function positivePrice(value) {
 /**
  * Выбор кандидата для строки заявки.
  * Приоритет: exact → analog → in_stock → остальные.
- * Дешёвый SKU — только среди одинакового matchType (не между M10x100 и M6x25).
+ * Дешёвый SKU — только среди одинаковой технической сигнтуры (не M10x70 vs M10x80).
  */
 function pickBestInquiryAlternative(alternatives = []) {
-  const list = (alternatives || []).filter(Boolean);
+  const list = (alternatives || []).filter(Boolean).map((alt) => ({
+    ...alt,
+    _signature:
+      alt._signature ||
+      alt.signature ||
+      buildProductSignature({ name: alt.name, id: alt.productId || alt.id }),
+  }));
   if (!list.length) return null;
 
   const byType = (type) => list.filter((a) => a.matchType === type);
@@ -109,15 +119,29 @@ function pickBestInquiryAlternative(alternatives = []) {
   if (!pool.length) return null;
   if (pool.length === 1) return pool[0];
 
-  // Среди exact/analog одного размера — берём дешевле (варианты покрытия и т.п.).
+  // Среди exact/analog одной сигнтуры — берём дешевле (покрытие и т.п.).
   if (exact.length || analogs.length) {
-    // 0 in ShopDB means "price unknown", not a free product. If at least one
-    // candidate has a real price, zero-priced rows must never win.
     const pricedPool = pool.filter((candidate) =>
       positivePrice(candidate.price)
     );
     const candidates = pricedPool.length ? pricedPool : pool;
-    const byPrice = [...candidates].sort((a, b) => {
+
+    // Group by signature identity; pick cheapest inside the top signature group.
+    const groups = [];
+    for (const candidate of candidates) {
+      let placed = false;
+      for (const group of groups) {
+        if (signaturesMatchForPricing(group[0]._signature, candidate._signature)) {
+          group.push(candidate);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) groups.push([candidate]);
+    }
+    // Prefer the group that appears first in ranked pool (identity already decided).
+    const primaryGroup = groups[0] || candidates;
+    const byPrice = [...primaryGroup].sort((a, b) => {
       const aPrice = positivePrice(a.price);
       const bPrice = positivePrice(b.price);
       if (!aPrice && !bPrice) {
@@ -141,7 +165,7 @@ function pickBestInquiryAlternative(alternatives = []) {
     );
   }
 
-  // Без точного совпадения — не брать «самый дешёвый любой болт», а первого из поиска.
+  // Без точного совпадения — не брать «самый дешёвый любой болт».
   return pool[0];
 }
 

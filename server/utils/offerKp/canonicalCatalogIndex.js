@@ -6,6 +6,7 @@ const { query } = require("./db/client");
 const { TABLES } = require("./db/schema");
 const {
   buildCanonicalProductText,
+  buildProductSignature,
   canonicalTextHash,
   canonicalEmbeddingCacheKey,
 } = require("./canonicalProductText");
@@ -16,10 +17,16 @@ const {
   isEmbeddingSimilarityEnabled,
   EMBEDDING_MODEL,
 } = require("./embeddingSimilarity");
+const {
+  loadVectorCheckpoint,
+  appendVectorCheckpoint,
+  clearVectorCheckpoint,
+  acquireIndexSyncLock,
+} = require("./canonicalVectorCheckpoint");
 const shopDbLog = require("./shopDbLog");
 
-/** v2 = canonical texts + persisted dense vectors for full-catalog ANN. */
-const INDEX_VERSION = 2;
+/** v3 = canonical texts + dense vectors + structured signature fields. */
+const INDEX_VERSION = 3;
 const DEFAULT_EMBEDDING_MODEL =
   EMBEDDING_MODEL || "MintplexLabs/multilingual-e5-small";
 const INDEX_DIR = process.env.STORAGE_DIR
@@ -132,6 +139,17 @@ function canonicalTextForProduct(product = {}) {
   return buildCanonicalProductText(product, []);
 }
 
+function signatureForProduct(product = {}) {
+  const id = Number(product.id ?? product.productId);
+  if (Number.isInteger(id) && id > 0) {
+    const hit = getCanonicalCatalogMap().get(id);
+    if (hit?.signature) return hit.signature;
+  }
+  if (product._signature) return product._signature;
+  if (product.signature) return product.signature;
+  return buildProductSignature(product, []);
+}
+
 async function fetchActiveProducts() {
   return query(`
     SELECT p.id, p.name, c.name AS category_name
@@ -225,16 +243,27 @@ async function buildVectorMatrix(records) {
   if (!denseEnabled() || !records.length) return null;
 
   const previous = loadPreviousVectorIndex();
+  const checkpoint = loadVectorCheckpoint(INDEX_DIR, embeddingModel());
   const reused = [];
   const toEmbed = [];
 
   for (const record of records) {
-    const prev = previous?.byId.get(Number(record.productId));
+    const productId = Number(record.productId);
+    const prev =
+      checkpoint?.byId.get(productId) || previous?.byId.get(productId);
     if (prev?.hash === record.hash && prev.vector?.length) {
-      reused.push({ id: Number(record.productId), vector: prev.vector });
+      reused.push({ id: productId, vector: prev.vector });
     } else {
       toEmbed.push(record);
     }
+  }
+
+  if (checkpoint?.meta?.count) {
+    shopDbLog.ok("catalog dense checkpoint resumed", {
+      checkpointVectors: checkpoint.meta.count,
+      reusableVectors: reused.length,
+      remaining: toEmbed.length,
+    });
   }
 
   /** @type {Map<number, Float32Array|number[]>} */
@@ -251,13 +280,23 @@ async function buildVectorMatrix(records) {
       });
       return null;
     }
+    const checkpointRows = [];
     batch.forEach((row, idx) => {
-      if (vectors[idx]?.length) fresh.set(Number(row.productId), vectors[idx]);
+      if (!vectors[idx]?.length) return;
+      const productId = Number(row.productId);
+      fresh.set(productId, vectors[idx]);
+      checkpointRows.push({
+        productId,
+        hash: row.hash,
+        vector: vectors[idx],
+      });
     });
+    appendVectorCheckpoint(INDEX_DIR, embeddingModel(), checkpointRows);
     shopDbLog.ok("catalog dense embed progress", {
       done: Math.min(offset + batch.length, toEmbed.length),
       total: toEmbed.length,
       reused: reused.length,
+      checkpointed: checkpointRows.length,
     });
   }
 
@@ -314,6 +353,7 @@ function persistVectorMatrix(vectorBuild) {
     createdAt: new Date().toISOString(),
   });
   vectorIndexCache = { ids, dims, matrix };
+  clearVectorCheckpoint(INDEX_DIR);
   return true;
 }
 
@@ -389,6 +429,10 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
     };
   }
   if (syncPromise) return syncPromise;
+  const releaseLock = acquireIndexSyncLock(INDEX_DIR);
+  if (!releaseLock) {
+    return { skipped: true, reason: "locked" };
+  }
 
   syncPromise = (async () => {
     const startedAt = Date.now();
@@ -398,16 +442,16 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
     );
     const modelId = embeddingModel();
     const records = products.map((product) => {
-      const canonicalText = buildCanonicalProductText(
-        product,
-        features.get(Number(product.id)) || []
-      );
+      const featureRows = features.get(Number(product.id)) || [];
+      const canonicalText = buildCanonicalProductText(product, featureRows);
+      const signature = buildProductSignature(product, featureRows);
       const hash = canonicalTextHash(canonicalText);
       return {
         productId: Number(product.id),
         name: product.name,
         categoryName: product.category_name || null,
         canonicalText,
+        signature,
         hash,
         embeddingCacheKey: canonicalEmbeddingCacheKey(
           modelId,
@@ -429,6 +473,7 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
       } catch {
         /* ignore */
       }
+      clearVectorCheckpoint(INDEX_DIR);
       vectorIndexCache = null;
     }
 
@@ -454,6 +499,7 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
     return { skipped: false, manifest, records };
   })().finally(() => {
     syncPromise = null;
+    releaseLock();
   });
   return syncPromise;
 }
@@ -495,6 +541,7 @@ module.exports = {
   getCanonicalCatalogRecords,
   getCanonicalCatalogMap,
   canonicalTextForProduct,
+  signatureForProduct,
   searchCanonicalCatalogDense,
   syncCanonicalCatalogIndex,
   scheduleCanonicalCatalogSync,

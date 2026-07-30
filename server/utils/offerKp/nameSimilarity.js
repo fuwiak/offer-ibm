@@ -22,11 +22,18 @@ const {
   canonicalTextForProduct,
   denseTopK,
   embeddingModel,
+  getCanonicalCatalogMap,
   getCanonicalCatalogRecords,
   scheduleCanonicalCatalogSync,
   searchCanonicalCatalogDense,
+  signatureForProduct,
 } = require("./canonicalCatalogIndex");
 const { canonicalEmbeddingCacheKey } = require("./canonicalProductText");
+const {
+  buildQuerySignature,
+  signatureHardConflicts,
+  signaturesMatchForPricing,
+} = require("./canonicalProductText");
 const { reciprocalRankFusion } = require("./retrievalFusion");
 
 const PRODUCT_SELECT = `
@@ -225,6 +232,22 @@ function productPrice(product) {
 }
 
 function productsAreSimilar(a, b, threshold = SIMILAR_PAIR_THRESHOLD) {
+  // Prefer structured signature equality when both sides have one — cheaper
+  // preference must never cross M10x70 vs M10x80 just because names look alike.
+  if (
+    signaturesMatchForPricing(
+      a?._signature || a?.signature,
+      b?._signature || b?.signature
+    )
+  ) {
+    return true;
+  }
+  const leftSig = a?._signature || a?.signature;
+  const rightSig = b?._signature || b?.signature;
+  if (leftSig && rightSig) {
+    const conflicts = signatureHardConflicts(leftSig, rightSig);
+    if (conflicts.length) return false;
+  }
   const left = productDisplayName(a);
   const right = productDisplayName(b);
   if (!left || !right) return false;
@@ -432,13 +455,18 @@ async function hydrateCatalogProducts(rankedRows, matchSource) {
     [matchSource, ...ids]
   );
   const byId = new Map(rows.map((row) => [Number(row.id), row]));
+  const catalogMap = getCanonicalCatalogMap();
   return rankedRows
     .map((row) => {
       const product = byId.get(Number(row.productId));
       if (!product) return null;
+      const catalog = catalogMap.get(Number(row.productId));
       return {
         ...product,
         ...row.meta,
+        _canonicalText:
+          row.meta?._canonicalText || catalog?.canonicalText || null,
+        _signature: row.meta?._signature || catalog?.signature || null,
       };
     })
     .filter(Boolean)
@@ -629,18 +657,40 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
       (p._denseSimilarity || 0) >= EMBEDDING_STANDALONE_MIN
   );
 
-  const deduped = applyCheaperPreferenceAmongSimilar(
-    survivors.map((p, index) => ({
-      p,
-      score:
-        (p._rrfScore || 0) * 1000 +
-        (p._nameSimilarity || 0) * 100 +
-        (p._embeddingSimilarity || 0) * 50,
-      index,
-    }))
-  );
+  // Attach signatures + mark hard conflicts. Do NOT use price/popularity here —
+  // cheapest SKU is chosen later only inside a confirmed exact/analog signature.
+  const querySig = buildQuerySignature(searchText);
+  const annotated = survivors.map((p) => {
+    const signature = p._signature || signatureForProduct(p);
+    const hard = signatureHardConflicts(querySig, signature);
+    return {
+      ...p,
+      _signature: signature,
+      _signatureHard: hard,
+      _matchSources: [
+        ...new Set([
+          ...(p._matchSources || []),
+          ...(hard.length ? ["signature_hard"] : []),
+        ]),
+      ],
+    };
+  });
 
-  return deduped.slice(0, sqlLimit(limit));
+  // Rank by retrieval identity only (RRF / lexical / dense). Hard-conflict
+  // rows sink to the bottom but stay available as size_mismatch candidates.
+  const ordered = [...annotated].sort((a, b) => {
+    const aHard = a._signatureHard?.length || 0;
+    const bHard = b._signatureHard?.length || 0;
+    if (aHard !== bHard) return aHard - bHard;
+    return (
+      (b._rrfScore || 0) - (a._rrfScore || 0) ||
+      (b._nameSimilarity || 0) - (a._nameSimilarity || 0) ||
+      (b._embeddingSimilarity || 0) - (a._embeddingSimilarity || 0) ||
+      Number(a.id) - Number(b.id)
+    );
+  });
+
+  return ordered.slice(0, sqlLimit(limit));
 }
 
 module.exports = {

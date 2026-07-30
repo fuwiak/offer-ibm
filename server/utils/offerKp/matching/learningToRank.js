@@ -21,12 +21,13 @@ const DEFAULT_WEIGHTS = Object.freeze({
   coatingMatch: 0.4,
   strengthMatch: 0.5,
   missingParamCount: -0.6,
-  popularity: 0.15,
+  popularity: 0,
   isAnalogCandidate: -0.1,
   hardViolationCount: -8.0,
   softViolationCount: -0.8,
-  hasPrice: 0.25,
-  inStock: 0.2,
+  // Price/stock are post-identity signals — never decide which product wins.
+  hasPrice: 0,
+  inStock: 0,
 });
 
 function ltrEnabled() {

@@ -30,10 +30,7 @@ const {
   detectAnalogIntent,
   expandDinNumbersWithEquivalents,
 } = require("./analogRules");
-const {
-  applyCheaperPreferenceAmongSimilar,
-  nameSimilarityScore,
-} = require("./nameSimilarity");
+const { nameSimilarityScore } = require("./nameSimilarity");
 const { searchProductsExtended } = require("./shopDbSearch");
 const {
   isRerankerEnabled,
@@ -320,13 +317,13 @@ function rankAgentProducts(
         (p._nameSimilarity || nameSimilarityScore(searchText, p.name)) * 80
       );
     }
-    // Для «аналогов» / похожих — не проталкивать вверх позиции с ценой 0.
-    if (detectAnalogIntent(searchText) && Number(p.price) > 0) score += 40;
-    if (detectAnalogIntent(searchText) && Number(p.price) <= 0) score -= 30;
+    // Price/stock must NOT decide product identity — only exact/analog gates
+    // later pick the cheapest SKU inside a confirmed signature.
     return { p, score, index };
   });
 
-  return applyCheaperPreferenceAmongSimilar(scored);
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map((row) => row.p);
 }
 
 function buildProductSearchAgentCacheKey({

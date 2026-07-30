@@ -19,6 +19,20 @@ const {
   getEquivalentStandards,
 } = require("../analogRules");
 const { areStandardsCompatible, getStandardMeta } = require("./standardGraph");
+const {
+  buildQuerySignature,
+  signatureHardConflicts,
+} = require("../canonicalProductText");
+
+function resolveProductSignature(product) {
+  if (product?._signature) return product._signature;
+  if (product?.signature) return product.signature;
+  try {
+    return require("../canonicalCatalogIndex").signatureForProduct(product);
+  } catch {
+    return null;
+  }
+}
 
 const HARD = Object.freeze({
   PRODUCT_TYPE: "product_type_mismatch",
@@ -68,20 +82,50 @@ function validateCandidate(queryText, product = {}) {
   const pin = extractPinDimensions(queryText);
   const requestedStandards = extractStandardNumbers(queryText);
 
+  // Structured signature hard gates (diameter/length/thread/strength/family).
+  const querySig = buildQuerySignature(queryText);
+  const productSig = resolveProductSignature(product);
+  if (productSig) {
+    for (const field of signatureHardConflicts(querySig, productSig)) {
+      if (field === "diameter" && !hard.includes(HARD.DIAMETER)) {
+        hard.push(HARD.DIAMETER);
+      } else if (field === "length" && !hard.includes(HARD.LENGTH)) {
+        hard.push(HARD.LENGTH);
+      } else if (field === "productType" && !hard.includes(HARD.PRODUCT_TYPE)) {
+        hard.push(HARD.PRODUCT_TYPE);
+      } else if (field === "standardFamily" && !hard.includes(HARD.STANDARD)) {
+        hard.push(HARD.STANDARD);
+      } else if (field === "fullOrPartialThread") {
+        // Full vs partial thread is a hard technical mismatch for bolts.
+        if (!hard.includes(HARD.LENGTH)) hard.push(HARD.LENGTH);
+      } else if (field === "strengthClass" && !soft.includes(SOFT.STRENGTH)) {
+        soft.push(SOFT.STRENGTH);
+      } else if (field === "threadPitch" && !soft.includes(SOFT.STRENGTH)) {
+        soft.push(SOFT.STRENGTH);
+      }
+    }
+  }
+
   if ((parsed.productTypes || []).length && !productTypeHits(nameNorm, parsed.productTypes)) {
-    hard.push(HARD.PRODUCT_TYPE);
+    if (!hard.includes(HARD.PRODUCT_TYPE)) hard.push(HARD.PRODUCT_TYPE);
   }
 
   if (thread) {
     if (!threadMatchesExact(nameNorm, thread)) {
       const productThread = extractProductDiameter(nameNorm);
       if (productThread) {
-        if (productThread.size !== thread.size) hard.push(HARD.DIAMETER);
-        if (productThread.length !== thread.length) hard.push(HARD.LENGTH);
+        if (productThread.size !== thread.size && !hard.includes(HARD.DIAMETER))
+          hard.push(HARD.DIAMETER);
+        if (productThread.length !== thread.length && !hard.includes(HARD.LENGTH))
+          hard.push(HARD.LENGTH);
         if (!hard.includes(HARD.DIAMETER) && !hard.includes(HARD.LENGTH)) {
           hard.push(HARD.DIAMETER);
         }
-      } else if (nameNorm.includes(`m ${thread.size}`) || nameNorm.includes(`m${thread.size}`)) {
+      } else if (
+        (nameNorm.includes(`m ${thread.size}`) ||
+          nameNorm.includes(`m${thread.size}`)) &&
+        !hard.includes(HARD.LENGTH)
+      ) {
         hard.push(HARD.LENGTH);
       }
     }
@@ -89,7 +133,7 @@ function validateCandidate(queryText, product = {}) {
     // Diameter-only query (nuts etc.): "M10" without length.
     const qDiam = String(queryText || "").match(/\bm\s*(\d+)\b/i);
     const pDiam = nameNorm.match(/\bm\s*(\d+)\b/i);
-    if (qDiam && pDiam && qDiam[1] !== pDiam[1]) {
+    if (qDiam && pDiam && qDiam[1] !== pDiam[1] && !hard.includes(HARD.DIAMETER)) {
       hard.push(HARD.DIAMETER);
     }
   }
