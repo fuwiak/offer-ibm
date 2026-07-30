@@ -86,8 +86,17 @@ describe("analogRules", () => {
     expect(equiv).toContain("4032");
   });
 
+  test("approved DIN 933 graph includes ISO 4017 and GOST 7798", () => {
+    expect(getEquivalentStandards("933")).toEqual(
+      expect.arrayContaining(["933", "4017", "7798"])
+    );
+  });
+
   test("detectAnalogIntent ru/pl/en", () => {
-    const { detectAnalogIntent, expandDinNumbersWithEquivalents } = require("../../../utils/offerKp/analogRules");
+    const {
+      detectAnalogIntent,
+      expandDinNumbersWithEquivalents,
+    } = require("../../../utils/offerKp/analogRules");
     expect(detectAnalogIntent("какие аналоги есть?")).toBe(true);
     expect(detectAnalogIntent("Podaj zamiennik DIN 934")).toBe(true);
     expect(detectAnalogIntent("find equivalent for this nut")).toBe(true);
@@ -151,5 +160,13 @@ describe("analogRules", () => {
     });
     expect(result.matchType).toBe("spec_mismatch");
     expect(result.mismatchReason).toBe("strength_class");
+  });
+
+  test("approved analog may use a higher strength class", () => {
+    const result = classifyProductMatch("Болт DIN 933 M10x25 8.8", {
+      name: "Болт ISO 4017 M10x25 класс 10.9",
+      stockCount: 20,
+    });
+    expect(result.matchType).toBe("analog");
   });
 });

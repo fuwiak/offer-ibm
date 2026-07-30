@@ -193,7 +193,12 @@ async function collectExternalContexts({
           kind: "shopdb",
           contextTexts: [],
           sources: [],
-          flags: { shopDbError: true },
+          flags: {
+            shopDbError: true,
+            shopDbUnavailable: true,
+            shopDbGateCode: "DB_UNAVAILABLE",
+            shopDbMessage: err?.message || "DB_UNAVAILABLE",
+          },
         },
       ];
     }
@@ -594,6 +599,24 @@ async function runGenerationPipeline({
   const collectedExternalContexts = Array.isArray(externalContexts)
     ? externalContexts
     : await collectExternalContexts({ message, workspace, language });
+  const { findShopDbGateFailure } = require("../offerKp/shopDbGate");
+  const shopDbHardFailure = findShopDbGateFailure(collectedExternalContexts);
+  if (shopDbHardFailure) {
+    return {
+      text: shopDbHardFailure.text,
+      contextTexts: [],
+      sources: [],
+      metrics: {
+        ...metrics,
+        grounding: "shopdb_hard_gate",
+        shopDbCode: shopDbHardFailure.code,
+        shopDbReadiness: shopDbHardFailure.readiness,
+      },
+      externalContexts: collectedExternalContexts,
+      postProcessLog: {},
+      error: shopDbHardFailure.code,
+    };
+  }
 
   let mergedSources = [...sources];
   let mergedContext = [...contextTexts];

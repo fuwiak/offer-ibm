@@ -75,7 +75,16 @@ async function streamOfferKpPublicChat(
       resolvedIntent,
     }).catch((err) => {
       console.warn("[ShopDB] public chat enrich failed:", err?.message || err);
-      return { contextTexts: [], sources: [], flags: { shopDbError: true } };
+      return {
+        contextTexts: [],
+        sources: [],
+        flags: {
+          shopDbError: true,
+          shopDbUnavailable: true,
+          shopDbGateCode: "DB_UNAVAILABLE",
+          shopDbMessage: err?.message || "DB_UNAVAILABLE",
+        },
+      };
     });
     externalContexts = [
       {
@@ -113,6 +122,25 @@ async function streamOfferKpPublicChat(
   const llmCatalog = applyExternalContextsForLlm(message, externalContexts, {
     resolvedIntent,
   });
+  if (llmCatalog.hardFailure) {
+    const { code, text, readiness } = llmCatalog.hardFailure;
+    appendPublicChatMessage(sessionId, "user", message);
+    appendPublicChatMessage(sessionId, "assistant", text);
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: text,
+      sources: [],
+      close: true,
+      error: code,
+      metrics: {
+        grounding: "shopdb_hard_gate",
+        shopDbCode: code,
+        shopDbReadiness: readiness,
+      },
+    });
+    return;
+  }
   const sources = llmCatalog.sources;
   const groundedCatalogResponse = renderGroundedCatalogResponse(
     message,

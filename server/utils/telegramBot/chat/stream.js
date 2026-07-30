@@ -143,6 +143,13 @@ async function streamResponse({
   });
   const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.hardFailure) {
+    clearInterval(typingInterval);
+    return await ctx.bot.sendMessage(
+      chatId,
+      `${llmCatalog.hardFailure.text}\n\nКод: ${llmCatalog.hardFailure.code}`
+    );
+  }
   if (llmCatalog.contextTexts.length) {
     contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }

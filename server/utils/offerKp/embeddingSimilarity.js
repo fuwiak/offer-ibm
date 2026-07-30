@@ -64,6 +64,18 @@ const CACHE_MAX_ENTRIES = Math.max(
 );
 
 class ShopDbEmbedder extends NativeEmbedder {
+  constructor() {
+    super();
+    const configured = parseInt(
+      process.env.SHOP_DB_CATALOG_EMBED_CONCURRENCY,
+      10
+    );
+    this.maxConcurrentChunks = Math.min(
+      256,
+      Math.max(1, Number.isFinite(configured) ? configured : 25)
+    );
+  }
+
   // Model dla dopasowania katalogu jest zawsze multilingual, niezależnie od
   // globalnego EMBEDDING_MODEL_PREF (który konfiguruje osobny RAG-embedder).
   getEmbeddingModel() {

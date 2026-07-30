@@ -64,6 +64,25 @@ async function saveDeterministicApiReply({
   });
   return result?.chat?.id || null;
 }
+
+async function saveShopDbGateApiReply(args, hardFailure) {
+  const metrics = {
+    grounding: "shopdb_hard_gate",
+    shopDbCode: hardFailure.code,
+    shopDbReadiness: hardFailure.readiness,
+  };
+  const chatId = await saveDeterministicApiReply({
+    ...args,
+    textResponse: hardFailure.text,
+    sources: [],
+    metrics,
+  });
+  return {
+    chatId,
+    metrics,
+    textResponse: hardFailure.text,
+  };
+}
 /**
  * @typedef ResponseObject
  * @property {string} id - uuid of response
@@ -450,6 +469,28 @@ async function chatSync({
   });
   const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.hardFailure) {
+    const gate = await saveShopDbGateApiReply(
+      {
+        workspace,
+        message,
+        attachments,
+        chatMode,
+        thread,
+        sessionId,
+        user,
+      },
+      llmCatalog.hardFailure
+    );
+    return {
+      id: uuid,
+      type: "textResponse",
+      sources: [],
+      close: true,
+      error: llmCatalog.hardFailure.code,
+      ...gate,
+    };
+  }
   if (llmCatalog.contextTexts.length) {
     contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }
@@ -901,6 +942,30 @@ async function streamChat({
   });
   const { applyExternalContextsForLlm } = require("../offerKp/catalogPrompt");
   const llmCatalog = applyExternalContextsForLlm(message, externalContexts);
+  if (llmCatalog.hardFailure) {
+    const gate = await saveShopDbGateApiReply(
+      {
+        workspace,
+        message,
+        attachments,
+        chatMode,
+        thread,
+        sessionId,
+        user,
+      },
+      llmCatalog.hardFailure
+    );
+    writeResponseChunk(response, {
+      id: uuid,
+      type: "textResponse",
+      textResponse: gate.textResponse,
+      sources: [],
+      close: true,
+      error: llmCatalog.hardFailure.code,
+      metrics: gate.metrics,
+    });
+    return;
+  }
   if (llmCatalog.contextTexts.length) {
     contextTexts = [...llmCatalog.contextTexts, ...contextTexts];
   }

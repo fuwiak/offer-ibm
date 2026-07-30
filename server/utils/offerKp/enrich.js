@@ -87,6 +87,17 @@ function shouldRunShopEnrich(message, options = {}) {
     return true;
   }
 
+  // A short follow-up such as "какая цена?" is ambiguous in isolation and may
+  // be routed out_of_scope, but it is a catalog query when recent user history
+  // contains a product/SKU. Resolve that context before applying blocked intents.
+  const searchText = buildProductSearchText(message, options);
+  if (
+    isPriceOnlyQuery(String(message || "").trim()) &&
+    (hasHardwareSignals(searchText) || extractSkuCodes(searchText).length)
+  ) {
+    return true;
+  }
+
   const blockedIntents = new Set([
     OFFER_KP_INTENTS.CASUAL_OR_TEST,
     OFFER_KP_INTENTS.SYSTEM_HELP,
@@ -103,7 +114,6 @@ function shouldRunShopEnrich(message, options = {}) {
     if (inquiryLines.length || hasHardwareSignals(combined)) return true;
   }
 
-  const searchText = buildProductSearchText(message, options);
   if (hasHardwareSignals(searchText)) return true;
   if (extractSkuCodes(combined).length) return true;
   if (isPriceOnlyQuery(String(message || "").trim())) return true;

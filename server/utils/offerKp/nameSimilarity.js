@@ -35,6 +35,8 @@ const {
   signaturesMatchForPricing,
 } = require("./canonicalProductText");
 const { reciprocalRankFusion } = require("./retrievalFusion");
+const { classifyProductMatch } = require("./analogRules");
+const { getShopDbBm25Index, topK: bm25TopK } = require("./shopDbBm25Index");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -62,6 +64,73 @@ const SCORE_TIE_GAP = Number(process.env.SHOP_DB_SIMILAR_SCORE_GAP || 12);
 const EMBEDDING_STANDALONE_MIN = Number(
   process.env.SHOP_DB_EMBEDDING_STANDALONE_MIN || 0.62
 );
+
+function denseRescueTopK() {
+  return Math.max(
+    1,
+    Math.min(25, parseInt(process.env.SHOP_DB_DENSE_RESCUE_TOP_K, 10) || 10)
+  );
+}
+
+function compatibleCandidateLimit() {
+  return Math.max(
+    1,
+    Math.min(50, parseInt(process.env.SHOP_DB_RRF_COMPATIBLE_LIMIT, 10) || 45)
+  );
+}
+
+function analogCandidateLimit() {
+  return Math.max(
+    0,
+    Math.min(5, parseInt(process.env.SHOP_DB_RRF_ANALOG_LIMIT, 10) || 5)
+  );
+}
+
+function applyCatalogCandidateQuota(searchText, products, limit = 50) {
+  const window = sqlLimit(limit);
+  const compatible = [];
+  const analogs = [];
+
+  for (const product of products || []) {
+    if (product._exactSku || product.shopMatchSources?.includes("exact_sku")) {
+      compatible.push(product);
+      continue;
+    }
+    const classification = classifyProductMatch(searchText, product);
+    if (classification.matchType === "analog") {
+      const disallowedHard = (product._signatureHard || []).filter(
+        (field) => field !== "standardFamily"
+      );
+      if (!disallowedHard.length) {
+        analogs.push({
+          ...product,
+          _retrievalMatchType: "analog",
+          _analogOf: classification.analogOf || null,
+        });
+      }
+      continue;
+    }
+    if (
+      ["exact", "similar"].includes(classification.matchType) &&
+      !(product._signatureHard || []).length
+    ) {
+      compatible.push({
+        ...product,
+        _retrievalMatchType: classification.matchType,
+      });
+    }
+  }
+
+  const maxCompatible = Math.min(compatibleCandidateLimit(), window);
+  const maxAnalogs = Math.min(
+    analogCandidateLimit(),
+    Math.max(0, window - maxCompatible)
+  );
+  return [
+    ...compatible.slice(0, maxCompatible),
+    ...analogs.slice(0, maxAnalogs),
+  ].slice(0, window);
+}
 
 const NAME_STOPWORDS = new Set([
   "для",
@@ -503,6 +572,22 @@ async function fetchCanonicalCatalogCandidatePool(searchText, limit = 120) {
   return hydrateCatalogProducts(ranked, "canonical_catalog");
 }
 
+async function fetchBm25CatalogCandidatePool(searchText, limit = bm25TopK()) {
+  scheduleCanonicalCatalogSync();
+  const records = getCanonicalCatalogRecords();
+  const index = getShopDbBm25Index(records);
+  if (!index?.count) return [];
+  const ranked = index.search(searchText, limit).map((hit) => ({
+    productId: Number(hit.productId),
+    meta: {
+      _canonicalText: hit.record?.canonicalText || null,
+      _signature: hit.record?.signature || null,
+      _bm25Score: hit.score,
+    },
+  }));
+  return hydrateCatalogProducts(ranked, "catalog_bm25");
+}
+
 /**
  * Full-catalog dense ANN (persisted e5 vectors). Independent candidate source —
  * not a price/exact decision. Hydrates live ShopDB rows for price after match.
@@ -600,10 +685,10 @@ async function applyEmbeddingBoost(queryText, products) {
  */
 async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
   const poolLimit = Math.max(limit * 12, 120);
-  const denseLimit = Math.max(denseTopK(), limit * 5);
-  const [sqlPool, canonicalPool, densePool] = await Promise.all([
+  const denseLimit = denseRescueTopK();
+  const [sqlPool, bm25Pool, densePool] = await Promise.all([
     fetchNameSimilarityCandidatePool(searchText, terms, poolLimit),
-    fetchCanonicalCatalogCandidatePool(searchText, poolLimit),
+    fetchBm25CatalogCandidatePool(searchText, bm25TopK()),
     fetchDenseCatalogCandidatePool(searchText, denseLimit),
   ]);
 
@@ -612,10 +697,9 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
   const sqlRanked = rankProductsByNameSimilarity(searchText, sqlPool, 0).map(
     (row) => row.p
   );
-  const canonicalRanked = [...canonicalPool].sort(
+  const bm25Ranked = [...bm25Pool].sort(
     (a, b) =>
-      (b._canonicalSimilarity || 0) - (a._canonicalSimilarity || 0) ||
-      Number(a.id) - Number(b.id)
+      (b._bm25Score || 0) - (a._bm25Score || 0) || Number(a.id) - Number(b.id)
   );
   const denseRanked = [...densePool].sort(
     (a, b) =>
@@ -623,10 +707,9 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
       Number(a.id) - Number(b.id)
   );
 
-  const fused = reciprocalRankFusion(
-    [denseRanked, canonicalRanked, sqlRanked],
-    { k: 60 }
-  ).slice(0, poolLimit);
+  const fused = reciprocalRankFusion([bm25Ranked, denseRanked, sqlRanked], {
+    k: 60,
+  }).slice(0, poolLimit);
 
   if (!fused.length) return [];
 
@@ -653,6 +736,7 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
   const survivors = boosted.filter(
     (p) =>
       (p._nameSimilarity || 0) >= DEFAULT_MIN_COSINE ||
+      (p._bm25Score || 0) > 0 ||
       (p._embeddingSimilarity || 0) >= EMBEDDING_STANDALONE_MIN ||
       (p._denseSimilarity || 0) >= EMBEDDING_STANDALONE_MIN
   );
@@ -676,21 +760,23 @@ async function searchByNameSimilarity(searchText, terms = [], limit = 10) {
     };
   });
 
-  // Rank by retrieval identity only (RRF / lexical / dense). Hard-conflict
-  // rows sink to the bottom but stay available as size_mismatch candidates.
+  // Rank by retrieval identity only (BM25 / RRF / dense), then enforce hard
+  // technical constraints. Approved standard substitutions are kept in a
+  // separate analog bucket capped at 10% of the 50-candidate window.
   const ordered = [...annotated].sort((a, b) => {
     const aHard = a._signatureHard?.length || 0;
     const bHard = b._signatureHard?.length || 0;
     if (aHard !== bHard) return aHard - bHard;
     return (
       (b._rrfScore || 0) - (a._rrfScore || 0) ||
+      (b._bm25Score || 0) - (a._bm25Score || 0) ||
       (b._nameSimilarity || 0) - (a._nameSimilarity || 0) ||
       (b._embeddingSimilarity || 0) - (a._embeddingSimilarity || 0) ||
       Number(a.id) - Number(b.id)
     );
   });
 
-  return ordered.slice(0, sqlLimit(limit));
+  return applyCatalogCandidateQuota(searchText, ordered, limit);
 }
 
 module.exports = {
@@ -707,5 +793,10 @@ module.exports = {
   searchByNameSimilarity,
   fetchNameSimilarityCandidatePool,
   fetchCanonicalCatalogCandidatePool,
+  fetchBm25CatalogCandidatePool,
   fetchDenseCatalogCandidatePool,
+  denseRescueTopK,
+  compatibleCandidateLimit,
+  analogCandidateLimit,
+  applyCatalogCandidateQuota,
 };

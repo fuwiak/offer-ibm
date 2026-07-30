@@ -161,7 +161,12 @@ for pair in \
   "OFFER_KP_PIPELINE_AGENT_MODEL=qwen/qwen3-vl-8b" \
   "OFFER_KP_PIPELINE_AGENT_FALLBACK=qwen/qwen3-vl-8b" \
   "OFFER_KP_SINGLE_MODEL=true" \
-  "OFFER_KP_VISION_OCR_DPI=150"; do
+  "OFFER_KP_VISION_OCR_DPI=150" \
+  "SHOP_DB_BM25=1" \
+  "SHOP_DB_BM25_TOP_K=40" \
+  "SHOP_DB_DENSE_RESCUE_TOP_K=10" \
+  "SHOP_DB_RRF_COMPATIBLE_LIMIT=45" \
+  "SHOP_DB_RRF_ANALOG_LIMIT=5"; do
   key="\${pair%%=*}"
   if grep -q "^\${key}=" "\$ENV_FILE"; then
     sed -i "s|^\${key}=.*|\${pair}|" "\$ENV_FILE"

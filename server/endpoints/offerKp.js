@@ -921,7 +921,14 @@ function offerKpEndpoints(app) {
     async (_request, response) => {
       try {
         if (!requireOfferKpAdmin(response)) return;
-        response.status(200).json(shopDbExplorer.dbStatus());
+        const {
+          getShopDbReadiness,
+        } = require("../utils/offerKp/shopDbReadiness");
+        const readiness = await getShopDbReadiness({ force: true });
+        response.status(readiness.ready ? 200 : 503).json({
+          ...shopDbExplorer.dbStatus(),
+          ...readiness,
+        });
       } catch (e) {
         response.status(500).json({ error: e.message });
       }

@@ -366,7 +366,6 @@ async function emitAutoQuoteArtifacts({
   chatHistory = null,
   parsedFileTexts = [],
   inquiryDraft = null,
-  chatText = "",
 }) {
   // При наличии файла именно он определяет перечень строк. Сообщение пользователя
   // служит командой и не должно дублировать/расширять приложенную заявку.
@@ -396,15 +395,8 @@ async function emitAutoQuoteArtifacts({
     }
   }
 
-  // N позиций на входе = N строк. Не затираем уже найденные цены —
-  // дополняем только недостающие слоты (merge), а не rebuild unmatched.
-  // Skip when chat Товар cards will define the draft 1:1 below.
-  const {
-    extractChatProductBlocks,
-  } = require("./draftChatReconcile");
-  const earlyChatCards = extractChatProductBlocks(String(chatText || ""));
+  // N positions in inquiry/OCR = N draft rows. Generated chat is not evidence.
   if (
-    !earlyChatCards.length &&
     inquiryLines.length > 0 &&
     Number(draft?.lines?.length || 0) !== inquiryLines.length
   ) {
@@ -420,22 +412,18 @@ async function emitAutoQuoteArtifacts({
     });
   }
 
-  // Compare + fill / build 1:1 from chat Товар cards when present.
+  // Keep grounded lines and rematch only gaps from inquiry + ShopDB.
   try {
     const {
-      compareDraftToChat,
+      compareDraftToInquiry,
       reproduceDraftFillMissing,
-      extractChatProductBlocks,
     } = require("./draftChatReconcile");
-    const chatSource = String(chatText || "").trim();
-    const chatCards = extractChatProductBlocks(chatSource);
-    const comparison = compareDraftToChat({
+    const comparison = compareDraftToInquiry({
       draft,
       inquiryText: inquirySource,
       catalogBlocks,
-      chatText: chatSource,
     });
-    if (chatCards.length > 0 || comparison.needsReproduce) {
+    if (comparison.needsReproduce) {
       const reproduced = await reproduceDraftFillMissing({
         draft,
         inquiryText: inquirySource,
@@ -444,12 +432,11 @@ async function emitAutoQuoteArtifacts({
           workspace,
           chatHistory,
           parsedFileTexts,
-          chatText: chatSource,
         },
       });
       draft = reproduced.draft;
       console.warn(
-        `[offerKp] draft↔chat reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} chatSku=${reproduced.fromChatSku || 0} chatCards=${reproduced.fromChatCards || chatCards.length} missing=${comparison.missingIndexes.length}`
+        `[offerKp] grounded draft reproduce kept=${reproduced.kept} rematched=${reproduced.rematched} missing=${comparison.missingIndexes.length}`
       );
     }
   } catch (e) {
@@ -460,26 +447,13 @@ async function emitAutoQuoteArtifacts({
   if (!draft?.lines?.length && !products.length) return false;
 
   // Soft-strip illegal prices before export; hard-fail on N-line / invented SKU.
-  const draftFromChatCards =
-    earlyChatCards.length > 0 &&
-    Number(draft?.lines?.length || 0) === earlyChatCards.length;
   if (draft?.lines?.length) {
     draft = {
       ...draft,
       lines: attachDraftEvidence(stripIllegalPrices(draft.lines)),
     };
     const guard = assertExportGuards({
-      // Chat Товар cards define N 1:1 — do not compare to parseInquiryText count.
-      sourceLines:
-        draftFromChatCards ||
-        draft.lines.some(
-          (l) =>
-            l.matchSource === "chat_sku_verified" ||
-            l.matchSource === "chat_card_rematch" ||
-            l.fromChatCard
-        )
-          ? draft.lines
-          : inquiryLines,
+      sourceLines: inquiryLines.length ? inquiryLines : draft.lines,
       quoteLines: draft.lines,
       draft,
     });

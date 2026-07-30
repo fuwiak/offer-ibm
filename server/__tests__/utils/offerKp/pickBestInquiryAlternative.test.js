@@ -56,6 +56,29 @@ describe("pickBestInquiryAlternative", () => {
     expect(best.productId).toBe("2");
   });
 
+  it("keeps a literally requested catalog product ahead of a cheaper variant", () => {
+    const best = pickBestInquiryAlternative(
+      [
+        {
+          productId: "1",
+          name: "Болт DIN 931 M18x140 10.9",
+          price: 259.39,
+          matchType: "exact",
+          status: STATUS.IN_STOCK,
+        },
+        {
+          productId: "2",
+          name: "Болт DIN 931 M18x140 10.9 оцинк",
+          price: 153.24,
+          matchType: "exact",
+          status: STATUS.IN_STOCK,
+        },
+      ],
+      "  БОЛТ  DIN 931 M18x140 10.9 "
+    );
+    expect(best.productId).toBe("1");
+  });
+
   it("picks the cheapest positive analog price instead of zero", () => {
     const best = pickBestInquiryAlternative([
       {
@@ -143,15 +166,19 @@ describe("matchInquiryLine price acceptance", () => {
       };
     });
     jest.doMock("../../../utils/offerKp/db/client", () => ({
-      query: jest.fn().mockResolvedValue([
-        { sku: "009315100100100", price: 18.5, stock_count: 713 },
-      ]),
+      query: jest
+        .fn()
+        .mockResolvedValue([
+          { sku: "009315100100100", price: 18.5, stock_count: 713 },
+        ]),
     }));
     jest.doMock("../../../utils/offerKp/priceResolve", () => ({
       resolveProductPrice: () => 18.5,
     }));
 
-    const { matchInquiryLine } = require("../../../utils/offerKp/matchInquiryLines");
+    const {
+      matchInquiryLine,
+    } = require("../../../utils/offerKp/matchInquiryLines");
     const row = await matchInquiryLine({
       name: "Болт M6×25 ГОСТ 7805-70",
       raw: "Болт M6×25 ГОСТ 7805-70 | 3 | кг",

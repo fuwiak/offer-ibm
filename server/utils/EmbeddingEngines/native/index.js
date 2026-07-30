@@ -44,6 +44,7 @@ class NativeEmbedder {
     // Limit of how many strings we can process in a single pass to stay with resource or network limits
     this.maxConcurrentChunks = this.modelInfo.maxConcurrentChunks;
     this.embeddingMaxChunkLength = this.modelInfo.embeddingMaxChunkLength;
+    this.pipeline = null;
 
     // Make directory when it does not exist in existing installations
     if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir);
@@ -178,6 +179,8 @@ class NativeEmbedder {
   // report 20 times a day: https://github.com/Mintplex-Labs/av-elia-bot/issues/821
   // So to attempt to monkey-patch this we have a single fallback URL to help alleviate duplicate bug reports.
   async embedderClient() {
+    if (this.pipeline) return this.pipeline;
+
     if (!this.modelDownloaded)
       this.log(
         "The native embedding model has never been run and will be downloaded right now. Subsequent runs will be faster. (~23MB)"
@@ -186,7 +189,8 @@ class NativeEmbedder {
     let fetchResponse = await this.#fetchWithHost();
     if (fetchResponse.pipeline !== null) {
       this.modelDownloaded = true;
-      return fetchResponse.pipeline;
+      this.pipeline = fetchResponse.pipeline;
+      return this.pipeline;
     }
 
     this.log(
@@ -196,7 +200,8 @@ class NativeEmbedder {
       fetchResponse = await this.#fetchWithHost(fetchResponse.retry);
     if (fetchResponse.pipeline !== null) {
       this.modelDownloaded = true;
-      return fetchResponse.pipeline;
+      this.pipeline = fetchResponse.pipeline;
+      return this.pipeline;
     }
 
     throw fetchResponse.error;

@@ -8,7 +8,8 @@ process.chdir(path.resolve(__dirname, "../server"));
 const { loadEnv } = require("../server/config/loadEnv");
 loadEnv();
 
-const storageDir = process.env.STORAGE_DIR || path.join(process.cwd(), "storage");
+const storageDir =
+  process.env.STORAGE_DIR || path.join(process.cwd(), "storage");
 for (const sub of ["", "models", "documents", "vector-cache"]) {
   fs.mkdirSync(path.join(storageDir, sub), { recursive: true });
 }
@@ -42,8 +43,7 @@ const SAMPLE_QUERY = "Штанга DIN 975 M36x2000 4.8 оцинк";
 const SAMPLE_QUERY_FALLBACK = "болт DIN 933 M12";
 const EXPECTED_SHTANGA_URL =
   "https://purolat.com/shop/stangi-spilyki/din-975/shtanga_din_975_m36x2000_zn/";
-const KEY_STEEL_QUERY =
-  "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880";
+const KEY_STEEL_QUERY = "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880";
 const KEY_STEEL_SKU = "087870000300030";
 
 const results = [];
@@ -66,8 +66,9 @@ function warn(name, detail = "") {
 (async () => {
   shopDbLog.testBanner("OfferKP DB enrich verification");
 
-  if (process.env.LLM_PROVIDER === "openrouter") ok("LLM_PROVIDER", "openrouter");
-  else fail("LLM_PROVIDER", process.env.LLM_PROVIDER || "(unset)");
+  const llmProvider = String(process.env.LLM_PROVIDER || "").trim();
+  if (llmProvider) ok("LLM_PROVIDER", llmProvider);
+  else fail("LLM_PROVIDER", "(unset)");
 
   if (process.env.OPENROUTER_MODEL_PREF) {
     ok("OPENROUTER_MODEL_PREF", process.env.OPENROUTER_MODEL_PREF);
@@ -76,7 +77,8 @@ function warn(name, detail = "") {
   }
 
   if (resolveOpenRouterApiKey()) ok("OPENROUTER_API_KEY", "set");
-  else warn("OPENROUTER_API_KEY", "missing — LLM search agent fallback disabled");
+  else
+    warn("OPENROUTER_API_KEY", "missing — LLM search agent fallback disabled");
 
   const shopEnrichFlag = (process.env.SHOP_DB_ENRICH || "").trim();
   if (["1", "true", "yes", "on"].includes(shopEnrichFlag.toLowerCase())) {
@@ -110,7 +112,10 @@ function warn(name, detail = "") {
 
   const target = getShopDbTarget();
   if (target.port === "1500") {
-    fail("MySQL port", "1500 is wrong — use 3306 (normalizeShopDbEnv should fix this)");
+    fail(
+      "MySQL port",
+      "1500 is wrong — use 3306 (normalizeShopDbEnv should fix this)"
+    );
   }
   ok(
     "MySQL target",
@@ -119,7 +124,10 @@ function warn(name, detail = "") {
 
   const ping = await pingShopDb();
   if (ping.ok) {
-    ok("MySQL connection", `${ping.activeProducts} active products (${ping.ms}ms)`);
+    ok(
+      "MySQL connection",
+      `${ping.activeProducts} active products (${ping.ms}ms)`
+    );
   } else {
     fail("MySQL connection", formatShopDbConnectionHint(ping));
     printSummary();
@@ -129,7 +137,10 @@ function warn(name, detail = "") {
   try {
     const schema = await validateShopDbSchema();
     if (schema.ok) {
-      ok("MySQL schema", `${schema.tablesChecked.length} tables, all columns OK`);
+      ok(
+        "MySQL schema",
+        `${schema.tablesChecked.length} tables, all columns OK`
+      );
     } else {
       fail(
         "MySQL schema",
@@ -160,14 +171,22 @@ function warn(name, detail = "") {
 
   await runEnrichTest(SAMPLE_QUERY, "primary enrich");
 
-  const shtangaCtx = await enrich.getShopDbContext(SAMPLE_QUERY, { maxDocs: 1 });
+  const shtangaCtx = await enrich.getShopDbContext(SAMPLE_QUERY, {
+    maxDocs: 1,
+  });
   const shtangaUrl = shtangaCtx.sources?.[0]?.url || "";
   if (shtangaUrl === EXPECTED_SHTANGA_URL) {
     ok("product URL", EXPECTED_SHTANGA_URL);
-  } else if (shtangaUrl.includes("/shop/") && shtangaUrl.includes("shtanga_din_975_m36x2000_zn")) {
+  } else if (
+    shtangaUrl.includes("/shop/") &&
+    shtangaUrl.includes("shtanga_din_975_m36x2000_zn")
+  ) {
     ok("product URL", shtangaUrl);
   } else if (shtangaCtx.contextTexts?.length) {
-    fail("product URL", `got ${shtangaUrl || "(empty)"}, expected ${EXPECTED_SHTANGA_URL}`);
+    fail(
+      "product URL",
+      `got ${shtangaUrl || "(empty)"}, expected ${EXPECTED_SHTANGA_URL}`
+    );
   }
 
   if (results.some((r) => r.name === "primary enrich" && !r.ok)) {
@@ -195,9 +214,7 @@ function warn(name, detail = "") {
   }
 
   await runEnrichTest(`Арт. ${KEY_STEEL_SKU}`, "exact SKU enrich", {
-    chatHistory: [
-      { role: "user", content: KEY_STEEL_QUERY },
-    ],
+    chatHistory: [{ role: "user", content: KEY_STEEL_QUERY }],
   });
 
   await runEnrichTest("какая цена?", "price follow-up enrich", {
@@ -230,7 +247,10 @@ function warn(name, detail = "") {
   printSummary();
   process.exit(results.some((r) => !r.ok) ? 1 : 0);
 })().catch((e) => {
-  shopDbLog.error("verify script crashed", { error: e.message, stack: e.stack });
+  shopDbLog.error("verify script crashed", {
+    error: e.message,
+    stack: e.stack,
+  });
   process.exit(1);
 });
 
@@ -271,7 +291,10 @@ async function runEnrichTest(message, testName, options = {}) {
         fail(`${testName} → LLM context`, llmCheck.reason);
       }
     } else {
-      fail(testName, `0 products in ${ms}ms (hits=${flags.shopDbSearchHitCount ?? 0})`);
+      fail(
+        testName,
+        `0 products in ${ms}ms (hits=${flags.shopDbSearchHitCount ?? 0})`
+      );
     }
   } catch (e) {
     fail(testName, e.message);
@@ -288,7 +311,9 @@ async function runProductAgentTest() {
     const okMatch =
       top &&
       String(top.name || "").includes("30x30") &&
-      String(top.name || "").toLowerCase().includes("шпон");
+      String(top.name || "")
+        .toLowerCase()
+        .includes("шпон");
     if (okMatch) {
       ok(
         "product search agent",

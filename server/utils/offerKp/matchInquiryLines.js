@@ -166,7 +166,15 @@ function positivePrice(value) {
  * Приоритет: exact → analog → in_stock → остальные.
  * Дешёвый SKU — только среди одинаковой технической сигнтуры (не M10x70 vs M10x80).
  */
-function pickBestInquiryAlternative(alternatives = []) {
+function exactCatalogNameKey(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pickBestInquiryAlternative(alternatives = [], queryText = "") {
   const list = (alternatives || []).filter(Boolean).map((alt) => ({
     ...alt,
     _signature:
@@ -175,6 +183,16 @@ function pickBestInquiryAlternative(alternatives = []) {
       buildProductSignature({ name: alt.name, id: alt.productId || alt.id }),
   }));
   if (!list.length) return null;
+
+  const queryNameKey = exactCatalogNameKey(queryText);
+  if (queryNameKey) {
+    const literalExact = list.find(
+      (candidate) =>
+        candidate.matchType === "exact" &&
+        exactCatalogNameKey(candidate.name) === queryNameKey
+    );
+    if (literalExact) return literalExact;
+  }
 
   const byType = (type) => list.filter((a) => a.matchType === type);
   const exact = byType("exact");
@@ -540,11 +558,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // beats live search — see goldenCorrections.js.
   // Also accept pasted expected.csv rows that already carry matched_sku.
   let override = findGoldenCorrection([inquiryLine.raw, inquiryLine.name]);
-  if (
-    !override?.sku &&
-    inquiryLine.sku &&
-    String(inquiryLine.sku).trim()
-  ) {
+  if (!override?.sku && inquiryLine.sku && String(inquiryLine.sku).trim()) {
     const hint = String(inquiryLine.matchTypeHint || "").toLowerCase();
     override = {
       sourceName: inquiryLine.name || inquiryLine.raw,
@@ -585,7 +599,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         message: searchText,
         chatHistory: options.chatHistory,
         workspace: options.workspace,
-        limit: 8,
+        limit: 50,
         // A single inquiry line must be ranked on its own. Prepending the complete
         // PDF made every line share almost the same search text and candidates.
         parsedFileTexts: null,
@@ -602,7 +616,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
           searchText,
           parsed: parseHardwareQuery(searchText),
           existingProducts: [],
-          limit: 8,
+          limit: 50,
           workspace: options.workspace,
         });
         products = fallback.products || [];
@@ -613,7 +627,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   // Stock lookup is already batched, so validate the full retrieval window.
   // Truncating it to five could hide the cheapest valid positive-price analog.
-  const candidates = products.slice(0, 8);
+  const candidates = products.slice(0, 50);
   const retrieverDisagreement = detectRetrieverDisagreement(candidates);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   let alternatives = candidates.map((product) => {
@@ -682,7 +696,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     enrichmentMeta = { blocking: enriched.blocking };
   }
 
-  let best = pickBestInquiryAlternative(alternatives);
+  let best = pickBestInquiryAlternative(alternatives, searchText);
   // Только exact/analog дают цену и имя из каталога.
   // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
   let accepted =

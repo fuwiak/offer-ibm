@@ -20,21 +20,21 @@ describe("retrievalFusion", () => {
     expect(fused[0]._matchSources || []).toEqual([]);
   });
 
-  it("preserves dense/canonical meta when merging", () => {
+  it("preserves dense/BM25 meta when merging", () => {
     const merged = mergeCandidateMeta(
       { id: 1, _denseSimilarity: 0.91, _matchSources: ["catalog_dense"] },
-      { id: 1, _canonicalSimilarity: 0.4, _matchSources: ["canonical_catalog"] }
+      { id: 1, _bm25Score: 12.4, _matchSources: ["catalog_bm25"] }
     );
     expect(merged._denseSimilarity).toBe(0.91);
-    expect(merged._canonicalSimilarity).toBe(0.4);
+    expect(merged._bm25Score).toBe(12.4);
     expect(merged._matchSources).toEqual(
-      expect.arrayContaining(["catalog_dense", "canonical_catalog"])
+      expect.arrayContaining(["catalog_dense", "catalog_bm25"])
     );
   });
 
   it("ignores empty lists", () => {
-    expect(reciprocalRankFusion([[], null, [{ id: 7 }]]).map((r) => r.id)).toEqual([
-      7,
-    ]);
+    expect(
+      reciprocalRankFusion([[], null, [{ id: 7 }]]).map((r) => r.id)
+    ).toEqual([7]);
   });
 });

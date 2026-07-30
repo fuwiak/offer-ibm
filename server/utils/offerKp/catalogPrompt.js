@@ -221,6 +221,10 @@ function applyExternalContextsForLlm(
   }
 
   let finalUserPrompt = String(userPrompt || "").trim();
+  const { shopDbGateFailure } = require("./shopDbGate");
+  const hardFailure = allowShopDbContext
+    ? shopDbGateFailure(shopDbFlags || {})
+    : null;
   const catalogInjected = catalogBlocks.length > 0;
   if (catalogInjected) {
     finalUserPrompt = mergeCatalogIntoUserPrompt(
@@ -249,6 +253,7 @@ function applyExternalContextsForLlm(
     catalogInjected,
     catalogBlocks,
     inquiryDraft,
+    hardFailure,
   };
 }
 

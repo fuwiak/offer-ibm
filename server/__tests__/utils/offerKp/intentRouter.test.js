@@ -78,4 +78,18 @@ describe("OfferKP deterministic intent router", () => {
     );
     expect(needsLlmIntentJudge(routeOfferKpMessage("кп"))).toBe(true);
   });
+
+  it("uses prior product context for a short price follow-up", () => {
+    expect(
+      shouldRunShopEnrich("какая цена?", {
+        chatHistory: [
+          {
+            role: "user",
+            content: "Сталь шпоночная ГОСТ 8787-68 30x30x1000 / DIN 6880",
+          },
+        ],
+      })
+    ).toBe(true);
+    expect(shouldRunShopEnrich("какая цена?")).toBe(false);
+  });
 });

@@ -18,7 +18,8 @@
     "verify:offerkp-env": "node ../scripts/verify-offerkp-env.cjs",
     "test:shopdb-enrich": "node ../scripts/verify-offerkp-env.cjs",
     "test:shopdb": "jest __tests__/utils/offerKp --runInBand",
-    "sync:shopdb-canonical": "node ../scripts/sync-shopdb-canonical-index.cjs"
+    "sync:shopdb-canonical": "node ../scripts/sync-shopdb-canonical-index.cjs",
+    "audit:shopdb-random": "node ../scripts/audit-shopdb-random-sample.cjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -41,6 +42,7 @@
     "@mintplex-labs/express-ws": "^5.0.7",
     "@mintplex-labs/mdpdf": "^0.1.9",
     "@modelcontextprotocol/sdk": "^1.24.3",
+    "@orama/orama": "3.1.2",
     "@pinecone-database/pinecone": "^2.0.1",
     "@prisma/client": "5.3.1",
     "@qdrant/js-client-rest": "^1.9.0",

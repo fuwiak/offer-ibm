@@ -21,7 +21,7 @@ const ANALOG_RULES = [
   },
   {
     din: "933",
-    analogs: ["7805", "4017"],
+    analogs: ["7798", "7805", "4017"],
     productType: "болт",
     matchRule: "thread_coating_strength",
     label: "DIN 933 → ГОСТ 7805-70, ISO 4017",
@@ -285,7 +285,19 @@ function productTypeMatches(nameNorm, requestedTypes = [], rule = null) {
   );
 }
 
-function requestedSpecsMatch(nameNorm, parsed, rule = null, requestText = "") {
+function strengthRank(value) {
+  const match = String(value || "").match(/\b(\d+)(?:[.,](\d+))?\b/);
+  if (!match) return null;
+  return Number(match[1]) * 100 + Number(match[2] || 0);
+}
+
+function requestedSpecsMatch(
+  nameNorm,
+  parsed,
+  rule = null,
+  requestText = "",
+  options = {}
+) {
   if (!productTypeMatches(nameNorm, parsed.productTypes || [], rule)) {
     return { ok: false, reason: "product_type" };
   }
@@ -304,7 +316,18 @@ function requestedSpecsMatch(nameNorm, parsed, rule = null, requestText = "") {
       nameNorm
     )
   ) {
-    return { ok: false, reason: "strength_class" };
+    const requestedRank = strengthRank(parsed.strengthClass);
+    const candidateRank = strengthRank(
+      nameNorm.match(/(?:класс|class|кл\.?\s*пр\.?)?\s*(\d{1,2}[.,]\d)\b/i)?.[1]
+    );
+    if (
+      !options.allowBetterStrength ||
+      requestedRank == null ||
+      candidateRank == null ||
+      candidateRank < requestedRank
+    ) {
+      return { ok: false, reason: "strength_class" };
+    }
   }
   return { ok: true, reason: null };
 }
@@ -321,9 +344,11 @@ function findRuleForStandard(stdNum) {
 
 function getEquivalentStandards(stdNum) {
   const n = String(stdNum);
-  const rule = ANALOG_RULES.find((r) => r.din === n || r.analogs.includes(n));
-  if (!rule) return [n];
-  return [rule.din, ...rule.analogs];
+  const matching = ANALOG_RULES.filter(
+    (rule) => rule.din === n || rule.analogs.includes(n)
+  );
+  if (!matching.length) return [n];
+  return [...new Set(matching.flatMap((rule) => [rule.din, ...rule.analogs]))];
 }
 
 /**
@@ -476,7 +501,9 @@ function classifyProductMatch(requestText, product) {
       }
       if (!size.ok) continue;
 
-      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText);
+      const specs = requestedSpecsMatch(nameNorm, parsed, rule, requestText, {
+        allowBetterStrength: true,
+      });
       if (!specs.ok) {
         return {
           matchType: "spec_mismatch",

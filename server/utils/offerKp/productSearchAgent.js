@@ -30,7 +30,11 @@ const {
   detectAnalogIntent,
   expandDinNumbersWithEquivalents,
 } = require("./analogRules");
-const { nameSimilarityScore } = require("./nameSimilarity");
+const {
+  nameSimilarityScore,
+  searchByNameSimilarity,
+  applyCatalogCandidateQuota,
+} = require("./nameSimilarity");
 const { searchProductsExtended } = require("./shopDbSearch");
 const {
   isRerankerEnabled,
@@ -65,6 +69,7 @@ const PRODUCT_SELECT = `
 const SKU_RE = /\b(\d{8,18})\b/g;
 const ART_PREFIX_RE =
   /(?:арт\.?|art\.?|sku\s*:?\s*#?\s*|код\s*:?\s*)(\d{5,18})/gi;
+const RETRIEVAL_WINDOW = 50;
 
 function sqlLimit(limit) {
   return Math.max(1, Math.min(50, parseInt(limit, 10) || 5));
@@ -485,6 +490,16 @@ async function runProductSearchAgent({
     products = mergeProductHits([products, baseProducts]);
   }
 
+  const ragHits = await searchByNameSimilarity(
+    searchText,
+    searchTerms,
+    RETRIEVAL_WINDOW
+  );
+  if (ragHits.length) {
+    strategies.push("catalog_bm25", "catalog_dense", "rrf");
+    products = mergeProductHits([products, ragHits]);
+  }
+
   if (shopDbSearchAgentEnabled()) {
     const agentParsed = {
       ...parseExtendedHardwareQuery(searchText),
@@ -528,6 +543,11 @@ async function runProductSearchAgent({
     parsed,
     skuCodes,
     message
+  );
+  products = applyCatalogCandidateQuota(
+    searchText,
+    products,
+    Math.max(limit, RETRIEVAL_WINDOW)
   );
 
   if (skuOnly && skuCodes.length) {
@@ -579,6 +599,7 @@ async function runProductSearchAgent({
 }
 
 module.exports = {
+  RETRIEVAL_WINDOW,
   buildProductSearchText,
   collectPriorHardwareContext,
   extractSkuCodes,

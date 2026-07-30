@@ -67,6 +67,24 @@ describe("catalogPrompt", () => {
     expect(result.sources).toEqual([]);
   });
 
+  it("exposes a hard failure instead of sending a product request to the LLM", () => {
+    const result = applyExternalContextsForLlm("цена болта DIN 933 M10x25", [
+      {
+        kind: "shopdb",
+        contextTexts: [],
+        sources: [],
+        flags: {
+          shopDbGateCode: "INDEX_NOT_READY",
+          shopDbIndexNotReady: true,
+        },
+      },
+    ]);
+
+    expect(result.catalogInjected).toBe(false);
+    expect(result.hardFailure.code).toBe("INDEX_NOT_READY");
+    expect(result.hardFailure.text).toMatch(/индекс/i);
+  });
+
   it("extracts catalog blocks from prior chat history", () => {
     const priorPrompt = mergeCatalogIntoUserPrompt("какая цена?", [
       sampleBlock,

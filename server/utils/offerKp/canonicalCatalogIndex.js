@@ -30,8 +30,8 @@ const {
 const { getShopDbHistoryStore } = require("./shopDbHistoryStore");
 const shopDbLog = require("./shopDbLog");
 
-/** v4 = structured snapshot + separate SQLite history + LanceDB vectors. */
-const INDEX_VERSION = 4;
+/** v5 = v4 + sparse BM25 metadata (SKU, summary and description). */
+const INDEX_VERSION = 5;
 const DEFAULT_EMBEDDING_MODEL =
   EMBEDDING_MODEL || "MintplexLabs/multilingual-e5-small";
 const INDEX_DIR = process.env.STORAGE_DIR
@@ -171,7 +171,12 @@ function signatureForProduct(product = {}) {
 
 async function fetchActiveProducts() {
   return query(`
-    SELECT p.id, p.name, c.name AS category_name
+    SELECT p.id, p.name, p.summary, p.description, c.name AS category_name,
+           (
+             SELECT GROUP_CONCAT(DISTINCT s.sku ORDER BY s.sort SEPARATOR ',')
+             FROM ${TABLES.productSkus} s
+             WHERE s.product_id = p.id AND s.sku <> ''
+           ) AS sku_codes
     FROM ${TABLES.product} p
     LEFT JOIN ${TABLES.category} c ON c.id = p.category_id
     WHERE p.status = 1
@@ -548,6 +553,12 @@ async function syncCanonicalCatalogIndex({ force = false } = {}) {
           productId: Number(product.id),
           name: product.name,
           categoryName: product.category_name || null,
+          skuCodes: String(product.sku_codes || "")
+            .split(",")
+            .map((sku) => sku.trim())
+            .filter(Boolean),
+          summary: String(product.summary || "").slice(0, 2_000),
+          description: String(product.description || "").slice(0, 4_000),
           canonicalText,
           signature,
           hash,
@@ -643,6 +654,11 @@ function resetCanonicalCatalogCaches() {
   vectorIndexCache = null;
   vectorIndexInjectedForTests = false;
   syncPromise = null;
+  try {
+    require("./shopDbBm25Index").resetShopDbBm25Index();
+  } catch {
+    /* optional sparse index */
+  }
 }
 
 function setVectorIndexForTests(index) {

@@ -18,6 +18,7 @@ function mergeCandidateMeta(previous, next) {
       previous._denseSimilarity ?? next._denseSimilarity ?? null,
     _canonicalSimilarity:
       previous._canonicalSimilarity ?? next._canonicalSimilarity ?? null,
+    _bm25Score: previous._bm25Score ?? next._bm25Score ?? null,
     _rrfScore: Math.max(previous._rrfScore || 0, next._rrfScore || 0),
     _matchSources: [
       ...new Set([
