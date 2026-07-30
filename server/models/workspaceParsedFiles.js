@@ -402,21 +402,43 @@ const WorkspaceParsedFiles = {
       for (const file of files) {
         const metadata = safeJsonParse(file.metadata, {});
         const location = metadata.location;
-        if (!location) continue;
+        let pageContent = null;
 
-        const sourceFile = path.join(
-          directUploadsPath,
-          path.basename(location)
-        );
-        if (!fs.existsSync(sourceFile)) continue;
+        if (location) {
+          const sourceFile = path.join(
+            directUploadsPath,
+            path.basename(location)
+          );
+          if (fs.existsSync(sourceFile)) {
+            const content = fs.readFileSync(sourceFile, "utf-8");
+            const data = safeJsonParse(content, null);
+            pageContent = data?.pageContent || null;
+          }
+        }
 
-        const content = fs.readFileSync(sourceFile, "utf-8");
-        const data = safeJsonParse(content, null);
-        if (!data?.pageContent) continue;
+        // Vision recovery used to strip pageContent and omit location; rebuild
+        // from inline metadata / ocrLines so older broken rows still work.
+        if (!pageContent?.trim()) {
+          pageContent = metadata.pageContent || null;
+        }
+        if (!pageContent?.trim() && Array.isArray(metadata.ocrLines)) {
+          try {
+            const {
+              inquiryTextFromOcrJsonLines,
+            } = require("../utils/offerKp/offerKpVisionOcr");
+            pageContent = inquiryTextFromOcrJsonLines(metadata.ocrLines);
+          } catch {
+            pageContent = null;
+          }
+        }
+        if (!pageContent?.trim()) continue;
 
         results.push({
-          pageContent: data.pageContent,
-          title: file.filename?.replace(/-\d+\.json$/i, "") || metadata.title,
+          pageContent,
+          title:
+            file.filename?.replace(/-[0-9a-f-]{36}\.json$/i, "") ||
+            file.filename?.replace(/-\d+\.json$/i, "") ||
+            metadata.title,
           token_count_estimate: file.tokenCountEstimate,
           ...metadata,
         });

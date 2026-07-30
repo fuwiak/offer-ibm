@@ -24,6 +24,7 @@ const { writeResponseChunk } = require("../utils/helpers/chat/responses");
 const {
   enrichDocumentsWithOfferKpOcr,
   ocrArchivedOriginalAsDocuments,
+  ensureDocumentId,
 } = require("../utils/offerKp/offerKpDocumentIngest");
 
 /** FormData may send the literal string "null"/"undefined" — treat those as absent. */
@@ -393,7 +394,9 @@ function workspaceParsedFilesEndpoints(app) {
             }
             // Strip out pageContent
             delete metadata.pageContent;
-            const filename = `${originalname}-${doc.id}.json`;
+            const docId = ensureDocumentId(doc);
+            metadata.id = docId;
+            const filename = `${originalname}-${docId}.json`;
             const { file, error: dbError } = await WorkspaceParsedFiles.create({
               filename,
               workspaceId: workspace.id,
@@ -426,7 +429,10 @@ function workspaceParsedFilesEndpoints(app) {
         });
       } catch (e) {
         console.error(e.message, e);
-        return response.sendStatus(500).end();
+        return response.status(500).json({
+          success: false,
+          error: e?.message || "A processing error occurred.",
+        });
       }
     }
   );
@@ -543,7 +549,9 @@ function workspaceParsedFilesEndpoints(app) {
               metadata.originalFilename = originalname;
             }
             delete metadata.pageContent;
-            const filename = `${originalname}-${doc.id}.json`;
+            const docId = ensureDocumentId(doc);
+            metadata.id = docId;
+            const filename = `${originalname}-${docId}.json`;
             const { file, error: dbError } = await WorkspaceParsedFiles.create({
               filename,
               workspaceId: workspace.id,
@@ -573,7 +581,13 @@ function workspaceParsedFilesEndpoints(app) {
       } catch (e) {
         console.error(e.message, e);
         try {
-          send({ type: "error", error: "A processing error occurred." });
+          const msg = String(e?.message || "");
+          send({
+            type: "error",
+            error: /Unique constraint/i.test(msg)
+              ? "This file was already parsed with a conflicting id. Re-upload after refresh, or delete the previous attachment."
+              : msg || "A processing error occurred.",
+          });
         } catch {
           /* response may already be closed */
         }

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { textQualityReport } = require("./pdfTextQuality");
 const { assessInquiryTextQuality } = require("./inquiryTextQuality");
 const { parseInquiryText } = require("./parseInquiry");
@@ -13,6 +14,67 @@ const { safeJsonParse } = require("../http");
 const { offerKpLog } = require("../offerKpApp/offerKpLog");
 const { ensurePipelineModelLoaded } = require("./offerKpModelPipeline");
 const { runQueuedVisionOcr } = require("./queue/runQueuedVisionOcr");
+
+/** Prefer real UUID; never use numeric 0 — DB filename is unique on `${name}-${id}.json`. */
+function ensureDocumentId(doc = {}) {
+  const raw = doc?.id != null ? String(doc.id).trim() : "";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+    return raw;
+  }
+  return randomUUID();
+}
+
+/**
+ * Vision recovery stubs have no collector `location`. Persist pageContent under
+ * direct-uploads so WorkspaceParsedFiles.getContextFiles can read it later.
+ */
+function ensureVisionDocumentOnDisk(doc, originalFilename = "") {
+  if (!doc?.pageContent?.trim()) return doc;
+  const id = ensureDocumentId(doc);
+  if (doc.location) {
+    const existing = path.join(directUploadsPath, path.basename(doc.location));
+    if (fs.existsSync(existing)) {
+      return { ...doc, id };
+    }
+  }
+
+  if (!fs.existsSync(directUploadsPath)) {
+    fs.mkdirSync(directUploadsPath, { recursive: true });
+  }
+
+  const safeBase = String(originalFilename || doc.title || "upload")
+    .replace(/[^\w.\-()+ ]+/g, "_")
+    .replace(/\s+/g, "-")
+    .slice(0, 120);
+  const fileBase = `${safeBase}-${id}`;
+  const destPath = path.join(directUploadsPath, `${fileBase}.json`);
+  const payload = {
+    id,
+    url: `file://${destPath}`,
+    title: originalFilename || doc.title || fileBase,
+    docAuthor: doc.docAuthor || "no author found",
+    description: doc.description || "Vision OCR of uploaded inquiry",
+    docSource:
+      doc.docSource ||
+      (isImageFilename(originalFilename)
+        ? "image file uploaded by the user."
+        : "pdf file uploaded by the user."),
+    chunkSource: doc.chunkSource || "",
+    pageContent: doc.pageContent,
+    token_count_estimate:
+      doc.token_count_estimate ||
+      Math.max(1, Math.ceil(String(doc.pageContent).length / 4)),
+    ocrEngine: doc.ocrEngine || null,
+    ...(doc.ocrLines ? { ocrLines: doc.ocrLines } : {}),
+  };
+  fs.writeFileSync(destPath, JSON.stringify(payload, null, 2), "utf8");
+  return {
+    ...doc,
+    id,
+    location: path.basename(destPath),
+    token_count_estimate: payload.token_count_estimate,
+  };
+}
 
 function isOfferKpVisionOcrEnabled() {
   const flag = String(process.env.OFFER_KP_USE_VISION_OCR ?? "1").trim();
@@ -215,16 +277,23 @@ async function enrichDocumentsWithOfferKpOcr({
       }
     );
 
-    const updated = applyVisionOcrText(documents, text, { engine, lines });
+    let updated = applyVisionOcrText(documents, text, { engine, lines });
+    updated = updated.map((doc, index) =>
+      index === 0 ? ensureVisionDocumentOnDisk(doc, originalFilename) : doc
+    );
     if (!persistDocumentPageContent(updated[0])) {
-      offerKpLog(
-        "warn",
-        "OfferKP ingest: vision OCR text not persisted to disk",
-        {
-          filename: originalFilename,
-          location: updated[0]?.location || null,
-        }
-      );
+      // ensureVisionDocumentOnDisk already wrote when location was missing;
+      // persistDocumentPageContent only updates an existing collector JSON.
+      if (!updated[0]?.location) {
+        offerKpLog(
+          "warn",
+          "OfferKP ingest: vision OCR text not persisted to disk",
+          {
+            filename: originalFilename,
+            location: updated[0]?.location || null,
+          }
+        );
+      }
     }
 
     onProgress?.({
@@ -268,7 +337,7 @@ async function ocrArchivedOriginalAsDocuments({
 
   const stub = [
     {
-      id: 0,
+      id: randomUUID(),
       title: originalFilename,
       pageContent: "",
       docSource: isImageFilename(originalFilename)
@@ -287,7 +356,9 @@ async function ocrArchivedOriginalAsDocuments({
   });
   const text = enriched?.[0]?.pageContent || "";
   if (!text.trim()) return [];
-  return enriched;
+  return enriched.map((doc, index) =>
+    index === 0 ? ensureVisionDocumentOnDisk(doc, originalFilename) : doc
+  );
 }
 
 module.exports = {
@@ -296,4 +367,6 @@ module.exports = {
   documentsNeedVisionOcr,
   enrichDocumentsWithOfferKpOcr,
   ocrArchivedOriginalAsDocuments,
+  ensureDocumentId,
+  ensureVisionDocumentOnDisk,
 };
