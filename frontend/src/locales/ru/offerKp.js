@@ -478,6 +478,7 @@ const TRANSLATIONS = {
     name: "Позиция",
     article: "Артикул",
     unit: "Ед.",
+    priceNet: "Цена без НДС",
     priceVat: "Цена с НДС",
     sum: "Сумма",
     weight: "Вес",
@@ -487,8 +488,13 @@ const TRANSLATIONS = {
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Коммент.",
     commentPlaceholder: "Комментарий",
+    addColumn: "Колонка",
+    addColumnTitle: "Добавить свою колонку в таблицу",
+    addColumnConfirm: "Добавить",
+    columnNamePlaceholder: "Название колонки",
+    removeColumn: "Удалить колонку",
     manualHint:
-      "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена, сумма, вес, статус, комментарий.",
+      "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена без/с НДС, сумма, вес, статус, комментарий. Можно добавить свои колонки.",
     reviewConfirm:
       "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
     teachAll: "В обучение",

@@ -450,6 +450,7 @@ const TRANSLATIONS = {
     name: "Pozycja",
     article: "Indeks",
     unit: "J.m.",
+    priceNet: "Cena netto",
     priceVat: "Cena brutto",
     sum: "Suma",
     weight: "Waga",
@@ -459,8 +460,13 @@ const TRANSLATIONS = {
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Uwaga",
     commentPlaceholder: "Komentarz",
+    addColumn: "Kolumna",
+    addColumnTitle: "Dodaj własną kolumnę do tabeli",
+    addColumnConfirm: "Dodaj",
+    columnNamePlaceholder: "Nazwa kolumny",
+    removeColumn: "Usuń kolumnę",
     manualHint:
-      "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena, suma, waga, status, komentarz.",
+      "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena netto/brutto, suma, waga, status, komentarz. Możesz dodać własne kolumny.",
     reviewConfirm:
       "{{count}} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę przed eksportem.",
     teachAll: "Do nauki",

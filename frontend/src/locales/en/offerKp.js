@@ -472,6 +472,7 @@ const TRANSLATIONS = {
     name: "Item",
     article: "SKU",
     unit: "Unit",
+    priceNet: "Price excl. VAT",
     priceVat: "Price w/ VAT",
     sum: "Total",
     weight: "Weight",
@@ -481,8 +482,13 @@ const TRANSLATIONS = {
     searchPlaceholder: "DIN 931 M8x40…",
     comment: "Note",
     commentPlaceholder: "Comment",
+    addColumn: "Column",
+    addColumnTitle: "Add a custom column to the table",
+    addColumnConfirm: "Add",
+    columnNamePlaceholder: "Column name",
+    removeColumn: "Remove column",
     manualHint:
-      "Edit any field: name, SKU, qty, unit, price, total, weight, status, comment.",
+      "Edit any field: name, SKU, qty, unit, price excl./incl. VAT, total, weight, status, comment. You can add custom columns.",
     reviewConfirm:
       "{{count}} line(s) need review. I confirm manual checks before export.",
     teachAll: "Teach model",

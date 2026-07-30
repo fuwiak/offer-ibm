@@ -25,12 +25,18 @@ const EMPTY_LINE = {
   quantity: 1,
   unit: "шт",
   priceWithVat: 0,
+  unitPriceNet: 0,
   lineTotal: 0,
   weightKg: 0,
   status: "Требует проверки",
   comment: "",
+  custom: {},
   alternatives: [],
 };
+
+function newCustomColumnId() {
+  return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
 
 function statusClass(status) {
   if (status === "В наличии") return "offerKp-status--ok";
@@ -119,8 +125,11 @@ export default function QuoteDraftTable() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [teaching, setTeaching] = useState(false);
+  const [columnPromptOpen, setColumnPromptOpen] = useState(false);
+  const [newColumnLabel, setNewColumnLabel] = useState("");
 
   const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const customColumns = quoteDraft?.customColumns || [];
   const { vatRate, currency } = localeForCountry(quoteDraft?.customer?.country);
   const reviewCount = useMemo(
     () => lines.filter(lineNeedsReview).length,
@@ -235,9 +244,16 @@ export default function QuoteDraftTable() {
     const old =
       field === "lineTotalGross"
         ? lineNetTotal(line, vatRate) * (1 + vatRate)
-        : field === "lineWeightKg"
-          ? lineTotalWeight(line)
-          : line[field];
+        : field === "unitPriceNet"
+          ? line.unitPriceNet ??
+            Number(
+              ((Number(line.priceWithVat) || 0) / (1 + vatRate)).toFixed(2)
+            )
+          : field === "lineWeightKg"
+            ? lineTotalWeight(line)
+            : field.startsWith("custom:")
+              ? line.custom?.[field.slice(7)] ?? ""
+              : line[field];
     if (field === "lineTotalGross") {
       const qty = Number(line.quantity) || 0;
       const gross = Number(value) || 0;
@@ -274,11 +290,29 @@ export default function QuoteDraftTable() {
           },
         };
       });
+    } else if (field === "unitPriceNet") {
+      const net = Number(value) || 0;
+      updateLine(index, {
+        unitPriceNet: Number(net.toFixed(2)),
+        priceWithVat: Number((net * (1 + vatRate)).toFixed(2)),
+      });
     } else if (field === "lineWeightKg") {
       updateLine(index, {
         lineWeightKg: Number(value) || 0,
         _weightEdited: true,
       });
+    } else if (field.startsWith("custom:")) {
+      const columnId = field.slice(7);
+      updateLine(
+        index,
+        {
+          custom: {
+            ...(line.custom || {}),
+            [columnId]: value,
+          },
+        },
+        opts
+      );
     } else {
       updateLine(index, { [field]: value }, opts);
     }
@@ -291,6 +325,41 @@ export default function QuoteDraftTable() {
         line
       );
     }
+  };
+
+  const addCustomColumn = () => {
+    const label = newColumnLabel.trim();
+    if (!label) return;
+    const id = newCustomColumnId();
+    setQuoteDraft((prev) => ({
+      ...prev,
+      customColumns: [...(prev.customColumns || []), { id, label }],
+    }));
+    setNewColumnLabel("");
+    setColumnPromptOpen(false);
+  };
+
+  const removeCustomColumn = (columnId) => {
+    setQuoteDraft((prev) => {
+      const current = prev.hardwareLines || prev.preview?.lines || [];
+      const nextLines = current.map((line) => {
+        if (!line.custom || !(columnId in line.custom)) return line;
+        const custom = { ...line.custom };
+        delete custom[columnId];
+        return { ...line, custom };
+      });
+      return {
+        ...prev,
+        customColumns: (prev.customColumns || []).filter(
+          (col) => col.id !== columnId
+        ),
+        hardwareLines: nextLines,
+        preview: {
+          ...(prev.preview || {}),
+          lines: nextLines,
+        },
+      };
+    });
   };
 
   const removeLine = (index) => {
@@ -559,7 +628,7 @@ export default function QuoteDraftTable() {
           <span className="text-[10px] text-theme-text-secondary">
             {t("draftTable.manualHint", {
               defaultValue:
-                "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена, сумма, вес, статус, комментарий.",
+                "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена без/с НДС, сумма, вес, статус, комментарий. Можно добавить свои колонки.",
             })}
           </span>
         </div>
@@ -597,8 +666,49 @@ export default function QuoteDraftTable() {
             <Plus size={13} />
             {t("quote.addLine")}
           </button>
+          <button
+            type="button"
+            onClick={() => setColumnPromptOpen((v) => !v)}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-theme-sidebar-border hover:bg-theme-sidebar-item-hover"
+            title={t("draftTable.addColumnTitle", {
+              defaultValue: "Добавить свою колонку в таблицу",
+            })}
+          >
+            <Plus size={13} />
+            {t("draftTable.addColumn", { defaultValue: "Колонка" })}
+          </button>
         </div>
       </div>
+
+      {columnPromptOpen && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-theme-sidebar-border bg-theme-bg-secondary">
+          <input
+            type="text"
+            autoFocus
+            value={newColumnLabel}
+            onChange={(e) => setNewColumnLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addCustomColumn();
+              if (e.key === "Escape") {
+                setColumnPromptOpen(false);
+                setNewColumnLabel("");
+              }
+            }}
+            placeholder={t("draftTable.columnNamePlaceholder", {
+              defaultValue: "Название колонки",
+            })}
+            className="flex-1 text-xs px-2 py-1.5 rounded border border-theme-sidebar-border bg-theme-bg-chat-input"
+          />
+          <button
+            type="button"
+            onClick={addCustomColumn}
+            disabled={!newColumnLabel.trim()}
+            className="px-2 py-1 rounded bg-primary-button text-white text-xs disabled:opacity-50"
+          >
+            {t("draftTable.addColumnConfirm", { defaultValue: "Добавить" })}
+          </button>
+        </div>
+      )}
 
       <div className="offerKp-draft-customer px-3 py-2 shrink-0 border-b border-theme-sidebar-border bg-theme-bg-secondary">
         <div className="offerKp-draft-customer__label">
@@ -690,12 +800,35 @@ export default function QuoteDraftTable() {
               <th>{t("quote.quantity")}</th>
               <th>{t("draftTable.unit", { defaultValue: "Ед." })}</th>
               <th>
+                {t("draftTable.priceNet", { defaultValue: "Цена без НДС" })}
+              </th>
+              <th>
                 {t("draftTable.priceVat", { defaultValue: "Цена с НДС" })}
               </th>
               <th>{t("draftTable.sum", { defaultValue: "Сумма" })}</th>
               <th>{t("draftTable.weight", { defaultValue: "Вес" })}</th>
               <th>{t("draftTable.status", { defaultValue: "Статус" })}</th>
               <th>{t("draftTable.comment", { defaultValue: "Коммент." })}</th>
+              {customColumns.map((col) => (
+                <th key={col.id} className="whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    <button
+                      type="button"
+                      onClick={() => removeCustomColumn(col.id)}
+                      title={t("draftTable.removeColumn", {
+                        defaultValue: "Удалить колонку",
+                      })}
+                      className="text-theme-text-secondary hover:text-red-500"
+                      aria-label={t("draftTable.removeColumn", {
+                        defaultValue: "Удалить колонку",
+                      })}
+                    >
+                      <Trash size={11} />
+                    </button>
+                  </span>
+                </th>
+              ))}
               <th />
             </tr>
           </thead>
@@ -786,6 +919,31 @@ export default function QuoteDraftTable() {
                     type="number"
                     min={0}
                     step={0.01}
+                    value={
+                      line.unitPriceNet ??
+                      Number(
+                        (
+                          (Number(line.priceWithVat) || 0) /
+                          (1 + vatRate)
+                        ).toFixed(2)
+                      )
+                    }
+                    onChange={(e) =>
+                      handleFieldChange(
+                        i,
+                        "unitPriceNet",
+                        Number(e.target.value),
+                        line
+                      )
+                    }
+                    className="w-20 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
                     value={line.priceWithVat ?? line.unitPrice ?? 0}
                     onChange={(e) =>
                       handleFieldChange(
@@ -865,6 +1023,23 @@ export default function QuoteDraftTable() {
                     className="w-full bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none text-[10px]"
                   />
                 </td>
+                {customColumns.map((col) => (
+                  <td key={col.id} className="min-w-[80px]">
+                    <input
+                      type="text"
+                      value={line.custom?.[col.id] ?? ""}
+                      onChange={(e) =>
+                        handleFieldChange(
+                          i,
+                          `custom:${col.id}`,
+                          e.target.value,
+                          line
+                        )
+                      }
+                      className="w-full bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none text-[10px]"
+                    />
+                  </td>
+                ))}
                 <td>
                   <div className="flex items-center gap-0.5">
                     <button
@@ -897,7 +1072,7 @@ export default function QuoteDraftTable() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={6} className="text-right font-medium">
+              <td colSpan={7} className="text-right font-medium">
                 {t("quote.total")}
               </td>
               <td className="text-right font-medium">
@@ -906,7 +1081,7 @@ export default function QuoteDraftTable() {
               <td className="text-right font-medium">
                 {totals.totalWeightKg.toFixed(3)} кг
               </td>
-              <td colSpan={3} />
+              <td colSpan={3 + customColumns.length} />
             </tr>
           </tfoot>
         </table>
