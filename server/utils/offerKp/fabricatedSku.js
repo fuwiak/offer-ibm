@@ -76,7 +76,10 @@ function stripFabricatedSkusFromText(text = "") {
     /((?:Артикул\s*(?:\/\s*SKU)?|SKU)\s*:\s*)([^\s\n*|]+)/gi,
     (full, label, sku) => (isFabricatedSku(sku) ? "" : full)
   );
-  return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return t
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**

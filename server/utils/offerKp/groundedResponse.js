@@ -112,13 +112,13 @@ function stripFabricatedProductLinks(text = "") {
     /^[^\n]*Ссылка\s*:\s*https?:\/\/[^\n]*\/product\/[^\n]*$/gim,
     ""
   );
-  t = t.replace(
-    /\[([^\]]*)\]\(https?:\/\/[^)]*\/product\/[^)]*\)/gi,
-    "$1"
-  );
+  t = t.replace(/\[([^\]]*)\]\(https?:\/\/[^)]*\/product\/[^)]*\)/gi, "$1");
   t = t.replace(/https?:\/\/[^\s)\]]*\/product\/[^\s)\]]*/gi, "");
   t = stripFabricatedSkusFromText(t);
-  return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return t
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** URLs / SKUs that came from ShopDB enrich or priced draft — never LLM. */
@@ -212,9 +212,7 @@ function formatGroundedDraftCard(line = {}) {
   const article = sanitizeSku(line.article || line.sku);
   const rows = [
     "[Каталог · purolat.com]",
-    publicUrl
-      ? `Товар: [${safeName}](${publicUrl})`
-      : `Товар: ${name}`,
+    publicUrl ? `Товар: [${safeName}](${publicUrl})` : `Товар: ${name}`,
     price > 0 ? `Цена: ${price.toFixed(2)} RUB` : "Цена: по запросу",
     article ? `Артикул / SKU: ${article}` : null,
     `ID товара (shop_product.id): ${productId}`,

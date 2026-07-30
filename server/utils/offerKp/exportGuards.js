@@ -23,8 +23,7 @@ const { PRICE_ELIGIBLE_MATCH_TYPES } = require("./matchEvidence");
 function assertExportGuards(input = {}) {
   const violations = [];
   const sourceLines = input.sourceLines || [];
-  const quoteLines =
-    input.quoteLines || input.draft?.lines || [];
+  const quoteLines = input.quoteLines || input.draft?.lines || [];
 
   if (sourceLines.length > 0 && sourceLines.length !== quoteLines.length) {
     violations.push({
@@ -48,10 +47,7 @@ function assertExportGuards(input = {}) {
       });
     }
 
-    if (
-      unitPrice > 0 &&
-      line.allowPrice === false
-    ) {
+    if (unitPrice > 0 && line.allowPrice === false) {
       violations.push({
         id: "price_when_allowPrice_false",
         message: `line[${i}] has price but allowPrice=false`,
@@ -87,11 +83,7 @@ function assertExportGuards(input = {}) {
 
     // selected product must match priced product when both set
     const evidenceId = line.evidence?.selected_product_id;
-    if (
-      evidenceId &&
-      productId &&
-      String(evidenceId) !== String(productId)
-    ) {
+    if (evidenceId && productId && String(evidenceId) !== String(productId)) {
       violations.push({
         id: "evidence_product_mismatch",
         message: `line[${i}] productId=${productId} vs evidence=${evidenceId}`,
@@ -101,10 +93,7 @@ function assertExportGuards(input = {}) {
   }
 
   if (input.requireSnapshot) {
-    const snap =
-      input.draft?.priceSnapshotId ||
-      input.priceSnapshotId ||
-      null;
+    const snap = input.draft?.priceSnapshotId || input.priceSnapshotId || null;
     if (!snap) {
       violations.push({
         id: "missing_shopdb_snapshot",
