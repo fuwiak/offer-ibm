@@ -5,6 +5,8 @@
 # Usage:
 #   bash scripts/deploy-lainey-sync.sh
 #   yarn deploy:lainey
+#   SKIP_FRONTEND=1 yarn deploy:lainey          # server-only: skip vite (~4 min)
+#   yarn deploy:lainey:server                   # same as SKIP_FRONTEND=1
 #
 # Live watch:
 #   offerkp build
@@ -17,6 +19,7 @@ REMOTE_APP="${OFFERKP_REMOTE_APP:-/opt/offer-kp/app}"
 REMOTE_SRC="${OFFERKP_REMOTE_SRC:-/opt/offer-kp/src}"
 DEPLOY_LOG="${OFFERKP_DEPLOY_LOG:-/opt/offer-kp/build.log}"
 READY_FILE="${OFFERKP_READY_FILE:-/opt/offer-kp/READY}"
+SKIP_FRONTEND_RAW="$(printf '%s' "${SKIP_FRONTEND:-0}" | tr '[:upper:]' '[:lower:]')"
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
 if [[ -f "$SSH_KEY" ]]; then
@@ -33,6 +36,13 @@ GIT_DATE="$(git log -1 --pretty=%ci)"
 GIT_SUBJECT="$(git log -1 --pretty=%s)"
 
 log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
+
+skip_frontend() {
+  case "$SKIP_FRONTEND_RAW" in
+    1 | true | yes | on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 remote() {
   ssh "${SSH_OPTS[@]}" "${USER}@${HOST}" "$@"
@@ -63,18 +73,26 @@ EOS
 
 log "Deploy ${GIT_HASH} → ${USER}@${HOST}:${REMOTE_APP}"
 log "  ${GIT_SUBJECT}"
+if skip_frontend; then
+  log "  SKIP_FRONTEND=1 — keep remote UI, sync server only"
+fi
 rotate_deploy_log
-remote_log "DEPLOY START ${GIT_HASH} ${GIT_SUBJECT}"
+remote_log "DEPLOY START ${GIT_HASH} ${GIT_SUBJECT}$(skip_frontend && printf ' SKIP_FRONTEND' || true)"
 
-log "==> Frontend build (VITE_API_BASE=/api)"
-remote_log "BUILD frontend"
-(
-  cd frontend
-  if [[ ! -d node_modules ]]; then
-    yarn install --frozen-lockfile || yarn install
-  fi
-  VITE_API_BASE=/api yarn build
-)
+if skip_frontend; then
+  log "==> Frontend build skipped (SKIP_FRONTEND=1)"
+  remote_log "BUILD frontend SKIPPED"
+else
+  log "==> Frontend build (VITE_API_BASE=/api)"
+  remote_log "BUILD frontend"
+  (
+    cd frontend
+    if [[ ! -d node_modules ]]; then
+      yarn install --frozen-lockfile || yarn install
+    fi
+    VITE_API_BASE=/api yarn build
+  )
+fi
 
 log "==> Ensure server deps present locally for rsync (production node_modules on server)"
 # Keep server/node_modules on the server — exclude from delete sync.
@@ -84,17 +102,29 @@ log "==> rsync → ${REMOTE_APP}"
 remote_log "RSYNC → ${REMOTE_APP}"
 remote "mkdir -p ${REMOTE_APP} ${REMOTE_SRC} /opt/offer-kp/data"
 
+RSYNC_EXCLUDES=(
+  --exclude node_modules
+  --exclude .git
+  --exclude '**/storage/**'
+  --exclude 'server/storage/**'
+  --exclude 'collector/hotdir/**'
+  --exclude 'collector/outputs/**'
+  --exclude '.env'
+  --exclude '.env.*'
+  --exclude 'cli/offerkp-ops'
+  --exclude 'frontend/bundleinspector.html'
+)
+if skip_frontend; then
+  # Do not wipe live UI assets when local vite build was skipped.
+  RSYNC_EXCLUDES+=(
+    --exclude 'frontend/dist'
+    --exclude 'frontend/build'
+    --exclude 'server/public'
+  )
+fi
+
 rsync -az --delete \
-  --exclude node_modules \
-  --exclude .git \
-  --exclude '**/storage/**' \
-  --exclude 'server/storage/**' \
-  --exclude 'collector/hotdir/**' \
-  --exclude 'collector/outputs/**' \
-  --exclude '.env' \
-  --exclude '.env.*' \
-  --exclude 'cli/offerkp-ops' \
-  --exclude 'frontend/bundleinspector.html' \
+  "${RSYNC_EXCLUDES[@]}" \
   -e "$RSYNC_SSH" \
   ./ "${USER}@${HOST}:${REMOTE_APP}/"
 
@@ -130,15 +160,25 @@ cd ${REMOTE_APP}/collector
 yarn install --production --frozen-lockfile || yarn install --production
 EOS
 
-log "==> Publish frontend → server/public + restart systemd"
-remote_log "RESTART offer-kp offer-kp-collector"
+if skip_frontend; then
+  log "==> Keep remote frontend/public + restart systemd"
+  remote_log "RESTART offer-kp offer-kp-collector (UI unchanged)"
+  PUBLISH_FRONTEND=0
+else
+  log "==> Publish frontend → server/public + restart systemd"
+  remote_log "RESTART offer-kp offer-kp-collector"
+  PUBLISH_FRONTEND=1
+fi
 remote "bash -s" <<EOS
 set -euo pipefail
+PUBLISH_FRONTEND=${PUBLISH_FRONTEND}
 mkdir -p ${REMOTE_APP}/server/public
-if [ -d ${REMOTE_APP}/frontend/dist ]; then
-  cp -a ${REMOTE_APP}/frontend/dist/. ${REMOTE_APP}/server/public/
-elif [ -d ${REMOTE_APP}/frontend/build ]; then
-  cp -a ${REMOTE_APP}/frontend/build/. ${REMOTE_APP}/server/public/
+if [ "\$PUBLISH_FRONTEND" = "1" ]; then
+  if [ -d ${REMOTE_APP}/frontend/dist ]; then
+    cp -a ${REMOTE_APP}/frontend/dist/. ${REMOTE_APP}/server/public/
+  elif [ -d ${REMOTE_APP}/frontend/build ]; then
+    cp -a ${REMOTE_APP}/frontend/build/. ${REMOTE_APP}/server/public/
+  fi
 fi
 # Preserve production .env if present under app tree
 if [ -f /opt/offer-kp/app/server/.env ]; then
@@ -166,7 +206,8 @@ for pair in \
   "SHOP_DB_BM25_TOP_K=40" \
   "SHOP_DB_DENSE_RESCUE_TOP_K=10" \
   "SHOP_DB_RRF_COMPATIBLE_LIMIT=45" \
-  "SHOP_DB_RRF_ANALOG_LIMIT=5"; do
+  "SHOP_DB_RRF_ANALOG_LIMIT=5" \
+  "SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC=0"; do
   key="\${pair%%=*}"
   if grep -q "^\${key}=" "\$ENV_FILE"; then
     sed -i "s|^\${key}=.*|\${pair}|" "\$ENV_FILE"
