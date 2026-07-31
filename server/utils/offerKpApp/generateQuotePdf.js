@@ -1,4 +1,7 @@
-const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
+const fs = require("fs");
+const path = require("path");
+const { PDFDocument, rgb } = require("pdf-lib");
+const fontkit = require("@pdf-lib/fontkit");
 const createFilesLib = require("../agents/aibitat/plugins/create-files/lib");
 const { QUOTE_BRAND, localeForCountry } = require("./quoteBrand");
 const { toPdfSafeText } = require("./pdfText");
@@ -12,9 +15,24 @@ const LINE = rgb(0.82, 0.82, 0.82);
 const WHITE = rgb(1, 1, 1);
 const HEADER_BG = rgb(0.22, 0.22, 0.22);
 
+const FONTS_DIR = path.join(__dirname, "fonts");
+
+async function embedCyrillicFonts(pdfDoc) {
+  pdfDoc.registerFontkit(fontkit);
+  const regularBytes = fs.readFileSync(
+    path.join(FONTS_DIR, "LiberationSans-Regular.ttf")
+  );
+  const boldBytes = fs.readFileSync(
+    path.join(FONTS_DIR, "LiberationSans-Bold.ttf")
+  );
+  const regular = await pdfDoc.embedFont(regularBytes, { subset: true });
+  const bold = await pdfDoc.embedFont(boldBytes, { subset: true });
+  return { regular, bold };
+}
+
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
-  return date.toLocaleDateString("en-GB", {
+  return date.toLocaleDateString("ru-RU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -60,7 +78,7 @@ function lineNetTotal(ql, vatRate) {
 
 /**
  * Generate quotation PDF — same data/columns as Сводка / Превью КП / DOCX.
- * Neutral white page (Helvetica cannot render Cyrillic → Latin labels).
+ * Liberation Sans embedded for Cyrillic (Russian КП).
  */
 async function generateQuotePdf(quoteData) {
   const {
@@ -93,19 +111,19 @@ async function generateQuotePdf(quoteData) {
   const grandTotal = net + vat;
 
   const brandCompany = toPdfSafeText(
-    docOverrides.brandCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+    docOverrides.brandCompany || QUOTE_BRAND.companyName
   );
   const brandTagline = toPdfSafeText(
-    docOverrides.brandTagline || QUOTE_BRAND.taglineLatin
+    docOverrides.brandTagline || QUOTE_BRAND.tagline
   );
   const brandWebsite = toPdfSafeText(
     docOverrides.brandWebsite || QUOTE_BRAND.website
   );
   const title = toPdfSafeText(
-    docOverrides.title || "COMMERCIAL OFFER"
-  ).replace(/КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ/i, "COMMERCIAL OFFER");
+    docOverrides.title || "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ"
+  );
   const supplierCompany = toPdfSafeText(
-    docOverrides.supplierCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+    docOverrides.supplierCompany || QUOTE_BRAND.companyName
   );
   const supplierAddress = toPdfSafeText(
     docOverrides.supplierAddress || QUOTE_BRAND.address
@@ -121,8 +139,7 @@ async function generateQuotePdf(quoteData) {
     : addDays(createdAt, 30);
 
   const pdfDoc = await PDFDocument.create();
-  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const { regular, bold } = await embedCyrillicFonts(pdfDoc);
 
   const pg = pdfDoc.addPage([595.28, 841.89]);
   const W = pg.getWidth();
@@ -182,12 +199,12 @@ async function generateQuotePdf(quoteData) {
   rightAlign(title, R, y, { font: bold, size: 12, color: BLACK });
   y -= 12;
   txt(brandTagline, L, y, { size: 7.5, color: MUTED });
-  rightAlign(`No. ${reference}`, R, y, { size: 8.5, color: GRAY });
+  rightAlign(`№ ${reference}`, R, y, { size: 8.5, color: GRAY });
   y -= 10;
   txt(brandWebsite, L, y, { size: 7.5, color: MUTED });
-  rightAlign(`Date: ${fmtDate(createdAt)}`, R, y, { size: 8.5, color: GRAY });
+  rightAlign(`Дата: ${fmtDate(createdAt)}`, R, y, { size: 8.5, color: GRAY });
   y -= 10;
-  rightAlign(`Valid until: ${fmtDate(validUntil)}`, R, y, {
+  rightAlign(`Действительно до: ${fmtDate(validUntil)}`, R, y, {
     size: 8.5,
     color: GRAY,
   });
@@ -198,8 +215,8 @@ async function generateQuotePdf(quoteData) {
   // Parties
   const midX = L + CW / 2 + 12;
   const partyY = y;
-  txt("SUPPLIER", L, y, { font: bold, size: 7.5, color: MUTED });
-  txt("CUSTOMER", midX, y, { font: bold, size: 7.5, color: MUTED });
+  txt("ПОСТАВЩИК", L, y, { font: bold, size: 7.5, color: MUTED });
+  txt("ПОКУПАТЕЛЬ", midX, y, { font: bold, size: 7.5, color: MUTED });
   y -= 12;
   txt(supplierCompany, L, y, { font: bold, size: 10 });
   txt(toPdfSafeText(customer.name || "—"), midX, y, {
@@ -226,7 +243,7 @@ async function generateQuotePdf(quoteData) {
   txt(
     toPdfSafeText(
       docOverrides.positionsLabel ||
-        `CATALOG ITEMS · ${QUOTE_BRAND.catalogLabel}`
+        `ПОЗИЦИИ КАТАЛОГА ${QUOTE_BRAND.catalogLabel.toUpperCase()}`
     ),
     L,
     y,
@@ -234,7 +251,7 @@ async function generateQuotePdf(quoteData) {
   );
   y -= 12;
 
-  // Table columns: Position | Article | Qty | Unit | Sum
+  // Table columns: Позиция | Артикул | Кол-во | Цена/шт | Сумма
   const COL = {
     name: L,
     article: L + CW * 0.42,
@@ -251,15 +268,15 @@ async function generateQuotePdf(quoteData) {
     color: HEADER_BG,
   });
   const hy = y - 11;
-  txt("POSITION", COL.name + 4, hy, { font: bold, size: 7, color: WHITE });
-  txt("ARTICLE", COL.article + 2, hy, { font: bold, size: 7, color: WHITE });
-  rightAlign("QTY", COL.unit - 4, hy, { font: bold, size: 7, color: WHITE });
-  rightAlign("PRICE/PC", COL.sum - 4, hy, {
+  txt("Позиция", COL.name + 4, hy, { font: bold, size: 7, color: WHITE });
+  txt("Артикул", COL.article + 2, hy, { font: bold, size: 7, color: WHITE });
+  rightAlign("Кол-во", COL.unit - 4, hy, { font: bold, size: 7, color: WHITE });
+  rightAlign("Цена/шт", COL.sum - 4, hy, {
     font: bold,
     size: 7,
     color: WHITE,
   });
-  rightAlign("SUM", R - 4, hy, { font: bold, size: 7, color: WHITE });
+  rightAlign("Сумма", R - 4, hy, { font: bold, size: 7, color: WHITE });
   y -= headerH;
 
   for (let i = 0; i < lines.length; i++) {
@@ -306,13 +323,13 @@ async function generateQuotePdf(quoteData) {
 
   // Totals
   const totalsX = R - 200;
-  txt("Subtotal", totalsX, y, { size: 8.5, color: GRAY });
+  txt("Подытог", totalsX, y, { size: 8.5, color: GRAY });
   rightAlign(fmtMoney(computedSubtotal), R - 2, y, { size: 8.5 });
   y -= 12;
-  txt("Delivery", totalsX, y, { size: 8.5, color: GRAY });
+  txt("Доставка", totalsX, y, { size: 8.5, color: GRAY });
   rightAlign(fmtMoney(ship), R - 2, y, { size: 8.5 });
   y -= 12;
-  txt(`VAT (${Math.round(vatRate * 100)}%)`, totalsX, y, {
+  txt(`НДС (${Math.round(vatRate * 100)}%)`, totalsX, y, {
     size: 8.5,
     color: GRAY,
   });
@@ -327,7 +344,7 @@ async function generateQuotePdf(quoteData) {
     height: 18,
     color: HEADER_BG,
   });
-  txt("TOTAL incl. VAT", totalsX, y - 12, {
+  txt("Итого с НДС", totalsX, y - 12, {
     font: bold,
     size: 9,
     color: WHITE,
@@ -340,14 +357,13 @@ async function generateQuotePdf(quoteData) {
   y -= 32;
 
   // Terms
-  txt("TERMS", L, y, { font: bold, size: 8, color: MUTED });
+  txt("УСЛОВИЯ", L, y, { font: bold, size: 8, color: MUTED });
   y -= 11;
   const terms = (
     docOverrides.terms || [
-      "Payment and shipment — as agreed with purolat.com sales.",
-      "Offer valid 30 days from document date.",
-      `Prices in ${currency}; items from ${QUOTE_BRAND.catalogLabel} catalog.`,
-      toPdfSafeText(QUOTE_BRAND.warrantyNote),
+      ...(QUOTE_BRAND.terms || []),
+      `Цены в ${currency}; позиции из каталога ${QUOTE_BRAND.catalogLabel}.`,
+      QUOTE_BRAND.warrantyNote,
     ]
   ).slice(0, 6);
   for (const t of terms) {
@@ -361,7 +377,7 @@ async function generateQuotePdf(quoteData) {
 
   y -= 10;
   txt(
-    toPdfSafeText(docOverrides.signOff || "Best regards,"),
+    toPdfSafeText(docOverrides.signOff || "С уважением,"),
     L,
     y,
     { font: bold, size: 9 }
@@ -369,7 +385,7 @@ async function generateQuotePdf(quoteData) {
   y -= 12;
   txt(
     toPdfSafeText(
-      docOverrides.signCompany || QUOTE_BRAND.companyNameLatin || "Purolat"
+      docOverrides.signCompany || QUOTE_BRAND.companyName
     ),
     L,
     y,
