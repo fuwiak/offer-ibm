@@ -1,3 +1,5 @@
+"use strict";
+
 const path = require("path");
 const {
   resolveModelsCacheDir,
@@ -5,6 +7,7 @@ const {
   inspectCachedModel,
   ensureCacheDir,
   pinTransformersCacheEnv,
+  ensureOnnxOnDisk,
 } = require("../../EmbeddingEngines/native/modelDiskCache");
 
 class NativeEmbeddingReranker {
@@ -92,15 +95,25 @@ class NativeEmbeddingReranker {
 
     NativeEmbeddingReranker.#initializationPromise = (async () => {
       try {
+        await ensureOnnxOnDisk(this.cacheDir, this.model, {
+          force: forceModelRefresh(),
+          fallbackHost: this.#fallbackHost.replace(/\/$/, ""),
+          log: (msg) => this.log(msg),
+        });
+        this.modelDownloaded = inspectCachedModel(
+          this.cacheDir,
+          this.model
+        ).complete;
+
         const { AutoModelForSequenceClassification, AutoTokenizer, env } =
           await import("@xenova/transformers");
-        pinTransformersCacheEnv(env, this.cacheDir);
-        this.modelDownloaded =
-          !forceModelRefresh() &&
-          inspectCachedModel(this.cacheDir, this.model).complete;
+        const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
+        pinTransformersCacheEnv(env, this.cacheDir, {
+          localOnly: useLocalOnly,
+        });
         this.log(
-          this.modelDownloaded
-            ? `cache hit: loading reranker suite from ${this.cacheDir}`
+          useLocalOnly
+            ? `using cached model at ${inspectCachedModel(this.cacheDir, this.model).onnxPath}`
             : `download: loading reranker suite into ${this.cacheDir}`
         );
         NativeEmbeddingReranker.#transformers = {
@@ -108,10 +121,6 @@ class NativeEmbeddingReranker {
           AutoTokenizer,
           env,
         };
-        // Attempt to load the model and tokenizer in this order:
-        // 1. From local file system cache
-        // 2. Download and cache from remote host (hf.co)
-        // 3. Download and cache from fallback host (cdn.offerKp.com)
         await this.#getPreTrainedModel();
         await this.#getPreTrainedTokenizer();
       } finally {
@@ -145,11 +154,11 @@ class NativeEmbeddingReranker {
               ? { local_files_only: true }
               : {
                   progress_callback: (p) => {
-                    if (p.status === "progress") {
-                      this.log(
-                        `[${this.host}] Downloading model ${this.model}... ${p?.progress}%`
-                      );
-                    }
+                    if (p.status !== "progress") return;
+                    if (String(p.file || "").endsWith(".onnx")) return;
+                    this.log(
+                      `[${this.host}] Downloading model ${this.model}... ${p?.progress}%`
+                    );
                   },
                 }),
           }
@@ -174,6 +183,8 @@ class NativeEmbeddingReranker {
       this.log(`Falling back to fallback host. ${this.#fallbackHost}`);
       NativeEmbeddingReranker.#transformers.env.remoteHost = this.#fallbackHost;
       NativeEmbeddingReranker.#transformers.env.remotePathTemplate = "{model}/";
+      NativeEmbeddingReranker.#transformers.env.allowRemoteModels = true;
+      this.modelDownloaded = false;
       return await this.#getPreTrainedModel();
     }
   }
@@ -201,11 +212,11 @@ class NativeEmbeddingReranker {
               ? { local_files_only: true }
               : {
                   progress_callback: (p) => {
-                    if (p.status === "progress") {
-                      this.log(
-                        `[${this.host}] Downloading tokenizer ${this.model}... ${p?.progress}%`
-                      );
-                    }
+                    if (p.status !== "progress") return;
+                    if (String(p.file || "").endsWith(".onnx")) return;
+                    this.log(
+                      `[${this.host}] Downloading tokenizer ${this.model}... ${p?.progress}%`
+                    );
                   },
                 }),
           }
@@ -230,6 +241,8 @@ class NativeEmbeddingReranker {
       this.log(`Falling back to fallback host. ${this.#fallbackHost}`);
       NativeEmbeddingReranker.#transformers.env.remoteHost = this.#fallbackHost;
       NativeEmbeddingReranker.#transformers.env.remotePathTemplate = "{model}/";
+      NativeEmbeddingReranker.#transformers.env.allowRemoteModels = true;
+      this.modelDownloaded = false;
       return await this.#getPreTrainedTokenizer();
     }
   }

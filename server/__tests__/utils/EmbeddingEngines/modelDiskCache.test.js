@@ -8,7 +8,10 @@ const {
   forceModelRefresh,
   modelCachePaths,
   pinTransformersCacheEnv,
+  purgeIncompleteOnnx,
+  minOnnxBytesFor,
   MIN_ONNX_BYTES,
+  MODEL_MIN_ONNX_BYTES,
 } = require("../../../utils/EmbeddingEngines/native/modelDiskCache");
 
 describe("modelDiskCache", () => {
@@ -32,14 +35,26 @@ describe("modelDiskCache", () => {
     expect(info.onnxPath).toBeNull();
   });
 
-  test("inspectCachedModel accepts quantized onnx above min size", () => {
-    const { onnxQuantized } = modelCachePaths(tmp, "Xenova/all-MiniLM-L6-v2");
+  test("inspectCachedModel accepts quantized onnx above model min size", () => {
+    const modelId = "Xenova/all-MiniLM-L6-v2";
+    const { onnxQuantized } = modelCachePaths(tmp, modelId);
     fs.mkdirSync(path.dirname(onnxQuantized), { recursive: true });
-    fs.writeFileSync(onnxQuantized, Buffer.alloc(MIN_ONNX_BYTES));
-    const info = inspectCachedModel(tmp, "Xenova/all-MiniLM-L6-v2");
+    const size = minOnnxBytesFor(modelId);
+    fs.writeFileSync(onnxQuantized, Buffer.alloc(size));
+    const info = inspectCachedModel(tmp, modelId);
     expect(info.complete).toBe(true);
     expect(info.onnxPath).toBe(onnxQuantized);
-    expect(info.size).toBe(MIN_ONNX_BYTES);
+    expect(info.size).toBe(size);
+  });
+
+  test("inspectCachedModel rejects e5 stub below 100MB floor", () => {
+    const modelId = "MintplexLabs/multilingual-e5-small";
+    const { onnxQuantized } = modelCachePaths(tmp, modelId);
+    fs.mkdirSync(path.dirname(onnxQuantized), { recursive: true });
+    // 16MB partial would previously pass MIN_ONNX_BYTES=1MB and lie "complete"
+    fs.writeFileSync(onnxQuantized, Buffer.alloc(16_000_000));
+    expect(inspectCachedModel(tmp, modelId).complete).toBe(false);
+    expect(MODEL_MIN_ONNX_BYTES[modelId]).toBeGreaterThan(16_000_000);
   });
 
   test("inspectCachedModel rejects tiny/corrupt onnx", () => {
@@ -49,9 +64,19 @@ describe("modelDiskCache", () => {
     );
     fs.mkdirSync(path.dirname(onnxQuantized), { recursive: true });
     fs.writeFileSync(onnxQuantized, Buffer.alloc(100));
-    expect(inspectCachedModel(tmp, "MintplexLabs/multilingual-e5-small").complete).toBe(
-      false
-    );
+    expect(
+      inspectCachedModel(tmp, "MintplexLabs/multilingual-e5-small").complete
+    ).toBe(false);
+  });
+
+  test("purgeIncompleteOnnx removes undersized weights", () => {
+    const modelId = "Xenova/all-MiniLM-L6-v2";
+    const { onnxQuantized } = modelCachePaths(tmp, modelId);
+    fs.mkdirSync(path.dirname(onnxQuantized), { recursive: true });
+    fs.writeFileSync(onnxQuantized, Buffer.alloc(1000));
+    const removed = purgeIncompleteOnnx(tmp, modelId);
+    expect(removed).toContain(onnxQuantized);
+    expect(fs.existsSync(onnxQuantized)).toBe(false);
   });
 
   test("forceModelRefresh reads NATIVE_EMBEDDER_FORCE_REFRESH", () => {
@@ -65,13 +90,20 @@ describe("modelDiskCache", () => {
       cacheDir: "/tmp/wrong",
       localModelPath: "/tmp/wrong2",
       allowLocalModels: false,
+      allowRemoteModels: true,
       useFSCache: false,
     };
-    pinTransformersCacheEnv(env, tmp);
+    pinTransformersCacheEnv(env, tmp, { localOnly: true });
     expect(env.cacheDir).toBe(tmp);
     expect(env.localModelPath).toBe(tmp);
     expect(env.allowLocalModels).toBe(true);
+    expect(env.allowRemoteModels).toBe(false);
     expect(env.useFSCache).toBe(true);
     expect(fs.existsSync(tmp)).toBe(true);
+    expect(process.env.TRANSFORMERS_CACHE).toBe(tmp);
+  });
+
+  test("MIN_ONNX_BYTES floor still exported", () => {
+    expect(MIN_ONNX_BYTES).toBeGreaterThanOrEqual(1_000_000);
   });
 });

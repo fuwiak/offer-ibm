@@ -9,11 +9,17 @@ const {
   forceModelRefresh,
   inspectCachedModel,
   ensureCacheDir,
+  pinProcessCacheEnv,
   pinTransformersCacheEnv,
+  ensureOnnxOnDisk,
+  sidecarsPresent,
 } = require("./modelDiskCache");
 
 /** @type {Map<string, Promise<any>>} modelId -> in-flight / resolved pipeline */
 const sharedPipelineByModel = new Map();
+
+// Pin cache path before any @xenova/transformers import in this process.
+pinProcessCacheEnv(resolveModelsCacheDir());
 
 class NativeEmbedder {
   static defaultModel = "Xenova/all-MiniLM-L6-v2";
@@ -142,18 +148,41 @@ class NativeEmbedder {
     }
   }
 
-  async #fetchWithHost(hostOverride = null) {
+  async #ensureWeightsOnDisk() {
+    const info = await ensureOnnxOnDisk(this.cacheDir, this.model, {
+      force: forceModelRefresh(),
+      fallbackHost: this.#fallbackHost.replace(/\/$/, ""),
+      log: (msg) => this.log(msg),
+    });
+    this.modelDownloaded = Boolean(info.complete);
+    return info;
+  }
+
+  /**
+   * @param {string|null} hostOverride
+   * @param {{ allowRemoteSidecars?: boolean }} [opts]
+   */
+  async #fetchWithHost(hostOverride = null, opts = {}) {
     try {
+      // Weights must already be on disk — we stream them ourselves. xenova only
+      // loads (plus small tokenizer/config sidecars on first run).
+      const weights = await this.#ensureWeightsOnDisk();
+      const useLocalOnly =
+        weights.complete &&
+        sidecarsPresent(this.cacheDir, this.model) &&
+        !forceModelRefresh() &&
+        !opts.allowRemoteSidecars;
+
       // Convert ESM to CommonJS via import so we can load this library.
       const pipeline = (...args) =>
         import("@xenova/transformers").then(({ pipeline, env }) => {
-          pinTransformersCacheEnv(env, this.cacheDir);
+          pinTransformersCacheEnv(env, this.cacheDir, {
+            localOnly: useLocalOnly,
+          });
 
-          const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
           if (useLocalOnly) {
-            // Skip Hub entirely — progress_callback on cache hits still looks
-            // like a download in xenova, so never attach it for local loads.
-            this.log(`cache hit: loading ${this.model} from disk`);
+            // Never attach progress_callback: xenova fires it on cache reads
+            // and it looks like a download stuck at N%.
             return pipeline(...args);
           }
 
@@ -162,20 +191,30 @@ class NativeEmbedder {
             env.remotePathTemplate = "{model}/"; // Our S3 fallback url does not support revision File structure.
           }
           this.log(
-            `download: fetching ${this.model} from ${env.remoteHost} → ${this.cacheDir}`
+            `sidecar fetch: ${this.model} via ${env.remoteHost} (onnx already local)`
           );
           return pipeline(...args);
         });
 
-      const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
       return {
         pipeline: await pipeline("feature-extraction", this.model, {
           cache_dir: this.cacheDir,
+          // Prefer local_files_only when onnx is complete. Sidecar JSON may
+          // still be missing on a brand-new cache — then one remote pass
+          // without progress spam for the big onnx (already on disk).
           ...(useLocalOnly
             ? { local_files_only: true }
             : {
                 progress_callback: (data) => {
                   if (!data.hasOwnProperty("progress")) return;
+                  // onnx is streamed by ensureOnnxOnDisk — ignore xenova's
+                  // fake "download" progress for weights already on disk.
+                  if (
+                    String(data.file || "").includes("model_quantized.onnx") ||
+                    String(data.file || "").endsWith(".onnx")
+                  ) {
+                    return;
+                  }
                   console.log(
                     `\x1b[36m[NativeEmbedder - Downloading model]\x1b[0m ${
                       data.file
@@ -211,7 +250,7 @@ class NativeEmbedder {
         this.modelDownloaded = this.#refreshDownloadedFlag();
         if (!this.modelDownloaded) {
           this.log(
-            "Native embedding model missing/incomplete on disk — downloading once into cache. Subsequent runs load from disk."
+            "Native embedding model missing/incomplete on disk — streaming ONNX into cache once. Subsequent runs load from disk."
           );
         }
 
@@ -221,13 +260,14 @@ class NativeEmbedder {
           return fetchResponse.pipeline;
         }
 
-        // Local-only miss → allow one remote attempt before CDN fallback.
-        if (this.modelDownloaded) {
+        // Local-only miss (sidecar gap) → one remote pass for JSON only.
+        if (this.modelDownloaded || inspectCachedModel(this.cacheDir, this.model).complete) {
           this.log(
-            `cache marked complete but load failed (${fetchResponse.error?.message || "unknown"}) — retrying with download`
+            `cache onnx present but load failed (${fetchResponse.error?.message || "unknown"}) — fetching sidecars from Hub`
           );
-          this.modelDownloaded = false;
-          fetchResponse = await this.#fetchWithHost();
+          fetchResponse = await this.#fetchWithHost(null, {
+            allowRemoteSidecars: true,
+          });
           if (fetchResponse.pipeline !== null) {
             this.modelDownloaded = true;
             return fetchResponse.pipeline;
@@ -235,7 +275,7 @@ class NativeEmbedder {
         }
 
         this.log(
-          `Failed to download model from primary URL. Using fallback ${fetchResponse.retry}`
+          `Failed to load model from primary URL. Using fallback ${fetchResponse.retry}`
         );
         if (!!fetchResponse.retry)
           fetchResponse = await this.#fetchWithHost(fetchResponse.retry);
