@@ -206,6 +206,8 @@ const TRANSLATIONS = {
       openQuotePreview: "Превью КП",
       downloadPdf: "Скачать PDF",
       downloadDocx: "Скачать DOCX",
+      downloadNeedsReview:
+        "{{count}} поз. требуют проверки. Откройте сводку и подтвердите перед скачиванием.",
       showLastPdf: "Показать последний PDF",
       showLastDocx: "Показать последний DOCX/КП",
       findByDinCommand: "Найди в каталоге ShopDB: болт DIN 933 М8×40",

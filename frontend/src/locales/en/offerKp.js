@@ -205,6 +205,8 @@ const TRANSLATIONS = {
       openQuotePreview: "Quote preview",
       downloadPdf: "Download PDF",
       downloadDocx: "Download DOCX",
+      downloadNeedsReview:
+        "{{count}} lines need review. Open the summary and confirm before downloading.",
       showLastPdf: "Show last PDF",
       showLastDocx: "Show last DOCX/quote",
       findByDinCommand: "Find in ShopDB catalog: bolt DIN 933 M8×40",

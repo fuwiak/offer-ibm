@@ -54,10 +54,33 @@ describe("contextActions", () => {
       ],
     });
     const ids = actions.map((a) => a.id);
+    expect(ids.slice(0, 4)).toEqual([
+      "openDraftTable",
+      "openQuotePreview",
+      "downloadDraftPdf",
+      "downloadDraftDocx",
+    ]);
     expect(ids).toContain("showLastPdf");
     expect(ids).toContain("showLastDocx");
-    expect(ids).toContain("openDraftTable");
-    expect(ids).toContain("openQuotePreview");
+    expect(ids).not.toContain("uploadInquiry");
+    expect(actions.find((a) => a.id === "downloadDraftPdf").file?.filename).toBe(
+      "kp.pdf"
+    );
+    expect(actions.find((a) => a.id === "downloadDraftDocx").file?.filename).toBe(
+      "kp.docx"
+    );
+  });
+
+  it("offers download chips from stored files without draft", () => {
+    const actions = buildContextActions({
+      t,
+      threadQuoteFiles: [
+        { filename: "kp.pdf", storageFilename: "kp.pdf", kind: "pdf" },
+      ],
+      max: 4,
+    });
+    const ids = actions.map((a) => a.id);
+    expect(ids).toContain("downloadDraftPdf");
     expect(ids).not.toContain("uploadInquiry");
   });
 

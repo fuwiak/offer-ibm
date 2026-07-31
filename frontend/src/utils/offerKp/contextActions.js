@@ -141,24 +141,8 @@ export function buildContextActions({
     uploadedPdfPreview?.filename || attachment?.filename || null;
   const uploadedShort = shortFilename(uploadedName);
 
-  if (lastPdf) {
-    push({
-      id: "showLastPdf",
-      kind: ACTION_KIND.PREVIEW_FILE,
-      file: lastPdf,
-      label: t("home.contextActions.showLastPdf"),
-    });
-  }
-
-  if (lastDocx) {
-    push({
-      id: "showLastDocx",
-      kind: ACTION_KIND.PREVIEW_FILE,
-      file: lastDocx,
-      label: t("home.contextActions.showLastDocx"),
-    });
-  }
-
+  // Draft panel + download first (max:4 strips otherwise drop downloads
+  // when showLast* consume the first slots).
   if (hasDraft) {
     push({
       id: "openDraftTable",
@@ -178,13 +162,53 @@ export function buildContextActions({
       id: "downloadDraftPdf",
       kind: ACTION_KIND.DOWNLOAD_DRAFT,
       format: "pdf",
+      file: lastPdf || null,
       label: t("home.contextActions.downloadPdf"),
     });
     push({
       id: "downloadDraftDocx",
       kind: ACTION_KIND.DOWNLOAD_DRAFT,
       format: "docx",
+      file: lastDocx || null,
       label: t("home.contextActions.downloadDocx"),
+    });
+  } else {
+    // No draft: still offer download of already-generated КП files.
+    if (lastPdf) {
+      push({
+        id: "downloadDraftPdf",
+        kind: ACTION_KIND.DOWNLOAD_DRAFT,
+        format: "pdf",
+        file: lastPdf,
+        label: t("home.contextActions.downloadPdf"),
+      });
+    }
+    if (lastDocx) {
+      push({
+        id: "downloadDraftDocx",
+        kind: ACTION_KIND.DOWNLOAD_DRAFT,
+        format: "docx",
+        file: lastDocx,
+        label: t("home.contextActions.downloadDocx"),
+      });
+    }
+  }
+
+  if (lastPdf) {
+    push({
+      id: "showLastPdf",
+      kind: ACTION_KIND.PREVIEW_FILE,
+      file: lastPdf,
+      label: t("home.contextActions.showLastPdf"),
+    });
+  }
+
+  if (lastDocx) {
+    push({
+      id: "showLastDocx",
+      kind: ACTION_KIND.PREVIEW_FILE,
+      file: lastDocx,
+      label: t("home.contextActions.showLastDocx"),
     });
   }
 

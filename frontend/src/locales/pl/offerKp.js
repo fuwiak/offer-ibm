@@ -201,6 +201,8 @@ const TRANSLATIONS = {
       openQuotePreview: "Podgląd oferty",
       downloadPdf: "Pobierz PDF",
       downloadDocx: "Pobierz DOCX",
+      downloadNeedsReview:
+        "{{count}} poz. wymaga sprawdzenia. Otwórz zestawienie i potwierdź przed pobraniem.",
       showLastPdf: "Pokaż ostatni PDF",
       showLastDocx: "Pokaż ostatni DOCX/KP",
       findByDinCommand: "Znajdź w katalogu ShopDB: śruba DIN 933 M8×40",

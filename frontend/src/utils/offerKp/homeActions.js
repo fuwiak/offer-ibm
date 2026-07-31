@@ -1,17 +1,22 @@
-import { saveAs } from "file-saver";
 import OfferKp from "@/models/offerKp";
 import Workspace from "@/models/workspace";
 import { downloadBlob } from "@/utils/downloadBlob";
+import i18n from "@/i18n";
+import showToast from "@/utils/toast";
 import { INITIAL_QUOTE_DRAFT } from "@/utils/offerKp/quoteFlow";
 import {
   ACTION_KIND,
   buildContextActions,
+  pickLastQuoteFile,
 } from "@/utils/offerKp/contextActions";
 import {
   downloadFileMatchingPreview,
   downloadQuoteFileBlob,
 } from "@/utils/offerKp/quoteFileDownload";
-import { openStoredFilePreview } from "@/utils/offerKp/openQuoteFilePreview";
+import {
+  openPdfPreviewFromBlob,
+  openStoredFilePreview,
+} from "@/utils/offerKp/openQuoteFilePreview";
 import {
   openUploadedFilePreview,
 } from "@/utils/offerKp/openUploadedPdfPreview";
@@ -53,9 +58,28 @@ export const HOME_CHAT_PROMPTS = {
   technical: "Найди в каталоге ShopDB: болт DIN 933 М8×40",
 };
 
-function draftPayload(quoteDraft) {
+function draftLines(quoteDraft) {
   const lines =
     quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  return Array.isArray(lines) ? lines : [];
+}
+
+function hasLines(quoteDraft) {
+  return draftLines(quoteDraft).length > 0;
+}
+
+/** Mirror QuoteDraftTable / server rejectUnconfirmedReview. */
+function lineNeedsReview(line = {}) {
+  const status = `${line.status || ""} ${line.kpStatus || ""}`;
+  return Boolean(
+    line.unitNeedsRecalc ||
+      /требует|требуется|needs review/i.test(status) ||
+      ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
+  );
+}
+
+function draftPayload(quoteDraft) {
+  const lines = draftLines(quoteDraft);
   const preview = quoteDraft?.preview || {};
   return {
     reference: quoteDraft?.reference,
@@ -73,46 +97,122 @@ function draftPayload(quoteDraft) {
   };
 }
 
-async function downloadDraftFormat(format, offerKp) {
+function toastDownloadError(detail = "") {
+  const fallback = i18n.t("quote.downloadError", {
+    ns: "offerKp",
+    defaultValue: "Не удалось скачать документ. Попробуйте ещё раз.",
+  });
+  const msg =
+    detail && !/request failed|download failed|no blob/i.test(detail)
+      ? detail
+      : fallback;
+  showToast(msg, "error");
+}
+
+/**
+ * Download an already-generated КП file (no regenerate / review gate).
+ */
+async function downloadStoredQuoteFile(file, offerKp) {
+  if (!file?.storageFilename) {
+    throw new Error("No storage filename");
+  }
+  const filename = file.filename || file.storageFilename;
+  const blob = await downloadQuoteFileBlob({
+    storageFilename: file.storageFilename,
+    filename,
+  });
+  await downloadBlob(blob, filename);
+  if (/\.pdf$/i.test(filename) && typeof offerKp.setQuotePdfUrl === "function") {
+    openPdfPreviewFromBlob({
+      blob,
+      filename,
+      setQuotePdfUrl: offerKp.setQuotePdfUrl,
+      setDocumentPanelOpen: offerKp.setDocumentPanelOpen,
+      setDocumentPanelView: offerKp.setDocumentPanelView,
+      previousPdfUrl: offerKp.quotePdfUrl?.url,
+    });
+  } else if (/\.docx?$/i.test(filename)) {
+    offerKp.setDocPreview?.({
+      filename,
+      storageFilename: file.storageFilename,
+      markdown: file.previewMarkdown || null,
+    });
+    offerKp.setDocumentPanelOpen?.(true);
+    offerKp.setDocumentPanelView?.("doc");
+  }
+}
+
+/**
+ * Prefer stored threadQuoteFiles; else generate from quoteDraft + downloadBlob.
+ */
+async function downloadDraftFormat(format, offerKp, preferredFile = null) {
+  const existing =
+    preferredFile?.storageFilename
+      ? preferredFile
+      : pickLastQuoteFile(offerKp?.threadQuoteFiles, format);
+
+  if (existing?.storageFilename) {
+    await downloadStoredQuoteFile(existing, offerKp);
+    return;
+  }
+
   const quoteDraft = offerKp?.quoteDraft;
   if (!hasLines(quoteDraft)) {
     throw new Error("No quote draft lines");
   }
+
+  const lines = draftLines(quoteDraft);
+  const reviewCount = lines.filter(lineNeedsReview).length;
+  if (reviewCount > 0) {
+    offerKp.setDocumentPanelView?.("draftTable");
+    offerKp.setDocumentPanelOpen?.(true);
+    showToast(
+      i18n.t("home.contextActions.downloadNeedsReview", {
+        ns: "offerKp",
+        count: reviewCount,
+        defaultValue:
+          "{{count}} поз. требуют проверки. Откройте сводку и подтвердите перед скачиванием.",
+      }),
+      "warning"
+    );
+    return;
+  }
+
   const payload = draftPayload(quoteDraft);
   if (format === "pdf") {
     const result = await OfferKp.generateQuotePdf(payload);
+    if (!result?.storageFilename) {
+      throw new Error("PDF generation returned no storageFilename");
+    }
     const blob = await downloadQuoteFileBlob({
       storageFilename: result.storageFilename,
       filename: result.filename,
     });
-    await openStoredFilePreview({
-      filename: result.filename,
-      storageFilename: result.storageFilename,
-      setQuotePdfUrl: offerKp.setQuotePdfUrl,
-      setDocumentPanelOpen: offerKp.setDocumentPanelOpen,
-      setDocumentPanelView: offerKp.setDocumentPanelView,
-      setDocPreview: offerKp.setDocPreview,
-      previousPdfUrl: offerKp.quotePdfUrl?.url,
-    });
-    saveAs(blob, result.filename || "quote.pdf");
+    await downloadBlob(blob, result.filename || "quote.pdf");
+    if (typeof offerKp.setQuotePdfUrl === "function") {
+      openPdfPreviewFromBlob({
+        blob,
+        filename: result.filename || "quote.pdf",
+        setQuotePdfUrl: offerKp.setQuotePdfUrl,
+        setDocumentPanelOpen: offerKp.setDocumentPanelOpen,
+        setDocumentPanelView: offerKp.setDocumentPanelView,
+        previousPdfUrl: offerKp.quotePdfUrl?.url,
+      });
+    }
     return;
   }
+
   const result = await OfferKp.generateQuoteDocx(payload);
+  if (!result?.storageFilename) {
+    throw new Error("DOCX generation returned no storageFilename");
+  }
   const blob = await downloadQuoteFileBlob({
     storageFilename: result.storageFilename,
     filename: result.filename,
   });
   await downloadBlob(blob, result.filename || "quote.docx");
   offerKp.setDocumentPanelOpen?.(true);
-  if (hasLines(quoteDraft)) {
-    offerKp.setDocumentPanelView?.("draftTable");
-  }
-}
-
-function hasLines(quoteDraft) {
-  const lines =
-    quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
-  return Array.isArray(lines) && lines.length > 0;
+  offerKp.setDocumentPanelView?.("draftTable");
 }
 
 /**
@@ -174,6 +274,7 @@ export async function runOfferKpContextAction(action, ctx = {}) {
         });
       } catch (e) {
         console.error("[runOfferKpContextAction] preview:", e?.message || e);
+        toastDownloadError(e?.message);
       }
       return;
     }
@@ -181,26 +282,41 @@ export async function runOfferKpContextAction(action, ctx = {}) {
       const file = action.file;
       if (!file?.storageFilename) return;
       try {
-        const { blob, filename } = await downloadFileMatchingPreview({
-          storageFilename: file.storageFilename,
-          filename: file.filename,
-          previewMarkdown: file.previewMarkdown,
-          quoteDraft: offerKp.quoteDraft,
-        });
-        await downloadBlob(blob, filename);
+        // Prefer stored bytes — do not regenerate (review gate / price guards).
+        await downloadStoredQuoteFile(file, offerKp);
       } catch (e) {
         console.error("[runOfferKpContextAction] download:", e?.message || e);
+        try {
+          const { blob, filename } = await downloadFileMatchingPreview({
+            storageFilename: file.storageFilename,
+            filename: file.filename,
+            previewMarkdown: file.previewMarkdown,
+            quoteDraft: offerKp.quoteDraft,
+          });
+          await downloadBlob(blob, filename);
+        } catch (e2) {
+          console.error(
+            "[runOfferKpContextAction] download fallback:",
+            e2?.message || e2
+          );
+          toastDownloadError(e2?.message || e?.message);
+        }
       }
       return;
     }
     case ACTION_KIND.DOWNLOAD_DRAFT: {
       try {
-        await downloadDraftFormat(action.format || "pdf", offerKp);
+        await downloadDraftFormat(
+          action.format || "pdf",
+          offerKp,
+          action.file || null
+        );
       } catch (e) {
         console.error(
           "[runOfferKpContextAction] draft download:",
           e?.message || e
         );
+        toastDownloadError(e?.message);
       }
       return;
     }
@@ -238,6 +354,7 @@ export async function runOfferKpContextAction(action, ctx = {}) {
           "[runOfferKpContextAction] open uploaded:",
           e?.message || e
         );
+        toastDownloadError(e?.message);
       }
       return;
     }
