@@ -241,6 +241,14 @@ const TRANSLATIONS = {
           "Prepare a quote PDF/DOCX with line items, prices, and stock status",
       },
     },
+    uploadFollowUps: {
+      label: "What to do with the file",
+      items: {
+        makeQuote: "Build a quote from the attached inquiry",
+        showSummary: "Show the line summary from the uploaded file",
+        findAnalogs: "Find analogs for out-of-stock lines",
+      },
+    },
     version: "Offer KP AI v2.4.0",
     privacy: "Privacy Policy",
     terms: "Terms of Service",

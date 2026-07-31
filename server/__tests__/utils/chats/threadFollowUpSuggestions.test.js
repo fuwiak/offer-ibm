@@ -10,6 +10,7 @@ const {
   mergeFollowUpSuggestions,
   extractAgentTurnForFollowUps,
   buildDraftFollowUpSuggestions,
+  buildUploadStarterFollowUps,
 } = require("../../../utils/chats/threadFollowUpSuggestions");
 
 describe("threadFollowUpRecovery", () => {
@@ -107,5 +108,20 @@ describe("threadFollowUpSuggestions", () => {
       "Pokaż krótkie podsumowanie bieżącej listy: pozycje i sumę",
       "Ile pozycji znajduje się teraz na bieżącej liście?",
     ]);
+  });
+
+  it("builds upload starter chips when parsed files are present", () => {
+    const suggestions = buildUploadStarterFollowUps({
+      language: "ru",
+      hasParsedFiles: true,
+    });
+    expect(suggestions[0]).toMatch(/КП|заявк/i);
+    expect(suggestions.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("returns no upload starters without files", () => {
+    expect(
+      buildUploadStarterFollowUps({ language: "ru", hasParsedFiles: false })
+    ).toEqual([]);
   });
 });

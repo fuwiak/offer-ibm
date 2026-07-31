@@ -114,6 +114,56 @@ function buildDraftFollowUpSuggestions({
   return mergeFollowUpSuggestions(ordered, []);
 }
 
+/**
+ * Deterministic starters after file upload / when OCR is in thread context.
+ * Keep wording compatible with intentRouter START_QUOTE_PROMPTS / create_quote.
+ */
+function buildUploadStarterFollowUps({
+  language = null,
+  prompt = "",
+  hasParsedFiles = false,
+} = {}) {
+  if (!hasParsedFiles) return [];
+  const lang = followUpLanguage(prompt, language);
+  const pools = {
+    ru: [
+      "Сделай КП по прикреплённой заявке",
+      "Покажи сводку позиций из загруженного файла",
+      "Найди аналоги для позиций без наличия",
+    ],
+    pl: [
+      "Zrób ofertę KP z załączonego zapytania",
+      "Pokaż zestawienie pozycji z wgranego pliku",
+      "Znajdź zamienniki dla pozycji bez stanu",
+    ],
+    en: [
+      "Build a quote from the attached inquiry",
+      "Show the line summary from the uploaded file",
+      "Find analogs for out-of-stock lines",
+    ],
+  };
+  return mergeFollowUpSuggestions(pools[lang] || pools.ru, []);
+}
+
+function summarizeQuoteDraftForPrompt(quoteDraft = null) {
+  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  if (!Array.isArray(lines) || !lines.length) return null;
+  const priced = lines.filter((l) => Number(l?.unitPriceNet || l?.unitPrice) > 0)
+    .length;
+  const needsReview = lines.filter((l) => l?.needsReview).length;
+  return `Quote draft: ${lines.length} lines, ${priced} priced, ${needsReview} needs_review.`;
+}
+
+function summarizeParsedFilesForPrompt(parsedFileTexts = []) {
+  const texts = (parsedFileTexts || []).filter(Boolean);
+  if (!texts.length) return null;
+  const preview = texts
+    .map((t) => String(t).replace(/\s+/g, " ").trim().slice(0, 280))
+    .filter(Boolean)
+    .join(" | ");
+  return `Attached inquiry text (${texts.length} file(s)): ${preview}`;
+}
+
 function parseSuggestionsFromLlmText(raw = "") {
   const text = String(raw || "").trim();
   if (!text) return [];
@@ -224,6 +274,7 @@ async function generateThreadFollowUpSuggestions({
   language = null,
   catalogInjected = false,
   quoteDraft = null,
+  parsedFileTexts = [],
 }) {
   if (!threadFollowUpSuggestionsEnabled()) {
     return { suggestions: [], variant: "continue", issues: [] };
@@ -251,50 +302,77 @@ async function generateThreadFollowUpSuggestions({
     prompt,
     language,
   });
-
-  if (draftSuggestions.length) {
-    return { suggestions: draftSuggestions, variant: "continue", issues: [] };
-  }
+  const uploadStarters = buildUploadStarterFollowUps({
+    language,
+    prompt,
+    hasParsedFiles: (parsedFileTexts || []).some((t) => String(t || "").trim()),
+  });
+  const deterministic = mergeFollowUpSuggestions(
+    recovery.length ? recovery : draftSuggestions,
+    mergeFollowUpSuggestions(draftSuggestions, uploadStarters)
+  );
 
   let llmSuggestions = [];
+  let allowLlm = true;
+  let resolveOfferKpChatSampling = null;
   try {
-    const LLMConnector = await getLLMProviderWithFallback({
-      provider: workspace?.chatProvider,
-      model: workspace?.chatModel,
-    });
-
-    const historyBlock = trimHistoryForPrompt(chatHistory, 8);
-    const recoveryBlock = buildRecoveryPromptBlock(issues);
-
-    const userBlock = [
-      historyBlock ? `Prior turns:\n${historyBlock}` : null,
-      recoveryBlock || null,
-      `Latest user message:\n${String(prompt).trim().slice(0, 1200)}`,
-      `Latest assistant reply:\n${String(assistantText).trim().slice(0, 2000)}`,
-      language ? `UI language hint: ${language}` : null,
-      catalogInjected ? "Catalog blocks were injected for this turn." : null,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    const messages = [
-      { role: "system", content: FOLLOW_UP_SYSTEM_PROMPT },
-      { role: "user", content: userBlock },
-    ];
-
-    const { textResponse } = await LLMConnector.getChatCompletion(messages, {
-      temperature: 0.4,
-      user,
-    });
-
-    llmSuggestions = parseSuggestionsFromLlmText(textResponse);
+    const sampling = require("../offerKp/deterministicSampling");
+    resolveOfferKpChatSampling = sampling.resolveOfferKpChatSampling;
+    if (sampling.offerKpStrictDeterminismEnabled()) allowLlm = false;
   } catch {
-    llmSuggestions = [];
+    allowLlm = true;
+  }
+
+  if (allowLlm) {
+    try {
+      const LLMConnector = await getLLMProviderWithFallback({
+        provider: workspace?.chatProvider,
+        model: workspace?.chatModel,
+      });
+
+      const historyBlock = trimHistoryForPrompt(chatHistory, 8);
+      const recoveryBlock = buildRecoveryPromptBlock(issues);
+      const draftBlock = summarizeQuoteDraftForPrompt(quoteDraft);
+      const filesBlock = summarizeParsedFilesForPrompt(parsedFileTexts);
+
+      const userBlock = [
+        historyBlock ? `Prior turns:\n${historyBlock}` : null,
+        filesBlock || null,
+        draftBlock || null,
+        recoveryBlock || null,
+        `Latest user message:\n${String(prompt).trim().slice(0, 1200)}`,
+        `Latest assistant reply:\n${String(assistantText).trim().slice(0, 2000)}`,
+        language ? `UI language hint: ${language}` : null,
+        catalogInjected ? "Catalog blocks were injected for this turn." : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const messages = [
+        { role: "system", content: FOLLOW_UP_SYSTEM_PROMPT },
+        { role: "user", content: userBlock },
+      ];
+
+      const samplingOpts = resolveOfferKpChatSampling
+        ? resolveOfferKpChatSampling({ temperature: 0.2 })
+        : { temperature: 0.2 };
+      const { textResponse } = await LLMConnector.getChatCompletion(messages, {
+        ...samplingOpts,
+        user,
+      });
+
+      llmSuggestions = parseSuggestionsFromLlmText(textResponse);
+    } catch {
+      llmSuggestions = [];
+    }
   }
 
   const suggestions = mergeFollowUpSuggestions(
     recovery.length ? recovery : llmSuggestions,
-    recovery.length ? llmSuggestions : []
+    mergeFollowUpSuggestions(
+      recovery.length ? llmSuggestions : deterministic,
+      deterministic
+    )
   );
 
   return { suggestions, variant, issues };
@@ -315,6 +393,7 @@ async function emitThreadFollowUpSuggestions({
   language = null,
   catalogInjected = false,
   quoteDraft = null,
+  parsedFileTexts = [],
 }) {
   if (!thread?.id || !response) return [];
 
@@ -327,6 +406,7 @@ async function emitThreadFollowUpSuggestions({
     language,
     catalogInjected,
     quoteDraft,
+    parsedFileTexts,
   });
 
   if (!suggestions.length) return [];
@@ -349,6 +429,7 @@ module.exports = {
   mergeFollowUpSuggestions,
   extractAgentTurnForFollowUps,
   buildDraftFollowUpSuggestions,
+  buildUploadStarterFollowUps,
   generateThreadFollowUpSuggestions,
   emitThreadFollowUpSuggestions,
   MAX_SUGGESTIONS,

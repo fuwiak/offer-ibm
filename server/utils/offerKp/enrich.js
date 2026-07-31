@@ -386,16 +386,67 @@ async function enrichInquiryLinesFromPdf(message, options = {}) {
     };
   }
 
-  // «сделай кп» / Latin-c «cделай кп» is a command, not an RFQ product line.
-  // Prefer attached file OCR; never invent a ShopDB stub from the command alone.
+  // Ordinary chat / follow-ups must NEVER become draft lines. Only real RFQ
+  // product text (or attached file OCR) feeds parseInquiry → matchInquiry.
   let inquiryBody = text;
   try {
-    const { isQuoteCommandOnly } = require("./quoteRequestPhrases");
-    if (isQuoteCommandOnly(text)) {
+    const {
+      shouldMessageContributeInquiryLines,
+    } = require("./inquiryMessageGate");
+    const gate = await shouldMessageContributeInquiryLines(text, {
+      resolvedIntent: options.resolvedIntent || null,
+      workspace: options.workspace || null,
+    });
+    if (!gate.contribute) {
+      inquiryBody = "";
+      // No file OCR either → skip rematch so UI draft is not replaced by junk.
+      if (!parsedFileTexts.length) {
+        return {
+          contextTexts: [],
+          sources: [],
+          productIds: new Set(),
+          strategies: [`skip_inquiry:${gate.reason}`],
+          inquiryDraft: null,
+        };
+      }
+      // Attached RFQ present but message is chat/command: rematch file only
+      // when intent still wants quote creation / mutation from the file.
+      const intent = options.resolvedIntent?.primaryIntent || null;
+      const rematchFile =
+        intent === OFFER_KP_INTENTS.CREATE_QUOTE ||
+        intent === OFFER_KP_INTENTS.PRODUCT_INQUIRY ||
+        options.forceFileRematch === true;
+      if (!rematchFile) {
+        return {
+          contextTexts: [],
+          sources: [],
+          productIds: new Set(),
+          strategies: [`skip_inquiry_keep_draft:${gate.reason}`],
+          inquiryDraft: null,
+        };
+      }
+    }
+  } catch (e) {
+    shopDbLog.warn("inquiry message gate failed — fail-safe skip body", {
+      error: e?.message || String(e),
+    });
+    try {
+      const { isQuoteCommandOnly } = require("./quoteRequestPhrases");
+      if (isQuoteCommandOnly(text) || !hasHardwareSignals(text)) {
+        inquiryBody = "";
+      }
+    } catch {
       inquiryBody = "";
     }
-  } catch {
-    /* optional */
+    if (!inquiryBody && !parsedFileTexts.length) {
+      return {
+        contextTexts: [],
+        sources: [],
+        productIds: new Set(),
+        strategies: ["skip_inquiry:gate_error"],
+        inquiryDraft: null,
+      };
+    }
   }
 
   const combined = [parsedFileTexts.join("\n\n"), inquiryBody]

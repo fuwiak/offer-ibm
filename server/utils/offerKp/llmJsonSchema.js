@@ -116,6 +116,21 @@ const RESPONSE_FORMATS = Object.freeze({
       },
     },
   },
+  inquiryLineContribute: {
+    type: "json_schema",
+    json_schema: {
+      name: "inquiry_line_contribute",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          contribute: { type: "boolean" },
+        },
+        required: ["contribute"],
+        additionalProperties: false,
+      },
+    },
+  },
   chatCommand: {
     type: "json_schema",
     json_schema: {

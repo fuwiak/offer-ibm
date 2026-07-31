@@ -73,10 +73,14 @@ async function recentChatHistory({
     await WorkspaceChats.where(
       {
         workspaceId: workspace.id,
-        user_id: user?.id || null,
         thread_id: thread?.id || null,
         api_session_id: apiSessionId || null,
         include: true,
+        // Same OR as GET /thread/.../chats — older null-user rows must stay
+        // visible to follow-ups / enrich, not only to the UI reload.
+        ...(user?.id
+          ? { OR: [{ user_id: user.id }, { user_id: null }] }
+          : { user_id: null }),
       },
       messageLimit,
       { id: "desc" }

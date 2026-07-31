@@ -7,6 +7,8 @@ import Workspace from "@/models/workspace";
 import showToast from "@/utils/toast";
 import FileUploadWarningModal from "./FileUploadWarningModal";
 import pluralize from "pluralize";
+import { dispatchThreadFollowUps } from "@/utils/offerKp/threadFollowUpEvents";
+import { UPLOAD_STARTER_FOLLOW_UP_TEXTS_RU } from "@/utils/offerKp/newChatFollowUps";
 
 export const DndUploaderContext = createContext();
 export const REMOVE_ATTACHMENT_EVENT = "ATTACHMENT_REMOVE";
@@ -60,6 +62,56 @@ export function DnDFileUploaderProvider({
     System.checkDocumentProcessorOnline().then((status) => setReady(status));
   }, []);
 
+  // Restore thread-bound parsed files into the composer after reload / thread switch.
+  useEffect(() => {
+    let cancelled = false;
+    async function hydrateParsedFiles() {
+      if (!workspace?.slug) {
+        setFiles([]);
+        return;
+      }
+      try {
+        const data = await Workspace.getParsedFiles(
+          workspace.slug,
+          threadSlug || null
+        );
+        if (cancelled) return;
+        const restored = (data?.files || []).map((file) => ({
+          uid: `parsed-${file.id}`,
+          file: null,
+          contentString: null,
+          status: "added_context",
+          error: null,
+          document: file,
+          type: "upload",
+          progress: null,
+        }));
+        setFiles((prev) => {
+          const inFlight = prev.filter(
+            (f) =>
+              f.status === "in_progress" ||
+              (f.type === "attachment" && f.status !== "added_context")
+          );
+          const seen = new Set(
+            restored.map((f) => f.document?.id).filter(Boolean)
+          );
+          const keepLocal = inFlight.filter(
+            (f) => !f.document?.id || !seen.has(f.document.id)
+          );
+          return [...restored, ...keepLocal];
+        });
+      } catch {
+        if (!cancelled) {
+          /* keep current queue */
+        }
+      }
+    }
+    hydrateParsedFiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace?.slug, threadSlug]);
+
   useEffect(() => {
     window.addEventListener(REMOVE_ATTACHMENT_EVENT, handleRemove);
     window.addEventListener(CLEAR_ATTACHMENTS_EVENT, resetAttachments);
@@ -108,10 +160,11 @@ export function DnDFileUploaderProvider({
   }
 
   /**
-   * Clear queue of attached files currently in prompt box
+   * Clear ephemeral prompt attachments after send. Keep successfully parsed
+   * thread uploads (added_context) so the inquiry file stays visible.
    */
   function resetAttachments() {
-    setFiles([]);
+    setFiles((prev) => prev.filter((f) => f.status === "added_context"));
   }
 
   /**
@@ -291,6 +344,14 @@ export function DnDFileUploaderProvider({
     Promise.all(promises).finally(() => {
       window.dispatchEvent(new CustomEvent(ATTACHMENTS_PROCESSED_EVENT));
       window.dispatchEvent(new CustomEvent("offerKp:thread-files-changed"));
+      if (workspace?.slug && threadSlug) {
+        dispatchThreadFollowUps({
+          workspaceSlug: workspace.slug,
+          threadSlug,
+          suggestions: UPLOAD_STARTER_FOLLOW_UP_TEXTS_RU,
+          variant: "continue",
+        });
+      }
     });
   }
 

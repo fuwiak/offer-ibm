@@ -392,8 +392,9 @@ function workspaceParsedFilesEndpoints(app) {
               metadata.originalLocation = originalLocation;
               metadata.originalFilename = originalname;
             }
-            // Strip out pageContent
-            delete metadata.pageContent;
+            // Keep pageContent in metadata as durable backup when the
+            // direct-uploads JSON is missing after restart/cleanup.
+            if (pageContent) metadata.pageContent = pageContent;
             const docId = ensureDocumentId(doc);
             metadata.id = docId;
             const filename = `${originalname}-${docId}.json`;
@@ -548,7 +549,7 @@ function workspaceParsedFilesEndpoints(app) {
               metadata.originalLocation = originalLocation;
               metadata.originalFilename = originalname;
             }
-            delete metadata.pageContent;
+            if (pageContent) metadata.pageContent = pageContent;
             const docId = ensureDocumentId(doc);
             metadata.id = docId;
             const filename = `${originalname}-${docId}.json`;

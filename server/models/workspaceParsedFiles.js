@@ -395,7 +395,13 @@ const WorkspaceParsedFiles = {
       const files = await this.where({
         workspaceId: workspace.id,
         threadId: thread?.id || null,
-        ...(user ? { userId: user.id } : {}),
+        // Match list endpoint: include null-user rows so follow-ups still see
+        // uploads that were saved before user_id was bound.
+        ...(user
+          ? thread
+            ? { OR: [{ userId: user.id }, { userId: null }] }
+            : { userId: user.id }
+          : {}),
       });
 
       const results = [];
