@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOfferKp } from "@/contexts/OfferKpContext";
-import { FilePdf, FileDoc, FileXls, CircleNotch } from "@phosphor-icons/react";
+import { FilePdf, FileDoc, FileXls, CircleNotch, ArrowSquareOut } from "@phosphor-icons/react";
 import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { QUOTE_BRAND, localeForCountry } from "@/utils/offerKp/quoteBrand";
+import { resolveProductUrl } from "@/utils/offerKp/resolveProductUrl";
 import showToast from "@/utils/toast";
 
 function toDateInputValue(d) {
@@ -228,7 +229,14 @@ export default function QuotePreview() {
       return;
     }
     if (field === "article") {
-      updateLine(index, { article: value, sku: value });
+      const prevSku = String(line.article || line.sku || "").trim();
+      const nextSku = String(value ?? "").trim();
+      const patch = { article: value, sku: value };
+      if (prevSku !== nextSku) {
+        patch.productUrl = undefined;
+        patch.url = undefined;
+      }
+      updateLine(index, patch);
       return;
     }
     if (field === "quantity") {
@@ -560,6 +568,7 @@ export default function QuotePreview() {
                 const qty = Number(line.quantity) || 0;
                 const unit = lineUnitNet(line, vatRate);
                 const sum = lineNetTotal(line, vatRate);
+                const catalogUrl = resolveProductUrl(line);
                 return (
                   <tr key={i}>
                     <td>
@@ -575,14 +584,33 @@ export default function QuotePreview() {
                       />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={line.article || line.sku || ""}
-                        onChange={(e) =>
-                          handleLineField(i, "article", e.target.value)
-                        }
-                        className="offerKp-quote-doc__edit-input offerKp-quote-doc__cell-input"
-                      />
+                      <span className="inline-flex items-center gap-0.5 w-full">
+                        <input
+                          type="text"
+                          value={line.article || line.sku || ""}
+                          onChange={(e) =>
+                            handleLineField(i, "article", e.target.value)
+                          }
+                          className="offerKp-quote-doc__edit-input offerKp-quote-doc__cell-input min-w-0 flex-1"
+                        />
+                        {catalogUrl ? (
+                          <a
+                            href={catalogUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={t("draftTable.openProduct", {
+                              defaultValue: "Открыть на purolat.com",
+                            })}
+                            aria-label={t("draftTable.openProduct", {
+                              defaultValue: "Открыть на purolat.com",
+                            })}
+                            className="shrink-0 text-primary-button hover:opacity-80 p-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ArrowSquareOut size={12} weight="bold" />
+                          </a>
+                        ) : null}
+                      </span>
                     </td>
                     <td className="num">
                       <input

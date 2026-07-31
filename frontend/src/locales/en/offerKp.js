@@ -503,6 +503,7 @@ const TRANSLATIONS = {
   draftTable: {
     name: "Item",
     article: "SKU",
+    openProduct: "Open on purolat.com",
     unit: "Unit",
     priceNet: "Price excl. VAT",
     priceVat: "Price w/ VAT",

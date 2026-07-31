@@ -11,6 +11,7 @@ import {
   Brain,
   TrendDown,
   ArrowCounterClockwise,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import OfferKp from "@/models/offerKp";
@@ -24,6 +25,7 @@ import {
   isInStockAlternative,
   resolveCheapestAnalogsForLines,
 } from "@/utils/offerKp/pickCheapestAnalog";
+import { resolveProductUrl } from "@/utils/offerKp/resolveProductUrl";
 import showToast from "@/utils/toast";
 
 const EMPTY_LINE = {
@@ -326,6 +328,15 @@ export default function QuoteDraftTable() {
         },
         opts
       );
+    } else if (field === "article") {
+      const prevSku = String(line.article || line.sku || "").trim();
+      const nextSku = String(value ?? "").trim();
+      const patch = { article: value, sku: value };
+      if (prevSku !== nextSku) {
+        patch.productUrl = undefined;
+        patch.url = undefined;
+      }
+      updateLine(index, patch, opts);
     } else {
       updateLine(index, { [field]: value }, opts);
     }
@@ -436,6 +447,8 @@ export default function QuoteDraftTable() {
         name: product.name,
         article: product.matched_sku || product.sku || "",
         productId: String(product.id),
+        productUrl:
+          product.productUrl || product.url || product.product_url || undefined,
         priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
         status: "Требует проверки",
       },
@@ -545,6 +558,7 @@ export default function QuoteDraftTable() {
       article: alt.sku,
       sku: alt.sku,
       productId: alt.productId || undefined,
+      productUrl: alt.productUrl || alt.url || undefined,
       matchType: alt.matchType || "analog",
       // ShopDB alt.price is net — keep both fields in sync for the table.
       unitPriceNet: Number(unitPriceNet.toFixed(2)),
@@ -1034,14 +1048,33 @@ export default function QuoteDraftTable() {
                   )}
                 </td>
                 <td>
-                  <input
-                    type="text"
-                    value={line.article || line.sku || ""}
-                    onChange={(e) =>
-                      handleFieldChange(i, "article", e.target.value, line)
-                    }
-                    className="w-20 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none"
-                  />
+                  <span className="inline-flex items-center gap-0.5 max-w-[9rem]">
+                    <input
+                      type="text"
+                      value={line.article || line.sku || ""}
+                      onChange={(e) =>
+                        handleFieldChange(i, "article", e.target.value, line)
+                      }
+                      className="w-20 min-w-0 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none"
+                    />
+                    {resolveProductUrl(line) ? (
+                      <a
+                        href={resolveProductUrl(line)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={t("draftTable.openProduct", {
+                          defaultValue: "Открыть на purolat.com",
+                        })}
+                        aria-label={t("draftTable.openProduct", {
+                          defaultValue: "Открыть на purolat.com",
+                        })}
+                        className="shrink-0 text-primary-button hover:opacity-80 p-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ArrowSquareOut size={12} weight="bold" />
+                      </a>
+                    ) : null}
+                  </span>
                 </td>
                 <td>
                   <input

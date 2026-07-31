@@ -493,6 +493,7 @@ const TRANSLATIONS = {
   draftTable: {
     name: "Pozycja",
     article: "Indeks",
+    openProduct: "Otwórz na purolat.com",
     unit: "J.m.",
     priceNet: "Cena netto",
     priceVat: "Cena brutto",
