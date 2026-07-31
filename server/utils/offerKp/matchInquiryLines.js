@@ -9,7 +9,11 @@ const {
   runProductSearchAgent,
   searchByExactSku,
 } = require("./productSearchAgent");
-const { classifyProductMatch, productHasExactSkuHit, STATUS } = require("./analogRules");
+const {
+  classifyProductMatch,
+  productHasExactSkuHit,
+  STATUS,
+} = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const priceResolve = require("./priceResolve");
 const configuredOptPriceCategoryId =
@@ -1018,7 +1022,9 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       alternatives,
       products: candidates,
       best,
-      retrieverDisagreement: authoritativeSkuHit ? false : retrieverDisagreement,
+      retrieverDisagreement: authoritativeSkuHit
+        ? false
+        : retrieverDisagreement,
       underspecified: authoritativeSkuHit ? false : underspecifiedSize,
       lineTotal: (Number(best?.price) || 0) * (inquiryLine.quantity || 1),
     });
