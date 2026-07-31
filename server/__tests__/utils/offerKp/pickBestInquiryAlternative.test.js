@@ -214,7 +214,10 @@ describe("matchInquiryLine exact SKU owns price", () => {
     jest.doMock("../../../utils/offerKp/matching", () => ({
       matchEnrichmentEnabled: () => true,
       enrichAlternatives: ({ alternatives }) => ({ alternatives }),
-      decideMatchGates: () => ({ gateRejected: true, gateReason: "test_noise" }),
+      decideMatchGates: () => ({
+        gateRejected: true,
+        gateReason: "test_noise",
+      }),
     }));
     jest.doMock("../../../utils/offerKp/variantSpecs", () => ({
       detectVariantAmbiguity: () => ({
@@ -486,10 +489,8 @@ describe("enforceExactGroundingContract", () => {
 
 describe("DIN 912 M6x20 catalog name keeps ShopDB price under disagreement", () => {
   const SKU = "009122000060020";
-  const CATALOG_NAME =
-    "Винт DIN  912 M  6x 20 12.9 П/Р / ГОСТ 11738-84  (200)";
-  const INQUIRY =
-    "Винт DIN 912 M 6x 20 12.9 П/Р / ГОСТ 11738-84 (200)";
+  const CATALOG_NAME = "Винт DIN  912 M  6x 20 12.9 П/Р / ГОСТ 11738-84  (200)";
+  const INQUIRY = "Винт DIN 912 M 6x 20 12.9 П/Р / ГОСТ 11738-84 (200)";
 
   afterEach(() => {
     for (const mod of [
@@ -546,7 +547,10 @@ describe("DIN 912 M6x20 catalog name keeps ShopDB price under disagreement", () 
     }));
     jest.doMock("../../../utils/offerKp/db/client", () => ({
       query: jest.fn().mockImplementation(async (sql) => {
-        if (String(sql).includes("shop_product_skus") || String(sql).includes("product_id")) {
+        if (
+          String(sql).includes("shop_product_skus") ||
+          String(sql).includes("product_id")
+        ) {
           return [
             {
               sku_id: 1,
@@ -883,6 +887,10 @@ describe("DIN 967 M6x20 оцинк (500) ShopDB identity keeps 2.21", () => {
     } = require("../../../utils/offerKp/matchInquiryLines");
 
     expect(isLiteralCatalogNameHit(INQUIRY, CATALOG_NAME)).toBe(true);
+    // OCR/parseInquiry collapses "M 6x 20" → "M6x20" — must still hit.
+    expect(
+      isLiteralCatalogNameHit("Винт DIN 967 M6x20 оцинк (500)", CATALOG_NAME)
+    ).toBe(true);
 
     const row = await matchInquiryLine({
       name: INQUIRY,
@@ -1021,6 +1029,8 @@ describe("null product / alternative guards", () => {
     expect(draft.lines).toHaveLength(1);
     expect(draft.lines[0].name).toBe("Болт DIN 933 M8x40");
     expect(draft.subtotal).toBe(10);
-    expect(calculateTotalWeightKg([null, { weightKg: 1, quantity: 3 }])).toBe(3);
+    expect(calculateTotalWeightKg([null, { weightKg: 1, quantity: 3 }])).toBe(
+      3
+    );
   });
 });

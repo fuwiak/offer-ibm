@@ -211,7 +211,7 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(multi[0].name).not.toMatch(/matched_sku|analog|,шт,/);
 
     const jammed =
-      'L-8B nr,source_name,unit,quantity,matched_sku,matched_name,match_type 1,“Винт ГОСТ ISO 7380-1-М10х25-8.8”,шт,1700,073801000100025,“name”,analog 2,“Винт ГОСТ ISO 7380-1-М8х70-8.8”,шт,400,073801000080070,“name2”,analog\n\nсделай кп';
+      "L-8B nr,source_name,unit,quantity,matched_sku,matched_name,match_type 1,“Винт ГОСТ ISO 7380-1-М10х25-8.8”,шт,1700,073801000100025,“name”,analog 2,“Винт ГОСТ ISO 7380-1-М8х70-8.8”,шт,400,073801000080070,“name2”,analog\n\nсделай кп";
     const fromJammed = tryParseExpectedCsvInquiry(jammed);
     expect(fromJammed).toHaveLength(2);
     expect(fromJammed[0].quantity).toBe(1700);
@@ -224,9 +224,7 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(parseQuantity("Сравни болты DIN 931 и DIN 933 М10х50")).toBe(1);
     const lines = parseInquiryText("Сравни болты DIN 931 и DIN 933 М10х50");
     expect(lines[0].quantity).toBe(1);
-    expect(lines[0].dinNumbers).toEqual(
-      expect.arrayContaining(["931", "933"])
-    );
+    expect(lines[0].dinNumbers).toEqual(expect.arrayContaining(["931", "933"]));
   });
 
   it("treats bare ShopDB SKU digits as identity, not quantity", () => {
@@ -266,5 +264,12 @@ describe("parseInquiry PDF/OCR extraction", () => {
         "Гайка шестигранная нормальная самостопорящаяся М24-5 ГОСТ ISO 7040-2014"
       )
     ).toBe(1);
+  });
+
+  it("does not treat catalog pack size in parentheses as RFQ quantity", () => {
+    const lines = parseInquiryText("Винт DIN 967 M 6x 20 оцинк (500)");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].quantity).toBe(1);
+    expect(lines[0].name).toMatch(/\(500\)/);
   });
 });

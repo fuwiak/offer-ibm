@@ -19,6 +19,7 @@ const {
   resolvePipelineVersion,
 } = require("./db/layeredCache");
 const { getCanonicalCatalogManifest } = require("./canonicalCatalogIndex");
+const { catalogNameKey, catalogNameSqlExpr } = require("./catalogNameKey");
 const shopDbLog = require("./shopDbLog");
 const {
   parseHardwareQuery,
@@ -254,15 +255,6 @@ function mapSearchRows(
   }));
 }
 
-/** Whitespace-collapsed catalog title key (must match matchInquiryLines). */
-function catalogNameKey(value) {
-  return String(value || "")
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 async function searchByExactSku(skuCodes, limit) {
   const codes = [
     ...new Set(skuCodes.map((c) => String(c).trim()).filter(Boolean)),
@@ -294,7 +286,7 @@ async function searchByExactCatalogName(queryText, limit) {
   const key = catalogNameKey(queryText);
   if (!key || key.length < 8) return [];
 
-  // Collapse runs of whitespace in MySQL so "DIN  967" == "DIN 967".
+  // Collapse whitespace + MxL spacing so OCR `M6x20` == catalog `M  6x 20`.
   const sql = `
     SELECT ${PRODUCT_SELECT}, s.${S.sku} AS matched_sku,
            s.price AS matched_sku_price, 'catalog_name_exact' AS match_source
@@ -303,7 +295,7 @@ async function searchByExactCatalogName(queryText, limit) {
     LEFT JOIN ${TABLES.category} c
       ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
     WHERE p.${P.status} = 1
-      AND LOWER(TRIM(REGEXP_REPLACE(p.${P.name}, '[[:space:]]+', ' '))) = ?
+      AND ${catalogNameSqlExpr(`p.${P.name}`)} = ?
     ORDER BY s.count DESC, s.${S.sku} ASC, p.${P.id} DESC
     LIMIT ${sqlLimit(limit)}
   `;

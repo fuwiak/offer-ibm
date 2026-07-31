@@ -9,6 +9,7 @@ const {
   runProductSearchAgent,
   searchByExactSku,
 } = require("./productSearchAgent");
+const { catalogNameKey } = require("./catalogNameKey");
 const {
   classifyProductMatch,
   productHasExactSkuHit,
@@ -390,15 +391,12 @@ function positivePrice(value) {
  * Приоритет: exact → analog → in_stock → остальные.
  * Дешёвый SKU — только среди одинаковой технической сигнтуры (не M10x70 vs M10x80).
  */
+/** Same key as productSearchAgent.catalogNameKey (MxL spacing tolerant). */
 function exactCatalogNameKey(value) {
-  return String(value || "")
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  return catalogNameKey(value);
 }
 
-/** Inquiry text is the catalog product title (whitespace-normalized). */
+/** Inquiry text is the catalog product title (whitespace + MxL normalized). */
 function isLiteralCatalogNameHit(queryText, productName) {
   const queryKey = exactCatalogNameKey(queryText);
   if (!queryKey) return false;
@@ -1192,9 +1190,6 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // priceWithVat is the gross value used by 1C/XLSX and editable UI fields.
   const lineTotal =
     hasPrice && !unitNeedsRecalc ? Number((unitPrice * qty).toFixed(2)) : 0;
-  const weightKg = estimateWeightKg(inquiryLine, accepted ? best.name : null);
-  const lineWeightKg =
-    inquiryLine.unit === "кг" ? qty : Number((weightKg * qty).toFixed(4));
 
   let status = inquiryLine.needsReview
     ? STATUS.NEEDS_REVIEW
@@ -1361,6 +1356,15 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   lineKpStatus = grounded.kpStatus;
   lineAllowPrice = grounded.allowPrice;
 
+  // Weight only from ShopDB feature of the SAME identity that owns the price.
+  // No DB identity / no price → weightKg=0 (never diameter×length heuristics).
+  const weightKg =
+    lineProductId && lineAllowPrice
+      ? await fetchProductWeightKg(lineProductId)
+      : 0;
+  const lineWeightKg =
+    inquiryLine.unit === "кг" ? qty : Number((weightKg * qty).toFixed(4));
+
   const reviewReason = resolveReviewReason({
     accepted:
       !!lineProductId &&
@@ -1499,18 +1503,47 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   return evidenced;
 }
 
-function estimateWeightKg(inquiryLine, productName) {
-  // A quantity expressed in kg is the total requested line weight, not the
-  // weight of one piece. Returning it as per-unit weight would square it later.
-  if (inquiryLine.unit === "кг") return 0;
-  const text = `${inquiryLine.raw} ${productName || ""}`;
-  const m = text.match(/(\d+(?:[.,]\d+)?)\s*кг/i);
-  if (m) return Number(m[1].replace(",", "."));
-  if (inquiryLine.thread) {
-    const size = Number(inquiryLine.thread.size) || 8;
-    const len = Number(inquiryLine.thread.length) || 40;
-    return Number(((size * len * 0.002) / 1000).toFixed(4));
+/**
+ * ShopDB `feature.code=weight` → kg for the matched product only.
+ * Returns 0 when missing — never invent diameter×length weight.
+ */
+async function fetchProductWeightKg(productId) {
+  const id = Number(productId);
+  if (!Number.isInteger(id) || id <= 0) return 0;
+  try {
+    const rows = await query(
+      `
+      SELECT d.value AS dim_value, d.unit AS dim_unit
+      FROM ${TABLES.productFeatures} pf
+      INNER JOIN ${TABLES.feature} f ON f.id = pf.feature_id
+      INNER JOIN ${TABLES.featureValueDimension} d
+        ON d.id = pf.feature_value_id
+      WHERE pf.product_id = ?
+        AND f.code = 'weight'
+        AND f.type LIKE 'dimension.weight%'
+      LIMIT 1
+    `,
+      [id]
+    );
+    const row = rows?.[0];
+    if (!row) return 0;
+    const value = Number(row.dim_value);
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    const unit = String(row.dim_unit || "g").toLowerCase();
+    if (unit === "kg" || unit === "кг") return Number(value.toFixed(6));
+    if (unit === "mg" || unit === "мг")
+      return Number((value / 1_000_000).toFixed(6));
+    // Shop-Script stores fastener weight in grams by default.
+    return Number((value / 1000).toFixed(6));
+  } catch {
+    return 0;
   }
+}
+
+function estimateWeightKg(inquiryLine, _productName) {
+  // Per-unit weight must come from ShopDB identity via fetchProductWeightKg.
+  // Diameter×length heuristics invented fake grams on unmatched/analog rows.
+  if (inquiryLine?.unit === "кг") return 0;
   return 0;
 }
 
@@ -1689,4 +1722,6 @@ module.exports = {
   isLiteralCatalogNameHit,
   hydrateLineCommercial,
   isAuthoritativeSkuAlternative,
+  fetchProductWeightKg,
+  estimateWeightKg,
 };

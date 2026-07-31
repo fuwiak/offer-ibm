@@ -17,4 +17,20 @@ describe("OfferKP quote weight", () => {
       calculateTotalWeightKg([{ quantity: 10, unit: "шт", weightKg: 0.125 }])
     ).toBe(1.25);
   });
+
+  test("estimateWeightKg never invents diameter×length weight", () => {
+    const {
+      estimateWeightKg,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    expect(
+      estimateWeightKg(
+        {
+          unit: "шт",
+          raw: "Винт DIN 967 M6x20",
+          thread: { size: "6", length: "20" },
+        },
+        "Винт DIN 967 M6x20 оцинк (500)"
+      )
+    ).toBe(0);
+  });
 });

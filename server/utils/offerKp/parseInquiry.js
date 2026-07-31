@@ -413,6 +413,13 @@ function isStructuralCatalogNumber(token, raw) {
   ) {
     return true;
   }
+  // Catalog pack size in trailing parentheses: «оцинк (500)» — not RFQ qty.
+  if (
+    new RegExp(`(?:^|[^\\d])\\(\\s*${t}\\s*\\)\\s*$`, "u").test(text.trim()) ||
+    new RegExp(`\\(\\s*${t}\\s*\\)`, "u").test(text)
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -602,7 +609,8 @@ function tryParseExpectedCsvInquiry(text) {
     if (!sourceName || sourceName.length < 3) continue;
     if (/^source_name$/i.test(sourceName)) continue;
 
-    const unitRaw = unitIdx >= 0 ? String(fields[unitIdx] || "шт").trim() : "шт";
+    const unitRaw =
+      unitIdx >= 0 ? String(fields[unitIdx] || "шт").trim() : "шт";
     const unit = /кг|kg/i.test(unitRaw)
       ? "кг"
       : /уп|pack/i.test(unitRaw)
