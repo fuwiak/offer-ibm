@@ -146,6 +146,95 @@ describe("resolveMatchConcurrency", () => {
   });
 });
 
+describe("matchInquiryLine exact SKU owns price", () => {
+  it("prices matched_sku only — never cheapest sibling", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 77,
+            name: "Болт DIN 933 M10×25",
+            matched_sku: "SKU-A-EXPENSIVE",
+            product_url: "https://example/p/77",
+          },
+        ],
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    jest.doMock("../../../utils/offerKp/analogRules", () => {
+      const actual = jest.requireActual("../../../utils/offerKp/analogRules");
+      return {
+        ...actual,
+        classifyProductMatch: () => ({
+          matchType: "exact",
+          status: actual.STATUS.IN_STOCK,
+          analogOf: null,
+        }),
+      };
+    });
+    jest.doMock("../../../utils/offerKp/goldenCorrections", () => ({
+      findGoldenCorrection: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockResolvedValue([
+        {
+          sku_id: 1,
+          product_id: 77,
+          sku: "SKU-B-CHEAP",
+          sku_name: "cheap",
+          price: 5,
+          count: 100,
+          available: 1,
+          opt_price: null,
+        },
+        {
+          sku_id: 2,
+          product_id: 77,
+          sku: "SKU-A-EXPENSIVE",
+          sku_name: "expensive",
+          price: 99.5,
+          count: 10,
+          available: 1,
+          opt_price: null,
+        },
+      ]),
+    }));
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => false,
+      enrichAlternatives: ({ alternatives }) => ({ alternatives }),
+      decideMatchGates: () => ({}),
+    }));
+    jest.doMock("../../../utils/offerKp/variantSpecs", () => ({
+      detectVariantAmbiguity: () => null,
+      variantPricingKey: () => "",
+    }));
+
+    const {
+      matchInquiryLine,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    const row = await matchInquiryLine({
+      name: "SKU-A-EXPENSIVE",
+      raw: "SKU-A-EXPENSIVE",
+      quantity: 1,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe("SKU-A-EXPENSIVE");
+    expect(row.unitPriceNet).toBe(99.5);
+    expect(row.unitPriceNet).not.toBe(5);
+
+    jest.resetModules();
+    jest.dontMock("../../../utils/offerKp/productSearchAgent");
+    jest.dontMock("../../../utils/offerKp/analogRules");
+    jest.dontMock("../../../utils/offerKp/goldenCorrections");
+    jest.dontMock("../../../utils/offerKp/db/client");
+    jest.dontMock("../../../utils/offerKp/matching");
+    jest.dontMock("../../../utils/offerKp/variantSpecs");
+  });
+});
+
 describe("matchInquiryLine price acceptance", () => {
   it("does not accept similar-only candidate price (18.50 spam)", async () => {
     jest.resetModules();

@@ -14,16 +14,56 @@ const { generateQuoteReference } = require("../offerKpApp/pricing");
 const priceResolve = require("./priceResolve");
 const configuredOptPriceCategoryId =
   priceResolve.configuredOptPriceCategoryId || (() => null);
-const resolveProductPriceWithSource =
-  priceResolve.resolveProductPriceWithSource ||
-  ((product, skuRows, optPriceRows) => ({
-    price:
-      priceResolve.resolveProductPrice?.(product, skuRows, optPriceRows) || 0,
-    source: null,
-  }));
 const resolveSkuRowPrice =
   priceResolve.resolveSkuRowPrice ||
-  ((skuRow) => resolveProductPriceWithSource({}, skuRow ? [skuRow] : []));
+  ((skuRow) => {
+    if (!skuRow || typeof skuRow !== "object") {
+      return { price: 0, source: null };
+    }
+    const n = Number(skuRow.price);
+    if (Number.isFinite(n) && n > 0) {
+      return { price: n, source: "shop_product_skus.price" };
+    }
+    const opt = Number(skuRow.opt_price);
+    if (Number.isFinite(opt) && opt > 0) {
+      return { price: opt, source: "shop_opt_prices.price" };
+    }
+    return { price: 0, source: null };
+  });
+const resolvePreferredSkuPrice =
+  priceResolve.resolvePreferredSkuPrice ||
+  ((skuRows, preferredSku) => {
+    const wanted = String(preferredSku || "").trim();
+    if (!wanted) {
+      return {
+        price: 0,
+        source: null,
+        sku: "",
+        skuRow: null,
+        skuMissing: false,
+      };
+    }
+    const skuRow = (skuRows || []).find(
+      (row) => String(row?.sku || "").trim() === wanted
+    );
+    if (!skuRow) {
+      return {
+        price: 0,
+        source: null,
+        sku: wanted,
+        skuRow: null,
+        skuMissing: true,
+      };
+    }
+    const resolved = resolveSkuRowPrice(skuRow);
+    return {
+      price: resolved.price,
+      source: resolved.source,
+      sku: String(skuRow.sku || wanted).trim(),
+      skuRow,
+      skuMissing: false,
+    };
+  });
 const { pickCheaperAmongSimilar } = require("./nameSimilarity");
 const {
   signaturesMatchForPricing,
@@ -84,22 +124,48 @@ async function hydrateLineCommercial(line) {
     });
   }
 
-  let commercial = getCachedCommercial(productId);
+  const preferredSku = String(line.article || line.sku || "").trim();
+  // Cache key must include SKU — same productId with different sibling SKUs
+  // must not share a cheapest-SKU commercial snapshot.
+  const commercialKey = preferredSku
+    ? `${productId}::${preferredSku}`
+    : productId;
+  let commercial = getCachedCommercial(commercialKey);
   if (!commercial) {
     const stock = await fetchProductStock(productId);
-    const unitPriceNet = Number(stock.price) || 0;
+    let unitPriceNet = 0;
+    let priceSource = null;
+    let sku = preferredSku;
+    let allowPrice = true;
+
+    if (preferredSku) {
+      const pinned = resolvePreferredSkuPrice(stock.skus || [], preferredSku);
+      unitPriceNet = pinned.price;
+      priceSource = pinned.source;
+      sku = pinned.sku || preferredSku;
+      // Missing / unpriced pinned SKU → no silent bestSku sibling.
+      allowPrice = unitPriceNet > 0 && !pinned.skuMissing;
+    } else {
+      // No pinned article on identity line: keep product-level representative
+      // SKU from fetchProductStocks (bestSku) for name-matched products only.
+      unitPriceNet = Number(stock.price) || 0;
+      priceSource = stock.priceSource || null;
+      sku = stock.sku || "";
+      allowPrice = unitPriceNet > 0;
+    }
+
     commercial = {
-      sku: stock.sku || "",
+      sku,
       unitPriceNet,
       priceWithVat: unitPriceNet
         ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
         : 0,
-      priceSource: stock.priceSource || null,
+      priceSource,
       stockCount: Number(stock.stockCount) || 0,
-      allowPrice: true,
+      allowPrice,
       retrievedAt: new Date().toISOString(),
     };
-    setCachedCommercial(productId, commercial);
+    setCachedCommercial(commercialKey, commercial);
   }
   return applyCommercialFields(line, commercial);
 }
@@ -765,16 +831,36 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   let alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
-    const resolvedPrice = resolveProductPriceWithSource(
-      product,
-      stock.skus,
-      stock.optPriceRows
-    );
+    const isOverrideMatch = overrideProductId === String(product.id);
+    // Exact/golden SKU owns the price. Never price a sibling cheapest SKU.
+    const preferredSku = String(
+      product.matched_sku || (isOverrideMatch ? override?.sku : "") || ""
+    ).trim();
+
+    let altSku = stock.sku || "";
+    let resolvedPrice;
+    if (preferredSku) {
+      const pinned = resolvePreferredSkuPrice(stock.skus || [], preferredSku);
+      resolvedPrice = {
+        price: pinned.price,
+        source: pinned.source,
+      };
+      altSku = pinned.sku || preferredSku;
+    } else {
+      // Name-level product hit without a pinned SKU: use the product's
+      // representative stock row (already bound to one SKU in fetchProductStocks).
+      resolvedPrice = {
+        price: Number(stock.price) || 0,
+        source: stock.priceSource || null,
+      };
+    }
+
     const classification = classifyProductMatch(searchText, {
       ...product,
       ...stock,
+      // Surface the pinned SKU to classifiers that read product.sku.
+      sku: altSku || stock.sku,
     });
-    const isOverrideMatch = overrideProductId === String(product.id);
     const matchType = isOverrideMatch
       ? override.matchType
       : classification.matchType;
@@ -795,7 +881,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     return {
       productId: String(product.id),
       name: product.name,
-      sku: stock.sku,
+      sku: altSku,
       price: resolvedPrice.price || 0,
       priceSource: resolvedPrice.source || null,
       stockCount: stock.stockCount,

@@ -116,6 +116,7 @@ async function finalizeQuoteForExport(quoteData = {}, options = {}) {
   let refreshed = 0;
   let changed = 0;
   let missing = 0;
+  let skuMissing = 0;
 
   try {
     const result = await refreshDraftPricesFromShopDb(draft, fetchStocks, {
@@ -126,6 +127,7 @@ async function finalizeQuoteForExport(quoteData = {}, options = {}) {
     refreshed = result.refreshed;
     changed = result.changed;
     missing = result.missing || 0;
+    skuMissing = result.skuMissing || 0;
   } catch (err) {
     if (options.failClosedOnShopDbError !== false) {
       return {
@@ -179,6 +181,7 @@ async function finalizeQuoteForExport(quoteData = {}, options = {}) {
       refreshed,
       changed,
       missing,
+      skuMissing,
     };
   }
 
@@ -192,6 +195,7 @@ async function finalizeQuoteForExport(quoteData = {}, options = {}) {
     refreshed,
     changed,
     missing,
+    skuMissing,
     quoteData: {
       ...quoteData,
       lines: outLines,

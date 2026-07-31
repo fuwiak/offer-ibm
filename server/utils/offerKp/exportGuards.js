@@ -83,6 +83,20 @@ function assertExportGuards(input = {}) {
       });
     }
 
+    // Chosen article disappeared from ShopDB (or was never pinned) — do not
+    // export a silently substituted sibling / bestSku price.
+    if (
+      line.skuMissing === true &&
+      (matchType === "exact" || matchType === "analog") &&
+      !line.operatorPriceOverride
+    ) {
+      violations.push({
+        id: "sku_missing_no_fallback",
+        message: `line[${i}] SKU=${article || "∅"} missing/unspecified — export blocked (no bestSku fallback)`,
+        severity: "error",
+      });
+    }
+
     // selected product must match priced product when both set
     const evidenceId = line.evidence?.selected_product_id;
     if (evidenceId && productId && String(evidenceId) !== String(productId)) {

@@ -260,7 +260,8 @@ function applyCommercialFields(line = {}, commercial = {}) {
       : 0;
   const next = {
     ...line,
-    article: commercial.sku || line.article || "",
+    // Never replace a pinned line article with a sibling bestSku from commercial.
+    article: line.article || commercial.sku || "",
     unitPriceNet,
     priceWithVat,
     lineTotal,

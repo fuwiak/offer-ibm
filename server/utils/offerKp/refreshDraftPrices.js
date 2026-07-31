@@ -5,11 +5,11 @@
  * have a productId, right before DOCX/PDF export. Prevents shipping a stale
  * snapshot from earlier in the same session.
  *
- * Price is always taken from the SKU row that matches line.article (or the
- * product's bestSku) — never from a sibling variant on the same product.
+ * Price is always taken from the SKU row that matches line.article.
+ * Never silently fall back to the product's cheapest/bestSku sibling.
  */
 
-const { resolveSkuRowPrice } = require("./priceResolve");
+const { resolvePreferredSkuPrice } = require("./priceResolve");
 
 const VAT_RATE = 0.2;
 
@@ -27,26 +27,51 @@ function findSkuRowForLine(stock, line = {}) {
 
 /**
  * Live unit price for a draft line from a fetchProductStocks() entry.
- * Prefers the SKU already selected on the line; falls back to stock.price
- * (which must itself be bound to bestSku — see fetchProductStocks).
+ * Requires the SKU already selected on the line (article/sku).
+ * If that SKU is missing or has no price → price 0 (no bestSku fallback).
  */
 function livePriceForLine(stock, line = {}) {
-  if (!stock) return { price: 0, sku: "", skuId: null, source: null };
-  const matched = findSkuRowForLine(stock, line);
-  if (matched) {
-    const resolved = resolveSkuRowPrice(matched);
+  if (!stock) {
     return {
-      price: resolved.price,
-      sku: matched.sku || stock.sku || "",
-      skuId: matched.sku_id != null ? Number(matched.sku_id) : stock.skuId,
-      source: resolved.source,
+      price: 0,
+      sku: "",
+      skuId: null,
+      source: null,
+      skuMissing: false,
     };
   }
+
+  const wanted = String(line.article || line.sku || "").trim();
+  if (!wanted) {
+    // Exact/analog export must pin a SKU. Do not invent bestSku price.
+    return {
+      price: 0,
+      sku: "",
+      skuId: null,
+      source: null,
+      skuMissing: false,
+      skuUnspecified: true,
+    };
+  }
+
+  const pinned = resolvePreferredSkuPrice(stock.skus || [], wanted);
+  if (pinned.skuMissing) {
+    return {
+      price: 0,
+      sku: wanted,
+      skuId: null,
+      source: null,
+      skuMissing: true,
+    };
+  }
+
   return {
-    price: Number(stock.price) || 0,
-    sku: stock.sku || "",
-    skuId: stock.skuId != null ? Number(stock.skuId) : null,
-    source: stock.priceSource || null,
+    price: pinned.price,
+    sku: pinned.sku || wanted,
+    skuId:
+      pinned.skuRow?.sku_id != null ? Number(pinned.skuRow.sku_id) : null,
+    source: pinned.source,
+    skuMissing: false,
   };
 }
 
@@ -74,11 +99,17 @@ function recalcDraftTotals(draft, vatRate = VAT_RATE) {
  *   vatRate?: number,
  * }} [opts]
  *   failMissing=true → zero prices when ShopDB has no row (export fail-closed)
- * @returns {Promise<{ draft: object, refreshed: number, changed: number, missing: number }>}
+ * @returns {Promise<{
+ *   draft: object,
+ *   refreshed: number,
+ *   changed: number,
+ *   missing: number,
+ *   skuMissing: number,
+ * }>}
  */
 async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
   if (!draft?.lines?.length || typeof fetchStocks !== "function") {
-    return { draft, refreshed: 0, changed: 0, missing: 0 };
+    return { draft, refreshed: 0, changed: 0, missing: 0, skuMissing: 0 };
   }
 
   const vatRate =
@@ -96,6 +127,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
       refreshed: 0,
       changed: 0,
       missing: 0,
+      skuMissing: 0,
     };
   }
 
@@ -103,6 +135,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
   let refreshed = 0;
   let changed = 0;
   let missing = 0;
+  let skuMissing = 0;
   const retrievedAt = new Date().toISOString();
 
   const lines = draft.lines.map((line) => {
@@ -112,7 +145,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
     // Explicit operator override: keep price, stamp retrieval time.
     if (line.operatorPriceOverride) {
       refreshed += 1;
-      return { ...line, priceRetrievedAt: retrievedAt };
+      return { ...line, priceRetrievedAt: retrievedAt, skuMissing: false };
     }
 
     const stock = stocks.get(pid);
@@ -135,6 +168,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
         priceSnapshot: null,
         priceRetrievedAt: retrievedAt,
         priceSource: null,
+        skuMissing: false,
       };
     }
 
@@ -142,10 +176,14 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
     const matchType = line.matchType;
     const accepted = matchType === "exact" || matchType === "analog";
     if (!accepted) {
-      return { ...line, priceRetrievedAt: retrievedAt };
+      return { ...line, priceRetrievedAt: retrievedAt, skuMissing: false };
     }
 
     const live = livePriceForLine(stock, line);
+    if (live.skuMissing || live.skuUnspecified) {
+      skuMissing += 1;
+    }
+
     const livePrice = live.price;
     const prev = Number(line.unitPriceNet) || 0;
     if (Math.abs(livePrice - prev) > 0.009) changed += 1;
@@ -161,19 +199,34 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
         ? Number((unitPriceNet * qty).toFixed(2))
         : 0;
 
-    return {
+    const next = {
       ...line,
       unitPriceNet,
       priceWithVat,
       lineTotal,
+      // Keep the intended article even when missing from ShopDB (fail-closed).
       article: live.sku || line.article || "",
       sku: live.sku || line.sku || line.article || "",
       skuId: live.skuId != null ? live.skuId : line.skuId,
-      allowPrice: unitPriceNet > 0,
+      allowPrice: unitPriceNet > 0 && !live.skuMissing && !live.skuUnspecified,
       priceRetrievedAt: retrievedAt,
-      priceSnapshot: unitPriceNet,
+      priceSnapshot: unitPriceNet > 0 ? unitPriceNet : null,
       priceSource: live.source,
+      skuMissing: !!live.skuMissing || !!live.skuUnspecified,
     };
+
+    if (live.skuMissing || live.skuUnspecified) {
+      next.status = "needs_review";
+      next.kpStatus = "Требуется проверка";
+      const note = live.skuMissing
+        ? `SKU «${line.article || line.sku}» отсутствует в ShopDB — цена не назначена`
+        : "SKU не указан для exact/analog — цена не назначена (без silent bestSku)";
+      if (!String(next.comment || "").includes(note)) {
+        next.comment = [next.comment, note].filter(Boolean).join("; ");
+      }
+    }
+
+    return next;
   });
 
   return {
@@ -184,6 +237,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
     refreshed,
     changed,
     missing,
+    skuMissing,
   };
 }
 

@@ -60,6 +60,33 @@ describe("livePriceForLine prefers line article SKU", () => {
     const live = livePriceForLine(stock, { article: "CHOSEN" });
     expect(live.sku).toBe("CHOSEN");
     expect(live.price).toBe(22.5);
+    expect(live.skuMissing).toBe(false);
+  });
+
+  it("never falls back to bestSku when chosen article is missing", () => {
+    const stock = {
+      sku: "CHEAP",
+      price: 5,
+      skus: [
+        { sku: "CHEAP", price: 5 },
+        { sku: "OTHER", price: 40 },
+      ],
+    };
+    const live = livePriceForLine(stock, { article: "EXPENSIVE-GONE" });
+    expect(live.price).toBe(0);
+    expect(live.skuMissing).toBe(true);
+    expect(live.sku).toBe("EXPENSIVE-GONE");
+  });
+
+  it("does not invent bestSku when article is unspecified", () => {
+    const stock = {
+      sku: "CHEAP",
+      price: 5,
+      skus: [{ sku: "CHEAP", price: 5 }],
+    };
+    const live = livePriceForLine(stock, { article: "" });
+    expect(live.price).toBe(0);
+    expect(live.skuUnspecified).toBe(true);
   });
 });
 
@@ -261,6 +288,44 @@ describe("finalizeQuoteForExport", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.quoteData.lines[0].unitPriceNet).toBe(55);
+  });
+
+  it("blocks export when chosen article disappeared (no bestSku fallback)", async () => {
+    const fakeFetch = async () =>
+      new Map([
+        [
+          "42",
+          {
+            sku: "CHEAP",
+            price: 5,
+            skus: [
+              { sku: "CHEAP", price: 5 },
+              { sku: "OTHER", price: 40 },
+            ],
+          },
+        ],
+      ]);
+    const result = await finalizeQuoteForExport(
+      {
+        lines: [
+          {
+            productId: "42",
+            article: "EXPENSIVE-GONE",
+            matchType: "exact",
+            quantity: 1,
+            unitPriceNet: 99,
+            lineTotal: 99,
+            allowPrice: true,
+          },
+        ],
+      },
+      { fetchProductStocks: fakeFetch, requireSnapshot: true }
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("export_guards_failed");
+    expect(
+      (result.violations || []).some((v) => v.id === "sku_missing_no_fallback")
+    ).toBe(true);
   });
 });
 
