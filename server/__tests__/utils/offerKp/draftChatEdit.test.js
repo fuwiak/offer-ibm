@@ -246,7 +246,7 @@ describe("draftChatEdit", () => {
       },
     });
     expect(result.ok).toBe(false);
-    expect(result.reason).toBe("cheapest_analogs_empty");
-    expect(result.reply).toMatch(/Нет строк/);
+    expect(result.reason).toBe("cheapest_analogs_no_menu");
+    expect(result.reply).toMatch(/Аналоги|меню/i);
   });
 });

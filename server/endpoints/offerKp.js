@@ -661,6 +661,35 @@ function offerKpEndpoints(app) {
   );
 
   /**
+   * POST /offerKp/products/commercial
+   * Live ShopDB price + weight for one SKU (analog select / rehydrate).
+   */
+  app.post(
+    "/offerKp/products/commercial",
+    [validatedRequest, offerKpRoleGuard({ requireAuth: true })],
+    async (request, response) => {
+      try {
+        const body = reqBody(request);
+        const sku = String(body.sku || body.article || "").trim();
+        const productId =
+          body.productId != null ? String(body.productId).trim() : "";
+        if (!sku && !productId) {
+          return response
+            .status(400)
+            .json({ error: "sku or productId is required" });
+        }
+        const {
+          resolveProductCommercial,
+        } = require("../utils/offerKp/matchInquiryLines");
+        const commercial = await resolveProductCommercial({ sku, productId });
+        response.status(200).json(commercial);
+      } catch (e) {
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
+
+  /**
    * POST /offerKp/corrections
    * Лог правок оператора для дообучения.
    */

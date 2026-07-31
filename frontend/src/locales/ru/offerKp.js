@@ -527,7 +527,15 @@ const TRANSLATIONS = {
       "Подставить по каждой строке самый дешёвый вариант из меню «Аналоги» с ценой и наличием на складе",
     cheapestAnalogsSuccess: "Подставлено из наличия с ценой: {{count}}",
     cheapestAnalogsEmpty:
-      "Нет строк с вариантом в наличии и с ценой из каталога (меню «Аналоги» ≥2), либо уже выбран лучший.",
+      "Нет строк для подстановки аналогов.",
+    cheapestAnalogsEmptyOutOfStock:
+      "Все позиции без наличия на складе — подставить дешёвый аналог нечего.",
+    cheapestAnalogsEmptyAlreadyBest:
+      "Уже выбран лучший вариант из наличия с ценой.",
+    cheapestAnalogsEmptyNoMenu:
+      "У позиций нет меню «Аналоги» (≥2 варианта) после сопоставления.",
+    cheapestAnalogsEmptyNoPricedStock:
+      "В меню «Аналоги» нет вариантов одновременно в наличии и с ценой из каталога.",
     cheapestAnalogsUndo: "Отменить",
     cheapestAnalogsUndoTitle: "Отменить последнюю подстановку «Дешёвые аналоги»",
     cheapestAnalogsUndoSuccess:

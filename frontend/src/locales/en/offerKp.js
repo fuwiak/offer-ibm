@@ -519,7 +519,15 @@ const TRANSLATIONS = {
       "One click: apply the cheapest in-stock priced option from each line’s Alternatives menu",
     cheapestAnalogsSuccess: "Applied in-stock priced alternatives: {{count}}",
     cheapestAnalogsEmpty:
-      "No lines with an in-stock priced option in Alternatives (≥2 options), or the best pick is already applied.",
+      "No lines to apply analogs to.",
+    cheapestAnalogsEmptyOutOfStock:
+      "All lines are out of stock — nothing to substitute from in-stock analogs.",
+    cheapestAnalogsEmptyAlreadyBest:
+      "Best in-stock priced option is already selected.",
+    cheapestAnalogsEmptyNoMenu:
+      "Lines have no Alternatives menu (≥2 options) after matching.",
+    cheapestAnalogsEmptyNoPricedStock:
+      "Alternatives menu has no options that are both in stock and priced from the catalog.",
     cheapestAnalogsUndo: "Undo",
     cheapestAnalogsUndoTitle: "Undo last «Cheapest analogs» substitution",
     cheapestAnalogsUndoSuccess:

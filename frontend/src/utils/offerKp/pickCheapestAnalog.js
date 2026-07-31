@@ -21,6 +21,14 @@ export function isInStockAlternative(alt = {}) {
   );
 }
 
+export function isOutOfStockLine(line = {}) {
+  if (!line || typeof line !== "object") return false;
+  if ((Number(line.stockCount) || 0) > 0) return false;
+  return /нет\s*в\s*наличии|out\s*of\s*stock|brak\s*w\s*magazynie|niedostęp/i.test(
+    String(line.status || "")
+  );
+}
+
 export function positiveAltPrice(value) {
   const price = Number(value);
   return Number.isFinite(price) && price > 0 ? price : 0;
@@ -96,6 +104,52 @@ export function resolveCheapestAnalogsForLines(lines = []) {
     picks.push({ index, alt, line });
   });
   return picks;
+}
+
+/**
+ * Why «Дешёвые аналоги» has nothing to apply — toast must match reality.
+ * @returns {'already_best'|'out_of_stock'|'no_menu'|'no_priced_stock'|'empty'}
+ */
+export function explainCheapestAnalogsEmpty(lines = []) {
+  const rows = (lines || []).filter((line) => line && typeof line === "object");
+  if (!rows.length) return "empty";
+
+  let anyMenu = false;
+  let anyPricedStock = false;
+  let anyAlreadyBest = false;
+
+  for (const line of rows) {
+    const alts = Array.isArray(line.alternatives) ? line.alternatives : [];
+    if (alts.length < 2) continue;
+    anyMenu = true;
+    const alt = pickCheapestAnalog(alts);
+    if (!alt) continue;
+    anyPricedStock = true;
+    const currentSku = String(line.article || line.sku || "").trim();
+    const nextSku = String(alt.sku || "").trim();
+    const currentId = String(line.productId || "").trim();
+    const nextId = String(alt.productId || "").trim();
+    const sameSku = Boolean(currentSku && nextSku && currentSku === nextSku);
+    const sameId = Boolean(currentId && nextId && currentId === nextId);
+    const nextNet = altNetPrice(alt);
+    const currentNet = lineNetPrice(line);
+    const priceNeedsUpdate =
+      nextNet > 0 && Math.abs(currentNet - nextNet) >= 0.005;
+    if ((sameSku || sameId) && !priceNeedsUpdate) {
+      anyAlreadyBest = true;
+    }
+  }
+
+  if (anyAlreadyBest && !resolveCheapestAnalogsForLines(rows).length) {
+    return "already_best";
+  }
+  if (rows.every(isOutOfStockLine)) return "out_of_stock";
+  if (!anyMenu) return "no_menu";
+  if (!anyPricedStock) {
+    if (rows.some(isOutOfStockLine)) return "out_of_stock";
+    return "no_priced_stock";
+  }
+  return "no_priced_stock";
 }
 
 export default pickCheapestAnalog;

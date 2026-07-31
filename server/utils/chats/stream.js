@@ -232,9 +232,9 @@ async function streamChatWithWorkspace(
       }
       if (
         editResult.reply &&
-        ["line_not_found", "cheapest_analogs_empty", "no_draft"].includes(
-          editResult.reason
-        )
+        (editResult.reason === "line_not_found" ||
+          editResult.reason === "no_draft" ||
+          String(editResult.reason || "").startsWith("cheapest_analogs_"))
       ) {
         await replyDraftEditAndStop(editResult.reply, {
           grounding: "operator_draft_edit_miss",

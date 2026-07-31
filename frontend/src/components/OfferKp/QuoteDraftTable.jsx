@@ -24,6 +24,7 @@ import {
   altNetPrice,
   isInStockAlternative,
   resolveCheapestAnalogsForLines,
+  explainCheapestAnalogsEmpty,
 } from "@/utils/offerKp/pickCheapestAnalog";
 import { resolveProductUrl } from "@/utils/offerKp/resolveProductUrl";
 import showToast from "@/utils/toast";
@@ -551,55 +552,133 @@ export default function QuoteDraftTable() {
     }
   }
 
-  function altPatch(alt) {
+  function altPatch(alt, live = null) {
     if (!alt || typeof alt !== "object") return {};
-    const unitPriceNet = altNetPrice(alt);
-    const inStock = isInStockAlternative(alt);
+    const unitPriceNet =
+      (live && Number(live.unitPriceNet) > 0
+        ? Number(live.unitPriceNet)
+        : altNetPrice(alt)) || 0;
+    const inStock =
+      live && live.stockCount != null
+        ? Number(live.stockCount) > 0
+        : isInStockAlternative(alt);
     const status =
       alt.status ||
       (inStock ? "В наличии" : alt.matchType === "analog" ? "Аналог" : "Аналог");
+    const weightFromLive =
+      live && live.weightKg != null && Number.isFinite(Number(live.weightKg))
+        ? Number(live.weightKg)
+        : null;
+    const weightFromAlt =
+      alt.weightKg != null && Number.isFinite(Number(alt.weightKg))
+        ? Number(alt.weightKg)
+        : null;
+    // Never invent weight — only ShopDB (live hydrate or alt payload).
+    const weightKg = weightFromLive ?? weightFromAlt ?? 0;
     return {
-      name: alt.name || "",
-      article: alt.sku,
-      sku: alt.sku,
-      productId: alt.productId || undefined,
+      name: live?.name || alt.name || "",
+      article: live?.sku || alt.sku,
+      sku: live?.sku || alt.sku,
+      productId: live?.productId || alt.productId || undefined,
       productUrl: alt.productUrl || alt.url || undefined,
       matchType: alt.matchType || "analog",
       // ShopDB alt.price is net — keep both fields in sync for the table.
       unitPriceNet: Number(unitPriceNet.toFixed(2)),
       priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
-      status,
+      weightKg,
+      status:
+        live && Number(live.stockCount) > 0
+          ? "В наличии"
+          : status,
       kpStatus:
         alt.matchType === "exact" && inStock
           ? "Точное соответствие"
           : "Предложен аналог",
       analogOf: alt.analogOf,
-      stockCount: Number(alt.stockCount) || 0,
+      stockCount:
+        live?.stockCount != null
+          ? Number(live.stockCount) || 0
+          : Number(alt.stockCount) || 0,
       allowPrice: unitPriceNet > 0,
     };
   }
 
-  function selectAlternative(lineIndex, alt) {
+  async function selectAlternative(lineIndex, alt) {
     if (!alt || typeof alt !== "object") return;
-    const line = lines[lineIndex];
-    handleFieldChange(lineIndex, "name", alt.name || "", line);
-    updateLine(lineIndex, altPatch(alt));
+    let live = null;
+    const needsHydrate =
+      altNetPrice(alt) <= 0 ||
+      alt.weightKg == null ||
+      !Number.isFinite(Number(alt.weightKg));
+    if (needsHydrate && (alt.sku || alt.productId)) {
+      try {
+        live = await OfferKp.hydrateProductCommercial({
+          sku: alt.sku,
+          productId: alt.productId,
+        });
+      } catch (e) {
+        console.warn("[QuoteDraftTable] commercial hydrate failed:", e);
+      }
+    }
+    // Single update — avoid dual setState race that dropped price/weight.
+    updateLine(lineIndex, altPatch(alt, live));
   }
 
-  function applyCheapestAnalogs() {
+  async function applyCheapestAnalogs() {
     const picks = resolveCheapestAnalogsForLines(lines);
     if (!picks.length) {
+      const reason = explainCheapestAnalogsEmpty(lines);
+      const toastKey = {
+        out_of_stock: "draftTable.cheapestAnalogsEmptyOutOfStock",
+        already_best: "draftTable.cheapestAnalogsEmptyAlreadyBest",
+        no_menu: "draftTable.cheapestAnalogsEmptyNoMenu",
+        no_priced_stock: "draftTable.cheapestAnalogsEmptyNoPricedStock",
+        empty: "draftTable.cheapestAnalogsEmpty",
+      }[reason];
+      const defaults = {
+        out_of_stock:
+          "Все позиции без наличия на складе — подставить дешёвый аналог нечего.",
+        already_best: "Уже выбран лучший вариант из наличия с ценой.",
+        no_menu:
+          "У позиций нет меню «Аналоги» (≥2 варианта) после сопоставления.",
+        no_priced_stock:
+          "В меню «Аналоги» нет вариантов одновременно в наличии и с ценой из каталога.",
+        empty: "Нет строк для подстановки аналогов.",
+      };
       showToast(
-        t("draftTable.cheapestAnalogsEmpty", {
-          defaultValue:
-            "Нет строк с вариантом в наличии и с ценой из каталога (меню «Аналоги» ≥2), либо уже выбран лучший.",
+        t(toastKey || "draftTable.cheapestAnalogsEmpty", {
+          defaultValue: defaults[reason] || defaults.no_priced_stock,
         }),
         "info"
       );
       return;
     }
 
-    const byIndex = new Map(picks.map((p) => [p.index, p.alt]));
+    const hydratedPicks = await Promise.all(
+      picks.map(async (p) => {
+        const alt = p.alt;
+        if (
+          altNetPrice(alt) > 0 &&
+          alt.weightKg != null &&
+          Number.isFinite(Number(alt.weightKg))
+        ) {
+          return { ...p, live: null };
+        }
+        try {
+          const live = await OfferKp.hydrateProductCommercial({
+            sku: alt.sku,
+            productId: alt.productId,
+          });
+          return { ...p, live };
+        } catch {
+          return { ...p, live: null };
+        }
+      })
+    );
+
+    const byIndex = new Map(
+      hydratedPicks.map((p) => [p.index, { alt: p.alt, live: p.live }])
+    );
     const snapshotLines = lines.map((line) => ({ ...line }));
     setCheapestAnalogsUndo({
       hardwareLines: snapshotLines,
@@ -611,9 +690,12 @@ export default function QuoteDraftTable() {
     setQuoteDraft((prev) => {
       const current = prev.hardwareLines || prev.preview?.lines || [];
       const next = current.map((line, i) => {
-        const alt = byIndex.get(i);
-        if (!alt) return line;
-        return recalcLine({ ...line, ...altPatch(alt) }, vatRate);
+        const pick = byIndex.get(i);
+        if (!pick) return line;
+        return recalcLine(
+          { ...line, ...altPatch(pick.alt, pick.live) },
+          vatRate
+        );
       });
       const subtotal = next.reduce(
         (sum, line) => sum + lineNetTotal(line, vatRate),

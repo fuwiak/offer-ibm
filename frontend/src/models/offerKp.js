@@ -94,6 +94,14 @@ const OfferKp = {
     });
   },
 
+  /** Live ShopDB price + weight for one SKU (analog select / rehydrate). */
+  async hydrateProductCommercial({ sku, productId } = {}) {
+    return offerKpFetch(`${API_BASE}/offerKp/products/commercial`, {
+      method: "POST",
+      body: JSON.stringify({ sku, productId }),
+    });
+  },
+
   async logCorrections(corrections) {
     return offerKpFetch(`${API_BASE}/offerKp/corrections`, {
       method: "POST",

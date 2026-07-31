@@ -141,6 +141,34 @@ describe("layered ShopDB cache", () => {
     expect(hydrated.unitPriceNet).toBe(2.59);
   });
 
+  it("strips weight from identity and re-applies ShopDB weight on commercial", () => {
+    const identity = stripCommercialFields({
+      productId: "18216",
+      article: "009673010060020",
+      matchType: "exact",
+      allowPrice: true,
+      unitPriceNet: 2.21,
+      weightKg: 0.99,
+      lineWeightKg: 99,
+      quantity: 1,
+      unit: "шт",
+    });
+    expect(identity.weightKg).toBeUndefined();
+    expect(identity.lineWeightKg).toBeUndefined();
+
+    const hydrated = applyCommercialFields(identity, {
+      sku: "009673010060020",
+      unitPriceNet: 2.21,
+      priceWithVat: 2.65,
+      allowPrice: true,
+      weightKg: 0.00668,
+      retrievedAt: "2026-07-31T00:00:00.000Z",
+    });
+    expect(hydrated.weightKg).toBeCloseTo(0.00668, 5);
+    expect(hydrated.lineWeightKg).toBeCloseTo(0.00668, 5);
+    expect(hydrated.unitPriceNet).toBe(2.21);
+  });
+
   it("keeps identity and commercial caches separate", () => {
     const key = buildMatchIdentityCacheKey({
       inquiryText: "thread::Болт M10",

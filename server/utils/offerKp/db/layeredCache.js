@@ -57,6 +57,9 @@ const COMMERCIAL_FIELDS = Object.freeze([
   "priceSource",
   "priceRetrievedAt",
   "stockCount",
+  // Weight is ShopDB feature data — never freeze a stale 0 / heuristic on identity.
+  "weightKg",
+  "lineWeightKg",
   // allowPrice is commercial eligibility, not identity. Freezing a stale
   // allowPrice=false on identity blocked hydrate from re-reading ShopDB.
   "allowPrice",
@@ -262,6 +265,19 @@ function applyCommercialFields(line = {}, commercial = {}) {
     allowPrice && unitPriceNet > 0 && !unitNeedsRecalc
       ? Number((unitPriceNet * qty).toFixed(2))
       : 0;
+  // Weight only when commercial explicitly carried a ShopDB value (incl. 0 = missing).
+  const hasWeight = Object.prototype.hasOwnProperty.call(
+    commercial,
+    "weightKg"
+  );
+  const weightKg = hasWeight ? Number(commercial.weightKg) || 0 : 0;
+  const lineWeightKg = hasWeight
+    ? line.unit === "кг"
+      ? qty
+      : Number((weightKg * qty).toFixed(6))
+    : line.unit === "кг"
+      ? qty
+      : 0;
   const next = {
     ...line,
     // Never replace a pinned line article with a sibling bestSku from commercial.
@@ -275,7 +291,11 @@ function applyCommercialFields(line = {}, commercial = {}) {
     priceRetrievedAt: commercial.retrievedAt || new Date().toISOString(),
     stockCount:
       commercial.stockCount != null ? commercial.stockCount : line.stockCount,
+    ...(hasWeight ? { weightKg, lineWeightKg } : {}),
   };
+  if (Array.isArray(commercial.alternatives)) {
+    next.alternatives = commercial.alternatives;
+  }
   if (next.evidence && typeof next.evidence === "object") {
     next.evidence = {
       ...next.evidence,

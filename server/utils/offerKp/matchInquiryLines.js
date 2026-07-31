@@ -126,15 +126,21 @@ async function hydrateLineCommercial(line) {
   const productId = line.productId != null ? String(line.productId).trim() : "";
   const matchType = String(line.matchType || "");
   const priceEligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);
+  const qty = Number(line.quantity) || 0;
   // Stale identity used to freeze allowPrice=false after a classify demotion,
   // which permanently zeroed ShopDB retail prices on rematch hydrate.
   // Re-read commercial whenever matchType is price-eligible.
   if (!productId || (!priceEligible && line.allowPrice === false)) {
+    const alternatives = await hydrateAlternativeCommercials(
+      line.alternatives || []
+    );
     return applyCommercialFields(line, {
       unitPriceNet: 0,
       priceWithVat: 0,
       allowPrice: false,
+      weightKg: 0,
       retrievedAt: new Date().toISOString(),
+      alternatives,
     });
   }
 
@@ -173,6 +179,9 @@ async function hydrateLineCommercial(line) {
       allowPrice = false;
     }
 
+    // Weight only from ShopDB feature — never diameter×length heuristics.
+    const weightKg = await fetchProductWeightKg(productId);
+
     commercial = {
       sku,
       unitPriceNet,
@@ -182,11 +191,129 @@ async function hydrateLineCommercial(line) {
       priceSource,
       stockCount: Number(stock.stockCount) || 0,
       allowPrice,
+      weightKg,
       retrievedAt: new Date().toISOString(),
     };
     setCachedCommercial(commercialKey, commercial);
+  } else if (commercial.weightKg == null) {
+    // Older commercial snapshots pre-date weight hydrate — fill once.
+    commercial = {
+      ...commercial,
+      weightKg: await fetchProductWeightKg(productId),
+    };
+    setCachedCommercial(commercialKey, commercial);
   }
-  return applyCommercialFields(line, commercial);
+
+  const alternatives = await hydrateAlternativeCommercials(
+    line.alternatives || []
+  );
+  return applyCommercialFields(line, {
+    ...commercial,
+    alternatives,
+    // Recompute line weight against current qty (identity cache has no weight).
+    weightKg: Number(commercial.weightKg) || 0,
+    quantity: qty,
+  });
+}
+
+/**
+ * Re-attach ShopDB prices/stock on alternatives after identity-cache strip.
+ * Selecting from «Аналоги» must not land empty unitPriceNet.
+ */
+async function hydrateAlternativeCommercials(alternatives = []) {
+  const list = (alternatives || []).filter(
+    (alt) => alt && typeof alt === "object"
+  );
+  if (!list.length) return [];
+  const ids = list
+    .map((alt) => alt.productId)
+    .filter((id) => id != null && String(id).trim());
+  if (!ids.length) return list;
+  const stockByProduct = await fetchProductStocks(ids);
+  return list.map((alt) => {
+    const stock =
+      stockByProduct.get(String(alt.productId)) || emptyProductStock();
+    const preferredSku = String(alt.sku || alt.article || "").trim();
+    let price = 0;
+    let sku = preferredSku || stock.sku || "";
+    if (preferredSku) {
+      const pinned = resolvePreferredSkuPrice(stock.skus || [], preferredSku);
+      price = pinned.price;
+      sku = pinned.sku || preferredSku;
+    } else {
+      price = Number(stock.price) || 0;
+      if (!sku) sku = stock.sku || "";
+    }
+    return {
+      ...alt,
+      sku,
+      price,
+      stockCount: Number(stock.stockCount) || 0,
+    };
+  });
+}
+
+/**
+ * Live ShopDB commercial snapshot for one SKU/product (UI analog select / hydrate).
+ * @param {{ productId?: string|number, sku?: string }} input
+ */
+async function resolveProductCommercial(input = {}) {
+  let productId = input.productId != null ? String(input.productId).trim() : "";
+  let sku = String(input.sku || input.article || "").trim();
+  let name = "";
+
+  if (!productId && sku) {
+    const hits = await searchByExactSku([sku], 1);
+    if (hits?.[0]?.id != null) {
+      productId = String(hits[0].id);
+      name = hits[0].name || "";
+      if (!sku && hits[0].matched_sku) {
+        sku = String(hits[0].matched_sku).trim();
+      }
+    }
+  }
+  if (!productId) {
+    return {
+      productId: "",
+      sku,
+      unitPriceNet: 0,
+      priceWithVat: 0,
+      weightKg: 0,
+      stockCount: 0,
+      allowPrice: false,
+      name: "",
+    };
+  }
+
+  const stock = await fetchProductStock(productId);
+  let unitPriceNet = 0;
+  let priceSource = null;
+  let resolvedSku = sku;
+  if (sku) {
+    const pinned = resolvePreferredSkuPrice(stock.skus || [], sku);
+    unitPriceNet = pinned.price;
+    priceSource = pinned.source;
+    resolvedSku = pinned.sku || sku;
+  } else {
+    unitPriceNet = Number(stock.price) || 0;
+    priceSource = stock.priceSource || null;
+    resolvedSku = stock.sku || "";
+  }
+  const weightKg = await fetchProductWeightKg(productId);
+  const allowPrice = unitPriceNet > 0;
+  return {
+    productId,
+    sku: resolvedSku,
+    unitPriceNet,
+    priceWithVat: allowPrice
+      ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
+      : 0,
+    weightKg,
+    stockCount: Number(stock.stockCount) || 0,
+    allowPrice,
+    priceSource,
+    name: name || stock.skuName || "",
+  };
 }
 
 async function getCachedLineMatch(threadId, raw) {
@@ -1356,14 +1483,13 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   lineKpStatus = grounded.kpStatus;
   lineAllowPrice = grounded.allowPrice;
 
-  // Weight only from ShopDB feature of the SAME identity that owns the price.
-  // No DB identity / no price → weightKg=0 (never diameter×length heuristics).
-  const weightKg =
-    lineProductId && lineAllowPrice
-      ? await fetchProductWeightKg(lineProductId)
-      : 0;
+  // Weight only from ShopDB feature of the matched product (not allowPrice-gated).
+  // No DB identity → weightKg=0 (never diameter×length heuristics).
+  const weightKg = lineProductId
+    ? await fetchProductWeightKg(lineProductId)
+    : 0;
   const lineWeightKg =
-    inquiryLine.unit === "кг" ? qty : Number((weightKg * qty).toFixed(4));
+    inquiryLine.unit === "кг" ? qty : Number((weightKg * qty).toFixed(6));
 
   const reviewReason = resolveReviewReason({
     accepted:
@@ -1721,6 +1847,8 @@ module.exports = {
   exactCatalogNameKey,
   isLiteralCatalogNameHit,
   hydrateLineCommercial,
+  hydrateAlternativeCommercials,
+  resolveProductCommercial,
   isAuthoritativeSkuAlternative,
   fetchProductWeightKg,
   estimateWeightKg,

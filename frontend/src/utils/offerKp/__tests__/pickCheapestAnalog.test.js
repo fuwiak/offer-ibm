@@ -4,6 +4,7 @@ import {
   isInStockAlternative,
   pickCheapestAnalog,
   resolveCheapestAnalogsForLines,
+  explainCheapestAnalogsEmpty,
 } from "../pickCheapestAnalog";
 
 describe("pickCheapestAnalog", () => {
@@ -72,6 +73,42 @@ describe("pickCheapestAnalog", () => {
 
   it("returns null when empty", () => {
     expect(pickCheapestAnalog([])).toBe(null);
+  });
+
+  it("explainCheapestAnalogsEmpty distinguishes all out-of-stock", () => {
+    expect(
+      explainCheapestAnalogsEmpty([
+        {
+          status: "Нет в наличии",
+          stockCount: 0,
+          alternatives: [
+            { sku: "A", price: 5, stockCount: 0 },
+            { sku: "B", price: 6, stockCount: 0 },
+          ],
+        },
+        {
+          status: "Нет в наличии",
+          alternatives: [{ sku: "x", price: 1, stockCount: 0 }],
+        },
+      ])
+    ).toBe("out_of_stock");
+  });
+
+  it("explainCheapestAnalogsEmpty reports already_best", () => {
+    expect(
+      explainCheapestAnalogsEmpty([
+        {
+          article: "KEEP",
+          unitPriceNet: 10,
+          status: "В наличии",
+          stockCount: 5,
+          alternatives: [
+            { sku: "KEEP", price: 10, matchType: "exact", stockCount: 5 },
+            { sku: "DEAR", price: 40, matchType: "analog", stockCount: 2 },
+          ],
+        },
+      ])
+    ).toBe("already_best");
   });
 
   it("resolveCheapestAnalogsForLines uses menu options and skips current SKU", () => {

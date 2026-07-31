@@ -10,6 +10,7 @@ const { matchUiDraftCommand, isUiDraftCommand } = require("./uiDraftCommands");
 const {
   resolveCheapestAnalogsForLines,
   altPatchForLine,
+  explainCheapestAnalogsEmpty,
 } = require("./pickCheapestAnalog");
 
 function normalizeText(value = "") {
@@ -180,13 +181,25 @@ function looksLikeDraftEdit(message = "") {
 function applyCheapestAnalogsCommand(prev, lines, vatRate) {
   const picks = resolveCheapestAnalogsForLines(lines);
   if (!picks.length) {
+    const reason = explainCheapestAnalogsEmpty(lines);
+    const replyByReason = {
+      out_of_stock:
+        "Все позиции сейчас без наличия на складе — дешёвые аналоги из меню нечего подставить. Проверьте статус или откройте «Аналоги» вручную.",
+      already_best:
+        "Уже выбран лучший вариант из наличия с ценой — менять нечего.",
+      no_menu:
+        "У позиций нет меню «Аналоги» (≥2 варианта). Откройте сводку после сопоставления с каталогом.",
+      no_priced_stock:
+        "В меню «Аналоги» нет вариантов одновременно в наличии и с ценой из каталога.",
+      empty:
+        "Нет строк черновика для подстановки аналогов.",
+    };
     return {
       ok: false,
       applied: [],
       quoteDraft: prev,
-      reply:
-        "Нет строк с вариантом в наличии и с ценой из меню «Аналоги» (≥2), либо уже выбран лучший. Откройте сводку и проверьте аналоги.",
-      reason: "cheapest_analogs_empty",
+      reply: replyByReason[reason] || replyByReason.no_priced_stock,
+      reason: `cheapest_analogs_${reason}`,
     };
   }
 
