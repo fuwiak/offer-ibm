@@ -42,7 +42,19 @@ const PRODUCT_SIGNAL_PATTERNS = [
   /(?:^|[^\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:шт|штук|кг|метр(?:а|ов)?|м|уп|упак|pack|pcs?)(?:$|[^\p{L}\p{N}])/iu,
   /(?:болт|гайк|шайб|винт|шпильк|штифт|анкер|саморез|креп[её]ж|nut|bolt|washer|screw)/iu,
   /(?:^|[^\p{L}\p{N}])(?:арт|артикул|sku|код)\.?\s*[:№.-]?\s*\d{5,18}(?:$|[^\p{L}\p{N}])/iu,
+  // Bare ShopDB article (e.g. 003160110060020) — no DIN required.
+  /(?:^|[^\p{L}\p{N}])\d{8,18}(?:$|[^\p{L}\p{N}])/u,
 ];
+
+/** Digits-only (optional арт./sku prefix) → authoritative catalog lookup. */
+function isBareCatalogSkuMessage(text = "") {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  const stripped = t
+    .replace(/^(?:арт\.?|art\.?|sku|код)\s*[:№#.-]?\s*/iu, "")
+    .trim();
+  return /^\d{8,18}$/.test(stripped);
+}
 
 const UNSAFE_PATTERNS = [
   /(?:игнорируй|обойди|забудь).{0,60}(?:shopdb|баз|инструкц|правил|огранич)/iu,
@@ -378,6 +390,20 @@ function routeOfferKpMessage(input = "") {
     });
   }
 
+  // Exact ShopDB SKU paste owns identity + price — never out_of_scope / no DIN.
+  if (isBareCatalogSkuMessage(text)) {
+    addIntent(I.PRODUCT_INQUIRY);
+    return buildResult({
+      primaryIntent: I.PRODUCT_INQUIRY,
+      intents,
+      confidence: 0.98,
+      signals: {
+        productSignalCount: Math.max(productSignalCount, 1),
+        bareSku: true,
+      },
+    });
+  }
+
   const startPromptIndex = NORMALIZED_START_PROMPTS.get(lower);
   if (startPromptIndex != null) {
     const promptIntents = [
@@ -642,4 +668,5 @@ module.exports = {
   routeOfferKpMessage,
   buildResult,
   needsLlmIntentJudge,
+  isBareCatalogSkuMessage,
 };

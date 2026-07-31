@@ -5,6 +5,7 @@ const {
   OFFER_KP_INTENTS,
   START_QUOTE_PROMPTS,
   routeOfferKpMessage,
+  isBareCatalogSkuMessage,
 } = require("../../../utils/offerKp/intentRouter");
 const { shouldRunShopEnrich } = require("../../../utils/offerKp/enrich");
 
@@ -103,5 +104,16 @@ describe("OfferKP deterministic intent router", () => {
       const result = routeOfferKpMessage(label);
       expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.EDIT_QUOTE);
     }
+  });
+
+  it("routes bare ShopDB SKU paste to product_inquiry (not ambiguous)", () => {
+    expect(isBareCatalogSkuMessage("003160110060020")).toBe(true);
+    expect(isBareCatalogSkuMessage("арт. 003160110060020")).toBe(true);
+    expect(isBareCatalogSkuMessage("003160110060020 — 100 шт")).toBe(false);
+    const result = routeOfferKpMessage("003160110060020");
+    expect(result.primaryIntent).toBe(OFFER_KP_INTENTS.PRODUCT_INQUIRY);
+    expect(result.signals.bareSku).toBe(true);
+    expect(result.policy.allowShopDbSearch).toBe(true);
+    expect(result.policy.allowCatalogPriceUse).toBe(true);
   });
 });
