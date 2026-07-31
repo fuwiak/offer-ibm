@@ -51,6 +51,8 @@ function buildBlockKeys(queryText) {
 }
 
 function candidateBlockKeys(product = {}) {
+  // Explicit null bypasses default `= {}` and crashed on `.name`.
+  if (!product || typeof product !== "object") return [];
   const name = product.name || "";
   const nameNorm = normalizeForMatch(name);
   const parsed = parseHardwareQuery(name);
@@ -99,6 +101,7 @@ function applyBlocking(queryText, candidates = []) {
   const useKeys = structural.length ? structural : block.keys;
 
   const kept = candidates.filter((c) => {
+    if (!c || typeof c !== "object") return false;
     const cKeys = candidateBlockKeys(c);
     return useKeys.some((k) => cKeys.includes(k));
   });

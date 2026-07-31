@@ -28,6 +28,7 @@ export function positiveAltPrice(value) {
 
 /** Net unit price on an alternatives-menu row (ShopDB). */
 export function altNetPrice(alt = {}) {
+  if (!alt || typeof alt !== "object") return 0;
   return (
     positiveAltPrice(alt.price) ||
     positiveAltPrice(alt.unitPriceNet) ||

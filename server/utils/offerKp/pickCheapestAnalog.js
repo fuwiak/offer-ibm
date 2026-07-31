@@ -25,6 +25,7 @@ function positiveAltPrice(value) {
 }
 
 function altNetPrice(alt = {}) {
+  if (!alt || typeof alt !== "object") return 0;
   return (
     positiveAltPrice(alt.price) ||
     positiveAltPrice(alt.unitPriceNet) ||
@@ -90,13 +91,28 @@ function resolveCheapestAnalogsForLines(lines = []) {
  * Patch applied to a draft line when selecting a menu alternative (same as UI).
  */
 function altPatchForLine(alt = {}, vatRate = 0.2) {
+  if (!alt || typeof alt !== "object") {
+    return {
+      name: "",
+      article: "",
+      sku: "",
+      matchType: "analog",
+      unitPriceNet: 0,
+      priceWithVat: 0,
+      status: "Аналог",
+      kpStatus: "Предложен аналог",
+      analogOf: null,
+      stockCount: 0,
+      allowPrice: false,
+    };
+  }
   const unitPriceNet = altNetPrice(alt);
   const inStock = isInStockAlternative(alt);
   const status =
     alt.status ||
     (inStock ? "В наличии" : alt.matchType === "analog" ? "Аналог" : "Аналог");
   return {
-    name: alt.name,
+    name: alt.name || "",
     article: alt.sku,
     sku: alt.sku,
     productId: alt.productId || undefined,

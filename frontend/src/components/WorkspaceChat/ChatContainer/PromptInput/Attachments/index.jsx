@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { REMOVE_ATTACHMENT_EVENT } from "../../DnDWrapper";
 import { openImageLightbox } from "@/components/ImageLightbox";
+import { attachmentDisplayName } from "@/utils/offerKp/attachmentDisplayName";
 
 /**
  * @param {{attachments: import("../../DnDWrapper").Attachment[]}}
@@ -23,9 +24,12 @@ export default function AttachmentManager({ attachments }) {
   function handleImageClick(attachment) {
     const imageAttachments = attachments
       .filter((a) => a.type === "attachment" && a.contentString)
-      .map((a) => ({ contentString: a.contentString, name: a.file.name }));
+      .map((a) => ({
+        contentString: a.contentString,
+        name: attachmentDisplayName(a),
+      }));
     const idx = imageAttachments.findIndex(
-      (img) => img.name === attachment.file?.name
+      (img) => img.name === attachmentDisplayName(attachment)
     );
     if (idx !== -1) openImageLightbox(imageAttachments, idx);
   }
@@ -49,7 +53,8 @@ export default function AttachmentManager({ attachments }) {
 function AttachmentItem({ attachment, onImageClick }) {
   const { uid, file, status, error, document, type, contentString, progress } =
     attachment;
-  const { iconBgColor, Icon } = displayFromFile(file);
+  const displayName = attachmentDisplayName(attachment);
+  const { iconBgColor, Icon } = displayFromFile(file, displayName);
 
   function removeFileFromQueue() {
     window.dispatchEvent(
@@ -71,7 +76,7 @@ function AttachmentItem({ attachment, onImageClick }) {
         </div>
         <div className="flex flex-col w-[125px]">
           <p className="text-theme-attachment-text text-xs font-semibold truncate">
-            {file.name}
+            {displayName}
           </p>
           <p className="text-theme-attachment-text-secondary text-[10px] leading-[14px] font-medium truncate">
             {progressLabel(progress)}
@@ -104,7 +109,7 @@ function AttachmentItem({ attachment, onImageClick }) {
         </div>
         <div className="flex flex-col w-[125px]">
           <p className="text-theme-attachment-text text-xs font-semibold truncate">
-            {file.name}
+            {displayName}
           </p>
           <p className="text-theme-attachment-text-secondary text-[10px] leading-[14px] font-medium truncate">
             {error ?? "File not embedded!"}
@@ -119,7 +124,7 @@ function AttachmentItem({ attachment, onImageClick }) {
       return (
         <div
           data-tooltip-id="attachment-status-tooltip"
-          data-tooltip-content={`${file.name} will be attached to this prompt. It will not be embedded into the workspace permanently.`}
+          data-tooltip-content={`${displayName} will be attached to this prompt. It will not be embedded into the workspace permanently.`}
           className={`relative flex items-center gap-x-1 rounded-lg border-none group`}
         >
           <div className="invisible group-hover:visible absolute -top-[5px] -right-[5px] w-fit h-fit z-[10]">
@@ -137,7 +142,7 @@ function AttachmentItem({ attachment, onImageClick }) {
             className="p-0 border-none bg-transparent cursor-pointer"
           >
             <img
-              alt={`Preview of ${file.name}`}
+              alt={`Preview of ${displayName}`}
               src={contentString}
               style={{ objectFit: "cover", objectPosition: "center" }}
               className={`${iconBgColor} w-[40px] h-[40px] rounded-lg flex items-center justify-center`}
@@ -150,7 +155,7 @@ function AttachmentItem({ attachment, onImageClick }) {
     return (
       <div
         data-tooltip-id="attachment-status-tooltip"
-        data-tooltip-content={`${file.name} will be attached to this prompt. It will not be embedded into the workspace permanently.`}
+        data-tooltip-content={`${displayName} will be attached to this prompt. It will not be embedded into the workspace permanently.`}
         className={`relative flex items-center gap-x-1 rounded-lg bg-theme-attachment-success-bg border-none w-[180px] group`}
       >
         <div className="invisible group-hover:visible absolute -top-[5px] -right-[5px] w-fit h-fit z-[10]">
@@ -169,7 +174,7 @@ function AttachmentItem({ attachment, onImageClick }) {
         </div>
         <div className="flex flex-col w-[125px]">
           <p className="text-theme-attachment-text text-xs font-semibold truncate">
-            {file.name}
+            {displayName}
           </p>
           <p className="text-theme-attachment-text-secondary text-[10px] leading-[14px] font-medium">
             Image attached!
@@ -184,8 +189,8 @@ function AttachmentItem({ attachment, onImageClick }) {
       data-tooltip-id="attachment-status-tooltip"
       data-tooltip-content={
         status === "embedded"
-          ? `${file.name} was uploaded and embedded into this workspace. It will be available for RAG chat now.`
-          : `${file.name} will be used as context for this chat only.`
+          ? `${displayName} was uploaded and embedded into this workspace. It will be available for RAG chat now.`
+          : `${displayName} will be used as context for this chat only.`
       }
       className={`relative flex items-center gap-x-1 rounded-lg bg-theme-attachment-bg border-none w-[180px] group`}
     >
@@ -204,7 +209,7 @@ function AttachmentItem({ attachment, onImageClick }) {
         <Icon size={24} weight="light" className="text-theme-attachment-icon" />
       </div>
       <div className="flex flex-col w-[125px]">
-        <p className="text-white text-xs font-semibold truncate">{file.name}</p>
+        <p className="text-white text-xs font-semibold truncate">{displayName}</p>
         <p className="text-theme-attachment-text-secondary text-[10px] leading-[14px] font-medium">
           {status === "embedded" ? "File embedded!" : "Added as context!"}
         </p>
@@ -246,11 +251,16 @@ function progressLabel(progress) {
 }
 
 /**
- * @param {File} file
+ * @param {File|null|undefined} file
+ * @param {string} [fallbackName]
  * @returns {{iconBgColor:string, Icon: React.Component}}
  */
-function displayFromFile(file) {
-  const extension = file?.name?.split(".")?.pop()?.toLowerCase() ?? "txt";
+function displayFromFile(file, fallbackName = "") {
+  const extension =
+    String(file?.name || fallbackName || "")
+      .split(".")
+      .pop()
+      ?.toLowerCase() || "txt";
   switch (extension) {
     case "pdf":
       return { iconBgColor: "bg-magenta", Icon: FilePdf };

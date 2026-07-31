@@ -105,7 +105,11 @@ export default function QuotePreview() {
   const [busy, setBusy] = useState(null);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
-  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const lines = (
+    quoteDraft?.hardwareLines ||
+    quoteDraft?.preview?.lines ||
+    []
+  ).filter((line) => line && typeof line === "object");
   const preview = quoteDraft?.preview;
   const doc = useMemo(
     () => ({ ...defaultDoc(), ...(quoteDraft?.doc || {}) }),

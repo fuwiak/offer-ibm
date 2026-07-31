@@ -176,7 +176,7 @@ function buildMarkdownQuote({
   return `# Коммерческое предложение ${reference}
 
 **Поставщик:** ${companyName} · [${catalogLabel}](${website})  
-**Клиент:** ${customer.name}${customer.country ? ` · ${customer.country}` : ""}  
+**Клиент:** ${customer?.name || "—"}${customer?.country ? ` · ${customer.country}` : ""}  
 **Дата:** ${new Date().toLocaleDateString("ru-RU")}  
 **Позиций в заявке:** ${lines.length} (точных: ${stats.exactCount}, аналогов: ${stats.analogCount}, нет в базе: ${stats.notInDbCount}, без цены: ${stats.noPriceCount})
 

@@ -139,7 +139,11 @@ export default function QuoteDraftTable() {
   /** Snapshot before last «Дешёвые аналоги» — one-step undo. */
   const [cheapestAnalogsUndo, setCheapestAnalogsUndo] = useState(null);
 
-  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const lines = (
+    quoteDraft?.hardwareLines ||
+    quoteDraft?.preview?.lines ||
+    []
+  ).filter((line) => line && typeof line === "object");
   const customColumns = quoteDraft?.customColumns || [];
   const { vatRate, currency } = localeForCountry(quoteDraft?.customer?.country);
   const reviewCount = useMemo(
@@ -548,13 +552,14 @@ export default function QuoteDraftTable() {
   }
 
   function altPatch(alt) {
+    if (!alt || typeof alt !== "object") return {};
     const unitPriceNet = altNetPrice(alt);
     const inStock = isInStockAlternative(alt);
     const status =
       alt.status ||
       (inStock ? "В наличии" : alt.matchType === "analog" ? "Аналог" : "Аналог");
     return {
-      name: alt.name,
+      name: alt.name || "",
       article: alt.sku,
       sku: alt.sku,
       productId: alt.productId || undefined,
@@ -575,8 +580,9 @@ export default function QuoteDraftTable() {
   }
 
   function selectAlternative(lineIndex, alt) {
+    if (!alt || typeof alt !== "object") return;
     const line = lines[lineIndex];
-    handleFieldChange(lineIndex, "name", alt.name, line);
+    handleFieldChange(lineIndex, "name", alt.name || "", line);
     updateLine(lineIndex, altPatch(alt));
   }
 
@@ -1025,7 +1031,10 @@ export default function QuoteDraftTable() {
                           defaultValue: "Аналоги",
                         })}
                       </option>
-                      {line.alternatives.map((a, ai) => {
+                      {line.alternatives
+                        .map((a, ai) => ({ a, ai }))
+                        .filter(({ a }) => a && typeof a === "object")
+                        .map(({ a, ai }) => {
                         const net = altNetPrice(a);
                         const stock = Number(a.stockCount) || 0;
                         const priceBit =
@@ -1038,7 +1047,7 @@ export default function QuoteDraftTable() {
                               : " · нет на складе";
                         return (
                           <option key={ai} value={ai}>
-                            {a.name?.slice(0, 36)} ({a.status}
+                            {(a.name || "").slice(0, 36)} ({a.status}
                             {priceBit}
                             {stockBit})
                           </option>

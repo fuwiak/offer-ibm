@@ -382,9 +382,24 @@ describe("null product / alternative guards", () => {
     );
   });
 
-  it("classifyProductMatch tolerates null product", () => {
-    const { classifyProductMatch: classify } = require("../../../utils/offerKp/analogRules");
-    expect(classify("болт DIN 933 M8x40", null).matchType).toBe("none");
-    expect(classify("болт DIN 933 M8x40", undefined).matchType).toBe("none");
+  it("buildDraftFromMatchedLines drops null line slots", () => {
+    const {
+      buildDraftFromMatchedLines,
+      calculateTotalWeightKg,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    const draft = buildDraftFromMatchedLines([
+      null,
+      {
+        name: "Болт DIN 933 M8x40",
+        lineTotal: 10,
+        weightKg: 0.01,
+        quantity: 2,
+      },
+      undefined,
+    ]);
+    expect(draft.lines).toHaveLength(1);
+    expect(draft.lines[0].name).toBe("Болт DIN 933 M8x40");
+    expect(draft.subtotal).toBe(10);
+    expect(calculateTotalWeightKg([null, { weightKg: 1, quantity: 3 }])).toBe(3);
   });
 });

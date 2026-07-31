@@ -14,7 +14,8 @@ export function buildQuoteMarkdown({
   const vatPct = Math.round(vatRate * 100);
   const taxableNet = Number(total) + Number(shipping);
   const vatAmount = Number((taxableNet * vatRate).toFixed(2));
-  const rows = lines
+  const rows = (Array.isArray(lines) ? lines : [])
+    .filter((l) => l && typeof l === "object")
     .map((l, i) => {
       const name = l.name || l.productName || "";
       const qty = l.quantity || 1;
@@ -30,7 +31,10 @@ export function buildQuoteMarkdown({
     })
     .join("\n");
 
-  const customerLine = [customer.name, customer.country]
+  // Explicit `customer: null` bypasses default `= {}`.
+  const safeCustomer =
+    customer && typeof customer === "object" ? customer : {};
+  const customerLine = [safeCustomer.name, safeCustomer.country]
     .filter(Boolean)
     .join(" · ");
 

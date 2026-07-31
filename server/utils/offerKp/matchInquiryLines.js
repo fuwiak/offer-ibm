@@ -250,16 +250,24 @@ function slimAlternativeForSse(alt = {}) {
   };
 }
 
+/** Drop null/undefined slots so UI never reads `.name` on a hole. */
+function sanitizeAlternatives(alternatives = []) {
+  return (alternatives || []).filter((alt) => alt && typeof alt === "object");
+}
+
 /** Keep SSE quote-progress payloads small (avoids mid-stream network aborts). */
 function slimLineForSse(line = {}, { includeAlternatives = false } = {}) {
   if (!line || typeof line !== "object") return line;
   const alternatives =
     includeAlternatives && Array.isArray(line.alternatives)
-      ? line.alternatives.slice(0, 12).map(slimAlternativeForSse).filter(Boolean)
+      ? sanitizeAlternatives(line.alternatives)
+          .slice(0, 12)
+          .map(slimAlternativeForSse)
+          .filter(Boolean)
       : [];
   return {
     inquiryRaw: line.inquiryRaw,
-    name: line.name,
+    name: line.name || "",
     requestedName: line.requestedName,
     article: line.article || line.sku,
     sku: line.sku || line.article,
@@ -286,8 +294,9 @@ function slimLineForSse(line = {}, { includeAlternatives = false } = {}) {
 function draftProgressPayload(partialLines, { stage, completed, total }) {
   // During searching, omit alternatives entirely — UI only needs row fill state.
   const includeAlternatives = stage === "matched";
-  const lines = partialLines
+  const lines = (partialLines || [])
     .map((line) => line || buildPendingDraftLine({}))
+    .filter((line) => line && typeof line === "object")
     .map((line) => slimLineForSse(line, { includeAlternatives }));
   return {
     progressStage: stage,
@@ -928,7 +937,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       products: candidates,
       matchStrategies,
     });
-    alternatives = enriched.alternatives;
+    alternatives = sanitizeAlternatives(enriched.alternatives);
     enrichmentMeta = {
       blocking: enriched.blocking,
       rerank: enriched.rerank || null,
@@ -1217,7 +1226,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     similarSuggestion,
     comment: commentParts.join("; "),
     thread: inquiryLine.thread,
-    alternatives,
+    // Never ship sparse null slots — QuoteDraftTable reads `line.name` / `a.name`.
+    alternatives: sanitizeAlternatives(alternatives),
     productUrl: accepted && lineProductId ? best.productUrl : undefined,
     // Provenance (persisted on the line, not only in metrics)
     matchSource:
@@ -1331,7 +1341,8 @@ function estimateWeightKg(inquiryLine, productName) {
 }
 
 function calculateTotalWeightKg(lines = []) {
-  return lines.reduce((sum, line) => {
+  return (lines || []).reduce((sum, line) => {
+    if (!line || typeof line !== "object") return sum;
     if (Number.isFinite(Number(line.lineWeightKg))) {
       return sum + Number(line.lineWeightKg);
     }
@@ -1468,14 +1479,17 @@ async function matchInquiryToDraft(inquiryText, options = {}) {
 }
 
 function buildDraftFromMatchedLines(matched = []) {
-  const subtotal = matched.reduce(
+  const lines = (matched || []).filter(
+    (line) => line && typeof line === "object"
+  );
+  const subtotal = lines.reduce(
     (sum, line) => sum + (Number(line.lineTotal) || 0),
     0
   );
-  const totalWeightKg = calculateTotalWeightKg(matched);
+  const totalWeightKg = calculateTotalWeightKg(lines);
   return {
     reference: generateQuoteReference({ prefix: "KP" }),
-    lines: matched,
+    lines,
     subtotal: Number(subtotal.toFixed(2)),
     totalWeightKg: Number(totalWeightKg.toFixed(3)),
     total: Number(subtotal.toFixed(2)),
