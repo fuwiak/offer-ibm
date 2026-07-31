@@ -108,8 +108,8 @@
 {"text":"Болт М8х40 DIN 933","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"Винт DIN 912 М6х20 10.9 цинк, 250 штук","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"Арт. 011144100100097 — 100 шт","intent":"product_inquiry","allowShopDbSearch":true}
-{"text":"003160110060020","intent":"product_inquiry","allowShopDbSearch":true}
-{"text":"арт. 003160110060020","intent":"product_inquiry","allowShopDbSearch":true}
+{"text":"003160110060020","intent":"product_inquiry","allowShopDbSearch":true,"allowCatalogPriceUse":true,"allowQuoteMutation":true}
+{"text":"арт. 003160110060020","intent":"product_inquiry","allowShopDbSearch":true,"allowCatalogPriceUse":true}
 {"text":"Анкер 12x130 M10 оцинкованный 50 шт","intent":"product_inquiry","allowShopDbSearch":true}
 {"text":"привет, болт DIN 933 М10х80 200 шт","intent":"product_inquiry","allowShopDbSearch":true,"alsoIntent":"casual_or_test"}
 {"text":"болт М10х80, и ещё скажи сколько будет два плюс два","intent":"out_of_scope","allowShopDbSearch":false,"alsoIntent":"product_search"}
@@ -213,5 +213,3 @@
 {"text":"как работает vision OCR?","intent":"system_help","allowShopDbSearch":false}
 {"text":"what can you do?","intent":"system_help","allowShopDbSearch":false}
 {"text":"Co potrafisz?","intent":"system_help","allowShopDbSearch":false}
-{"text":"003160110060020","intent":"product_inquiry","allowShopDbSearch":true,"allowCatalogPriceUse":true,"allowQuoteMutation":true}
-{"text":"арт. 003160110060020","intent":"product_inquiry","allowShopDbSearch":true,"allowCatalogPriceUse":true}

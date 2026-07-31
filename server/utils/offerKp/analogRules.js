@@ -448,9 +448,18 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
 function productHasExactSkuHit(product) {
   if (!product || typeof product !== "object") return false;
   if (product._exactSku) return true;
+  const matchSource = String(product.matchSource || product.match_source || "");
+  if (matchSource === "exact_sku" || matchSource === "golden_override") {
+    return true;
+  }
   const sources = product.shopMatchSources || product._matchSources || [];
-  if (sources instanceof Set) return sources.has("exact_sku");
-  return Array.isArray(sources) && sources.includes("exact_sku");
+  if (sources instanceof Set) {
+    return sources.has("exact_sku") || sources.has("golden_override");
+  }
+  return (
+    Array.isArray(sources) &&
+    (sources.includes("exact_sku") || sources.includes("golden_override"))
+  );
 }
 
 function classifyProductMatch(requestText, product) {

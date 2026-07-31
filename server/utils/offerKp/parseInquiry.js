@@ -367,6 +367,8 @@ function isStructuralCatalogNumber(token, raw) {
   const t = String(token || "").trim();
   const text = String(raw || "");
   if (!t || !text) return false;
+  // ShopDB article codes (8–18 digits) are identity, never quantity.
+  if (/^\d{8,18}$/.test(t)) return true;
   // DIN / ГОСТ / ISO / ИСО code — never a quantity.
   if (
     new RegExp(

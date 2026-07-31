@@ -147,6 +147,107 @@ describe("resolveMatchConcurrency", () => {
 });
 
 describe("matchInquiryLine exact SKU owns price", () => {
+  it("SKU-only digits stay exact + unitPriceNet without DIN (real classify)", async () => {
+    jest.resetModules();
+    const sku = "003160110060020";
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 18880,
+            name: "Винт-барашек DIN  316 M  6x 20 оцинк  (100)",
+            matched_sku: sku,
+            product_url: "vint_barashek",
+            category_url: "vinty",
+            _exactSku: true,
+            shopMatchSources: ["exact_sku"],
+          },
+        ],
+        strategies: ["exact_sku"],
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    // Real classifyProductMatch — must not demote for missing DIN.
+    jest.doMock("../../../utils/offerKp/goldenCorrections", () => ({
+      findGoldenCorrection: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockResolvedValue([
+        {
+          sku_id: 9308,
+          product_id: 18880,
+          sku,
+          sku_name: "Винт-барашек DIN  316 M  6x 20 оцинк  (100)",
+          price: "8.0300",
+          compare_price: "0.0000",
+          count: "29209.000",
+          available: 1,
+          opt_price: null,
+        },
+      ]),
+    }));
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => true,
+      enrichAlternatives: ({ alternatives }) => ({ alternatives }),
+      decideMatchGates: () => ({ gateRejected: true, gateReason: "test_noise" }),
+    }));
+    jest.doMock("../../../utils/offerKp/variantSpecs", () => ({
+      detectVariantAmbiguity: () => ({
+        field: "strengthClass",
+        values: ["8", "10"],
+        minPrice: 1,
+        maxPrice: 99,
+      }),
+      variantPricingKey: () => "",
+    }));
+    jest.doMock("../../../utils/offerKp/db/layeredCache", () => ({
+      buildMatchIdentityCacheKey: () => "test",
+      getCachedMatchIdentity: async () => null,
+      setCachedMatchIdentity: async () => {},
+      getCachedCommercial: async () => null,
+      setCachedCommercial: async () => {},
+      applyCommercialFields: (line, fields) => ({ ...line, ...fields }),
+      resolveIndexVersion: () => "v",
+    }));
+    jest.doMock("../../../utils/offerKp/db/durableMatchStore", () => ({
+      getDurableMatchIdentity: async () => null,
+      setDurableMatchIdentity: async () => {},
+    }));
+    jest.doMock("../../../utils/offerKp/canonicalCatalogIndex", () => ({
+      getCanonicalCatalogManifest: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/searchMetrics", () => ({
+      recordSearchMetric: () => {},
+    }));
+
+    const {
+      matchInquiryLine,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    const row = await matchInquiryLine({
+      name: sku,
+      raw: sku,
+      quantity: 1,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe(sku);
+    expect(row.unitPriceNet).toBe(8.03);
+    expect(row.allowPrice).toBe(true);
+    expect(row.productId).toBe("18880");
+
+    jest.resetModules();
+    jest.dontMock("../../../utils/offerKp/productSearchAgent");
+    jest.dontMock("../../../utils/offerKp/goldenCorrections");
+    jest.dontMock("../../../utils/offerKp/db/client");
+    jest.dontMock("../../../utils/offerKp/matching");
+    jest.dontMock("../../../utils/offerKp/variantSpecs");
+    jest.dontMock("../../../utils/offerKp/db/layeredCache");
+    jest.dontMock("../../../utils/offerKp/db/durableMatchStore");
+    jest.dontMock("../../../utils/offerKp/canonicalCatalogIndex");
+    jest.dontMock("../../../utils/offerKp/searchMetrics");
+  });
+
   it("prices matched_sku only — never cheapest sibling", async () => {
     jest.resetModules();
     jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({

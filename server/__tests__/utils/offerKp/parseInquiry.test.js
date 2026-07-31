@@ -229,6 +229,18 @@ describe("parseInquiry PDF/OCR extraction", () => {
     );
   });
 
+  it("treats bare ShopDB SKU digits as identity, not quantity", () => {
+    const { parseQuantity } = require("../../../utils/offerKp/parseInquiry");
+    expect(parseQuantity("003160110060020")).toBe(1);
+    const lines = parseInquiryText("003160110060020");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      name: "003160110060020",
+      quantity: 1,
+      unit: "шт",
+    });
+  });
+
   it("extracts ISO/ИСО standards and merges bare qty lines", () => {
     const text = [
       "Винт M6х20 ГОСТ Р ИСО 1207-2013 — 500 шт",

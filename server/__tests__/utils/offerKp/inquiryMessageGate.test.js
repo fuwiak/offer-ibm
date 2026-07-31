@@ -22,6 +22,7 @@ describe("inquiryMessageGate", () => {
     "болт DIN 933 M8×40 8.8 — 100 шт",
     "добавь позицию: болт DIN 933 M8×40 — 100 шт",
     "Винт DIN 6912 M6x20 — 500 шт\nГайка М24 ГОСТ ISO 7040 — 28200 шт",
+    "003160110060020",
   ];
 
   it.each(chatSamples)("rejects chat/follow-up as draft line: %s", (text) => {

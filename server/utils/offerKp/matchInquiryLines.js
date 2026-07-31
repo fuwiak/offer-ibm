@@ -9,7 +9,7 @@ const {
   runProductSearchAgent,
   searchByExactSku,
 } = require("./productSearchAgent");
-const { classifyProductMatch, STATUS } = require("./analogRules");
+const { classifyProductMatch, productHasExactSkuHit, STATUS } = require("./analogRules");
 const { generateQuoteReference } = require("../offerKpApp/pricing");
 const priceResolve = require("./priceResolve");
 const configuredOptPriceCategoryId =
@@ -853,6 +853,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   let alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
     const isOverrideMatch = overrideProductId === String(product.id);
+    const exactSkuHit =
+      isOverrideMatch ||
+      productHasExactSkuHit({
+        ...product,
+        matchSource: isOverrideMatch ? "golden_override" : undefined,
+      });
     // Exact/golden SKU owns the price. Never price a sibling cheapest SKU.
     const preferredSku = String(
       product.matched_sku || (isOverrideMatch ? override?.sku : "") || ""
@@ -881,6 +887,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ...stock,
       // Surface the pinned SKU to classifiers that read product.sku.
       sku: altSku || stock.sku,
+      _exactSku: exactSkuHit || !!product._exactSku,
+      matchSource: isOverrideMatch
+        ? "golden_override"
+        : exactSkuHit
+          ? "exact_sku"
+          : product.matchSource,
     });
     const matchType = isOverrideMatch
       ? override.matchType
@@ -915,7 +927,24 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         product.category_url,
         product.product_url || product.url
       ),
-      matchSource: isOverrideMatch ? "golden_override" : undefined,
+      matchSource: isOverrideMatch
+        ? "golden_override"
+        : exactSkuHit
+          ? "exact_sku"
+          : undefined,
+      _exactSku: exactSkuHit,
+      shopMatchSources: exactSkuHit
+        ? [
+            ...new Set([
+              ...(Array.isArray(product.shopMatchSources)
+                ? product.shopMatchSources
+                : []),
+              isOverrideMatch ? "golden_override" : "exact_sku",
+            ]),
+          ]
+        : Array.isArray(product.shopMatchSources)
+          ? product.shopMatchSources
+          : undefined,
       _bm25Score: product._bm25Score ?? null,
       _nameSimilarity: product._nameSimilarity ?? null,
       _embeddingSimilarity: product._embeddingSimilarity ?? null,
@@ -949,21 +978,35 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   // similar / size_mismatch / none → «под заказ», без чужой цены 18.50.
   let accepted =
     best && (best.matchType === "exact" || best.matchType === "analog");
+  const authoritativeSkuHit =
+    !!best &&
+    (best.matchSource === "golden_override" ||
+      best.matchSource === "exact_sku" ||
+      best._exactSku ||
+      productHasExactSkuHit(best));
   // Minimum-info: never auto-exact/price when critical size/length is missing.
-  if (underspecifiedSize && accepted) {
+  // Exact ShopDB SKU / golden override already pin identity — skip DIN/size gates.
+  if (underspecifiedSize && accepted && !authoritativeSkuHit) {
     accepted = false;
   }
   // Lexical vs embedding top-1 disagree → block automatic exact.
-  if (retrieverDisagreement && accepted && best.matchType === "exact") {
+  if (
+    retrieverDisagreement &&
+    accepted &&
+    best.matchType === "exact" &&
+    !authoritativeSkuHit
+  ) {
     accepted = false;
   }
   // Request silent about strength class / material while the catalog holds
   // variants priced severalfold apart → quoting any of them is a guess.
-  // Same abstention on the DIN and the ГОСТ path.
-  const variantAmbiguity = detectVariantAmbiguity({
-    queryText: searchText,
-    alternatives,
-  });
+  // Same abstention on the DIN and the ГОСТ path — but not for pinned SKU.
+  const variantAmbiguity = authoritativeSkuHit
+    ? null
+    : detectVariantAmbiguity({
+        queryText: searchText,
+        alternatives,
+      });
   if (variantAmbiguity && accepted) {
     accepted = false;
   }
@@ -975,20 +1018,16 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       alternatives,
       products: candidates,
       best,
-      retrieverDisagreement,
-      underspecified: underspecifiedSize,
+      retrieverDisagreement: authoritativeSkuHit ? false : retrieverDisagreement,
+      underspecified: authoritativeSkuHit ? false : underspecifiedSize,
       lineTotal: (Number(best?.price) || 0) * (inquiryLine.quantity || 1),
     });
     if (enrichmentMeta) enrichmentMeta = { ...enrichmentMeta, ...matchGates };
     else enrichmentMeta = matchGates;
 
-    // Golden override: operator-verified exact/analog must not be wiped by
-    // selective / OOD gates (price still comes from live ShopDB SKU lookup).
-    if (
-      matchGates.gateRejected &&
-      accepted &&
-      best?.matchSource !== "golden_override"
-    ) {
+    // Golden override / exact SKU: operator-verified article must not be wiped
+    // by selective / OOD gates (price still comes from live ShopDB SKU lookup).
+    if (matchGates.gateRejected && accepted && !authoritativeSkuHit) {
       accepted = false;
     }
   }
@@ -1045,22 +1084,28 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       ? best.status
       : STATUS.OUT_OF_STOCK;
 
-  if (underspecifiedSize || retrieverDisagreement || variantAmbiguity) {
+  if (
+    !authoritativeSkuHit &&
+    (underspecifiedSize || retrieverDisagreement || variantAmbiguity)
+  ) {
     status = STATUS.NEEDS_REVIEW;
   }
   if (matchGates?.gateRejected || matchGates?.anomaly?.outOfDistribution) {
     // Soft anomaly metadata stays on the line, but only hard gate rejection
     // forces NEEDS_REVIEW (missing embeddings must not wipe SQL prices).
-    if (matchGates?.gateRejected) status = STATUS.NEEDS_REVIEW;
+    if (matchGates?.gateRejected && !authoritativeSkuHit) {
+      status = STATUS.NEEDS_REVIEW;
+    }
   }
 
   // Статус для таблицы КП (фиксированный словарь из регламента КП).
   let kpStatus;
   if (
-    underspecifiedSize ||
-    retrieverDisagreement ||
-    variantAmbiguity ||
-    matchGates?.gateRejected
+    !authoritativeSkuHit &&
+    (underspecifiedSize ||
+      retrieverDisagreement ||
+      variantAmbiguity ||
+      matchGates?.gateRejected)
   ) {
     kpStatus = "Требуется проверка";
   } else if (!accepted) {
@@ -1080,15 +1125,18 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       "Сопоставлено по эталону golden set (проверено оператором)"
     );
   }
+  if (accepted && best?.matchSource === "exact_sku") {
+    commentParts.push("Сопоставлено по точному артикулу ShopDB");
+  }
   if (!accepted && override?.matchType === "none") {
     commentParts.push("Подтверждено golden set: соответствия в каталоге нет");
   }
-  if (underspecifiedSize) {
+  if (underspecifiedSize && !authoritativeSkuHit) {
     commentParts.push(
       `Недостаточно данных (${completeness.missing.join(", ")}) — цена не назначена`
     );
   }
-  if (retrieverDisagreement) {
+  if (retrieverDisagreement && !authoritativeSkuHit) {
     commentParts.push(
       `Расхождение поиска: lexical=${retrieverDisagreement.lexicalProductId}, embedding=${retrieverDisagreement.embeddingProductId} — требуется подтверждение`
     );
@@ -1104,12 +1152,16 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         `Требуется уточнение, цена не назначена`
     );
   }
-  if (matchGates?.anomaly?.outOfDistribution) {
+  if (matchGates?.anomaly?.outOfDistribution && !authoritativeSkuHit) {
     commentParts.push(
       `Аномалия ввода (${(matchGates.anomaly.reasons || []).join(", ")}) — автосопоставление отключено`
     );
   }
-  if (matchGates?.gateRejected && matchGates.gateReason) {
+  if (
+    matchGates?.gateRejected &&
+    matchGates.gateReason &&
+    !authoritativeSkuHit
+  ) {
     commentParts.push(
       `Селективный отказ (${matchGates.gateReason}) — требуется подтверждение оператора`
     );
@@ -1158,13 +1210,13 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const retrievedAt = new Date().toISOString();
   let displayMatchType = accepted
     ? best.matchType
-    : underspecifiedSize
+    : underspecifiedSize && !authoritativeSkuHit
       ? "none"
       : variantAmbiguity
         ? // Must not stay "exact": every price-eligibility check downstream
           // (refreshDraftPrices, matchEvidence, prompts) keys off matchType.
           "spec_unconfirmed"
-        : retrieverDisagreement
+        : retrieverDisagreement && !authoritativeSkuHit
           ? "none"
           : best?.matchType || "none";
 

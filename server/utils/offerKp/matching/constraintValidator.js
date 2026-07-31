@@ -240,10 +240,14 @@ function applyConstraintsToAlternative(queryText, alt) {
         ? "spec_mismatch"
         : "none";
 
-  // Operator-verified golden SKU wins over heuristic hard constraints
-  // (e.g. «гровер» vs lexicon «шайба» before synonym fix).
+  // Operator-verified golden SKU / exact article hit wins over heuristic
+  // hard constraints (e.g. missing DIN text, «гровер» vs lexicon «шайба»).
   if (
-    alt.matchSource === "golden_override" &&
+    (alt.matchSource === "golden_override" ||
+      alt.matchSource === "exact_sku" ||
+      alt._exactSku ||
+      (Array.isArray(alt.shopMatchSources) &&
+        alt.shopMatchSources.includes("exact_sku"))) &&
     (alt.matchType === "exact" || alt.matchType === "analog")
   ) {
     return next;

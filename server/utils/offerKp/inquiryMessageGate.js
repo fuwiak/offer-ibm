@@ -90,6 +90,11 @@ function classifyInquiryMessageContribution(message = "", options = {}) {
     return { contribute: false, reason: "draft_followup_chip" };
   }
 
+  // Bare / prefixed ShopDB SKU is an RFQ line even without DIN/type words.
+  if (extractSkuCodesSafe(text).length) {
+    return { contribute: true, reason: "catalog_sku" };
+  }
+
   if (CHAT_INTENTS.has(intent)) {
     return { contribute: false, reason: `intent:${intent}` };
   }
@@ -157,6 +162,24 @@ function hasHardwareSignalsSafe(text) {
     return /(?:din|гост|gost|iso)\s*\d|(?:болт|гайк|шайб|винт|шпильк)/iu.test(
       String(text || "")
     );
+  }
+}
+
+function extractSkuCodesSafe(text) {
+  try {
+    const { extractSkuCodes } = require("./productSearchAgent");
+    return extractSkuCodes(text) || [];
+  } catch {
+    const codes = new Set();
+    for (const m of String(text || "").matchAll(/\b(\d{8,18})\b/g)) {
+      codes.add(m[1]);
+    }
+    for (const m of String(text || "").matchAll(
+      /(?:арт\.?|art\.?|sku\s*:?\s*#?\s*|код\s*:?\s*)(\d{5,18})/gi
+    )) {
+      codes.add(m[1]);
+    }
+    return [...codes];
   }
 }
 

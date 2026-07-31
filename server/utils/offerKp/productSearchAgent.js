@@ -98,7 +98,8 @@ function hasHardwareSignals(text) {
     parsed.thread ||
     parsed.dimensions ||
     /\bdin\s*\d{3}/i.test(text) ||
-    /\bgost\s*\d{4}/i.test(text)
+    /\bgost\s*\d{4}/i.test(text) ||
+    extractSkuCodes(text).length
   );
 }
 

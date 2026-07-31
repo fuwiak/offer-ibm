@@ -98,6 +98,15 @@ function shouldRunShopEnrich(message, options = {}) {
     return true;
   }
 
+  // Exact ShopDB SKU in message/files — never block as out_of_scope chat.
+  if (
+    extractSkuCodes(String(message || "")).length ||
+    extractSkuCodes(combined).length ||
+    extractSkuCodes(searchText).length
+  ) {
+    return true;
+  }
+
   const blockedIntents = new Set([
     OFFER_KP_INTENTS.CASUAL_OR_TEST,
     OFFER_KP_INTENTS.SYSTEM_HELP,
