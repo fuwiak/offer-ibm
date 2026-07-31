@@ -81,6 +81,34 @@ describe("constraintValidator", () => {
     expect(alt.matchType).toBe("size_mismatch");
     expect(alt.constraintViolations.length).toBeGreaterThan(0);
   });
+
+  it("does not demote catalog_name_exact DIN 967 despite hard noise", () => {
+    const alt = applyConstraintsToAlternative(
+      "Винт DIN 967 M 6x 20 оцинк (500)",
+      {
+        name: "Винт DIN  967 M  6x 20 оцинк  (500)",
+        matchType: "exact",
+        matchSource: "catalog_name_exact",
+        _catalogNameExact: true,
+        shopMatchSources: ["catalog_name_exact"],
+        sku: "009673010060020",
+        price: 2.21,
+        // Force a hard violation via wrong diameter name — identity must win.
+        constraintViolations: undefined,
+      }
+    );
+    // Same size → no demotion path; pin identity protection separately:
+    const protectedAlt = applyConstraintsToAlternative("гайка DIN 934 M10", {
+      name: "Гайка DIN 934 M12",
+      matchType: "exact",
+      matchSource: "catalog_name_exact",
+      _catalogNameExact: true,
+      shopMatchSources: ["catalog_name_exact"],
+      price: 2.21,
+    });
+    expect(protectedAlt.matchType).toBe("exact");
+    expect(alt.matchType).toBe("exact");
+  });
 });
 
 describe("entityBlocking", () => {

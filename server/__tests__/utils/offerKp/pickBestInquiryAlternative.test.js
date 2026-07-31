@@ -774,6 +774,192 @@ describe("DIN 912 M6x20 catalog name keeps ShopDB price under disagreement", () 
   });
 });
 
+describe("DIN 967 M6x20 оцинк (500) ShopDB identity keeps 2.21", () => {
+  const SKU = "009673010060020";
+  const CATALOG_NAME = "Винт DIN  967 M  6x 20 оцинк  (500)";
+  const INQUIRY = "Винт DIN 967 M 6x 20 оцинк (500)";
+
+  afterEach(() => {
+    for (const mod of [
+      "../../../utils/offerKp/productSearchAgent",
+      "../../../utils/offerKp/goldenCorrections",
+      "../../../utils/offerKp/db/client",
+      "../../../utils/offerKp/matching",
+      "../../../utils/offerKp/variantSpecs",
+      "../../../utils/offerKp/db/layeredCache",
+      "../../../utils/offerKp/db/durableMatchStore",
+      "../../../utils/offerKp/canonicalCatalogIndex",
+      "../../../utils/offerKp/searchMetrics",
+    ]) {
+      try {
+        jest.dontMock(mod);
+      } catch {
+        /* ignore */
+      }
+    }
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  function mockStockQuery() {
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockResolvedValue([
+        {
+          sku_id: 1,
+          product_id: 18216,
+          sku: SKU,
+          sku_name: CATALOG_NAME,
+          price: "2.2100",
+          compare_price: "0.0000",
+          count: "8170.000",
+          available: 1,
+          opt_price: null,
+        },
+      ]),
+    }));
+  }
+
+  function mockCaches(key) {
+    jest.doMock("../../../utils/offerKp/db/layeredCache", () => ({
+      buildMatchIdentityCacheKey: () => key,
+      getCachedMatchIdentity: () => null,
+      setCachedMatchIdentity: () => {},
+      getCachedCommercial: () => null,
+      setCachedCommercial: () => {},
+      applyCommercialFields: (line, fields) => ({ ...line, ...fields }),
+      resolveIndexVersion: () => "v",
+    }));
+    jest.doMock("../../../utils/offerKp/db/durableMatchStore", () => ({
+      getDurableMatchIdentity: async () => null,
+      setDurableMatchIdentity: async () => {},
+    }));
+    jest.doMock("../../../utils/offerKp/canonicalCatalogIndex", () => ({
+      getCanonicalCatalogManifest: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/searchMetrics", () => ({
+      recordSearchMetric: () => {},
+    }));
+    jest.doMock("../../../utils/offerKp/goldenCorrections", () => ({
+      findGoldenCorrection: () => null,
+    }));
+  }
+
+  it("literal catalog name early-exit pins SKU 009673010060020 @ 2.21", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 18216,
+            name: CATALOG_NAME,
+            matched_sku: SKU,
+            matched_sku_price: "2.2100",
+            product_url: "vint_din_967",
+            category_url: "vinty",
+            _catalogNameExact: true,
+            shopMatchSources: ["catalog_name_exact"],
+          },
+        ],
+        strategies: ["catalog_name_exact"],
+        earlyExit: "catalog_name_exact",
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    mockStockQuery();
+    mockCaches("test-din967-name");
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => true,
+      enrichAlternatives: () => {
+        throw new Error("enrichment must not run on catalog_name_exact");
+      },
+      decideMatchGates: () => {
+        throw new Error("gates must not run on catalog_name_exact");
+      },
+    }));
+
+    const {
+      matchInquiryLine,
+      isLiteralCatalogNameHit,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+
+    expect(isLiteralCatalogNameHit(INQUIRY, CATALOG_NAME)).toBe(true);
+
+    const row = await matchInquiryLine({
+      name: INQUIRY,
+      raw: INQUIRY,
+      quantity: 500,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe(SKU);
+    expect(row.unitPriceNet).toBe(2.21);
+    expect(row.allowPrice).toBe(true);
+    expect(row.productId).toBe("18216");
+    expect(row.matchSource).toBe("catalog_name_exact");
+    expect(row.status).not.toBe("Аналог");
+  });
+
+  it("bare SKU 009673010060020 keeps 2.21 and never becomes analog", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 18216,
+            name: CATALOG_NAME,
+            matched_sku: SKU,
+            matched_sku_price: "2.2100",
+            product_url: "vint_din_967",
+            category_url: "vinty",
+            _exactSku: true,
+            shopMatchSources: ["exact_sku"],
+          },
+        ],
+        strategies: ["exact_sku"],
+        earlyExit: "exact_sku",
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    mockStockQuery();
+    mockCaches("test-din967-sku");
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => true,
+      enrichAlternatives: ({ alternatives }) => ({ alternatives }),
+      decideMatchGates: () => ({
+        gateRejected: true,
+        gateReason: "should_be_skipped",
+      }),
+    }));
+    jest.doMock("../../../utils/offerKp/variantSpecs", () => ({
+      detectVariantAmbiguity: () => ({
+        field: "strengthClass",
+        values: ["4.8", "8.8"],
+        minPrice: 1,
+        maxPrice: 99,
+      }),
+      variantPricingKey: () => "",
+    }));
+
+    const {
+      matchInquiryLine,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    const row = await matchInquiryLine({
+      name: SKU,
+      raw: SKU,
+      quantity: 500,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe(SKU);
+    expect(row.unitPriceNet).toBe(2.21);
+    expect(row.allowPrice).toBe(true);
+    expect(row.matchSource).toBe("exact_sku");
+    expect(row.status).toBe("В наличии");
+  });
+});
+
 describe("null product / alternative guards", () => {
   it("pickBestInquiryAlternative ignores null slots", () => {
     const best = pickBestInquiryAlternative(

@@ -250,7 +250,17 @@ function mapSearchRows(
     shopDbTables: tables,
     shopMatchSources: [matchSource],
     _exactSku: matchSource === "exact_sku",
+    _catalogNameExact: matchSource === "catalog_name_exact",
   }));
+}
+
+/** Whitespace-collapsed catalog title key (must match matchInquiryLines). */
+function catalogNameKey(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function searchByExactSku(skuCodes, limit) {
@@ -274,6 +284,41 @@ async function searchByExactSku(skuCodes, limit) {
 
   const rows = await query(sql, codes);
   return mapSearchRows(rows, "exact_sku", [TABLES.product, TABLES.productSkus]);
+}
+
+/**
+ * Literal ShopDB product title hit (whitespace-normalized). Pins SKU + price
+ * before RRF / embedding / analogRules — same authority as exact_sku.
+ */
+async function searchByExactCatalogName(queryText, limit) {
+  const key = catalogNameKey(queryText);
+  if (!key || key.length < 8) return [];
+
+  // Collapse runs of whitespace in MySQL so "DIN  967" == "DIN 967".
+  const sql = `
+    SELECT ${PRODUCT_SELECT}, s.${S.sku} AS matched_sku,
+           s.price AS matched_sku_price, 'catalog_name_exact' AS match_source
+    FROM ${TABLES.product} p
+    INNER JOIN ${TABLES.productSkus} s ON s.${S.productId} = p.${P.id}
+    LEFT JOIN ${TABLES.category} c
+      ON c.${C.id} = p.${P.categoryId} AND c.${C.status} = 1
+    WHERE p.${P.status} = 1
+      AND LOWER(TRIM(REGEXP_REPLACE(p.${P.name}, '[[:space:]]+', ' '))) = ?
+    ORDER BY s.count DESC, s.${S.sku} ASC, p.${P.id} DESC
+    LIMIT ${sqlLimit(limit)}
+  `;
+
+  const rows = await query(sql, [key]);
+  // One row per product — first SKU wins (highest stock via ORDER BY).
+  const byProduct = new Map();
+  for (const row of rows || []) {
+    if (!row?.id || byProduct.has(row.id)) continue;
+    byProduct.set(row.id, row);
+  }
+  return mapSearchRows([...byProduct.values()], "catalog_name_exact", [
+    TABLES.product,
+    TABLES.productSkus,
+  ]);
 }
 
 function mergeRetrievalMeta(previous, next) {
@@ -328,6 +373,7 @@ function mergeProductHits(batches) {
           _tables: new Set(tables),
           _matchSources: new Set(sources),
           _exactSku: !!row._exactSku,
+          _catalogNameExact: !!row._catalogNameExact,
         });
         continue;
       }
@@ -338,6 +384,7 @@ function mergeProductHits(batches) {
       for (const s of sources) prev._matchSources.add(s);
       Object.assign(prev, meta);
       prev._exactSku = prev._exactSku || !!row._exactSku;
+      prev._catalogNameExact = prev._catalogNameExact || !!row._catalogNameExact;
       if (row.matched_sku) prev.matched_sku = row.matched_sku;
     }
   }
@@ -572,6 +619,43 @@ async function runProductSearchAgent({
     }
   }
 
+  // Exact catalog title owns identity + price. Skip RRF / embedding /
+  // analog widen — heuristics only when ShopDB has no literal name row.
+  {
+    const nameHits = await searchByExactCatalogName(searchText, searchLimit);
+    if (nameHits.length) {
+      strategies.push("catalog_name_exact");
+      products = mergeProductHits([products, nameHits]);
+      products = products.filter(
+        (p) =>
+          p._catalogNameExact ||
+          p.shopMatchSources?.includes("catalog_name_exact")
+      );
+      const tablesUsed = new Set([TABLES.product, TABLES.productSkus]);
+      for (const p of products) {
+        for (const t of p.shopDbTables || []) tablesUsed.add(t);
+      }
+      shopDbLog.ok("product search agent done", {
+        strategies: [...new Set(strategies)],
+        hits: products.length,
+        productIds: products.map((p) => p.id),
+        titles: products.map((p) => p.name?.slice(0, 60)),
+        earlyExit: "catalog_name_exact",
+      });
+      const result = {
+        products: products.slice(0, sqlLimit(limit)),
+        strategies: [...new Set(strategies)],
+        searchText,
+        parsed,
+        signals,
+        tablesUsed: [...tablesUsed],
+        earlyExit: "catalog_name_exact",
+      };
+      setCachedRetrieval(agentCacheKey, result);
+      return result;
+    }
+  }
+
   const { products: baseProducts, tablesUsed: baseTables } =
     await searchProductsExtended(searchTerms, parsed, searchLimit);
 
@@ -709,7 +793,9 @@ module.exports = {
   isPriceOnlyQuery,
   isSkuOnlyQuery,
   hasHardwareSignals,
+  catalogNameKey,
   searchByExactSku,
+  searchByExactCatalogName,
   runProductSearchAgent,
   detectAnalogIntent,
 };

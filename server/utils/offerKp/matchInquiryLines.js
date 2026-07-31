@@ -908,13 +908,22 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   let alternatives = candidates.map((product) => {
     const stock = stockByProduct.get(String(product.id)) || emptyProductStock();
     const isOverrideMatch = overrideProductId === String(product.id);
+    const productSources = candidateMatchSources(product);
+    // SQL rows use match_source; agent flags use camelCase matchSource.
+    const retrievalSource = String(
+      product.matchSource || product.match_source || ""
+    );
+    // True article hit — not catalog-title identity (that is catalogNameHit).
     const exactSkuHit =
       isOverrideMatch ||
-      productHasExactSkuHit({
-        ...product,
-        matchSource: isOverrideMatch ? "golden_override" : undefined,
-      });
-    const catalogNameHit = isLiteralCatalogNameHit(searchText, product.name);
+      !!product._exactSku ||
+      retrievalSource === "exact_sku" ||
+      productSources.includes("exact_sku");
+    const catalogNameHit =
+      !!product._catalogNameExact ||
+      retrievalSource === "catalog_name_exact" ||
+      productSources.includes("catalog_name_exact") ||
+      isLiteralCatalogNameHit(searchText, product.name);
     // Exact/golden SKU owns the price. Never price a sibling cheapest SKU.
     const preferredSku = String(
       product.matched_sku || (isOverrideMatch ? override?.sku : "") || ""
@@ -945,6 +954,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       // Surface the pinned SKU to classifiers that read product.sku.
       sku: altSku || stock.sku,
       _exactSku: exactSkuHit || !!product._exactSku,
+      _catalogNameExact: catalogNameHit,
       matchSource: isOverrideMatch
         ? "golden_override"
         : exactSkuHit
@@ -952,10 +962,22 @@ async function matchInquiryLine(inquiryLine, options = {}) {
           : catalogNameHit
             ? "catalog_name_exact"
             : product.matchSource,
+      shopMatchSources: [
+        ...new Set([
+          ...productSources,
+          ...(isOverrideMatch
+            ? ["golden_override"]
+            : exactSkuHit
+              ? ["exact_sku"]
+              : catalogNameHit
+                ? ["catalog_name_exact"]
+                : []),
+        ]),
+      ],
     });
     const matchType = isOverrideMatch
       ? override.matchType
-      : catalogNameHit && classification.matchType !== "none"
+      : (exactSkuHit || catalogNameHit) && classification.matchType !== "none"
         ? "exact"
         : classification.matchType;
     let status = classification.status;
@@ -972,7 +994,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         status = STATUS.IN_STOCK;
       }
     }
-    if (catalogNameHit && matchType === "exact" && Number(stock.stockCount) > 0) {
+    if (
+      (exactSkuHit || catalogNameHit) &&
+      matchType === "exact" &&
+      Number(stock.stockCount) > 0
+    ) {
       status = STATUS.IN_STOCK;
       mismatchReason = null;
     }
@@ -1005,9 +1031,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       shopMatchSources: exactSkuHit || catalogNameHit
         ? [
             ...new Set([
-              ...(Array.isArray(product.shopMatchSources)
-                ? product.shopMatchSources
-                : []),
+              ...productSources,
               isOverrideMatch
                 ? "golden_override"
                 : exactSkuHit
@@ -1015,8 +1039,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
                   : "catalog_name_exact",
             ]),
           ]
-        : Array.isArray(product.shopMatchSources)
-          ? product.shopMatchSources
+        : productSources.length
+          ? productSources
           : undefined,
       _bm25Score: product._bm25Score ?? null,
       _nameSimilarity: product._nameSimilarity ?? null,
@@ -1032,7 +1056,21 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       completeness.missing.includes("length"));
 
   let enrichmentMeta = null;
-  if (matchEnrichmentEnabled() && alternatives.length) {
+  const dbIdentityEarlyExit =
+    matchStrategies.includes("exact_sku") ||
+    matchStrategies.includes("catalog_name_exact") ||
+    matchStrategies.includes("golden_override") ||
+    alternatives.some(
+      (alt) =>
+        alt &&
+        (alt._exactSku ||
+          alt._catalogNameExact ||
+          alt.matchSource === "exact_sku" ||
+          alt.matchSource === "catalog_name_exact" ||
+          alt.matchSource === "golden_override")
+    );
+  // ShopDB exact identity already pinned — skip LTR/Bayes/selective demotion.
+  if (matchEnrichmentEnabled() && alternatives.length && !dbIdentityEarlyExit) {
     const enriched = enrichAlternatives({
       queryText: searchText,
       alternatives,
@@ -1089,7 +1127,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   }
 
   let matchGates = null;
-  if (matchEnrichmentEnabled() && alternatives.length) {
+  if (
+    matchEnrichmentEnabled() &&
+    alternatives.length &&
+    !dbIdentityEarlyExit
+  ) {
     matchGates = decideMatchGates({
       queryText: searchText,
       alternatives,

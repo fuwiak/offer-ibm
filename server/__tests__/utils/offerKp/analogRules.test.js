@@ -190,4 +190,33 @@ describe("analogRules", () => {
       "similar"
     );
   });
+
+  test("catalog_name_exact keeps DIN 967 оцинк (500) exact without heuristics", () => {
+    const {
+      productHasExactSkuHit,
+    } = require("../../../utils/offerKp/analogRules");
+    const product = {
+      name: "Винт DIN  967 M  6x 20 оцинк  (500)",
+      sku: "009673010060020",
+      matched_sku: "009673010060020",
+      stockCount: 8170,
+      matchSource: "catalog_name_exact",
+      _catalogNameExact: true,
+      shopMatchSources: ["catalog_name_exact"],
+      price: 2.21,
+    };
+    expect(productHasExactSkuHit(product)).toBe(true);
+    expect(
+      classifyProductMatch("Винт DIN 967 M 6x 20 оцинк (500)", product)
+        .matchType
+    ).toBe("exact");
+    expect(
+      classifyProductMatch("009673010060020", {
+        ...product,
+        _exactSku: true,
+        matchSource: "exact_sku",
+        shopMatchSources: ["exact_sku"],
+      }).matchType
+    ).toBe("exact");
+  });
 });

@@ -441,24 +441,35 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
 }
 
 /**
- * ShopDB exact-SKU retrieval is authoritative even when the inquiry has no
- * DIN/GOST text (SKU-only paste). Without this, classifyProductMatch demotes
- * those hits to "similar" → draft shows weight/heuristic only, never price.
+ * ShopDB exact identity (SKU or literal catalog title) is authoritative even
+ * when the inquiry has no DIN/GOST text (SKU-only paste) or when enrichment
+ * hard-constraints disagree. Without this, classifyProductMatch demotes those
+ * hits to "similar" → draft shows weight/heuristic only, never price.
  */
 function productHasExactSkuHit(product) {
   if (!product || typeof product !== "object") return false;
-  if (product._exactSku) return true;
+  if (product._exactSku || product._catalogNameExact) return true;
   const matchSource = String(product.matchSource || product.match_source || "");
-  if (matchSource === "exact_sku" || matchSource === "golden_override") {
+  if (
+    matchSource === "exact_sku" ||
+    matchSource === "golden_override" ||
+    matchSource === "catalog_name_exact"
+  ) {
     return true;
   }
   const sources = product.shopMatchSources || product._matchSources || [];
   if (sources instanceof Set) {
-    return sources.has("exact_sku") || sources.has("golden_override");
+    return (
+      sources.has("exact_sku") ||
+      sources.has("golden_override") ||
+      sources.has("catalog_name_exact")
+    );
   }
   return (
     Array.isArray(sources) &&
-    (sources.includes("exact_sku") || sources.includes("golden_override"))
+    (sources.includes("exact_sku") ||
+      sources.includes("golden_override") ||
+      sources.includes("catalog_name_exact"))
   );
 }
 
