@@ -133,4 +133,51 @@ describe("threadFollowUpSuggestions", () => {
       buildUploadStarterFollowUps({ language: "ru", hasParsedFiles: false })
     ).toEqual([]);
   });
+
+  it("builds upload starters from filename even without OCR text flag pair", () => {
+    const suggestions = buildUploadStarterFollowUps({
+      language: "ru",
+      hasParsedFiles: true,
+      filename: "very_long_inquiry_filename_for_clipping.pdf",
+    });
+    expect(suggestions[0]).toMatch(/Сформировать КП по/);
+    expect(suggestions[0].length).toBeLessThanOrEqual(140);
+    expect(suggestions[0]).toContain("…");
+    expect(suggestions[0]).toContain(".pdf");
+  });
+
+  it("builds quote-output follow-ups after PDF/DOCX artifacts", () => {
+    const { buildQuoteOutputFollowUps } = require("../../../utils/chats/threadFollowUpSuggestions");
+    const suggestions = buildQuoteOutputFollowUps({
+      language: "ru",
+      quoteOutputs: [{ type: "PdfFileDownload", payload: { filename: "kp.pdf" } }],
+    });
+    expect(suggestions[0]).toMatch(/итог|сумм/i);
+    expect(suggestions.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps deterministic follow-ups when strict determinism disables LLM", async () => {
+    const prev = process.env.OFFER_KP_STRICT_DETERMINISM;
+    process.env.OFFER_KP_STRICT_DETERMINISM = "true";
+    jest.resetModules();
+    try {
+      const {
+        generateThreadFollowUpSuggestions,
+      } = require("../../../utils/chats/threadFollowUpSuggestions");
+      const result = await generateThreadFollowUpSuggestions({
+        workspace: { slug: "demo", chatProvider: "lmstudio", chatModel: "x" },
+        prompt: "привет",
+        assistantText: "Здравствуйте! Чем помочь по заявке?",
+        language: "ru",
+        parsedFileNames: ["zapros.pdf"],
+        parsedFileTexts: ["Болт DIN 933 M8×40 — 100 шт"],
+      });
+      expect(result.suggestions.length).toBeGreaterThan(0);
+      expect(result.suggestions[0]).toMatch(/КП|заявк|сводк/i);
+    } finally {
+      if (prev === undefined) delete process.env.OFFER_KP_STRICT_DETERMINISM;
+      else process.env.OFFER_KP_STRICT_DETERMINISM = prev;
+      jest.resetModules();
+    }
+  });
 });

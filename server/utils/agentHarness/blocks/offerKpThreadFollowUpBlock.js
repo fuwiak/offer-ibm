@@ -5,6 +5,51 @@ const {
   threadFollowUpSuggestionsEnabled,
 } = require("../../chats/threadFollowUpSuggestions");
 
+async function loadParsedContext(harness) {
+  const workspace = harness?.ctx?.workspace;
+  const invocation = harness?.ctx?.invocation;
+  if (!workspace?.id) {
+    return { texts: [], names: [] };
+  }
+
+  try {
+    const {
+      WorkspaceParsedFiles,
+    } = require("../../../models/workspaceParsedFiles");
+    const threadId = invocation?.thread_id || null;
+    const userId = invocation?.user_id || null;
+    const files = await WorkspaceParsedFiles.getContextFiles(
+      workspace,
+      threadId ? { id: threadId } : null,
+      userId ? { id: userId } : null
+    );
+    return {
+      texts: (files || []).map((doc) => doc.pageContent).filter(Boolean),
+      names: (files || [])
+        .map((doc) => doc.title || doc.filename)
+        .filter(Boolean),
+    };
+  } catch {
+    return { texts: [], names: [] };
+  }
+}
+
+function quoteDraftFromHarness(harness) {
+  const inquiryDraft = harness.state.get("inquiryDbDraft");
+  if (inquiryDraft?.lines?.length) {
+    return {
+      hardwareLines: inquiryDraft.lines,
+      preview: {
+        lines: inquiryDraft.lines,
+        subtotal: inquiryDraft.subtotal,
+        total: inquiryDraft.total,
+        totalWeightKg: inquiryDraft.totalWeightKg,
+      },
+    };
+  }
+  return null;
+}
+
 /**
  * After each agent turn (and on session end), refresh recovery-oriented follow-ups for the thread UI.
  */
@@ -22,6 +67,7 @@ class OfferKpThreadFollowUpBlock extends BaseBlock {
 
     let result = { suggestions: [], variant: "continue" };
     try {
+      const { texts, names } = await loadParsedContext(harness);
       result = await generateThreadFollowUpSuggestions({
         workspace,
         user: invocation.user_id ? { id: invocation.user_id } : null,
@@ -29,6 +75,9 @@ class OfferKpThreadFollowUpBlock extends BaseBlock {
         assistantText: turn.assistantText,
         chatHistory: turn.chatHistory || [],
         catalogInjected: Boolean(harness.state.get("catalogInjected")),
+        quoteDraft: quoteDraftFromHarness(harness),
+        parsedFileTexts: texts,
+        parsedFileNames: names,
       });
     } catch (error) {
       harness.log("thread follow-up generation failed", {

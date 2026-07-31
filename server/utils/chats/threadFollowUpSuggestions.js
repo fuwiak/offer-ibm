@@ -115,6 +115,24 @@ function buildDraftFollowUpSuggestions({
 }
 
 /**
+ * Clip filename for chip labels (same rules as frontend shortFilename).
+ * @param {string} [name]
+ * @param {number} [max]
+ */
+function shortFollowUpFilename(name = "", max = 28) {
+  const raw = String(name || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!raw) return "";
+  if (raw.length <= max) return raw;
+  const extMatch = raw.match(/(\.[a-z0-9]{1,8})$/i);
+  const ext = extMatch ? extMatch[1] : "";
+  const base = ext ? raw.slice(0, -ext.length) : raw;
+  const keep = Math.max(8, max - ext.length - 1);
+  return `${base.slice(0, keep)}…${ext}`;
+}
+
+/**
  * Deterministic starters after file upload / when OCR is in thread context.
  * Keep wording compatible with intentRouter START_QUOTE_PROMPTS / create_quote.
  */
@@ -126,16 +144,7 @@ function buildUploadStarterFollowUps({
 } = {}) {
   if (!hasParsedFiles) return [];
   const lang = followUpLanguage(prompt, language);
-  const shortName = String(filename || "")
-    .trim()
-    .replace(/\s+/g, " ");
-  const clipped =
-    shortName.length > 28
-      ? `${shortName.slice(0, 24)}…${(shortName.match(/(\.[a-z0-9]{1,8})$/i) || [
-          "",
-          "",
-        ])[1]}`
-      : shortName;
+  const clipped = shortFollowUpFilename(filename);
 
   const pools = {
     ru: clipped
@@ -175,11 +184,63 @@ function buildUploadStarterFollowUps({
   return mergeFollowUpSuggestions(pools[lang] || pools.ru, []);
 }
 
+/**
+ * After PDF/DOCX КП artifacts — executable draft/catalog follow-ups only
+ * (panel open/download is handled by frontend contextActions).
+ */
+function buildQuoteOutputFollowUps({
+  language = null,
+  prompt = "",
+  quoteOutputs = [],
+  assistantText = "",
+} = {}) {
+  const outputs = Array.isArray(quoteOutputs) ? quoteOutputs : [];
+  const hasPdf = outputs.some(
+    (o) =>
+      o?.type === "PdfFileDownload" ||
+      String(o?.payload?.filename || "")
+        .toLowerCase()
+        .endsWith(".pdf")
+  );
+  const hasDocx = outputs.some(
+    (o) =>
+      o?.type === "DocxFileDownload" ||
+      /\.docx?$/i.test(String(o?.payload?.filename || ""))
+  );
+  const text = String(assistantText || "");
+  const textHasQuoteFiles =
+    /коммерческ(?:ое|ого)\s+предложен/iu.test(text) ||
+    (/\bPDF\b/i.test(text) && /(?:создан|готов|файл)/iu.test(text)) ||
+    (/\bDOCX?\b/i.test(text) && /(?:создан|готов|файл|Word)/iu.test(text));
+  if (!hasPdf && !hasDocx && !textHasQuoteFiles) return [];
+
+  const lang = followUpLanguage(prompt, language);
+  const pools = {
+    ru: [
+      "Покажи краткий итог текущего списка: позиции и общую сумму",
+      "Найди аналоги для позиций без наличия",
+      "Пересобери КП в PDF/DOCX с актуальными ценами из каталога",
+    ],
+    pl: [
+      "Pokaż krótkie podsumowanie bieżącej listy: pozycje i sumę",
+      "Znajdź zamienniki dla pozycji bez stanu",
+      "Przebuduj ofertę KP w PDF/DOCX z aktualnymi cenami z katalogu",
+    ],
+    en: [
+      "Show a short summary of the current list: items and total",
+      "Find analogs for out-of-stock lines",
+      "Rebuild the quote PDF/DOCX with current catalog prices",
+    ],
+  };
+  return mergeFollowUpSuggestions(pools[lang] || pools.ru, []);
+}
+
 function summarizeQuoteDraftForPrompt(quoteDraft = null) {
   const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
   if (!Array.isArray(lines) || !lines.length) return null;
-  const priced = lines.filter((l) => Number(l?.unitPriceNet || l?.unitPrice) > 0)
-    .length;
+  const priced = lines.filter(
+    (l) => Number(l?.unitPriceNet || l?.unitPrice) > 0
+  ).length;
   const needsReview = lines.filter((l) => l?.needsReview).length;
   return `Quote draft: ${lines.length} lines, ${priced} priced, ${needsReview} needs_review.`;
 }
@@ -306,6 +367,7 @@ async function generateThreadFollowUpSuggestions({
   quoteDraft = null,
   parsedFileTexts = [],
   parsedFileNames = [],
+  quoteOutputs = [],
 }) {
   if (!threadFollowUpSuggestionsEnabled()) {
     return { suggestions: [], variant: "continue", issues: [] };
@@ -335,15 +397,32 @@ async function generateThreadFollowUpSuggestions({
   });
   const uploadFilename =
     (Array.isArray(parsedFileNames) && parsedFileNames.find(Boolean)) || "";
+  const hasParsedFiles =
+    (parsedFileTexts || []).some((t) => String(t || "").trim()) ||
+    (parsedFileNames || []).some((n) => String(n || "").trim());
   const uploadStarters = buildUploadStarterFollowUps({
     language,
     prompt,
-    hasParsedFiles: (parsedFileTexts || []).some((t) => String(t || "").trim()),
+    hasParsedFiles,
     filename: uploadFilename,
   });
+  const quoteFileSuggestions = buildQuoteOutputFollowUps({
+    language,
+    prompt,
+    quoteOutputs,
+    assistantText,
+  });
+  // Prefer recovery → draft → freshly generated КП → upload starters.
   const deterministic = mergeFollowUpSuggestions(
-    recovery.length ? recovery : draftSuggestions,
-    mergeFollowUpSuggestions(draftSuggestions, uploadStarters)
+    recovery.length
+      ? recovery
+      : draftSuggestions.length
+        ? draftSuggestions
+        : quoteFileSuggestions,
+    mergeFollowUpSuggestions(
+      draftSuggestions,
+      mergeFollowUpSuggestions(quoteFileSuggestions, uploadStarters)
+    )
   );
 
   let llmSuggestions = [];
@@ -429,6 +508,7 @@ async function emitThreadFollowUpSuggestions({
   quoteDraft = null,
   parsedFileTexts = [],
   parsedFileNames = [],
+  quoteOutputs = [],
 }) {
   if (!thread?.id || !response) return [];
 
@@ -443,6 +523,7 @@ async function emitThreadFollowUpSuggestions({
     quoteDraft,
     parsedFileTexts,
     parsedFileNames,
+    quoteOutputs,
   });
 
   if (!suggestions.length) return [];
@@ -464,8 +545,10 @@ module.exports = {
   parseSuggestionsFromLlmText,
   mergeFollowUpSuggestions,
   extractAgentTurnForFollowUps,
+  shortFollowUpFilename,
   buildDraftFollowUpSuggestions,
   buildUploadStarterFollowUps,
+  buildQuoteOutputFollowUps,
   generateThreadFollowUpSuggestions,
   emitThreadFollowUpSuggestions,
   MAX_SUGGESTIONS,

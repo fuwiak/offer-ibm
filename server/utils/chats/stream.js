@@ -284,6 +284,17 @@ async function streamChatWithWorkspace(
         const {
           emitThreadFollowUpSuggestions,
         } = require("./threadFollowUpSuggestions");
+        const earlyParsed = await WorkspaceParsedFiles.getContextFiles(
+          workspace,
+          thread || null,
+          user || null
+        );
+        const { rawHistory: followUpHistory } = await recentChatHistory({
+          user,
+          workspace,
+          thread,
+          messageLimit: workspace?.openAiHistory || 20,
+        });
         await emitThreadFollowUpSuggestions({
           response,
           uuid,
@@ -292,10 +303,15 @@ async function streamChatWithWorkspace(
           thread,
           prompt: message,
           assistantText: immediateReply,
-          chatHistory: [],
+          chatHistory: followUpHistory,
           language,
           quoteDraft: clientQuoteDraft,
-          parsedFileTexts: [],
+          parsedFileTexts: (earlyParsed || [])
+            .map((doc) => doc.pageContent)
+            .filter(Boolean),
+          parsedFileNames: (earlyParsed || [])
+            .map((doc) => doc.title || doc.filename)
+            .filter(Boolean),
         });
       } catch (error) {
         console.warn(
@@ -1606,6 +1622,7 @@ async function streamChatWithWorkspace(
           parsedFileNames: (parsedFiles || [])
             .map((doc) => doc.title || doc.filename)
             .filter(Boolean),
+          quoteOutputs,
         });
       } catch (e) {
         console.warn("[threadFollowUp] stream:", e?.message || e);
