@@ -28,6 +28,15 @@ const LIGHT = "F5F5F5";
 const BORDER = "DDDDDD";
 const HEADER_BG = "333333";
 
+/** A4 content width in twips (11906 − 2×720 margins). Must be DXA — pct+gridCol=100 collapses to 1-char strip in Word. */
+const PAGE_WIDTH = 10466;
+const COL = {
+  header: [5442, 5024],
+  parties: [5233, 5233],
+  items: [4186, 1884, 1256, 1570, 1570],
+  totals: [7326, 3140],
+};
+
 function fmtDate(d) {
   const date = d instanceof Date ? d : new Date(d);
   return date.toLocaleDateString("ru-RU", {
@@ -77,7 +86,7 @@ function cell(children, opts = {}) {
   return new TableCell({
     children: Array.isArray(children) ? children : [children],
     width: opts.width
-      ? { size: opts.width, type: WidthType.PERCENTAGE }
+      ? { size: opts.width, type: WidthType.DXA }
       : undefined,
     columnSpan: opts.columnSpan,
     shading: opts.fill
@@ -188,7 +197,8 @@ async function generateQuoteDocx(quoteData) {
 
   // ── Header: brand + title / meta (same as QuotePreview) ───────────────
   const headerTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: COL.header,
     borders: NO_BORDERS,
     rows: [
       new TableRow({
@@ -202,7 +212,7 @@ async function generateQuoteDocx(quoteData) {
               para(run(brandTagline, { size: 16, color: MUTED })),
               para(run(brandWebsite, { size: 15, color: MUTED })),
             ],
-            { width: 52, borders: NO_BORDERS }
+            { width: COL.header[0], borders: NO_BORDERS }
           ),
           cell(
             [
@@ -226,7 +236,7 @@ async function generateQuoteDocx(quoteData) {
                 { alignment: AlignmentType.RIGHT }
               ),
             ],
-            { width: 48, borders: NO_BORDERS }
+            { width: COL.header[1], borders: NO_BORDERS }
           ),
         ],
       }),
@@ -235,7 +245,8 @@ async function generateQuoteDocx(quoteData) {
 
   // ── ПОСТАВЩИК / ПОКУПАТЕЛЬ ─────────────────────────────────────────────
   const parties = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: COL.parties,
     borders: NO_BORDERS,
     rows: [
       new TableRow({
@@ -253,7 +264,7 @@ async function generateQuoteDocx(quoteData) {
                 ? [para(run(supplierPhone, { size: 17, color: GRAY }))]
                 : []),
             ],
-            { width: 50, borders: NO_BORDERS }
+            { width: COL.parties[0], borders: NO_BORDERS }
           ),
           cell(
             [
@@ -263,7 +274,7 @@ async function generateQuoteDocx(quoteData) {
                 ? [para(run(customer.country, { size: 17, color: GRAY }))]
                 : []),
             ],
-            { width: 50, borders: NO_BORDERS }
+            { width: COL.parties[1], borders: NO_BORDERS }
           ),
         ],
       }),
@@ -272,16 +283,17 @@ async function generateQuoteDocx(quoteData) {
 
   // ── Table: Позиция | Артикул | Кол-во | Цена/шт | Сумма ───────────────
   const headerFill = HEADER_BG;
+  const [wName, wArt, wQty, wPrice, wSum] = COL.items;
   const itemHeaderRow = new TableRow({
     tableHeader: true,
     children: [
       cell(para(run("Позиция", { bold: true, size: 16, color: WHITE })), {
-        width: 40,
+        width: wName,
         fill: headerFill,
         borders: NO_BORDERS,
       }),
       cell(para(run("Артикул", { bold: true, size: 16, color: WHITE })), {
-        width: 18,
+        width: wArt,
         fill: headerFill,
         borders: NO_BORDERS,
       }),
@@ -289,19 +301,19 @@ async function generateQuoteDocx(quoteData) {
         para(run("Кол-во", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
-        { width: 12, fill: headerFill, borders: NO_BORDERS }
+        { width: wQty, fill: headerFill, borders: NO_BORDERS }
       ),
       cell(
         para(run("Цена/шт", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
-        { width: 15, fill: headerFill, borders: NO_BORDERS }
+        { width: wPrice, fill: headerFill, borders: NO_BORDERS }
       ),
       cell(
         para(run("Сумма", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
-        { width: 15, fill: headerFill, borders: NO_BORDERS }
+        { width: wSum, fill: headerFill, borders: NO_BORDERS }
       ),
     ],
   });
@@ -313,32 +325,33 @@ async function generateQuoteDocx(quoteData) {
     const fill = i % 2 === 1 ? LIGHT : WHITE;
     return new TableRow({
       children: [
-        cell(para(run(lineName(ql), { size: 18 })), { width: 40, fill }),
-        cell(para(run(lineArticle(ql), { size: 18 })), { width: 18, fill }),
+        cell(para(run(lineName(ql), { size: 18 })), { width: wName, fill }),
+        cell(para(run(lineArticle(ql), { size: 18 })), { width: wArt, fill }),
         cell(
           para(run(String(qty), { size: 18 }), {
             alignment: AlignmentType.RIGHT,
           }),
-          { width: 12, fill }
+          { width: wQty, fill }
         ),
         cell(
           para(run(money(unit), { size: 18 }), {
             alignment: AlignmentType.RIGHT,
           }),
-          { width: 15, fill }
+          { width: wPrice, fill }
         ),
         cell(
           para(run(money(sum), { bold: true, size: 18 }), {
             alignment: AlignmentType.RIGHT,
           }),
-          { width: 15, fill }
+          { width: wSum, fill }
         ),
       ],
     });
   });
 
   const itemsTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: COL.items,
     rows: [itemHeaderRow, ...itemRows],
   });
 
@@ -354,7 +367,7 @@ async function generateQuoteDocx(quoteData) {
             }),
             { alignment: AlignmentType.RIGHT }
           ),
-          { width: 70, fill: opts.fill, borders: NO_BORDERS }
+          { width: COL.totals[0], fill: opts.fill, borders: NO_BORDERS }
         ),
         cell(
           para(
@@ -365,14 +378,15 @@ async function generateQuoteDocx(quoteData) {
             }),
             { alignment: AlignmentType.RIGHT }
           ),
-          { width: 30, fill: opts.fill, borders: NO_BORDERS }
+          { width: COL.totals[1], fill: opts.fill, borders: NO_BORDERS }
         ),
       ],
     });
   }
 
   const totalsTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: COL.totals,
     borders: NO_BORDERS,
     rows: [
       totalsRow("Подытог", money(computedSubtotal)),

@@ -78,6 +78,7 @@ function FileDownloadCard({ props }) {
         filename,
         storageFilename,
         previewMarkdown,
+        quoteDraft,
       });
       if (!blob) throw new Error("No blob");
       await downloadBlob(blob, saveName);

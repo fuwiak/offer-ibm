@@ -80,6 +80,7 @@ export default function GeneratedQuotesDock({ files = [] }) {
           storageFilename: file.storageFilename,
           filename: file.filename,
           previewMarkdown: file.previewMarkdown,
+          quoteDraft,
         });
         await downloadBlob(blob, saveName);
       } catch (e) {
@@ -88,7 +89,7 @@ export default function GeneratedQuotesDock({ files = [] }) {
         setBusyKey(null);
       }
     },
-    [busyKey]
+    [busyKey, quoteDraft]
   );
 
   const handleEdit = useCallback(

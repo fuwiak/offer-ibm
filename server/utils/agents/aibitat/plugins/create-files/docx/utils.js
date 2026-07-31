@@ -453,8 +453,16 @@ async function processTable(tableElement, docx, log, theme = null) {
   const tableRows = tableElement.querySelectorAll("tr");
 
   const firstRow = tableRows[0];
-  const columnCount = firstRow ? firstRow.querySelectorAll("th, td").length : 1;
-  const columnWidthPercent = Math.floor(100 / columnCount);
+  const columnCount = Math.max(
+    1,
+    firstRow ? firstRow.querySelectorAll("th, td").length : 1
+  );
+  // DXA (twips) — pct widths make docx emit gridCol=100 and Word collapses to a 1-char strip.
+  const TABLE_WIDTH = 8640; // Letter − normal L/R margins (1800×2)
+  const colWidth = Math.floor(TABLE_WIDTH / columnCount);
+  const columnWidths = Array.from({ length: columnCount }, (_, i) =>
+    i === columnCount - 1 ? TABLE_WIDTH - colWidth * (columnCount - 1) : colWidth
+  );
 
   let dataRowIndex = 0;
   for (const tr of tableRows) {
@@ -469,8 +477,10 @@ async function processTable(tableElement, docx, log, theme = null) {
       shadingFill = "F9F9F9";
     }
 
+    let colIdx = 0;
     for (const cell of cellElements) {
       const cellChildren = await processInlineElements(cell, docx, {}, log);
+      const width = columnWidths[Math.min(colIdx, columnWidths.length - 1)];
       cells.push(
         new TableCell({
           children: [
@@ -482,10 +492,11 @@ async function processTable(tableElement, docx, log, theme = null) {
               alignment: AlignmentType.LEFT,
             }),
           ],
-          width: { size: columnWidthPercent, type: WidthType.PERCENTAGE },
+          width: { size: width, type: WidthType.DXA },
           shading: shadingFill ? { fill: shadingFill } : undefined,
         })
       );
+      colIdx += 1;
     }
 
     if (cells.length > 0) {
@@ -499,7 +510,8 @@ async function processTable(tableElement, docx, log, theme = null) {
 
   return new Table({
     rows,
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: TABLE_WIDTH, type: WidthType.DXA },
+    columnWidths,
     layout: TableLayoutType.FIXED,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: colors.border },
@@ -915,7 +927,8 @@ function createRunningHeader(docx, documentTitle, theme) {
   return new Header({
     children: [
       new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        width: { size: 8640, type: WidthType.DXA },
+        columnWidths: [6048, 2592],
         borders: {
           ...noBorders,
           insideHorizontal: { style: "none" },
@@ -926,7 +939,7 @@ function createRunningHeader(docx, documentTitle, theme) {
           new TableRow({
             children: [
               new TableCell({
-                width: { size: 70, type: WidthType.PERCENTAGE },
+                width: { size: 6048, type: WidthType.DXA },
                 borders: noBorders,
                 children: [
                   new Paragraph({
@@ -942,7 +955,7 @@ function createRunningHeader(docx, documentTitle, theme) {
                 ],
               }),
               new TableCell({
-                width: { size: 30, type: WidthType.PERCENTAGE },
+                width: { size: 2592, type: WidthType.DXA },
                 borders: noBorders,
                 children: [
                   new Paragraph({
@@ -1021,7 +1034,8 @@ function createRunningFooter(docx, logoBuffer, theme) {
   return new Footer({
     children: [
       new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        width: { size: 8640, type: WidthType.DXA },
+        columnWidths: [4320, 4320],
         borders: {
           ...noBorders,
           insideHorizontal: { style: "none" },
@@ -1031,12 +1045,12 @@ function createRunningFooter(docx, logoBuffer, theme) {
           new TableRow({
             children: [
               new TableCell({
-                width: { size: 50, type: WidthType.PERCENTAGE },
+                width: { size: 4320, type: WidthType.DXA },
                 borders: noBorders,
                 children: [pageNumberParagraph],
               }),
               new TableCell({
-                width: { size: 50, type: WidthType.PERCENTAGE },
+                width: { size: 4320, type: WidthType.DXA },
                 borders: noBorders,
                 children: [brandingCell],
               }),

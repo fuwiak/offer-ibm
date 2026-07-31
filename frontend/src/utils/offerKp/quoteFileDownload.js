@@ -36,6 +36,7 @@ export async function downloadQuoteFileBlob({ storageFilename, filename }) {
 /**
  * Download DOCX matching the side-panel preview.
  * Prefers structured quote draft (same layout as PDF / Превью КП).
+ * Commercial markdown with prices is blocked server-side — fall back to stored file.
  */
 export async function downloadDocxMatchingPreview({
   filename,
@@ -73,15 +74,20 @@ export async function downloadDocxMatchingPreview({
   }
 
   if (previewMarkdown?.trim()) {
-    const result = await OfferKp.generateDocxFromMarkdown({
-      markdown: previewMarkdown,
-      filename: filename || "document.docx",
-    });
-    const blob = await downloadQuoteFileBlob({
-      storageFilename: result.storageFilename,
-      filename: result.filename,
-    });
-    return { blob, filename: result.filename || filename || "document.docx" };
+    try {
+      const result = await OfferKp.generateDocxFromMarkdown({
+        markdown: previewMarkdown,
+        filename: filename || "document.docx",
+      });
+      const blob = await downloadQuoteFileBlob({
+        storageFilename: result.storageFilename,
+        filename: result.filename,
+      });
+      return { blob, filename: result.filename || filename || "document.docx" };
+    } catch (e) {
+      // ShopDB gate blocks commercial markdown — use already-generated storage file.
+      if (!storageFilename) throw e;
+    }
   }
 
   if (!storageFilename) {
@@ -92,11 +98,12 @@ export async function downloadDocxMatchingPreview({
   return { blob, filename: filename || storageFilename };
 }
 
-/** PDF as-is; DOCX from preview markdown when available. */
+/** PDF as-is; DOCX from draft / preview / stored file. */
 export async function downloadFileMatchingPreview({
   filename,
   storageFilename,
   previewMarkdown,
+  quoteDraft = null,
 }) {
   const name = filename || storageFilename || "";
   if (/\.pdf$/i.test(name)) {
@@ -107,6 +114,7 @@ export async function downloadFileMatchingPreview({
     filename,
     storageFilename,
     previewMarkdown,
+    quoteDraft,
   });
 }
 
