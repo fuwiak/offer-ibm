@@ -189,6 +189,8 @@ function toProductSignature(fields = {}) {
 }
 
 function buildCanonicalProductFields(product = {}, features = []) {
+  // Explicit null bypasses default `= {}` and crashed on `.name`.
+  if (!product || typeof product !== "object") product = {};
   const name = cleanValue(product.name);
   const parsed = parseHardwareQuery(name);
   const featureStandard = featureValue(features, FEATURE_ALIASES.standard);

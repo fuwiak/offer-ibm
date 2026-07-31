@@ -441,6 +441,10 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
 }
 
 function classifyProductMatch(requestText, product) {
+  // Default `product = {}` does not catch explicit null — guard here.
+  if (!product || typeof product !== "object") {
+    return { matchType: "none", status: STATUS.OUT_OF_STOCK, analogOf: null };
+  }
   const nameNorm = normalizeForMatch(product.name || "");
   const parsed = parseHardwareQuery(requestText);
   const requestedStandards = extractStandardNumbers(requestText);

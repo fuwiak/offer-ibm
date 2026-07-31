@@ -94,6 +94,7 @@ function applyCatalogCandidateQuota(searchText, products, limit = 50) {
   const analogs = [];
 
   for (const product of products || []) {
+    if (!product || typeof product !== "object") continue;
     if (product._exactSku || product.shopMatchSources?.includes("exact_sku")) {
       compatible.push(product);
       continue;

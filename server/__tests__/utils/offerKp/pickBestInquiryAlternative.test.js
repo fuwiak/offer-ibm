@@ -338,3 +338,53 @@ describe("enforceExactGroundingContract", () => {
     expect(out.demoted).toBe(false);
   });
 });
+
+describe("null product / alternative guards", () => {
+  it("pickBestInquiryAlternative ignores null slots", () => {
+    const best = pickBestInquiryAlternative(
+      [
+        null,
+        undefined,
+        {
+          productId: "9",
+          name: "Болт DIN 933 M8x40",
+          price: 12,
+          matchType: "exact",
+          status: STATUS.IN_STOCK,
+        },
+      ],
+      "Болт DIN 933 M8x40"
+    );
+    expect(best?.productId).toBe("9");
+    expect(best?.name).toBe("Болт DIN 933 M8x40");
+  });
+
+  it("enrichAlternatives does not throw on null products/alts", () => {
+    const { enrichAlternatives } = require("../../../utils/offerKp/matching");
+    const out = enrichAlternatives({
+      queryText: "болт DIN 933 M8x40",
+      alternatives: [
+        null,
+        {
+          name: "Болт DIN 933 M8x40",
+          productId: "1",
+          matchType: "exact",
+          price: 10,
+        },
+      ],
+      products: [null, { id: 1, name: "Болт DIN 933 M8x40" }],
+      matchStrategies: [],
+    });
+    expect(Array.isArray(out.alternatives)).toBe(true);
+    expect(out.alternatives.length).toBeGreaterThanOrEqual(1);
+    expect(out.alternatives.every((a) => a && typeof a === "object")).toBe(
+      true
+    );
+  });
+
+  it("classifyProductMatch tolerates null product", () => {
+    const { classifyProductMatch: classify } = require("../../../utils/offerKp/analogRules");
+    expect(classify("болт DIN 933 M8x40", null).matchType).toBe("none");
+    expect(classify("болт DIN 933 M8x40", undefined).matchType).toBe("none");
+  });
+});

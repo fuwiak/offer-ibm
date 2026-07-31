@@ -28,16 +28,21 @@ const {
  */
 function enrichAlternatives(input = {}) {
   const queryText = input.queryText || "";
-  const products = input.products || [];
+  const products = (input.products || []).filter(
+    (p) => p && typeof p === "object" && p.id != null
+  );
   const productsById = new Map(products.map((p) => [String(p.id), p]));
 
+  const safeAlts = (input.alternatives || []).filter(
+    (a) => a && typeof a === "object"
+  );
   const blocked = applyBlocking(
     queryText,
-    (input.alternatives || []).map((a) => ({ ...a, name: a.name }))
+    safeAlts.map((a) => ({ ...a, name: a.name || "" }))
   );
 
   let alternatives = (
-    blocked.filtered ? blocked.candidates : input.alternatives || []
+    blocked.filtered ? blocked.candidates : safeAlts
   ).map((alt) => {
     const product = productsById.get(String(alt.productId)) || {};
     return applyConstraintsToAlternative(queryText, {
@@ -100,10 +105,13 @@ function decideMatchGates(input = {}) {
   const products = input.products || [];
   const best = input.best || null;
 
+  const gateProducts = (products || []).filter(
+    (p) => p && typeof p === "object"
+  );
   const anomaly = detectAnomaly(queryText, {
-    candidates: products,
+    candidates: gateProducts,
     embeddingTop: (() => {
-      const scores = products
+      const scores = gateProducts
         .map((p) => Number(p._embeddingSimilarity))
         .filter((n) => Number.isFinite(n) && n > 0);
       return scores.length ? Math.max(...scores) : null;

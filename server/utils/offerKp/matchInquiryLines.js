@@ -647,10 +647,12 @@ function buildLineMatchErrorFallback(inquiryLine, error) {
  * Disagreement → do not allow automatic exact (operator must confirm).
  */
 function detectRetrieverDisagreement(candidates = []) {
-  const scored = candidates.filter(
+  const scored = (candidates || []).filter(
     (c) =>
-      Number.isFinite(c._nameSimilarity) ||
-      Number.isFinite(c._embeddingSimilarity)
+      c &&
+      typeof c === "object" &&
+      (Number.isFinite(c._nameSimilarity) ||
+        Number.isFinite(c._embeddingSimilarity))
   );
   if (scored.length < 2) return null;
 
@@ -724,6 +726,12 @@ function buildUnderspecifiedLine(inquiryLine, completeness) {
 }
 
 async function matchInquiryLine(inquiryLine, options = {}) {
+  if (!inquiryLine || typeof inquiryLine !== "object") {
+    return buildLineMatchErrorFallback(
+      { raw: "", name: "", quantity: 1 },
+      new Error("null inquiry line")
+    );
+  }
   const cacheRaw = inquiryLine.raw || inquiryLine.name;
   const cached = await getCachedLineMatch(options.threadId, cacheRaw);
   if (cached) {
@@ -826,7 +834,11 @@ async function matchInquiryLine(inquiryLine, options = {}) {
 
   // Stock lookup is already batched, so validate the full retrieval window.
   // Truncating it early could hide the correct SKU before Top-10 rerank.
-  const candidates = products.slice(0, 100);
+  // Drop null/invalid hits — sparse merge arrays have caused
+  // `Cannot read properties of null (reading 'name')` downstream.
+  const candidates = (products || [])
+    .filter((p) => p && typeof p === "object" && p.id != null)
+    .slice(0, 100);
   const retrieverDisagreement = detectRetrieverDisagreement(candidates);
   const stockByProduct = await fetchProductStocks(candidates.map((p) => p.id));
   let alternatives = candidates.map((product) => {
@@ -880,7 +892,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     }
     return {
       productId: String(product.id),
-      name: product.name,
+      name: product.name || "",
       sku: altSku,
       price: resolvedPrice.price || 0,
       priceSource: resolvedPrice.source || null,
