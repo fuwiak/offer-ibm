@@ -1,8 +1,10 @@
 const TRANSLATIONS = {
   brand: {
     name: "AI Prawnik i Audytor",
+    subtitle: "Tworzenie ofert KP",
     tagline: "Platforma inteligencji prawnej i audytowej",
     distributor: "Platforma AI dla procesów prawnych, compliance i audytu.",
+    newConversation: "Nowa rozmowa",
     goHome: "Przejdź do ekranu startowego",
   },
   nav: {
@@ -86,6 +88,9 @@ const TRANSLATIONS = {
     de: "DE",
     fr: "FR",
     kk: "KK",
+  },
+  prefs: {
+    language: "Język",
   },
   conversations: {
     empty: "Brak dostępnych przestrzeni roboczych dla rozmów.",
@@ -264,6 +269,14 @@ const TRANSLATIONS = {
           "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
         exportQuoteDoc:
           "Przygotuj ofertę PDF/DOCX z tabelą pozycji, cenami i statusami",
+      },
+    },
+    uploadFollowUps: {
+      label: "Co zrobić z plikiem",
+      items: {
+        makeQuote: "Utwórz ofertę KP z załączonego zapytania",
+        showSummary: "Pokaż zestawienie pozycji z wgranego pliku",
+        findAnalogs: "Dobierz zamienniki dla pozycji bez stanu",
       },
     },
     version: "AI Prawnik AI v2.4.0",
@@ -461,6 +474,8 @@ const TRANSLATIONS = {
     notificationsSoon: "Dostępne w Fazie 2",
     savSoon: "Dostępne w Fazie 2",
     documentPanel: "Dokumenty",
+    compareInput: "Wejście",
+    compareOutput: "Wyjście",
     tabQuote: "Oferta",
     tabPreview: "Podgląd",
     tabDocument: "Dokument",
@@ -483,6 +498,8 @@ const TRANSLATIONS = {
     noDocument: "Ukończ proces tworzenia opinii, aby zobaczyć podgląd.",
     crossSectionPlaceholder:
       "Interaktywny wizualizer przekroju (One 8.3 → Diamond → Laminated → Hybrid) — Faza 2.",
+    draftTableEmpty:
+      "Wyślij zapytanie na czacie — system utworzy szkic oferty z pozycjami i statusami.",
   },
   matchProgress: {
     parsing: "Rozpoznano pozycji: {{count}}. Trwa dopasowywanie do katalogu…",
@@ -508,8 +525,15 @@ const TRANSLATIONS = {
     cheapestAnalogsTitle:
       "Podstaw w każdym wierszu najtańszy wariant z menu «Zamienniki» z ceną i stanem magazynowym",
     cheapestAnalogsSuccess: "Podstawiono z magazynu z ceną: {{count}}",
-    cheapestAnalogsEmpty:
-      "Brak wierszy z wariantem na stanie i z ceną z katalogu (menu ≥2), albo już wybrano najlepszy.",
+    cheapestAnalogsEmpty: "Brak wierszy do podstawienia analogów.",
+    cheapestAnalogsEmptyOutOfStock:
+      "Wszystkie pozycje bez stanu magazynowego — nie ma co podstawić z analogów.",
+    cheapestAnalogsEmptyAlreadyBest:
+      "Najlepszy wariant z magazynu z ceną jest już wybrany.",
+    cheapestAnalogsEmptyNoMenu:
+      "Pozycje nie mają menu «Zamienniki» (≥2 warianty) po dopasowaniu.",
+    cheapestAnalogsEmptyNoPricedStock:
+      "W menu «Zamienniki» brak wariantów jednocześnie na stanie i z ceną z katalogu.",
     cheapestAnalogsUndo: "Cofnij",
     cheapestAnalogsUndoTitle: "Cofnij ostatnie podstawienie «Najtańsze analogi»",
     cheapestAnalogsUndoSuccess:
@@ -594,6 +618,7 @@ const TRANSLATIONS = {
     shipping: "Dostawa",
     total: "Razem",
     reference: "Numer referencyjny",
+    viewDocument: "Zobacz dokument",
     duplicate: "Duplikuj opinię",
     validate: "Wygeneruj dokument",
     downloadError: "Nie udało się pobrać dokumentu. Spróbuj ponownie.",
