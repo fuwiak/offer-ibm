@@ -10,7 +10,10 @@
  */
 
 /** @type {Promise<void>} */
-let tail = Promise.resolve();
+let inferenceTail = Promise.resolve();
+
+/** @type {Promise<void>} */
+let downloadTail = Promise.resolve();
 
 /**
  * Run `fn` exclusively wrt other withOnnxLock callers in this process.
@@ -19,13 +22,30 @@ let tail = Promise.resolve();
  * @returns {Promise<T>}
  */
 function withOnnxLock(fn) {
-  const run = tail.then(() => fn());
+  const run = inferenceTail.then(() => fn());
   // Keep the chain alive even if this call rejects.
-  tail = run.then(
+  inferenceTail = run.then(
     () => undefined,
     () => undefined
   );
   return run;
 }
 
-module.exports = { withOnnxLock };
+/**
+ * Serialize HF/CDN model downloads separately from inference.
+ * Must NOT nest under withOnnxLock (embedChunks already holds that lock
+ * when it first calls embedderClient — nesting would deadlock).
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+function withModelDownloadLock(fn) {
+  const run = downloadTail.then(() => fn());
+  downloadTail = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+module.exports = { withOnnxLock, withModelDownloadLock };

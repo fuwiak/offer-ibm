@@ -1,5 +1,11 @@
 const path = require("path");
-const fs = require("fs");
+const {
+  resolveModelsCacheDir,
+  forceModelRefresh,
+  inspectCachedModel,
+  ensureCacheDir,
+  pinTransformersCacheEnv,
+} = require("../../EmbeddingEngines/native/modelDiskCache");
 
 class NativeEmbeddingReranker {
   static #model = null;
@@ -16,19 +22,16 @@ class NativeEmbeddingReranker {
     // An alternative model to the mixedbread-ai/mxbai-rerank-xsmall-v1 model (speed on CPU is much slower for this model @ 18docs = 6s)
     // Model Card: https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2 (speed on CPU is much faster @ 18docs = 1.6s)
     this.model = "Xenova/ms-marco-MiniLM-L-6-v2";
-    this.cacheDir = path.resolve(
-      process.env.STORAGE_DIR
-        ? path.resolve(process.env.STORAGE_DIR, `models`)
-        : path.resolve(__dirname, `../../../storage/models`)
-    );
+    this.cacheDir = resolveModelsCacheDir();
     this.modelPath = path.resolve(this.cacheDir, ...this.model.split("/"));
-    // Make directory when it does not exist in existing installations
-    if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir);
+    ensureCacheDir(this.cacheDir);
 
-    this.modelDownloaded = fs.existsSync(
-      path.resolve(this.cacheDir, this.model)
+    this.modelDownloaded =
+      !forceModelRefresh() &&
+      inspectCachedModel(this.cacheDir, this.model).complete;
+    this.log(
+      `Initialized (cache=${this.cacheDir}, onDisk=${this.modelDownloaded})`
     );
-    this.log("Initialized");
   }
 
   log(text, ...args) {
@@ -91,7 +94,15 @@ class NativeEmbeddingReranker {
       try {
         const { AutoModelForSequenceClassification, AutoTokenizer, env } =
           await import("@xenova/transformers");
-        this.log(`Loading reranker suite...`);
+        pinTransformersCacheEnv(env, this.cacheDir);
+        this.modelDownloaded =
+          !forceModelRefresh() &&
+          inspectCachedModel(this.cacheDir, this.model).complete;
+        this.log(
+          this.modelDownloaded
+            ? `cache hit: loading reranker suite from ${this.cacheDir}`
+            : `download: loading reranker suite into ${this.cacheDir}`
+        );
         NativeEmbeddingReranker.#transformers = {
           AutoModelForSequenceClassification,
           AutoTokenizer,
@@ -124,18 +135,23 @@ class NativeEmbeddingReranker {
     }
 
     try {
+      const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
       const model =
         await NativeEmbeddingReranker.#transformers.AutoModelForSequenceClassification.from_pretrained(
           this.model,
           {
-            progress_callback: (p) => {
-              if (!this.modelDownloaded && p.status === "progress") {
-                this.log(
-                  `[${this.host}] Loading model ${this.model}... ${p?.progress}%`
-                );
-              }
-            },
             cache_dir: this.cacheDir,
+            ...(useLocalOnly
+              ? { local_files_only: true }
+              : {
+                  progress_callback: (p) => {
+                    if (p.status === "progress") {
+                      this.log(
+                        `[${this.host}] Downloading model ${this.model}... ${p?.progress}%`
+                      );
+                    }
+                  },
+                }),
           }
         );
       this.log(`Loaded model ${this.model}`);
@@ -175,18 +191,23 @@ class NativeEmbeddingReranker {
     }
 
     try {
+      const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
       const tokenizer =
         await NativeEmbeddingReranker.#transformers.AutoTokenizer.from_pretrained(
           this.model,
           {
-            progress_callback: (p) => {
-              if (!this.modelDownloaded && p.status === "progress") {
-                this.log(
-                  `[${this.host}] Loading tokenizer ${this.model}... ${p?.progress}%`
-                );
-              }
-            },
             cache_dir: this.cacheDir,
+            ...(useLocalOnly
+              ? { local_files_only: true }
+              : {
+                  progress_callback: (p) => {
+                    if (p.status === "progress") {
+                      this.log(
+                        `[${this.host}] Downloading tokenizer ${this.model}... ${p?.progress}%`
+                      );
+                    }
+                  },
+                }),
           }
         );
       this.log(`Loaded tokenizer ${this.model}`);

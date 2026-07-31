@@ -4,6 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
+const {
+  pinTransformersCacheEnv,
+} = require("../EmbeddingEngines/native/modelDiskCache");
 
 /**
  * ЭКСПЕРИМЕНТАЛЬНЫЙ cross-encoder reranker поверх уже найденных кандидатов
@@ -66,6 +69,7 @@ const RERANKER_WEIGHT = Math.min(
 );
 
 let modelPromise = null;
+let ensureMiniLmDownloadPromise = null;
 let disabled = !RERANKER_ENABLED;
 
 function modelCacheRoot() {
@@ -85,40 +89,54 @@ function modelCachePath() {
 async function ensureMiniLmModelFile() {
   const target = modelCachePath();
   if (fs.existsSync(target) && fs.statSync(target).size > 1_000_000) {
+    console.log(
+      `[CrossEncoderRerank] cache hit: ${RERANKER_MODEL_FILE} (${fs.statSync(target).size} bytes)`
+    );
     return target;
   }
 
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  const url =
-    `https://huggingface.co/${RERANKER_MODEL}/resolve/` +
-    `${encodeURIComponent(RERANKER_MODEL_REVISION)}/${RERANKER_MODEL_FILE}`;
-  const response = await fetch(url);
-  if (!response.ok || !response.body) {
-    throw new Error(
-      `Failed to download ${RERANKER_MODEL}: HTTP ${response.status}`
-    );
-  }
+  if (!ensureMiniLmDownloadPromise) {
+    ensureMiniLmDownloadPromise = (async () => {
+      console.log(
+        `[CrossEncoderRerank] download: fetching ${RERANKER_MODEL_FILE} → ${target}`
+      );
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      const url =
+        `https://huggingface.co/${RERANKER_MODEL}/resolve/` +
+        `${encodeURIComponent(RERANKER_MODEL_REVISION)}/${RERANKER_MODEL_FILE}`;
+      const response = await fetch(url);
+      if (!response.ok || !response.body) {
+        throw new Error(
+          `Failed to download ${RERANKER_MODEL}: HTTP ${response.status}`
+        );
+      }
 
-  const temporary = `${target}.download-${process.pid}`;
-  try {
-    await pipeline(
-      Readable.fromWeb(response.body),
-      fs.createWriteStream(temporary, { flags: "w" })
-    );
-    fs.renameSync(temporary, target);
-  } catch (error) {
-    fs.rmSync(temporary, { force: true });
-    throw error;
+      const temporary = `${target}.download-${process.pid}`;
+      try {
+        await pipeline(
+          Readable.fromWeb(response.body),
+          fs.createWriteStream(temporary, { flags: "w" })
+        );
+        fs.renameSync(temporary, target);
+      } catch (error) {
+        fs.rmSync(temporary, { force: true });
+        throw error;
+      }
+      return target;
+    })().finally(() => {
+      ensureMiniLmDownloadPromise = null;
+    });
   }
-  return target;
+  return ensureMiniLmDownloadPromise;
 }
 
 async function loadModel() {
   if (!modelPromise) {
     modelPromise = (async () => {
-      const { AutoTokenizer, AutoModelForSequenceClassification } =
+      const { AutoTokenizer, AutoModelForSequenceClassification, env } =
         await import("@xenova/transformers");
       const cache_dir = modelCacheRoot();
+      pinTransformersCacheEnv(env, cache_dir);
       const tokenizer = await AutoTokenizer.from_pretrained(RERANKER_MODEL, {
         cache_dir,
       });

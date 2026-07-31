@@ -3,7 +3,17 @@ const fs = require("fs");
 const { toChunks, reportEmbeddingProgress } = require("../../helpers");
 const { v4 } = require("uuid");
 const { SUPPORTED_NATIVE_EMBEDDING_MODELS } = require("./constants");
-const { withOnnxLock } = require("./onnxLock");
+const { withOnnxLock, withModelDownloadLock } = require("./onnxLock");
+const {
+  resolveModelsCacheDir,
+  forceModelRefresh,
+  inspectCachedModel,
+  ensureCacheDir,
+  pinTransformersCacheEnv,
+} = require("./modelDiskCache");
+
+/** @type {Map<string, Promise<any>>} modelId -> in-flight / resolved pipeline */
+const sharedPipelineByModel = new Map();
 
 class NativeEmbedder {
   static defaultModel = "Xenova/all-MiniLM-L6-v2";
@@ -34,26 +44,28 @@ class NativeEmbedder {
     this.className = "NativeEmbedder";
     this.model = this.getEmbeddingModel();
     this.modelInfo = this.getEmbedderInfo();
-    this.cacheDir = path.resolve(
-      process.env.STORAGE_DIR
-        ? path.resolve(process.env.STORAGE_DIR, `models`)
-        : path.resolve(__dirname, `../../../storage/models`)
-    );
+    this.cacheDir = resolveModelsCacheDir();
     this.modelPath = path.resolve(this.cacheDir, ...this.model.split("/"));
-    this.modelDownloaded = fs.existsSync(this.modelPath);
+    this.modelDownloaded = this.#refreshDownloadedFlag();
 
     // Limit of how many strings we can process in a single pass to stay with resource or network limits
     this.maxConcurrentChunks = this.modelInfo.maxConcurrentChunks;
     this.embeddingMaxChunkLength = this.modelInfo.embeddingMaxChunkLength;
     this.pipeline = null;
 
-    // Make directory when it does not exist in existing installations
-    if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir);
-    this.log(`Initialized ${this.model}`);
+    ensureCacheDir(this.cacheDir);
+    this.log(
+      `Initialized ${this.model} (cache=${this.cacheDir}, onDisk=${this.modelDownloaded})`
+    );
   }
 
   log(text, ...args) {
     console.log(`\x1b[36m[${this.className}]\x1b[0m ${text}`, ...args);
+  }
+
+  #refreshDownloadedFlag() {
+    if (forceModelRefresh()) return false;
+    return inspectCachedModel(this.cacheDir, this.model).complete;
   }
 
   /**
@@ -135,22 +147,33 @@ class NativeEmbedder {
       // Convert ESM to CommonJS via import so we can load this library.
       const pipeline = (...args) =>
         import("@xenova/transformers").then(({ pipeline, env }) => {
-          if (!this.modelDownloaded) {
-            // if model is not downloaded, we will log where we are fetching from.
-            if (hostOverride) {
-              env.remoteHost = hostOverride;
-              env.remotePathTemplate = "{model}/"; // Our S3 fallback url does not support revision File structure.
-            }
-            this.log(`Downloading ${this.model} from ${env.remoteHost}`);
+          pinTransformersCacheEnv(env, this.cacheDir);
+
+          const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
+          if (useLocalOnly) {
+            // Skip Hub entirely — progress_callback on cache hits still looks
+            // like a download in xenova, so never attach it for local loads.
+            this.log(`cache hit: loading ${this.model} from disk`);
+            return pipeline(...args);
           }
+
+          if (hostOverride) {
+            env.remoteHost = hostOverride;
+            env.remotePathTemplate = "{model}/"; // Our S3 fallback url does not support revision File structure.
+          }
+          this.log(
+            `download: fetching ${this.model} from ${env.remoteHost} → ${this.cacheDir}`
+          );
           return pipeline(...args);
         });
+
+      const useLocalOnly = this.modelDownloaded && !forceModelRefresh();
       return {
         pipeline: await pipeline("feature-extraction", this.model, {
           cache_dir: this.cacheDir,
-          ...(!this.modelDownloaded
-            ? {
-                // Show download progress if we need to download any files
+          ...(useLocalOnly
+            ? { local_files_only: true }
+            : {
                 progress_callback: (data) => {
                   if (!data.hasOwnProperty("progress")) return;
                   console.log(
@@ -159,8 +182,7 @@ class NativeEmbedder {
                     } ${~~data?.progress}%`
                   );
                 },
-              }
-            : {}),
+              }),
         }),
         retry: false,
         error: null,
@@ -182,30 +204,61 @@ class NativeEmbedder {
   async embedderClient() {
     if (this.pipeline) return this.pipeline;
 
-    if (!this.modelDownloaded)
-      this.log(
-        "The native embedding model has never been run and will be downloaded right now. Subsequent runs will be faster. (~23MB)"
-      );
+    // Sync get→set (no await between) — safe singleton under Node's single thread.
+    let shared = sharedPipelineByModel.get(this.model);
+    if (!shared) {
+      shared = withModelDownloadLock(async () => {
+        this.modelDownloaded = this.#refreshDownloadedFlag();
+        if (!this.modelDownloaded) {
+          this.log(
+            "Native embedding model missing/incomplete on disk — downloading once into cache. Subsequent runs load from disk."
+          );
+        }
 
-    let fetchResponse = await this.#fetchWithHost();
-    if (fetchResponse.pipeline !== null) {
-      this.modelDownloaded = true;
-      this.pipeline = fetchResponse.pipeline;
-      return this.pipeline;
+        let fetchResponse = await this.#fetchWithHost();
+        if (fetchResponse.pipeline !== null) {
+          this.modelDownloaded = true;
+          return fetchResponse.pipeline;
+        }
+
+        // Local-only miss → allow one remote attempt before CDN fallback.
+        if (this.modelDownloaded) {
+          this.log(
+            `cache marked complete but load failed (${fetchResponse.error?.message || "unknown"}) — retrying with download`
+          );
+          this.modelDownloaded = false;
+          fetchResponse = await this.#fetchWithHost();
+          if (fetchResponse.pipeline !== null) {
+            this.modelDownloaded = true;
+            return fetchResponse.pipeline;
+          }
+        }
+
+        this.log(
+          `Failed to download model from primary URL. Using fallback ${fetchResponse.retry}`
+        );
+        if (!!fetchResponse.retry)
+          fetchResponse = await this.#fetchWithHost(fetchResponse.retry);
+        if (fetchResponse.pipeline !== null) {
+          this.modelDownloaded = true;
+          return fetchResponse.pipeline;
+        }
+
+        throw fetchResponse.error;
+      });
+      sharedPipelineByModel.set(this.model, shared);
     }
 
-    this.log(
-      `Failed to download model from primary URL. Using fallback ${fetchResponse.retry}`
-    );
-    if (!!fetchResponse.retry)
-      fetchResponse = await this.#fetchWithHost(fetchResponse.retry);
-    if (fetchResponse.pipeline !== null) {
+    try {
+      this.pipeline = await shared;
       this.modelDownloaded = true;
-      this.pipeline = fetchResponse.pipeline;
       return this.pipeline;
+    } catch (error) {
+      if (sharedPipelineByModel.get(this.model) === shared) {
+        sharedPipelineByModel.delete(this.model);
+      }
+      throw error;
     }
-
-    throw fetchResponse.error;
   }
 
   /**
@@ -297,6 +350,12 @@ class NativeEmbedder {
   }
 }
 
+/** Test helper — drop shared pipelines (does not delete disk cache). */
+function resetNativeEmbedderPipelinesForTests() {
+  sharedPipelineByModel.clear();
+}
+
 module.exports = {
   NativeEmbedder,
+  resetNativeEmbedderPipelinesForTests,
 };
