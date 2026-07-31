@@ -419,7 +419,7 @@ const TRANSLATIONS = {
     conversation: "Rozmowa",
     homeChat: "Strona główna czatu",
     generatedDocuments: "Wygenerowane dokumenty",
-    conversationContext: "Rozmowa",
+    conversationContext: "Pliki w wątku",
     currentSpace: "Bieżąca przestrzeń",
     switchSpace: "Przełącz przestrzeń",
     openLastConversation: "Otwórz ostatnią rozmowę",

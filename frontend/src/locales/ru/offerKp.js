@@ -434,7 +434,7 @@ const TRANSLATIONS = {
     conversation: "Диалог",
     homeChat: "Главная чата",
     generatedDocuments: "Сформированные документы",
-    conversationContext: "Диалог",
+    conversationContext: "Файлы в треде",
     currentSpace: "Текущее пространство",
     switchSpace: "Сменить пространство",
     openLastConversation: "Открыть последний диалог",

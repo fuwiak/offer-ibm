@@ -431,7 +431,7 @@ const TRANSLATIONS = {
     conversation: "Conversation",
     homeChat: "Chat home",
     generatedDocuments: "Generated documents",
-    conversationContext: "Conversation",
+    conversationContext: "Thread files",
     currentSpace: "Current space",
     switchSpace: "Switch space",
     openLastConversation: "Open last conversation",
