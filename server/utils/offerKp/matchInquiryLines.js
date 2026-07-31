@@ -1028,20 +1028,21 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       matchSource: altMatchSource,
       _exactSku: exactSkuHit,
       _catalogNameExact: catalogNameHit,
-      shopMatchSources: exactSkuHit || catalogNameHit
-        ? [
-            ...new Set([
-              ...productSources,
-              isOverrideMatch
-                ? "golden_override"
-                : exactSkuHit
-                  ? "exact_sku"
-                  : "catalog_name_exact",
-            ]),
-          ]
-        : productSources.length
-          ? productSources
-          : undefined,
+      shopMatchSources:
+        exactSkuHit || catalogNameHit
+          ? [
+              ...new Set([
+                ...productSources,
+                isOverrideMatch
+                  ? "golden_override"
+                  : exactSkuHit
+                    ? "exact_sku"
+                    : "catalog_name_exact",
+              ]),
+            ]
+          : productSources.length
+            ? productSources
+            : undefined,
       _bm25Score: product._bm25Score ?? null,
       _nameSimilarity: product._nameSimilarity ?? null,
       _embeddingSimilarity: product._embeddingSimilarity ?? null,
@@ -1127,11 +1128,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   }
 
   let matchGates = null;
-  if (
-    matchEnrichmentEnabled() &&
-    alternatives.length &&
-    !dbIdentityEarlyExit
-  ) {
+  if (matchEnrichmentEnabled() && alternatives.length && !dbIdentityEarlyExit) {
     matchGates = decideMatchGates({
       queryText: searchText,
       alternatives,

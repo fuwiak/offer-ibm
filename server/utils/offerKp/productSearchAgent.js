@@ -384,7 +384,8 @@ function mergeProductHits(batches) {
       for (const s of sources) prev._matchSources.add(s);
       Object.assign(prev, meta);
       prev._exactSku = prev._exactSku || !!row._exactSku;
-      prev._catalogNameExact = prev._catalogNameExact || !!row._catalogNameExact;
+      prev._catalogNameExact =
+        prev._catalogNameExact || !!row._catalogNameExact;
       if (row.matched_sku) prev.matched_sku = row.matched_sku;
     }
   }
