@@ -100,6 +100,7 @@ describe("layered ShopDB cache", () => {
     const identity = stripCommercialFields(line);
     expect(identity.unitPriceNet).toBeUndefined();
     expect(identity.priceWithVat).toBeUndefined();
+    expect(identity.allowPrice).toBeUndefined();
     expect(identity.productId).toBe("42");
     expect(identity.alternatives[0].price).toBeUndefined();
     expect(identity.evidence.shopdb_price).toBeNull();
@@ -113,8 +114,31 @@ describe("layered ShopDB cache", () => {
       retrievedAt: "2026-07-30T00:00:00.000Z",
     });
     expect(hydrated.unitPriceNet).toBe(13.1);
+    expect(hydrated.allowPrice).toBe(true);
     expect(hydrated.article).toBe("009331100100025");
     expect(hydrated.evidence.shopdb_price).toBe(13.1);
+  });
+
+  it("applyCommercialFields does not freeze stale allowPrice=false", () => {
+    const hydrated = applyCommercialFields(
+      {
+        productId: "20073",
+        article: "009122000060020",
+        matchType: "exact",
+        allowPrice: false,
+        quantity: 1,
+      },
+      {
+        sku: "009122000060020",
+        unitPriceNet: 2.59,
+        priceWithVat: 3.11,
+        allowPrice: true,
+        priceSource: "shop_product_skus.price",
+        retrievedAt: "2026-07-31T00:00:00.000Z",
+      }
+    );
+    expect(hydrated.allowPrice).toBe(true);
+    expect(hydrated.unitPriceNet).toBe(2.59);
   });
 
   it("keeps identity and commercial caches separate", () => {

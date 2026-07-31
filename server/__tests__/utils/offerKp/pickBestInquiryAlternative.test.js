@@ -80,6 +80,31 @@ describe("pickBestInquiryAlternative", () => {
     expect(best.productId).toBe("1");
   });
 
+  it("exact_sku pin beats cheaper exact sibling", () => {
+    const best = pickBestInquiryAlternative([
+      {
+        productId: "28743",
+        name: "Винт DIN  912 M  6x 20 12.9 оцинк",
+        sku: "009122100060020",
+        price: 1.5,
+        matchType: "exact",
+        status: STATUS.IN_STOCK,
+      },
+      {
+        productId: "20073",
+        name: "Винт DIN  912 M  6x 20 12.9 П/Р",
+        sku: "009122000060020",
+        price: 2.59,
+        matchType: "exact",
+        status: STATUS.IN_STOCK,
+        matchSource: "exact_sku",
+        _exactSku: true,
+      },
+    ]);
+    expect(best.productId).toBe("20073");
+    expect(best.price).toBe(2.59);
+  });
+
   it("picks the cheapest positive analog price instead of zero", () => {
     const best = pickBestInquiryAlternative([
       {
@@ -425,6 +450,25 @@ describe("enforceExactGroundingContract", () => {
     expect(out.allowPrice).toBe(false);
   });
 
+  it("keeps authoritative exact despite retriever disagreement", () => {
+    const out = enforceExactGroundingContract({
+      matchType: "exact",
+      productId: "20073",
+      retrieverDisagreement: {
+        lexicalProductId: "20073",
+        embeddingProductId: "28743",
+      },
+      authoritative: true,
+      allowPrice: true,
+      status: STATUS.IN_STOCK,
+      kpStatus: "Точное соответствие",
+    });
+    expect(out.matchType).toBe("exact");
+    expect(out.productId).toBe("20073");
+    expect(out.allowPrice).toBe(true);
+    expect(out.demoted).toBe(false);
+  });
+
   it("keeps grounded exact", () => {
     const out = enforceExactGroundingContract({
       matchType: "exact",
@@ -437,6 +481,296 @@ describe("enforceExactGroundingContract", () => {
     expect(out.productId).toBe("123");
     expect(out.allowPrice).toBe(true);
     expect(out.demoted).toBe(false);
+  });
+});
+
+describe("DIN 912 M6x20 catalog name keeps ShopDB price under disagreement", () => {
+  const SKU = "009122000060020";
+  const CATALOG_NAME =
+    "Винт DIN  912 M  6x 20 12.9 П/Р / ГОСТ 11738-84  (200)";
+  const INQUIRY =
+    "Винт DIN 912 M 6x 20 12.9 П/Р / ГОСТ 11738-84 (200)";
+
+  afterEach(() => {
+    for (const mod of [
+      "../../../utils/offerKp/productSearchAgent",
+      "../../../utils/offerKp/goldenCorrections",
+      "../../../utils/offerKp/db/client",
+      "../../../utils/offerKp/matching",
+      "../../../utils/offerKp/variantSpecs",
+      "../../../utils/offerKp/db/layeredCache",
+      "../../../utils/offerKp/db/durableMatchStore",
+      "../../../utils/offerKp/canonicalCatalogIndex",
+      "../../../utils/offerKp/searchMetrics",
+    ]) {
+      try {
+        jest.dontMock(mod);
+      } catch {
+        /* ignore */
+      }
+    }
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  it("literal catalog name + оцинк sibling disagreement still prices 2.59", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 20073,
+            name: CATALOG_NAME,
+            product_url: "vint_din_912",
+            category_url: "vinty",
+            _nameSimilarity: 0.97,
+            _embeddingSimilarity: 0.55,
+            shopMatchSources: ["structured", "rrf"],
+          },
+          {
+            id: 28743,
+            name: "Винт DIN  912 M  6x 20 12.9 оцинк П/Р / ГОСТ 11738-84  (200)",
+            product_url: "vint_din_912_ocink",
+            category_url: "vinty",
+            _nameSimilarity: 0.88,
+            _embeddingSimilarity: 0.93,
+            shopMatchSources: ["structured", "rrf"],
+          },
+        ],
+        strategies: ["structured", "rrf"],
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    jest.doMock("../../../utils/offerKp/goldenCorrections", () => ({
+      findGoldenCorrection: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockImplementation(async (sql) => {
+        if (String(sql).includes("shop_product_skus") || String(sql).includes("product_id")) {
+          return [
+            {
+              sku_id: 1,
+              product_id: 20073,
+              sku: SKU,
+              sku_name: CATALOG_NAME,
+              price: "2.5900",
+              compare_price: "0.0000",
+              count: "100.000",
+              available: 1,
+              opt_price: null,
+            },
+            {
+              sku_id: 2,
+              product_id: 28743,
+              sku: "009122100060020",
+              sku_name: "оцинк",
+              price: "3.5400",
+              compare_price: "0.0000",
+              count: "50.000",
+              available: 1,
+              opt_price: null,
+            },
+          ];
+        }
+        return [];
+      }),
+    }));
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => true,
+      enrichAlternatives: ({ alternatives }) => ({ alternatives }),
+      decideMatchGates: () => ({
+        gateRejected: true,
+        gateReason: "retriever_disagreement",
+      }),
+    }));
+    jest.doMock("../../../utils/offerKp/db/layeredCache", () => ({
+      buildMatchIdentityCacheKey: () => "test-din912",
+      getCachedMatchIdentity: () => null,
+      setCachedMatchIdentity: () => {},
+      getCachedCommercial: () => null,
+      setCachedCommercial: () => {},
+      applyCommercialFields: (line, fields) => ({ ...line, ...fields }),
+      resolveIndexVersion: () => "v",
+    }));
+    jest.doMock("../../../utils/offerKp/db/durableMatchStore", () => ({
+      getDurableMatchIdentity: async () => null,
+      setDurableMatchIdentity: async () => {},
+    }));
+    jest.doMock("../../../utils/offerKp/canonicalCatalogIndex", () => ({
+      getCanonicalCatalogManifest: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/searchMetrics", () => ({
+      recordSearchMetric: () => {},
+    }));
+
+    const {
+      matchInquiryLine,
+      detectRetrieverDisagreement,
+      isLiteralCatalogNameHit,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+
+    expect(isLiteralCatalogNameHit(INQUIRY, CATALOG_NAME)).toBe(true);
+    expect(
+      detectRetrieverDisagreement([
+        {
+          id: 20073,
+          _nameSimilarity: 0.97,
+          _embeddingSimilarity: 0.55,
+        },
+        {
+          id: 28743,
+          _nameSimilarity: 0.88,
+          _embeddingSimilarity: 0.93,
+        },
+      ])
+    ).toEqual({
+      lexicalProductId: "20073",
+      embeddingProductId: "28743",
+    });
+
+    const row = await matchInquiryLine({
+      name: INQUIRY,
+      raw: INQUIRY,
+      quantity: 1,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe(SKU);
+    expect(row.unitPriceNet).toBe(2.59);
+    expect(row.allowPrice).toBe(true);
+    expect(row.productId).toBe("20073");
+    expect(row.matchSource).toBe("catalog_name_exact");
+  });
+
+  it("bare SKU 009122000060020 keeps 2.59 under gate noise", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/productSearchAgent", () => ({
+      runProductSearchAgent: jest.fn().mockResolvedValue({
+        products: [
+          {
+            id: 20073,
+            name: CATALOG_NAME,
+            matched_sku: SKU,
+            product_url: "vint_din_912",
+            category_url: "vinty",
+            _exactSku: true,
+            shopMatchSources: ["exact_sku"],
+          },
+        ],
+        strategies: ["exact_sku"],
+      }),
+      searchByExactSku: jest.fn().mockResolvedValue([]),
+    }));
+    jest.doMock("../../../utils/offerKp/goldenCorrections", () => ({
+      findGoldenCorrection: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockResolvedValue([
+        {
+          sku_id: 1,
+          product_id: 20073,
+          sku: SKU,
+          sku_name: CATALOG_NAME,
+          price: "2.5900",
+          compare_price: "0.0000",
+          count: "100.000",
+          available: 1,
+          opt_price: null,
+        },
+      ]),
+    }));
+    jest.doMock("../../../utils/offerKp/matching", () => ({
+      matchEnrichmentEnabled: () => true,
+      enrichAlternatives: ({ alternatives }) => ({ alternatives }),
+      decideMatchGates: () => ({
+        gateRejected: true,
+        gateReason: "test_noise",
+      }),
+    }));
+    jest.doMock("../../../utils/offerKp/variantSpecs", () => ({
+      detectVariantAmbiguity: () => ({
+        field: "strengthClass",
+        values: ["8.8", "12.9"],
+        minPrice: 1,
+        maxPrice: 99,
+      }),
+      variantPricingKey: () => "",
+    }));
+    jest.doMock("../../../utils/offerKp/db/layeredCache", () => ({
+      buildMatchIdentityCacheKey: () => "test-sku-din912",
+      getCachedMatchIdentity: () => null,
+      setCachedMatchIdentity: () => {},
+      getCachedCommercial: () => null,
+      setCachedCommercial: () => {},
+      applyCommercialFields: (line, fields) => ({ ...line, ...fields }),
+      resolveIndexVersion: () => "v",
+    }));
+    jest.doMock("../../../utils/offerKp/db/durableMatchStore", () => ({
+      getDurableMatchIdentity: async () => null,
+      setDurableMatchIdentity: async () => {},
+    }));
+    jest.doMock("../../../utils/offerKp/canonicalCatalogIndex", () => ({
+      getCanonicalCatalogManifest: () => null,
+    }));
+    jest.doMock("../../../utils/offerKp/searchMetrics", () => ({
+      recordSearchMetric: () => {},
+    }));
+
+    const {
+      matchInquiryLine,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+    const row = await matchInquiryLine({
+      name: SKU,
+      raw: SKU,
+      quantity: 1,
+      unit: "шт",
+    });
+
+    expect(row.matchType).toBe("exact");
+    expect(row.article).toBe(SKU);
+    expect(row.unitPriceNet).toBe(2.59);
+    expect(row.allowPrice).toBe(true);
+  });
+
+  it("stale allowPrice=false identity still rehydrates 2.59 for exact SKU", async () => {
+    jest.resetModules();
+    jest.doMock("../../../utils/offerKp/db/client", () => ({
+      query: jest.fn().mockResolvedValue([
+        {
+          sku_id: 10501,
+          product_id: 20073,
+          sku: SKU,
+          sku_name: CATALOG_NAME,
+          price: "2.5900",
+          compare_price: "0.0000",
+          count: "77714.000",
+          available: 1,
+          opt_price: null,
+        },
+      ]),
+    }));
+    // Real layeredCache applyCommercialFields — stale allowPrice must not stick.
+    const {
+      hydrateLineCommercial,
+    } = require("../../../utils/offerKp/matchInquiryLines");
+
+    const hydrated = await hydrateLineCommercial({
+      inquiryRaw: SKU,
+      name: CATALOG_NAME,
+      article: SKU,
+      productId: "20073",
+      quantity: 1,
+      unit: "шт",
+      matchType: "exact",
+      // Bug: identity freeze after prior demotion
+      allowPrice: false,
+      unitPriceNet: 0,
+    });
+
+    expect(hydrated.allowPrice).toBe(true);
+    expect(hydrated.unitPriceNet).toBeCloseTo(2.59, 2);
+    expect(hydrated.article).toBe(SKU);
   });
 });
 

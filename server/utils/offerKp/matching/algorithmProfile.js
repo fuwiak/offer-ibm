@@ -7,7 +7,7 @@
  * exact structured SKU hits. LLM fallback is skip-when-strong-catalog.
  */
 const DETERMINISTIC_MATCH_PROFILE = Object.freeze({
-  id: "deterministic-prod-v3",
+  id: "deterministic-prod-v4",
   embedding: "optional_rerank",
   crossEncoder: "disabled_by_default",
   llmRank: "fallback_only",

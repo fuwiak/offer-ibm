@@ -77,7 +77,11 @@ const { detectVariantAmbiguity, variantPricingKey } = require("./variantSpecs");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { sanitizeSku } = require("./fabricatedSku");
 const { recordSearchMetric } = require("./searchMetrics");
-const { withLineEvidence, MATCH_RULES_VERSION } = require("./matchEvidence");
+const {
+  withLineEvidence,
+  MATCH_RULES_VERSION,
+  PRICE_ELIGIBLE_MATCH_TYPES,
+} = require("./matchEvidence");
 const { assessInquiryCompleteness } = require("./inquiryCompleteness");
 const { resolveReviewReason } = require("./reviewReasons");
 const { enrichAlternatives, decideMatchGates } = require("./matching");
@@ -119,7 +123,12 @@ function lineMatchIdentityKey(threadId, raw) {
 async function hydrateLineCommercial(line) {
   if (!line || typeof line !== "object") return line;
   const productId = line.productId != null ? String(line.productId).trim() : "";
-  if (!productId || line.allowPrice === false) {
+  const matchType = String(line.matchType || "");
+  const priceEligible = PRICE_ELIGIBLE_MATCH_TYPES.includes(matchType);
+  // Stale identity used to freeze allowPrice=false after a classify demotion,
+  // which permanently zeroed ShopDB retail prices on rematch hydrate.
+  // Re-read commercial whenever matchType is price-eligible.
+  if (!productId || (!priceEligible && line.allowPrice === false)) {
     return applyCommercialFields(line, {
       unitPriceNet: 0,
       priceWithVat: 0,
@@ -149,13 +158,18 @@ async function hydrateLineCommercial(line) {
       sku = pinned.sku || preferredSku;
       // Missing / unpriced pinned SKU → no silent bestSku sibling.
       allowPrice = unitPriceNet > 0 && !pinned.skuMissing;
+    } else if (priceEligible) {
+      // Exact/analog without article must not invent bestSku price.
+      unitPriceNet = 0;
+      priceSource = null;
+      sku = "";
+      allowPrice = false;
     } else {
-      // No pinned article on identity line: keep product-level representative
-      // SKU from fetchProductStocks (bestSku) for name-matched products only.
-      unitPriceNet = Number(stock.price) || 0;
-      priceSource = stock.priceSource || null;
-      sku = stock.sku || "";
-      allowPrice = unitPriceNet > 0;
+      // Non-eligible identity without article: leave commercial empty.
+      unitPriceNet = 0;
+      priceSource = null;
+      sku = "";
+      allowPrice = false;
     }
 
     commercial = {
@@ -323,11 +337,16 @@ function draftProgressPayload(partialLines, { stage, completed, total }) {
 /**
  * Exact must be grounded. Retriever disagreement / missing productId must not
  * leave matchType=exact (InvalidExactState) — demote to none + NEEDS_REVIEW.
+ *
+ * Authoritative identity (exact_sku / golden / literal catalog name) already
+ * pins the row — lexical vs embedding top-1 noise must not wipe its ShopDB
+ * price (e.g. DIN 912 M6x20 П/Р vs оцинк sibling).
  */
 function enforceExactGroundingContract(input = {}) {
   const matchType = input.matchType || "none";
   const productId = String(input.productId || "").trim();
-  const disagreement = !!input.retrieverDisagreement;
+  const authoritative = !!input.authoritative;
+  const disagreement = !!input.retrieverDisagreement && !authoritative;
   if (matchType === "exact" && (!productId || disagreement)) {
     return {
       matchType: "none",
@@ -379,6 +398,25 @@ function exactCatalogNameKey(value) {
     .trim();
 }
 
+/** Inquiry text is the catalog product title (whitespace-normalized). */
+function isLiteralCatalogNameHit(queryText, productName) {
+  const queryKey = exactCatalogNameKey(queryText);
+  if (!queryKey) return false;
+  return queryKey === exactCatalogNameKey(productName);
+}
+
+function isAuthoritativeSkuAlternative(alt = {}) {
+  return (
+    !!alt &&
+    (alt.matchSource === "exact_sku" ||
+      alt.matchSource === "golden_override" ||
+      alt.matchSource === "catalog_name_exact" ||
+      !!alt._exactSku ||
+      !!alt._catalogNameExact ||
+      productHasExactSkuHit(alt))
+  );
+}
+
 function pickBestInquiryAlternative(alternatives = [], queryText = "") {
   const list = (alternatives || []).filter(Boolean).map((alt) => ({
     ...alt,
@@ -397,6 +435,19 @@ function pickBestInquiryAlternative(alternatives = [], queryText = "") {
         exactCatalogNameKey(candidate.name) === queryNameKey
     );
     if (literalExact) return literalExact;
+  }
+
+  // Exact ShopDB / golden SKU owns identity + price — never swap to a
+  // cheaper sibling that also classified as exact via DIN name heuristics.
+  const authoritativeExact = list.filter(
+    (candidate) =>
+      (candidate.matchType === "exact" || candidate.matchType === "analog") &&
+      isAuthoritativeSkuAlternative(candidate)
+  );
+  if (authoritativeExact.length === 1) return authoritativeExact[0];
+  if (authoritativeExact.length > 1) {
+    // Multiple pinned articles in one line (rare): keep retrieval order.
+    return authoritativeExact[0];
   }
 
   const byType = (type) => list.filter((a) => a.matchType === type);
@@ -863,6 +914,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         ...product,
         matchSource: isOverrideMatch ? "golden_override" : undefined,
       });
+    const catalogNameHit = isLiteralCatalogNameHit(searchText, product.name);
     // Exact/golden SKU owns the price. Never price a sibling cheapest SKU.
     const preferredSku = String(
       product.matched_sku || (isOverrideMatch ? override?.sku : "") || ""
@@ -884,6 +936,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         price: Number(stock.price) || 0,
         source: stock.priceSource || null,
       };
+      if (!altSku) altSku = stock.sku || "";
     }
 
     const classification = classifyProductMatch(searchText, {
@@ -896,11 +949,15 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         ? "golden_override"
         : exactSkuHit
           ? "exact_sku"
-          : product.matchSource,
+          : catalogNameHit
+            ? "catalog_name_exact"
+            : product.matchSource,
     });
     const matchType = isOverrideMatch
       ? override.matchType
-      : classification.matchType;
+      : catalogNameHit && classification.matchType !== "none"
+        ? "exact"
+        : classification.matchType;
     let status = classification.status;
     let mismatchReason = classification.mismatchReason || null;
     let analogOf = classification.analogOf;
@@ -915,6 +972,17 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         status = STATUS.IN_STOCK;
       }
     }
+    if (catalogNameHit && matchType === "exact" && Number(stock.stockCount) > 0) {
+      status = STATUS.IN_STOCK;
+      mismatchReason = null;
+    }
+    const altMatchSource = isOverrideMatch
+      ? "golden_override"
+      : exactSkuHit
+        ? "exact_sku"
+        : catalogNameHit
+          ? "catalog_name_exact"
+          : undefined;
     return {
       productId: String(product.id),
       name: product.name || "",
@@ -931,19 +999,20 @@ async function matchInquiryLine(inquiryLine, options = {}) {
         product.category_url,
         product.product_url || product.url
       ),
-      matchSource: isOverrideMatch
-        ? "golden_override"
-        : exactSkuHit
-          ? "exact_sku"
-          : undefined,
+      matchSource: altMatchSource,
       _exactSku: exactSkuHit,
-      shopMatchSources: exactSkuHit
+      _catalogNameExact: catalogNameHit,
+      shopMatchSources: exactSkuHit || catalogNameHit
         ? [
             ...new Set([
               ...(Array.isArray(product.shopMatchSources)
                 ? product.shopMatchSources
                 : []),
-              isOverrideMatch ? "golden_override" : "exact_sku",
+              isOverrideMatch
+                ? "golden_override"
+                : exactSkuHit
+                  ? "exact_sku"
+                  : "catalog_name_exact",
             ]),
           ]
         : Array.isArray(product.shopMatchSources)
@@ -986,8 +1055,12 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     !!best &&
     (best.matchSource === "golden_override" ||
       best.matchSource === "exact_sku" ||
+      best.matchSource === "catalog_name_exact" ||
       best._exactSku ||
-      productHasExactSkuHit(best));
+      best._catalogNameExact ||
+      productHasExactSkuHit(best) ||
+      (best.matchType === "exact" &&
+        isLiteralCatalogNameHit(searchText, best.name)));
   // Minimum-info: never auto-exact/price when critical size/length is missing.
   // Exact ShopDB SKU / golden override already pin identity — skip DIN/size gates.
   if (underspecifiedSize && accepted && !authoritativeSkuHit) {
@@ -1134,6 +1207,9 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   if (accepted && best?.matchSource === "exact_sku") {
     commentParts.push("Сопоставлено по точному артикулу ShopDB");
   }
+  if (accepted && best?.matchSource === "catalog_name_exact") {
+    commentParts.push("Сопоставлено по точному названию товара ShopDB");
+  }
   if (!accepted && override?.matchType === "none") {
     commentParts.push("Подтверждено golden set: соответствия в каталоге нет");
   }
@@ -1235,6 +1311,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     matchType: displayMatchType,
     productId: lineProductId,
     retrieverDisagreement,
+    authoritative: authoritativeSkuHit,
     status: lineStatus,
     kpStatus: lineKpStatus,
     allowPrice: lineAllowPrice,
@@ -1569,4 +1646,8 @@ module.exports = {
   buildDraftFromMatchedLines,
   detectRetrieverDisagreement,
   enforceExactGroundingContract,
+  exactCatalogNameKey,
+  isLiteralCatalogNameHit,
+  hydrateLineCommercial,
+  isAuthoritativeSkuAlternative,
 };

@@ -57,6 +57,9 @@ const COMMERCIAL_FIELDS = Object.freeze([
   "priceSource",
   "priceRetrievedAt",
   "stockCount",
+  // allowPrice is commercial eligibility, not identity. Freezing a stale
+  // allowPrice=false on identity blocked hydrate from re-reading ShopDB.
+  "allowPrice",
 ]);
 
 class TtlLruCache {
@@ -250,8 +253,9 @@ function applyCommercialFields(line = {}, commercial = {}) {
   if (!line || typeof line !== "object") return line;
   const qty = Number(line.quantity) || 0;
   const unitNeedsRecalc = !!line.unitNeedsRecalc;
-  const allowPrice =
-    line.allowPrice !== false && commercial.allowPrice !== false;
+  // Commercial snapshot owns allowPrice after hydrate. Do not AND with a
+  // stale line.allowPrice=false left over from a prior demotion.
+  const allowPrice = commercial.allowPrice !== false;
   const unitPriceNet = allowPrice ? Number(commercial.unitPriceNet) || 0 : 0;
   const priceWithVat = allowPrice ? Number(commercial.priceWithVat) || 0 : 0;
   const lineTotal =
@@ -265,6 +269,7 @@ function applyCommercialFields(line = {}, commercial = {}) {
     unitPriceNet,
     priceWithVat,
     lineTotal,
+    allowPrice,
     priceSnapshot: unitPriceNet > 0 ? unitPriceNet : null,
     priceSource: commercial.priceSource || null,
     priceRetrievedAt: commercial.retrievedAt || new Date().toISOString(),

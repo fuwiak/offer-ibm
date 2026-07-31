@@ -11,7 +11,7 @@ const {
   matchInquiryToDraft,
   buildDraftFromMatchedLines,
 } = require("./matchInquiryLines");
-const { resolveProductPrice } = require("./priceResolve");
+const { resolveProductPrice, resolvePreferredSkuPrice } = require("./priceResolve");
 const {
   validateQuotePricesFromDb,
   sanitizeQuotePricesToShopDb,
@@ -36,16 +36,31 @@ function extractInquiryLines(inquiryText) {
  * @param {string} sku
  */
 async function resolveShopDbPrice(sku) {
-  const hits = await searchByExactSku([String(sku || "").trim()], 1);
+  const wanted = String(sku || "").trim();
+  const hits = await searchByExactSku([wanted], 1);
   if (!hits.length) return { sku, productId: null, price: null, found: false };
   const product = hits[0];
-  const price = resolveProductPrice(product);
+  // Prefer the exact SKU row price from the JOIN — never a sibling / bestSku.
+  const pinned = resolvePreferredSkuPrice(
+    [
+      {
+        sku: product.matched_sku || wanted,
+        price: product.matched_sku_price,
+      },
+    ],
+    wanted
+  );
+  const price =
+    pinned.price > 0
+      ? pinned.price
+      : resolveProductPrice(product, [], [], wanted);
   return {
     sku: String(sku),
     productId: String(product.id),
     price: Number(price) > 0 ? Number(price) : null,
     found: true,
     name: product.name || null,
+    priceSource: pinned.source || null,
   };
 }
 

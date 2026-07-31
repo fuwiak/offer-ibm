@@ -261,7 +261,8 @@ async function searchByExactSku(skuCodes, limit) {
 
   const placeholders = codes.map(() => "?").join(",");
   const sql = `
-    SELECT DISTINCT ${PRODUCT_SELECT}, s.${S.sku} AS matched_sku, 'exact_sku' AS match_source
+    SELECT DISTINCT ${PRODUCT_SELECT}, s.${S.sku} AS matched_sku,
+           s.price AS matched_sku_price, 'exact_sku' AS match_source
     FROM ${TABLES.productSkus} s
     INNER JOIN ${TABLES.product} p ON p.${P.id} = s.${S.productId}
     LEFT JOIN ${TABLES.category} c
@@ -529,6 +530,45 @@ async function runProductSearchAgent({
         sku: skuCodes,
         products: skuHits.map((p) => ({ id: p.id, name: p.name })),
       });
+
+      // Exact article hit owns identity + price. Stop widening to siblings /
+      // cheaper name matches / search-agent fallbacks.
+      const hitSkus = new Set(
+        skuHits.map((p) => String(p.matched_sku || "").trim()).filter(Boolean)
+      );
+      const allRequestedCovered = skuCodes.every((code) =>
+        hitSkus.has(String(code).trim())
+      );
+      if (allRequestedCovered) {
+        products = products.filter(
+          (p) =>
+            p._exactSku ||
+            p.shopMatchSources?.includes("exact_sku") ||
+            (p.matched_sku && hitSkus.has(String(p.matched_sku)))
+        );
+        const tablesUsed = new Set([TABLES.product, TABLES.productSkus]);
+        for (const p of products) {
+          for (const t of p.shopDbTables || []) tablesUsed.add(t);
+        }
+        shopDbLog.ok("product search agent done", {
+          strategies: [...new Set(strategies)],
+          hits: products.length,
+          productIds: products.map((p) => p.id),
+          titles: products.map((p) => p.name?.slice(0, 60)),
+          earlyExit: "exact_sku",
+        });
+        const result = {
+          products: products.slice(0, sqlLimit(limit)),
+          strategies: [...new Set(strategies)],
+          searchText,
+          parsed,
+          signals,
+          tablesUsed: [...tablesUsed],
+          earlyExit: "exact_sku",
+        };
+        setCachedRetrieval(agentCacheKey, result);
+        return result;
+      }
     }
   }
 
