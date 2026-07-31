@@ -231,8 +231,8 @@ function HomeContent({ workspace, setWorkspace }) {
 
   useEffect(() => {
     if (!offerKpMode) return;
-    offerKp.setDocumentPanelOpen(true);
     if (searchParams.get("action") !== "quote") return;
+    offerKp.setDocumentPanelOpen(true);
     openQuoteBuilder(offerKp);
     setSearchParams({}, { replace: true });
   }, [offerKpMode, searchParams.get("action")]);

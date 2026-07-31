@@ -632,19 +632,6 @@ export default function DocumentPanel() {
     hasQuotePanel ||
     showExamplePromptsPanel;
 
-  // Open examples once when they appear; do NOT re-force open after the user collapses.
-  const prevShowExamplesRef = useRef(false);
-  useEffect(() => {
-    if (showExamplePromptsPanel && !prevShowExamplesRef.current) {
-      setDocumentPanelOpen(true);
-    }
-    prevShowExamplesRef.current = showExamplePromptsPanel;
-  }, [showExamplePromptsPanel, setDocumentPanelOpen]);
-
-  useEffect(() => {
-    if (isHome) setDocumentPanelOpen(true);
-  }, [isHome, setDocumentPanelOpen]);
-
   useEffect(() => {
     if (hasFilePreview) setDocumentPanelOpen(true);
   }, [hasFilePreview, setDocumentPanelOpen]);

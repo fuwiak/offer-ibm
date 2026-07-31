@@ -48,7 +48,7 @@ export function OfferKpProvider({
   const [documentPreview, setDocumentPreview] = useState(null);
   const [activeDocumentTab, setActiveDocumentTab] = useState("quote");
   const [quoteDraft, setQuoteDraft] = useState(INITIAL_QUOTE_DRAFT);
-  const [documentPanelOpen, setDocumentPanelOpen] = useState(true);
+  const [documentPanelOpen, setDocumentPanelOpen] = useState(false);
   const [documentPanelView, setDocumentPanelView] = useState("docs");
   const [activeWorkspaceSlug, setActiveWorkspaceSlug] = useState(null);
   const [activeThreadSlug, setActiveThreadSlug] = useState(null);
