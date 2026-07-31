@@ -169,4 +169,25 @@ describe("analogRules", () => {
     });
     expect(result.matchType).toBe("analog");
   });
+
+  test("exact ShopDB SKU hit stays exact without DIN text (wing screw class)", () => {
+    const product = {
+      name: "Винт-барашек DIN  316 M  6x 20 оцинк  (100)",
+      sku: "003160110060020",
+      matched_sku: "003160110060020",
+      stockCount: 29209,
+      _exactSku: true,
+      shopMatchSources: ["exact_sku"],
+      price: 8.03,
+    };
+    const skuOnly = classifyProductMatch("003160110060020", product);
+    expect(skuOnly.matchType).toBe("exact");
+    expect(skuOnly.status).toBe(STATUS.IN_STOCK);
+
+    // Without the exact-SKU flag, digits-only query is still similar.
+    const { _exactSku, shopMatchSources, ...bare } = product;
+    expect(classifyProductMatch("003160110060020", bare).matchType).toBe(
+      "similar"
+    );
+  });
 });

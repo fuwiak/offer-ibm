@@ -440,6 +440,19 @@ function sizeSpecsOk(nameNorm, parsed, rule, pin) {
   return { ok: true };
 }
 
+/**
+ * ShopDB exact-SKU retrieval is authoritative even when the inquiry has no
+ * DIN/GOST text (SKU-only paste). Without this, classifyProductMatch demotes
+ * those hits to "similar" → draft shows weight/heuristic only, never price.
+ */
+function productHasExactSkuHit(product) {
+  if (!product || typeof product !== "object") return false;
+  if (product._exactSku) return true;
+  const sources = product.shopMatchSources || product._matchSources || [];
+  if (sources instanceof Set) return sources.has("exact_sku");
+  return Array.isArray(sources) && sources.includes("exact_sku");
+}
+
 function classifyProductMatch(requestText, product) {
   // Default `product = {}` does not catch explicit null — guard here.
   if (!product || typeof product !== "object") {
@@ -456,6 +469,19 @@ function classifyProductMatch(requestText, product) {
   const nonPieceUnit =
     /(?:^|[^\w])(?:кг|kg|упак|pack)(?:$|[^\w])/i.test(requestText) ||
     /метр|meter|литр/i.test(requestText);
+
+  // Exact article hit owns identity + price — do not require DIN in the query.
+  if (productHasExactSkuHit(product)) {
+    return {
+      matchType: "exact",
+      status: nonPieceUnit
+        ? STATUS.NEEDS_REVIEW
+        : stockCount > 0
+          ? STATUS.IN_STOCK
+          : STATUS.ON_ORDER,
+      analogOf: null,
+    };
+  }
 
   if (!requestedStandards.length) {
     if (stockCount > 0) {
@@ -653,6 +679,7 @@ module.exports = {
   extractPitch,
   extractPinDimensions,
   productNameHasUnverifiableDimension,
+  productHasExactSkuHit,
   classifyProductMatch,
   applyAnalogScoringPenalty,
   applyMatchPriorityBonus,
