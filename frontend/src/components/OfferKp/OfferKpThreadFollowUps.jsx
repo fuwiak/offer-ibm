@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DndUploaderContext } from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
+import { useOfferKp } from "@/contexts/OfferKpContext";
+import { buildContextActions, hasQuoteDraftLines } from "@/utils/offerKp/contextActions";
+import { runOfferKpContextAction } from "@/utils/offerKp/homeActions";
 import {
   getThreadFollowUpSuggestions,
   getThreadMeta,
@@ -14,8 +18,39 @@ export default function OfferKpThreadFollowUps({
   sendCommand,
 }) {
   const { t } = useTranslation("offerKp");
+  const offerKp = useOfferKp();
+  const dnd = useContext(DndUploaderContext);
+  const attachments = dnd?.files || [];
   const [suggestions, setSuggestions] = useState([]);
   const [variant, setVariant] = useState("continue");
+
+  const contextActions = useMemo(() => {
+    if (!threadSlug) return [];
+    const all = buildContextActions({
+      quoteDraft: offerKp.quoteDraft,
+      threadQuoteFiles: offerKp.threadQuoteFiles,
+      uploadedPdfPreview: offerKp.uploadedPdfPreview,
+      attachments,
+      t,
+      max: 4,
+    });
+    const hasThreadContext =
+      attachments.some((a) => a?.document?.id || a?.status === "added_context") ||
+      (offerKp.threadQuoteFiles || []).length > 0 ||
+      hasQuoteDraftLines(offerKp.quoteDraft) ||
+      !!offerKp.uploadedPdfPreview;
+    if (!hasThreadContext) return [];
+    return all.filter(
+      (a) => a.kind !== "command" || a.id === "makeQuoteFromFile"
+    );
+  }, [
+    threadSlug,
+    offerKp.quoteDraft,
+    offerKp.threadQuoteFiles,
+    offerKp.uploadedPdfPreview,
+    attachments,
+    t,
+  ]);
 
   useEffect(() => {
     if (!workspaceSlug || !threadSlug) {
@@ -47,12 +82,17 @@ export default function OfferKpThreadFollowUps({
     return () => window.removeEventListener(THREAD_FOLLOW_UP_EVENT, onFollowUps);
   }, [workspaceSlug, threadSlug]);
 
-  if (!threadSlug || loading || suggestions.length === 0) return null;
+  const showContext = !loading && contextActions.length > 0;
+  const showSuggestions = !loading && threadSlug && suggestions.length > 0;
+
+  if (!showContext && !showSuggestions) return null;
 
   const labelKey =
     variant === "recovery"
       ? "home.threadFollowUps.recoveryLabel"
-      : "home.threadFollowUps.label";
+      : showSuggestions
+        ? "home.threadFollowUps.label"
+        : "home.contextFollowUps.label";
 
   return (
     <div
@@ -62,17 +102,37 @@ export default function OfferKpThreadFollowUps({
     >
       <p className="offerKp-thread-followups__label">{t(labelKey)}</p>
       <ul className="offerKp-thread-followups__list">
-        {suggestions.map((text) => (
-          <li key={text}>
-            <button
-              type="button"
-              className="offerKp-thread-followups__item"
-              onClick={() => sendCommand({ text, autoSubmit: true })}
-            >
-              {text}
-            </button>
-          </li>
-        ))}
+        {showContext &&
+          contextActions.map((action) => (
+            <li key={`ctx-${action.id}`}>
+              <button
+                type="button"
+                className="offerKp-thread-followups__item"
+                onClick={() =>
+                  runOfferKpContextAction(action, {
+                    sendCommand,
+                    offerKp,
+                    workspaceSlug,
+                    threadSlug,
+                  })
+                }
+              >
+                {action.label}
+              </button>
+            </li>
+          ))}
+        {showSuggestions &&
+          suggestions.map((text) => (
+            <li key={text}>
+              <button
+                type="button"
+                className="offerKp-thread-followups__item"
+                onClick={() => sendCommand({ text, autoSubmit: true })}
+              >
+                {text}
+              </button>
+            </li>
+          ))}
       </ul>
     </div>
   );

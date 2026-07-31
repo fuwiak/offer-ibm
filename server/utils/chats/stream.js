@@ -152,6 +152,9 @@ async function streamChatWithWorkspace(
             parsedFileTexts: (earlyParsed || [])
               .map((doc) => doc.pageContent)
               .filter(Boolean),
+            parsedFileNames: (earlyParsed || [])
+              .map((doc) => doc.title || doc.filename)
+              .filter(Boolean),
           });
         } catch (error) {
           console.warn("[threadFollowUp] draft reply:", error?.message || error);
@@ -1600,6 +1603,9 @@ async function streamChatWithWorkspace(
               }
             : clientQuoteDraft,
           parsedFileTexts,
+          parsedFileNames: (parsedFiles || [])
+            .map((doc) => doc.title || doc.filename)
+            .filter(Boolean),
         });
       } catch (e) {
         console.warn("[threadFollowUp] stream:", e?.message || e);

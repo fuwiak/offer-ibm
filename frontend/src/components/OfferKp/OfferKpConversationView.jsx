@@ -11,7 +11,7 @@ import OfferKpStopGenerationBar from "@/components/OfferKp/OfferKpStopGeneration
 import DnDFileUploaderWrapper from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
 import { ChatTooltips } from "@/components/WorkspaceChat/ChatContainer/ChatTooltips";
 import { MetricsProvider } from "@/components/WorkspaceChat/ChatContainer/ChatHistory/HistoricalMessage/Actions/RenderMetrics";
-import { handleOfferKpQuickActionKey } from "@/utils/offerKp/homeActions";
+import { runOfferKpContextAction } from "@/utils/offerKp/homeActions";
 import { switchToWorkspace } from "@/utils/offerKp/switchWorkspace";
 import { isOfferKpGenerationActive } from "@/utils/offerKp/chatGeneration";
 
@@ -43,6 +43,16 @@ export default function OfferKpConversationView({
     chatHistory
   );
 
+  function handleQuickAction(action) {
+    void runOfferKpContextAction(action, {
+      navigate,
+      sendCommand,
+      offerKp,
+      workspaceSlug: workspace?.slug,
+      threadSlug: activeThreadSlug,
+    });
+  }
+
   return (
     <div className="relative flex w-full h-full flex-1 min-h-0 min-w-0 offerKp-chat-shell flex-col overflow-hidden">
       {isMobile && <SidebarMobileHeader workspace={workspace} />}
@@ -61,15 +71,10 @@ export default function OfferKpConversationView({
                 <h1 className="offerKp-home-greeting">
                   {ta("home.greeting", { name: greetingName })}
                 </h1>
-                <OfferKpNewChatFollowUps sendCommand={sendCommand} />
                 <OfferKpQuickActions
-                  onAction={(key) =>
-                    handleOfferKpQuickActionKey(key, {
-                      navigate,
-                      offerKp,
-                      sendCommand,
-                    })
-                  }
+                  onAction={handleQuickAction}
+                  sendCommand={sendCommand}
+                  navigate={navigate}
                 />
               </div>
             </div>

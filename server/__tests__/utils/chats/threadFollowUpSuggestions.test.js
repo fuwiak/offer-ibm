@@ -119,6 +119,15 @@ describe("threadFollowUpSuggestions", () => {
     expect(suggestions.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("includes filename in upload starter chips when known", () => {
+    const suggestions = buildUploadStarterFollowUps({
+      language: "ru",
+      hasParsedFiles: true,
+      filename: "zapros_M8.pdf",
+    });
+    expect(suggestions[0]).toContain("zapros_M8.pdf");
+  });
+
   it("returns no upload starters without files", () => {
     expect(
       buildUploadStarterFollowUps({ language: "ru", hasParsedFiles: false })

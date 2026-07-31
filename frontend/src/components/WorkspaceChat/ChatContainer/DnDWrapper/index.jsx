@@ -8,7 +8,7 @@ import showToast from "@/utils/toast";
 import FileUploadWarningModal from "./FileUploadWarningModal";
 import pluralize from "pluralize";
 import { dispatchThreadFollowUps } from "@/utils/offerKp/threadFollowUpEvents";
-import { UPLOAD_STARTER_FOLLOW_UP_TEXTS_RU } from "@/utils/offerKp/newChatFollowUps";
+import { buildUploadStarterFollowUpTexts } from "@/utils/offerKp/newChatFollowUps";
 
 export const DndUploaderContext = createContext();
 export const REMOVE_ATTACHMENT_EVENT = "ATTACHMENT_REMOVE";
@@ -345,10 +345,15 @@ export function DnDFileUploaderProvider({
       window.dispatchEvent(new CustomEvent(ATTACHMENTS_PROCESSED_EVENT));
       window.dispatchEvent(new CustomEvent("offerKp:thread-files-changed"));
       if (workspace?.slug && threadSlug) {
+        const uploadedName =
+          newAttachments.find((a) => a?.file?.name)?.file?.name ||
+          newAttachments.find((a) => a?.document?.filename)?.document
+            ?.filename ||
+          "";
         dispatchThreadFollowUps({
           workspaceSlug: workspace.slug,
           threadSlug,
-          suggestions: UPLOAD_STARTER_FOLLOW_UP_TEXTS_RU,
+          suggestions: buildUploadStarterFollowUpTexts(uploadedName),
           variant: "continue",
         });
       }

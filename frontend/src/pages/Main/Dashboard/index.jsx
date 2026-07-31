@@ -6,7 +6,7 @@ export default function DashboardPage() {
   const { t } = useTranslation("offerKp");
   return (
     <OfferKpPageShell
-      title={t("home.quickActions.dashboard")}
+      title={t("admin.nav.dashboard")}
       subtitle={t("dashboard.subtitle")}
     >
       <PartnerDashboard />

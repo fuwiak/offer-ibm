@@ -1,39 +1,80 @@
+import { useContext, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { NEW_CHAT_KP_FOLLOW_UP_KEYS } from "@/utils/offerKp/newChatFollowUps";
+import { DndUploaderContext } from "@/components/WorkspaceChat/ChatContainer/DnDWrapper";
+import { useOfferKp } from "@/contexts/OfferKpContext";
+import { buildContextActions } from "@/utils/offerKp/contextActions";
+import { runOfferKpContextAction } from "@/utils/offerKp/homeActions";
 
 /**
- * Starter follow-ups on an empty thread — КП / catalog workflow (no LLM round-trip).
+ * Starter / context chips on empty home or empty thread.
+ * Actions open panels / files or send real OfferKP commands.
  */
 export default function OfferKpNewChatFollowUps({ sendCommand }) {
   const { t } = useTranslation("offerKp");
+  const offerKp = useOfferKp();
+  const dnd = useContext(DndUploaderContext);
+  const attachments = dnd?.files || [];
 
-  if (!sendCommand) return null;
+  const actions = useMemo(
+    () =>
+      buildContextActions({
+        quoteDraft: offerKp.quoteDraft,
+        threadQuoteFiles: offerKp.threadQuoteFiles,
+        uploadedPdfPreview: offerKp.uploadedPdfPreview,
+        attachments,
+        t,
+        max: 5,
+      }),
+    [
+      offerKp.quoteDraft,
+      offerKp.threadQuoteFiles,
+      offerKp.uploadedPdfPreview,
+      attachments,
+      t,
+    ]
+  );
+
+  if (!actions.length) return null;
+
+  const hasContext =
+    attachments.some((a) => a?.document?.id || a?.status === "added_context") ||
+    (offerKp.threadQuoteFiles || []).length > 0 ||
+    (offerKp.quoteDraft?.hardwareLines || []).length > 0 ||
+    !!offerKp.uploadedPdfPreview;
 
   return (
     <section
       className="offerKp-thread-followups offerKp-new-chat-followups w-full mt-8"
-      aria-label={t("home.newChatFollowUps.label")}
+      aria-label={
+        hasContext
+          ? t("home.contextFollowUps.label")
+          : t("home.newChatFollowUps.label")
+      }
     >
       <p className="offerKp-thread-followups__label">
-        {t("home.newChatFollowUps.label")}
+        {hasContext
+          ? t("home.contextFollowUps.label")
+          : t("home.newChatFollowUps.label")}
       </p>
       <ul className="offerKp-thread-followups__list">
-        {NEW_CHAT_KP_FOLLOW_UP_KEYS.map((key) => {
-          const text = t(`home.newChatFollowUps.items.${key}`);
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                className="offerKp-thread-followups__item"
-                onClick={() =>
-                  sendCommand({ text, writeMode: "replace", autoSubmit: true })
-                }
-              >
-                {text}
-              </button>
-            </li>
-          );
-        })}
+        {actions.map((action) => (
+          <li key={action.id}>
+            <button
+              type="button"
+              className="offerKp-thread-followups__item"
+              onClick={() =>
+                runOfferKpContextAction(action, {
+                  sendCommand,
+                  offerKp,
+                  workspaceSlug: offerKp.activeWorkspaceSlug,
+                  threadSlug: offerKp.activeThreadSlug,
+                })
+              }
+            >
+              {action.label}
+            </button>
+          </li>
+        ))}
       </ul>
     </section>
   );

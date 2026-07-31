@@ -122,25 +122,55 @@ function buildUploadStarterFollowUps({
   language = null,
   prompt = "",
   hasParsedFiles = false,
+  filename = "",
 } = {}) {
   if (!hasParsedFiles) return [];
   const lang = followUpLanguage(prompt, language);
+  const shortName = String(filename || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const clipped =
+    shortName.length > 28
+      ? `${shortName.slice(0, 24)}…${(shortName.match(/(\.[a-z0-9]{1,8})$/i) || [
+          "",
+          "",
+        ])[1]}`
+      : shortName;
+
   const pools = {
-    ru: [
-      "Сделай КП по прикреплённой заявке",
-      "Покажи сводку позиций из загруженного файла",
-      "Найди аналоги для позиций без наличия",
-    ],
-    pl: [
-      "Zrób ofertę KP z załączonego zapytania",
-      "Pokaż zestawienie pozycji z wgranego pliku",
-      "Znajdź zamienniki dla pozycji bez stanu",
-    ],
-    en: [
-      "Build a quote from the attached inquiry",
-      "Show the line summary from the uploaded file",
-      "Find analogs for out-of-stock lines",
-    ],
+    ru: clipped
+      ? [
+          `Сформировать КП по ${clipped}`,
+          "Покажи текст заявки из загруженного файла",
+          "Покажи сводку позиций из загруженного файла",
+        ]
+      : [
+          "Сделай КП по прикреплённой заявке",
+          "Покажи сводку позиций из загруженного файла",
+          "Найди аналоги для позиций без наличия",
+        ],
+    pl: clipped
+      ? [
+          `Utwórz ofertę KP z ${clipped}`,
+          "Pokaż tekst zapytania z wgranego pliku",
+          "Pokaż zestawienie pozycji z wgranego pliku",
+        ]
+      : [
+          "Zrób ofertę KP z załączonego zapytania",
+          "Pokaż zestawienie pozycji z wgranego pliku",
+          "Znajdź zamienniki dla pozycji bez stanu",
+        ],
+    en: clipped
+      ? [
+          `Build a quote from ${clipped}`,
+          "Show the inquiry text from the uploaded file",
+          "Show the line summary from the uploaded file",
+        ]
+      : [
+          "Build a quote from the attached inquiry",
+          "Show the line summary from the uploaded file",
+          "Find analogs for out-of-stock lines",
+        ],
   };
   return mergeFollowUpSuggestions(pools[lang] || pools.ru, []);
 }
@@ -275,6 +305,7 @@ async function generateThreadFollowUpSuggestions({
   catalogInjected = false,
   quoteDraft = null,
   parsedFileTexts = [],
+  parsedFileNames = [],
 }) {
   if (!threadFollowUpSuggestionsEnabled()) {
     return { suggestions: [], variant: "continue", issues: [] };
@@ -302,10 +333,13 @@ async function generateThreadFollowUpSuggestions({
     prompt,
     language,
   });
+  const uploadFilename =
+    (Array.isArray(parsedFileNames) && parsedFileNames.find(Boolean)) || "";
   const uploadStarters = buildUploadStarterFollowUps({
     language,
     prompt,
     hasParsedFiles: (parsedFileTexts || []).some((t) => String(t || "").trim()),
+    filename: uploadFilename,
   });
   const deterministic = mergeFollowUpSuggestions(
     recovery.length ? recovery : draftSuggestions,
@@ -394,6 +428,7 @@ async function emitThreadFollowUpSuggestions({
   catalogInjected = false,
   quoteDraft = null,
   parsedFileTexts = [],
+  parsedFileNames = [],
 }) {
   if (!thread?.id || !response) return [];
 
@@ -407,6 +442,7 @@ async function emitThreadFollowUpSuggestions({
     catalogInjected,
     quoteDraft,
     parsedFileTexts,
+    parsedFileNames,
   });
 
   if (!suggestions.length) return [];

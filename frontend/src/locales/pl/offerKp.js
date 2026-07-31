@@ -173,20 +173,47 @@ const TRANSLATIONS = {
       "W tej rozmowie nie ma jeszcze wiadomości. Dołącz zapytanie lub opisz pozycje — pliki zostaną w tym oknie.",
     inputPlaceholder: "Opisz kwestię prawną lub znajdź potrzebny dokument...",
     quickActions: {
-      generalAnalysis: "Ogólna analiza",
-      dashboard: "Mój pulpit",
-      track: "Sprawdź status sprawy",
-      leads: "Moje sprawy",
-      salesReport: "Raport ryzyk prawnych",
-      sendMessage: "Wyślij wiadomość do klienta",
-      quote: "Przygotuj opinię prawną",
-      notifications: "Powiadomienia",
-      commission: "Moje obciążenie",
-      unpaidInvoices: "Niezapłacone faktury",
-      ordersThisMonth: "Zadania w tym miesiącu",
-      partnerReport: "Raport kontrahentów",
-      sav: "Reklamacje i przedsądowe",
-      technical: "Pytanie prawne",
+      uploadInquiry: "Wgraj zapytanie",
+      findByDin: "Szukaj po DIN/GOST",
+      findBySku: "Szukaj po SKU",
+      makeQuote: "Utwórz ofertę KP",
+      findAnalogs: "Dobierz zamienniki",
+      makeQuoteFromFile: "Utwórz KP z pliku",
+      showInquiryText: "Pokaż tekst zapytania",
+      openUploadedPdf: "Otwórz PDF zapytania",
+      openDraftTable: "Otwórz zestawienie pozycji",
+      openQuotePreview: "Podgląd oferty",
+      downloadPdf: "Pobierz PDF",
+      downloadDocx: "Pobierz DOCX",
+      showLastPdf: "Pokaż ostatni PDF",
+      showLastDocx: "Pokaż ostatni DOCX",
+    },
+    contextActions: {
+      uploadInquiry: "Wgraj zapytanie (PDF)",
+      findByDin: "Szukaj po DIN/GOST",
+      findBySku: "Szukaj po SKU",
+      makeQuote: "Utwórz ofertę KP",
+      findAnalogs: "Dobierz zamienniki",
+      makeQuoteFromFile: "Utwórz KP z {{filename}}",
+      showInquiryText: "Pokaż tekst zapytania",
+      openUploadedPdf: "Otwórz PDF zapytania",
+      openDraftTable: "Otwórz zestawienie pozycji",
+      openQuotePreview: "Podgląd oferty",
+      downloadPdf: "Pobierz PDF",
+      downloadDocx: "Pobierz DOCX",
+      showLastPdf: "Pokaż ostatni PDF",
+      showLastDocx: "Pokaż ostatni DOCX/KP",
+      findByDinCommand: "Znajdź w katalogu ShopDB: śruba DIN 933 M8×40",
+      findBySkuCommand: "Znajdź produkt po SKU w katalogu purolat.com",
+      makeQuoteCommand: "Zrób ofertę KP z załączonego zapytania",
+      findAnalogsCommand:
+        "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+      makeQuoteFromFileCommand: "Utwórz ofertę KP z {{filename}}",
+      showInquiryTextCommand:
+        "Pokaż tekst zapytania z wgranego pliku {{filename}}",
+    },
+    contextFollowUps: {
+      label: "Akcje wątku",
     },
     newConversation: "Nowa rozmowa",
     threadHistory: "Ostatnie rozmowy",
@@ -218,31 +245,46 @@ const TRANSLATIONS = {
       use: "Wstaw do czatu",
       remove: "Usuń prompt",
     },
+    threadFollowUps: {
+      label: "Kontynuuj rozmowę",
+      recoveryLabel: "Co poszło nie tak? Jak naprawić",
+    },
+    newChatFollowUps: {
+      label: "Zacznij od oferty KP",
+      items: {
+        parseInquiry:
+          "Rozbierz załączone zapytanie i wyodrębnij pozycje mocowań do oferty",
+        draftFromList:
+          "Utwórz szkic oferty KP z pozycji katalogu purolat.com",
+        findAnalogs:
+          "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+        checkStock:
+          "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
+        exportQuoteDoc:
+          "Przygotuj ofertę PDF/DOCX z tabelą pozycji, cenami i statusami",
+      },
+    },
     version: "AI Prawnik AI v2.4.0",
     privacy: "Polityka prywatności",
     terms: "Warunki korzystania",
     examplePrompts: {
       panelLabel: "Przykładowe zapytania",
       title: "PRZYKŁADOWE ZAPYTANIA",
-      lead: "Kliknij sugestię, aby wypełnić pole czatu. Edytuj symbole zastępcze (@Klient, numery spraw) przed wysłaniem.",
-      hint: "Szablony zapytań dla prawników i audytorów. Kliknij, aby skopiować do pola wiadomości.",
+      lead: "Realne scenariusze OfferKP: zapytanie, katalog ShopDB, zestawienie i eksport oferty.",
+      hint: "Kliknij, aby wstawić do pola wiadomości. W razie potrzeby uzupełnij DIN, SKU lub ilość.",
       items: {
-        ordersThisMonth: "Pokaż aktywne sprawy prawne i audytowe w tym miesiącu",
-        partnerReport:
-          "Utwórz raport dotyczący kontrahentów i sygnałów ryzyka za ostatnie dwa miesiące",
-        messagePartner:
-          "Przygotuj wiadomość do klienta @xxxx potwierdzającą otrzymanie dokumentów sprawy",
-        sendToFactory:
-          "Przygotuj wniosek do odpowiedniego działu dotyczący przeprowadzenia przeglądu prawnego",
-        purchaseInvoices: "Pokaż wszystkie faktury zakupowe z ubiegłego miesiąca",
-        unpaidSalesInvoices:
-          "Pokaż niezapłacone faktury i wyróżnij potencjalne ryzyka umowne",
-        createPurchaseOrder:
-          "Przygotuj wewnętrzną notatkę prawną dla zamówienia XXX, ilość 50",
-        attachPlans: "Dołącz dokumenty pomocnicze i dowody do sprawy nr 12345",
-        monthlySalesPdf: "Wygeneruj miesięczny raport prawny i compliance w PDF",
-        commissionThisMonth:
-          "Jakie jest moje bieżące obciążenie i otwarte zlecenia w tym miesiącu?",
+        parseInquiry:
+          "Rozbierz załączone zapytanie i wyodrębnij pozycje mocowań do oferty",
+        findByDin: "Znajdź w katalogu ShopDB: śruba DIN 933 M8×40",
+        findBySku: "Znajdź produkt po SKU w katalogu purolat.com",
+        makeQuote: "Zrób ofertę KP z załączonego zapytania",
+        findAnalogs:
+          "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+        checkStock:
+          "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
+        draftSummary: "Pokaż zestawienie pozycji bieżącego szkicu oferty",
+        exportQuoteDoc:
+          "Przygotuj ofertę PDF/DOCX z tabelą pozycji, cenami i statusami",
       },
     },
   },

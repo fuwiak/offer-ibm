@@ -1,13 +1,11 @@
-/** Keys for `home.examplePrompts.items.*` i18n entries. */
+/** Keys for `home.examplePrompts.items.*` — real OfferKP / ShopDB flows only. */
 export const EXAMPLE_PROMPT_KEYS = [
-  "ordersThisMonth",
-  "partnerReport",
-  "messagePartner",
-  "sendToFactory",
-  "purchaseInvoices",
-  "unpaidSalesInvoices",
-  "createPurchaseOrder",
-  "attachPlans",
-  "monthlySalesPdf",
-  "commissionThisMonth",
+  "parseInquiry",
+  "findByDin",
+  "findBySku",
+  "makeQuote",
+  "findAnalogs",
+  "checkStock",
+  "draftSummary",
+  "exportQuoteDoc",
 ];

@@ -24,7 +24,7 @@ import useUser from "@/hooks/useUser";
 import { useOfferKp } from "@/contexts/OfferKpContext";
 import {
   openQuoteBuilder,
-  handleOfferKpQuickActionKey,
+  runOfferKpContextAction,
 } from "@/utils/offerKp/homeActions";
 import { resolvePartnerWorkspace } from "@/utils/offerKp/partnerWorkspace";
 import { shouldUseOfferKpLayout } from "@/utils/offerKp/detectOfferKpMode";
@@ -348,8 +348,14 @@ function HomeContent({ workspace, setWorkspace }) {
     navigate(paths.workspace.settings.generalAppearance(targetWorkspace.slug));
   }
 
-  function handleOfferKpQuickAction(key) {
-    handleOfferKpQuickActionKey(key, { navigate, sendCommand });
+  function handleOfferKpQuickAction(action) {
+    void runOfferKpContextAction(action, {
+      navigate,
+      sendCommand,
+      offerKp,
+      workspaceSlug: workspace?.slug,
+      threadSlug: null,
+    });
   }
 
   async function handlePromptWorkspaceSelect(ws) {
