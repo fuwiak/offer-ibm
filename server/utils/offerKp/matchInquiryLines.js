@@ -114,9 +114,13 @@ function matchEnrichmentEnabled() {
 
 const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
 
-function lineMatchIdentityKey(threadId, raw) {
+// Match identity is user/thread-independent — the same RFQ line resolves to
+// the same product for everyone, so the cache key deliberately drops
+// threadId: user A warming «DIN 933 M10x70» serves user B too. Price is
+// never part of identity (hydrated live from ShopDB afterwards).
+function lineMatchIdentityKey(_threadId, raw) {
   return buildMatchIdentityCacheKey({
-    inquiryText: `${threadId || "global"}::${raw || ""}`,
+    inquiryText: String(raw || ""),
     indexVersion: resolveIndexVersion(getCanonicalCatalogManifest()),
   });
 }

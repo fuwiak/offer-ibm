@@ -8,6 +8,7 @@ const {
   resolveOfferKpChatSampling,
 } = require("./deterministicSampling");
 const { RESPONSE_FORMATS } = require("./llmJsonSchema");
+const { TtlLruCache, sha256 } = require("./db/layeredCache");
 
 const QUOTE_FILE_SKILLS = new Set([
   "create-docx-file",
@@ -20,6 +21,34 @@ const QUOTE_INTENT_LLM_PROMPT = `Ты классификатор намерен�
 Ответь ТОЛЬКО JSON {"approved": true} или {"approved": false}.
 approved=true — если пользователь просит создать, обновить или переделать КП/оферту/DOCX/PDF с позициями и ценами либо подтверждает такое действие.
 approved=false — если речь о другом документе (отчёт, презентация, письмо, резюме и т.п.) или намерение неясно.`;
+
+// Verdict depends on recent-context window + payload hint, never on a single
+// message («да» alone means nothing), so the key hashes exactly what the
+// prompt sees. Prompt version in the key invalidates on prompt edits.
+const QUOTE_INTENT_CACHE_TTL_MS = Math.max(
+  60_000,
+  parseInt(process.env.OFFER_KP_QUOTE_INTENT_CACHE_TTL_MS, 10) ||
+    6 * 60 * 60 * 1000
+);
+const quoteIntentCache = new TtlLruCache({
+  ttlMs: QUOTE_INTENT_CACHE_TTL_MS,
+  maxEntries: Math.max(
+    100,
+    parseInt(process.env.OFFER_KP_QUOTE_INTENT_CACHE_MAX, 10) || 1000
+  ),
+});
+const QUOTE_INTENT_PROMPT_VERSION = sha256(QUOTE_INTENT_LLM_PROMPT).slice(0, 8);
+
+function quoteIntentCacheKey({ recent, payloadHint, model }) {
+  return `quote-intent:v1:${model || "workspace"}:${QUOTE_INTENT_PROMPT_VERSION}:${sha256(
+    `${recent}\n##\n${payloadHint}`
+  )}`;
+}
+
+/** Test helper. */
+function clearQuoteIntentCache() {
+  quoteIntentCache.clear();
+}
 
 function quoteIntentLlmJudgeEnabled() {
   if (offerKpStrictDeterminismEnabled()) return false;
@@ -149,11 +178,6 @@ async function detectQuoteCreationIntentWithLlm({
     return false;
   }
 
-  const LLMConnector = await getLLMProviderWithFallback({
-    provider: workspace?.chatProvider || null,
-    model: workspace?.chatModel || null,
-  });
-
   const recent = userMessages.slice(-4).join("\n---\n");
   const payloadHint = [
     payload.filename ? `filename: ${payload.filename}` : "",
@@ -162,6 +186,25 @@ async function detectQuoteCreationIntentWithLlm({
   ]
     .filter(Boolean)
     .join("\n");
+
+  const cacheKey = quoteIntentCacheKey({
+    recent,
+    payloadHint,
+    model: workspace?.chatModel || null,
+  });
+  const cachedVerdict = quoteIntentCache.get(cacheKey);
+  if (typeof cachedVerdict === "boolean") {
+    offerKpLog("info", "Quote intent LLM judge (cache hit)", {
+      approved: cachedVerdict,
+      skillName,
+    });
+    return cachedVerdict;
+  }
+
+  const LLMConnector = await getLLMProviderWithFallback({
+    provider: workspace?.chatProvider || null,
+    model: workspace?.chatModel || null,
+  });
 
   const messages = [
     { role: "system", content: QUOTE_INTENT_LLM_PROMPT },
@@ -179,6 +222,7 @@ async function detectQuoteCreationIntentWithLlm({
       })
     );
     const approved = parseYesNo(textResponse);
+    quoteIntentCache.set(cacheKey, approved);
     offerKpLog("info", "Quote intent LLM judge", {
       approved,
       skillName,
@@ -218,6 +262,7 @@ module.exports = {
   detectQuoteCreationIntentWithLlm,
   shouldAutoApproveQuoteFileSkill,
   quoteIntentLlmJudgeEnabled,
+  clearQuoteIntentCache,
   mightNeedLlmQuoteJudge,
   parseYesNo,
 };

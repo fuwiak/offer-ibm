@@ -665,7 +665,59 @@ function tryParseExpectedCsvInquiry(text) {
   return out.length ? out : null;
 }
 
+// Parser is deterministic regex/string work — cache is correctness-safe and
+// keyed on parser version + input hash. Low priority perf-wise (micro/ms),
+// but repeated re-parses of the same RFQ (rematch, draft edits) skip it.
+// Entries are deep-cloned on both sides: callers mutate parsed lines
+// (quantity merge, .thread), shared references would leak across requests.
+const PARSE_CACHE_VERSION = "v1";
+const PARSE_CACHE_TTL_MS = Math.max(
+  60_000,
+  parseInt(process.env.OFFER_KP_PARSE_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
+);
+const PARSE_CACHE_MAX = Math.max(
+  50,
+  parseInt(process.env.OFFER_KP_PARSE_CACHE_MAX, 10) || 500
+);
+/** @type {Map<string, { value: object[], expiresAt: number }>} */
+const parseCache = new Map();
+
+function parseCacheKey(text) {
+  return `parse:${PARSE_CACHE_VERSION}:${require("crypto")
+    .createHash("sha256")
+    .update(String(text || ""), "utf8")
+    .digest("hex")}`;
+}
+
+function cloneParsedLines(lines) {
+  return lines.map((line) => ({ ...line }));
+}
+
+/** Test helper. */
+function clearParseInquiryCache() {
+  parseCache.clear();
+}
+
 function parseInquiryText(text) {
+  const cacheKey = parseCacheKey(text);
+  const hit = parseCache.get(cacheKey);
+  if (hit) {
+    if (Date.now() <= hit.expiresAt) return cloneParsedLines(hit.value);
+    parseCache.delete(cacheKey);
+  }
+  const result = parseInquiryTextUncached(text);
+  if (parseCache.size >= PARSE_CACHE_MAX) {
+    const oldest = parseCache.keys().next().value;
+    if (oldest != null) parseCache.delete(oldest);
+  }
+  parseCache.set(cacheKey, {
+    value: cloneParsedLines(result),
+    expiresAt: Date.now() + PARSE_CACHE_TTL_MS,
+  });
+  return result;
+}
+
+function parseInquiryTextUncached(text) {
   const raw = normalizeOcrInquiryText(String(text || "").trim());
   if (!raw) return [];
 
@@ -704,6 +756,7 @@ function parseInquiryText(text) {
 
 module.exports = {
   parseInquiryText,
+  clearParseInquiryCache,
   parseInquiryLine,
   parseQuantity,
   parseInquiryUnit,

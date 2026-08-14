@@ -366,6 +366,8 @@ function getLayeredCacheStats() {
 }
 
 module.exports = {
+  TtlLruCache,
+  sha256,
   RETRIEVAL_CACHE_VERSION,
   MATCHING_CACHE_VERSION,
   IDENTITY_TTL_MS,

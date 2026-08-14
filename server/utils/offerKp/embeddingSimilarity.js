@@ -19,6 +19,7 @@
  * TF-IDF — zgodnie z filozofią projektu "graceful fallback, nie blokuj czatu".
  */
 
+const crypto = require("crypto");
 const { NativeEmbedder } = require("../EmbeddingEngines/native");
 
 function envFlagEnabled(name, defaultValue = true) {
@@ -105,27 +106,101 @@ function getEmbedder() {
   return embedder;
 }
 
-/** @type {Map<string|number, { vector: number[], expiresAt: number }>} */
-const vectorCache = new Map();
+const QUERY_CACHE_TTL_MS = Math.max(
+  60_000,
+  parseInt(process.env.SHOP_DB_QUERY_EMBEDDING_CACHE_TTL_MS, 10) ||
+    7 * 24 * 60 * 60 * 1000
+);
+const QUERY_CACHE_MAX_ENTRIES = Math.max(
+  100,
+  parseInt(process.env.SHOP_DB_QUERY_EMBEDDING_CACHE_MAX_ENTRIES, 10) || 2000
+);
 
-function cacheGet(productId) {
-  const entry = vectorCache.get(productId);
+/** @type {Map<string, { vector: number[], expiresAt: number }>} */
+const vectorCache = new Map();
+/** @type {Map<string, { vector: number[], expiresAt: number }>} */
+const queryVectorCache = new Map();
+
+function textHash(text) {
+  return crypto
+    .createHash("sha256")
+    .update(String(text || ""), "utf8")
+    .digest("hex")
+    .slice(0, 24);
+}
+
+// Key = model + productId + hash of the embedded text: a renamed product
+// (same id) must never serve the stale vector of its previous name.
+function productCacheKey(productId, name) {
+  return `p:${EMBEDDING_MODEL}:${String(productId)}:${textHash(name)}`;
+}
+
+// Key = model + normalized query hash: identical queries across users and
+// requests share one vector; model in the key survives model switches.
+function queryCacheKey(text) {
+  return `q:${EMBEDDING_MODEL}:${textHash(
+    String(text || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+  )}`;
+}
+
+function mapCacheGet(store, key) {
+  const entry = store.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
-    vectorCache.delete(productId);
+    store.delete(key);
     return null;
   }
-  vectorCache.delete(productId);
-  vectorCache.set(productId, entry);
+  store.delete(key);
+  store.set(key, entry);
   return entry.vector;
 }
 
-function cacheSet(productId, vector) {
-  if (vectorCache.size >= CACHE_MAX_ENTRIES) {
-    const oldest = vectorCache.keys().next().value;
-    if (oldest !== undefined) vectorCache.delete(oldest);
+function mapCacheSet(store, key, vector, ttlMs, maxEntries) {
+  if (store.size >= maxEntries) {
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
   }
-  vectorCache.set(productId, { vector, expiresAt: Date.now() + CACHE_TTL_MS });
+  store.set(key, { vector, expiresAt: Date.now() + ttlMs });
+}
+
+function cacheGet(productId, name) {
+  return mapCacheGet(vectorCache, productCacheKey(productId, name));
+}
+
+function cacheSet(productId, name, vector) {
+  mapCacheSet(
+    vectorCache,
+    productCacheKey(productId, name),
+    vector,
+    CACHE_TTL_MS,
+    CACHE_MAX_ENTRIES
+  );
+}
+
+function queryCacheGet(text) {
+  return mapCacheGet(queryVectorCache, queryCacheKey(text));
+}
+
+function queryCacheSet(text, vector) {
+  mapCacheSet(
+    queryVectorCache,
+    queryCacheKey(text),
+    vector,
+    QUERY_CACHE_TTL_MS,
+    QUERY_CACHE_MAX_ENTRIES
+  );
+}
+
+/** Embed query text with cache (model + normalized-query hash). */
+async function embedQueryTextCached(active, text) {
+  const cached = queryCacheGet(text);
+  if (cached) return cached;
+  const vector = await active.embedTextInput(text);
+  if (vector?.length) queryCacheSet(text, vector);
+  return vector;
 }
 
 function cosineSimilarity(a, b) {
@@ -159,31 +234,31 @@ async function computeEmbeddingSimilarities(queryText, candidates) {
   const pool = candidates.slice(0, MAX_CANDIDATES);
   const passagePrefix = active.embeddingPrefix || "";
   const toEmbed = [];
-  const toEmbedIds = [];
+  const toEmbedRows = [];
   for (const c of pool) {
     if (c?.id == null) continue;
-    if (cacheGet(c.id) != null) continue;
+    if (cacheGet(c.id, c.name) != null) continue;
     toEmbed.push(`${passagePrefix}${String(c.name || "").trim()}`);
-    toEmbedIds.push(c.id);
+    toEmbedRows.push(c);
   }
 
   try {
     if (toEmbed.length) {
       const vectors = await active.embedChunks(toEmbed);
       if (Array.isArray(vectors)) {
-        toEmbedIds.forEach((id, idx) => {
-          if (vectors[idx]) cacheSet(id, vectors[idx]);
+        toEmbedRows.forEach((c, idx) => {
+          if (vectors[idx]) cacheSet(c.id, c.name, vectors[idx]);
         });
       }
     }
 
-    const queryVector = await active.embedTextInput(text);
+    const queryVector = await embedQueryTextCached(active, text);
     if (!queryVector?.length) return new Map();
 
     const result = new Map();
     for (const c of pool) {
       if (c?.id == null) continue;
-      const vector = cacheGet(c.id);
+      const vector = cacheGet(c.id, c.name);
       if (vector) result.set(c.id, cosineSimilarity(queryVector, vector));
     }
     return result;
@@ -231,7 +306,7 @@ async function embedQueryText(queryText) {
   const text = String(queryText || "").trim();
   if (!active || !text) return null;
   try {
-    const vector = await active.embedTextInput(text);
+    const vector = await embedQueryTextCached(active, text);
     return vector?.length ? vector : null;
   } catch (error) {
     embedderDisabled = true;
@@ -248,6 +323,7 @@ function resetShopDbEmbedderForTests() {
   embedder = null;
   embedderDisabled = !EMBEDDING_ENABLED;
   vectorCache.clear();
+  queryVectorCache.clear();
 }
 
 module.exports = {

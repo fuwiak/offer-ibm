@@ -11,6 +11,11 @@ const {
 } = require("./db/schema");
 const { PRODUCT_TYPE_ROOTS } = require("./hardwareQuery");
 const { expandSearchTerms } = require("./textNormalize");
+const {
+  buildRetrievalCacheKey,
+  getCachedRetrieval,
+  setCachedRetrieval,
+} = require("./db/layeredCache");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -289,6 +294,19 @@ function mergeSearchHits(batches, maxProducts) {
 async function searchProductsExtended(terms, parsed, limit) {
   const expandedTerms = expandSearchTerms(terms, 20);
   const perStrategy = sqlLimit(Math.max(limit, 10));
+
+  // One search = 5 parallel SQL strategies. Identical repeated queries
+  // (same terms + parsed signature) reuse the merged result instead of
+  // re-fanning out to MySQL. Key includes catalog index + pipeline version
+  // via buildRetrievalCacheKey; TTL = shared ShopDB agent cache (5 min).
+  const cacheKey = buildRetrievalCacheKey({
+    queryText: expandedTerms.join(" "),
+    limit: perStrategy,
+    extra: `sqlext:${JSON.stringify(parsed || {})}`,
+  });
+  const cached = getCachedRetrieval(cacheKey);
+  if (cached?.products) return cached;
+
   const [byStructured, byProduct, bySku, byCategory, byIndex] =
     await Promise.all([
       searchByStructuredQuery(parsed, perStrategy),
@@ -298,10 +316,12 @@ async function searchProductsExtended(terms, parsed, limit) {
       searchBySearchIndex(expandedTerms, perStrategy),
     ]);
 
-  return mergeSearchHits(
+  const merged = mergeSearchHits(
     [byStructured, byProduct, bySku, byCategory, byIndex],
     0
   );
+  setCachedRetrieval(cacheKey, merged);
+  return merged;
 }
 
 module.exports = {

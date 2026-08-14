@@ -32,6 +32,7 @@ const {
   rememberExperienceAsync,
   retrieveExperiences,
 } = require("./experienceMemory");
+const { TtlLruCache, sha256 } = require("./db/layeredCache");
 
 const DEFAULT_INTENT_MODEL = "deepseek/deepseek-v4-flash";
 
@@ -62,6 +63,36 @@ out_of_scope — вопрос вне тематики крепежа/КП (по�
 
 function intentLlmJudgeEnabled() {
   return process.env.OFFER_KP_INTENT_LLM_JUDGE !== "false";
+}
+
+// Same ambiguous text + same model + same prompt → same category. Judge is
+// closed-set classification (no user state), so the verdict is shareable
+// across threads/users. Deterministic router is NOT cached — regex is
+// cheaper than any cache lookup.
+const INTENT_JUDGE_CACHE_TTL_MS = Math.max(
+  60_000,
+  parseInt(process.env.OFFER_KP_INTENT_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
+);
+const intentJudgeCache = new TtlLruCache({
+  ttlMs: INTENT_JUDGE_CACHE_TTL_MS,
+  maxEntries: Math.max(
+    100,
+    parseInt(process.env.OFFER_KP_INTENT_CACHE_MAX, 10) || 2000
+  ),
+});
+const INTENT_PROMPT_VERSION = sha256(INTENT_JUDGE_PROMPT).slice(0, 8);
+
+function intentJudgeCacheKey(text) {
+  const normalized = String(text || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return `intent:v1:${resolveIntentModel()}:${INTENT_PROMPT_VERSION}:${sha256(normalized)}`;
+}
+
+/** Test helper. */
+function clearIntentJudgeCache() {
+  intentJudgeCache.clear();
 }
 
 function resolveIntentModel() {
@@ -147,6 +178,16 @@ async function classifyAmbiguousIntentWithLlm(text, { workspace = null } = {}) {
   const trimmed = String(text || "").trim();
   if (!trimmed) return null;
 
+  const cacheKey = intentJudgeCacheKey(trimmed);
+  const cachedCategory = intentJudgeCache.get(cacheKey);
+  if (cachedCategory) {
+    offerKpLog("info", "Ambiguous intent LLM judge (cache hit)", {
+      category: cachedCategory,
+      snippet: trimmed.slice(0, 120),
+    });
+    return cachedCategory;
+  }
+
   try {
     const memories = await retrieveExperiences("intent_memory", trimmed, {
       limit: 3,
@@ -196,6 +237,7 @@ async function classifyAmbiguousIntentWithLlm(text, { workspace = null } = {}) {
       trust_level: category ? "teacher_verified_by_code" : "teacher_only",
     });
     if (category) {
+      intentJudgeCache.set(cacheKey, category);
       rememberExperienceAsync({
         namespace: "intent_memory",
         retrievalText: `USER_TEXT: ${trimmed}\nINTENT_MEANING: ${category}`,
@@ -247,6 +289,7 @@ module.exports = {
   resolveIntentModel,
   formatIntentMemory,
   intentLlmJudgeEnabled,
+  clearIntentJudgeCache,
   parseIntentAnswer,
   classifyAmbiguousIntentWithLlm,
   resolveOfferKpIntent,

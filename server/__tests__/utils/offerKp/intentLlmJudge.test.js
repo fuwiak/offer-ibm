@@ -8,6 +8,7 @@ const {
   classifyAmbiguousIntentWithLlm,
   resolveOfferKpIntent,
   intentLlmJudgeEnabled,
+  clearIntentJudgeCache,
 } = require("../../../utils/offerKp/intentLlmJudge");
 const { OFFER_KP_INTENTS } = require("../../../utils/offerKp/intentRouter");
 
@@ -20,6 +21,7 @@ describe("intentLlmJudge", () => {
   const ORIGINAL_FETCH = global.fetch;
 
   beforeEach(() => {
+    clearIntentJudgeCache();
     delete process.env.OFFER_KP_INTENT_LLM_JUDGE;
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.OFFER_KP_OPENROUTER;
