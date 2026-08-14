@@ -95,8 +95,14 @@ const {
   getCachedCommercial,
   setCachedCommercial,
   applyCommercialFields,
+  stripCommercialFields,
   resolveIndexVersion,
 } = require("./db/layeredCache");
+const {
+  redisCacheEnabled,
+  getRedisCachedJson,
+  setRedisCachedJson,
+} = require("./db/redisCache");
 const {
   getDurableMatchIdentity,
   setDurableMatchIdentity,
@@ -325,6 +331,13 @@ async function getCachedLineMatch(threadId, raw) {
   const ram = getCachedMatchIdentity(key);
   if (ram) return ram;
 
+  // L2 Redis (optional, fail-open) — identity only, price re-hydrated live.
+  const fromRedis = await getRedisCachedJson(`match:${key}`);
+  if (fromRedis) {
+    setCachedMatchIdentity(key, fromRedis);
+    return fromRedis;
+  }
+
   const durable = await getDurableMatchIdentity(key);
   if (durable) {
     // Promote durable → RAM so subsequent lines in same request are free.
@@ -337,6 +350,9 @@ async function getCachedLineMatch(threadId, raw) {
 async function setCachedLineMatch(threadId, raw, value) {
   const key = lineMatchIdentityKey(threadId, raw);
   setCachedMatchIdentity(key, value);
+  if (redisCacheEnabled()) {
+    void setRedisCachedJson(`match:${key}`, stripCommercialFields(value), 1800);
+  }
   await setDurableMatchIdentity(key, value).catch(() => false);
 }
 

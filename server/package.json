@@ -19,7 +19,9 @@
     "test:shopdb-enrich": "node ../scripts/verify-offerkp-env.cjs",
     "test:shopdb": "jest __tests__/utils/offerKp --runInBand",
     "sync:shopdb-canonical": "node ../scripts/sync-shopdb-canonical-index.cjs",
-    "audit:shopdb-random": "node ../scripts/audit-shopdb-random-sample.cjs"
+    "audit:shopdb-random": "node ../scripts/audit-shopdb-random-sample.cjs",
+    "sync:elastic": "node utils/offerKp/connectors/elasticSync.js",
+    "sync:elastic:full": "node utils/offerKp/connectors/elasticSync.js --full"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

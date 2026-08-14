@@ -16,6 +16,11 @@ const {
   getCachedRetrieval,
   setCachedRetrieval,
 } = require("./db/layeredCache");
+const {
+  elasticEnabled,
+  searchProductsViaElastic,
+} = require("./connectors/elasticSearch");
+const { getRedisCachedJson, setRedisCachedJson } = require("./db/redisCache");
 
 const PRODUCT_SELECT = `
   p.${P.id} AS id,
@@ -307,20 +312,40 @@ async function searchProductsExtended(terms, parsed, limit) {
   const cached = getCachedRetrieval(cacheKey);
   if (cached?.products) return cached;
 
-  const [byStructured, byProduct, bySku, byCategory, byIndex] =
-    await Promise.all([
-      searchByStructuredQuery(parsed, perStrategy),
+  // L2 Redis (optional, fail-open): shared across processes/restarts.
+  const redisHit = await getRedisCachedJson(`search:${cacheKey}`);
+  if (redisHit?.products) {
+    setCachedRetrieval(cacheKey, redisHit);
+    return redisHit;
+  }
+
+  // Etap 1 Elasticsearch: ES ranks (BM25 + filters) → productIds → one live
+  // ShopDB PK hydrate. Replaces the generic LIKE strategies (product_fields,
+  // category, search_index). Deterministic strategies (structured, SKU) stay
+  // in SQL. ES down/disabled (null) → full SQL fan-out, same as before.
+  const [byStructured, bySku, byElastic] = await Promise.all([
+    searchByStructuredQuery(parsed, perStrategy),
+    searchBySku(expandedTerms, perStrategy),
+    elasticEnabled()
+      ? searchProductsViaElastic(expandedTerms, parsed, perStrategy)
+      : Promise.resolve(null),
+  ]);
+
+  let batches;
+  if (byElastic != null) {
+    batches = [byStructured, bySku, byElastic];
+  } else {
+    const [byProduct, byCategory, byIndex] = await Promise.all([
       searchByProductFields(expandedTerms, perStrategy),
-      searchBySku(expandedTerms, perStrategy),
       searchByCategory(expandedTerms, perStrategy),
       searchBySearchIndex(expandedTerms, perStrategy),
     ]);
+    batches = [byStructured, byProduct, bySku, byCategory, byIndex];
+  }
 
-  const merged = mergeSearchHits(
-    [byStructured, byProduct, bySku, byCategory, byIndex],
-    0
-  );
+  const merged = mergeSearchHits(batches, 0);
   setCachedRetrieval(cacheKey, merged);
+  void setRedisCachedJson(`search:${cacheKey}`, merged);
   return merged;
 }
 

@@ -173,6 +173,45 @@ function summarizeTrace(trace) {
   };
 }
 
+/**
+ * Human-readable per-stage timing breakdown for logs / diagnostics:
+ *
+ *   REQUEST 7af821
+ *   parseInquiry       12 ms
+ *   shopdb_search      38 ms
+ *   llm              3270 ms
+ *   TOTAL            3320 ms  (llm 98%)
+ *
+ * @param {OfferKpRequestTrace} trace
+ * @returns {string}
+ */
+function formatStageTimings(trace) {
+  if (!trace) return "";
+  const entries = Object.entries(trace.latencyMs || {}).filter(([, ms]) =>
+    Number.isFinite(Number(ms))
+  );
+  const total = entries.reduce((sum, [, ms]) => sum + Number(ms), 0);
+  const nameWidth = Math.max(
+    5,
+    ...entries.map(([name]) => name.length),
+    "TOTAL".length
+  );
+  const lines = [`REQUEST ${trace.requestId}`];
+  for (const [name, ms] of entries) {
+    lines.push(
+      `${name.padEnd(nameWidth)} ${String(Math.round(ms)).padStart(6)} ms`
+    );
+  }
+  const slowest = entries.slice().sort((a, b) => b[1] - a[1])[0];
+  const share =
+    slowest && total > 0 ? Math.round((slowest[1] / total) * 100) : 0;
+  lines.push(
+    `${"TOTAL".padEnd(nameWidth)} ${String(Math.round(total)).padStart(6)} ms` +
+      (slowest ? `  (${slowest[0]} ${share}%)` : "")
+  );
+  return lines.join("\n");
+}
+
 module.exports = {
   createRequestTrace,
   markStage,
@@ -182,4 +221,5 @@ module.exports = {
   setGate,
   finalizeTrace,
   summarizeTrace,
+  formatStageTimings,
 };
