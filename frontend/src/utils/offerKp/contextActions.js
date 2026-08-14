@@ -38,8 +38,7 @@ function isDocxName(name = "") {
  * @param {object|null} quoteDraft
  */
 export function hasQuoteDraftLines(quoteDraft = null) {
-  const lines =
-    quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
   return Array.isArray(lines) && lines.length > 0;
 }
 
@@ -58,19 +57,13 @@ export function pickPrimaryAttachment(attachments = []) {
   const withDoc = pool.find((a) => a?.document?.id) || pool[0] || null;
   if (!withDoc) return null;
   const doc = withDoc.document || null;
-  const filename =
-    doc?.filename ||
-    doc?.title ||
-    withDoc.file?.name ||
-    null;
+  const filename = doc?.filename || doc?.title || withDoc.file?.name || null;
   if (!filename && !doc?.id) return null;
   return {
     id: doc?.id || null,
     filename: filename || "заявка",
     isPdf:
-      doc?.isPdf === true ||
-      isPdfName(filename || "") ||
-      !!doc?.hasOriginalPdf,
+      doc?.isPdf === true || isPdfName(filename || "") || !!doc?.hasOriginalPdf,
     hasOriginalPdf: !!doc?.hasOriginalPdf || isPdfName(filename || ""),
     document: doc,
   };
@@ -274,6 +267,8 @@ export function buildContextActions({
       kind: ACTION_KIND.COMMAND,
       text: t("home.contextActions.makeQuoteCommand"),
       label: t("home.contextActions.makeQuote"),
+      // Prefill only — operator attaches the RFQ file, then sends.
+      autoSubmit: false,
     });
     push({
       id: "findAnalogs",

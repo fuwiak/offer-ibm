@@ -61,7 +61,8 @@ const TRANSLATIONS = {
   profiles: {
     title: "Profile użytkowników",
     admin: "Administrator — pełna kontrola platformy, globalny pulpit KPI",
-    public: "Publiczny — FAQ, informacje o produktach (bez cen), dopasowanie partnera",
+    public:
+      "Publiczny — FAQ, informacje o produktach (bez cen), dopasowanie partnera",
     partner: "Partner — cennik, generowanie opinii, śledzenie spraw",
     internalSales:
       "Prawnik wewnętrzny — wszystkie funkcje partnera + zarządzanie przydzielonymi klientami",
@@ -70,7 +71,8 @@ const TRANSLATIONS = {
   },
   quoting: {
     title: "Proces generowania opinii",
-    steps: "Typ → Parametry → Obliczenia → Podgląd → Zatwierdzenie → Udostępnij",
+    steps:
+      "Typ → Parametry → Obliczenia → Podgląd → Zatwierdzenie → Udostępnij",
     note: "Inteligentne duplikowanie: ponów opinię po numerze referencyjnym z automatycznym przeliczeniem.",
   },
   cta: {
@@ -96,7 +98,8 @@ const TRANSLATIONS = {
     empty: "Brak dostępnych przestrzeni roboczych dla rozmów.",
   },
   orders: {
-    subtitle: "Zadania i sprawy wykryte ze skrzynki odbiorczej (słowa kluczowe + AI).",
+    subtitle:
+      "Zadania i sprawy wykryte ze skrzynki odbiorczej (słowa kluczowe + AI).",
     empty: "Brak zadań.",
   },
   notifications: {
@@ -115,7 +118,8 @@ const TRANSLATIONS = {
     },
   },
   dashboard: {
-    subtitle: "Twoje sprawy, ryzyka prawne i ostatnia aktywność dokumentacyjna.",
+    subtitle:
+      "Twoje sprawy, ryzyka prawne i ostatnia aktywność dokumentacyjna.",
   },
   account: {
     profileSubtitle: "Twoja tożsamość AI Prawnik i Audytor.",
@@ -132,7 +136,8 @@ const TRANSLATIONS = {
     role: "Rola",
     language: "Język",
     appearance: "Motyw",
-    settingsHint: "Zarządzanie przestrzeniami roboczymi jest dostępne dla administratorów.",
+    settingsHint:
+      "Zarządzanie przestrzeniami roboczymi jest dostępne dla administratorów.",
     loadingAdmin: "Ładowanie danych administracyjnych…",
     workspacesTitle: "Przestrzenie robocze",
     workspaceNamePlaceholder: "Nazwa nowej przestrzeni",
@@ -142,7 +147,8 @@ const TRANSLATIONS = {
     workspaceCreated: "Przestrzeń robocza utworzona.",
     workspaceCreateFailed: "Nie można utworzyć przestrzeni roboczej.",
     workspaceDeleted: "Przestrzeń robocza usunięta.",
-    workspaceDeleteConfirm: "Usunąć przestrzeń «{{name}}»? Tej operacji nie można cofnąć.",
+    workspaceDeleteConfirm:
+      "Usunąć przestrzeń «{{name}}»? Tej operacji nie można cofnąć.",
     workspaceMembersTitle: "Użytkownicy wybranej przestrzeni",
     saveWorkspaceMembers: "Zapisz członków przestrzeni",
     workspaceMembersSaved: "Członkowie przestrzeni zaktualizowani.",
@@ -213,8 +219,7 @@ const TRANSLATIONS = {
       findByDinCommand: "Znajdź w katalogu ShopDB: śruba DIN 933 M8×40",
       findBySkuCommand: "Znajdź produkt po SKU w katalogu purolat.com",
       makeQuoteCommand: "Zrób ofertę KP z załączonego zapytania",
-      findAnalogsCommand:
-        "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+      findAnalogsCommand: "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
       makeQuoteFromFileCommand: "Utwórz ofertę KP z {{filename}}",
       showInquiryTextCommand:
         "Pokaż tekst zapytania z wgranego pliku {{filename}}",
@@ -234,7 +239,8 @@ const TRANSLATIONS = {
     deleteConfirmImmediate: "Usuń od razu",
     deleteUndo: "Cofnij",
     deletePendingNotice: "Rozmowa usunięta.",
-    deletePendingNoticeTimed: "Rozmowa usunięta (pozostało {{time}} na cofnięcie).",
+    deletePendingNoticeTimed:
+      "Rozmowa usunięta (pozostało {{time}} na cofnięcie).",
     deleteAllConversations: "Usuń wszystkie rozmowy",
     deleteAllConfirmTitle: "Usunąć wszystkie rozmowy?",
     deleteAllConfirmCount: "Zostanie usuniętych {{count}} rozmów.",
@@ -261,12 +267,9 @@ const TRANSLATIONS = {
       items: {
         parseInquiry:
           "Rozbierz załączone zapytanie i wyodrębnij pozycje mocowań do oferty",
-        draftFromList:
-          "Utwórz szkic oferty KP z pozycji katalogu purolat.com",
-        findAnalogs:
-          "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
-        checkStock:
-          "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
+        draftFromList: "Utwórz szkic oferty KP z pozycji katalogu purolat.com",
+        findAnalogs: "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+        checkStock: "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
         exportQuoteDoc:
           "Przygotuj ofertę PDF/DOCX z tabelą pozycji, cenami i statusami",
       },
@@ -293,10 +296,8 @@ const TRANSLATIONS = {
         findByDin: "Znajdź w katalogu ShopDB: śruba DIN 933 M8×40",
         findBySku: "Znajdź produkt po SKU w katalogu purolat.com",
         makeQuote: "Zrób ofertę KP z załączonego zapytania",
-        findAnalogs:
-          "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
-        checkStock:
-          "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
+        findAnalogs: "Dobierz zamienniki DIN/GOST dla pozycji bez stanu",
+        checkStock: "Sprawdź stany i ceny zapytania przed utworzeniem oferty",
         draftSummary: "Pokaż zestawienie pozycji bieżącego szkicu oferty",
         exportQuoteDoc:
           "Przygotuj ofertę PDF/DOCX z tabelą pozycji, cenami i statusami",
@@ -380,11 +381,11 @@ const TRANSLATIONS = {
       "Przestrzeń robocza utworzona. Skonfiguruj dokumenty w ustawieniach.",
     visibilityBanner:
       "Interakcje między przestrzeniami będą respektować zasady widoczności określone przez administratora.",
-    documentsIntro:
-      "Dołącz cenniki, karty techniczne i dokumenty robocze.",
+    documentsIntro: "Dołącz cenniki, karty techniczne i dokumenty robocze.",
     documentsAfterCreate:
       "Po utworzeniu otwórz Zarządzaj przestrzenią, aby przesłać pliki PDF i arkusze kalkulacyjne.",
-    accessIntro: "Przypisz użytkowników, którzy mogą zalogować się do tej przestrzeni.",
+    accessIntro:
+      "Przypisz użytkowników, którzy mogą zalogować się do tej przestrzeni.",
     accessHint:
       "Partnerzy nigdy nie widzą danych dostawcy; dostawcy nigdy nie widzą nazw partnerów ani cen odsprzedaży.",
     noUsers: "Brak użytkowników w tej instancji.",
@@ -399,7 +400,8 @@ const TRANSLATIONS = {
       description: "Opis",
       descriptionPlaceholder: "Cel tej przestrzeni do użytku wewnętrznego…",
       profileType: "Główny typ profilu",
-      profileTypeHint: "Kształtuje domyślne instrukcje i oczekiwania dotyczące widoczności.",
+      profileTypeHint:
+        "Kształtuje domyślne instrukcje i oczekiwania dotyczące widoczności.",
       userProfile: "Profil użytkownika",
       userProfileHint:
         "Wybierz profil, aby wstępnie wypełnić prompt systemowy wartościami domyślnymi AI Prawnika. Możesz edytować tekst przed zapisaniem.",
@@ -418,11 +420,14 @@ const TRANSLATIONS = {
     },
     options: {
       suggestActions: "Zezwól AI na sugerowanie działań",
-      suggestActionsDesc: "Proaktywne sugestie opinii i dalszych kroków w czacie.",
+      suggestActionsDesc:
+        "Proaktywne sugestie opinii i dalszych kroków w czacie.",
       contextualMemory: "Włącz pamięć kontekstową",
-      contextualMemoryDesc: "Zachowaj kontekst wątku w tej sesji przestrzeni roboczej.",
+      contextualMemoryDesc:
+        "Zachowaj kontekst wątku w tej sesji przestrzeni roboczej.",
       strictMode: "Włącz tryb rygorystyczny",
-      strictModeDesc: "Odmawiaj odpowiedzi poza określonym zakresem i instrukcjami.",
+      strictModeDesc:
+        "Odmawiaj odpowiedzi poza określonym zakresem i instrukcjami.",
     },
     errors: {
       nameRequired: "Nazwa przestrzeni roboczej jest wymagana.",
@@ -444,7 +449,8 @@ const TRANSLATIONS = {
     instructions: "Instrukcje",
     files: "Pliki",
     filesEmpty: "Brak plików dołączonych do tej rozmowy.",
-    selectConversation: "Otwórz lub rozpocznij rozmowę, aby zobaczyć jej kontekst.",
+    selectConversation:
+      "Otwórz lub rozpocznij rozmowę, aby zobaczyć jej kontekst.",
     memoryPlaceholder:
       "Opcjonalne notatki poniżej bloku Spraw. Ostatnie 5 e-maili jest odświeżanych automatycznie.",
     memoryLeadsSection:
@@ -457,7 +463,8 @@ const TRANSLATIONS = {
     capacityUsed: "{{pct}}% pojemności projektu wykorzystane",
     fileLines: "{{count}} linii",
     dbPreviewTitle: "Podgląd bazy danych",
-    dbPreviewHint: "Pierwsze wiersze z załączonych arkuszy — porównaj z odpowiedziami modelu.",
+    dbPreviewHint:
+      "Pierwsze wiersze z załączonych arkuszy — porównaj z odpowiedziami modelu.",
     dbPreviewLoading: "Ładowanie wierszy…",
     dbPreviewLoadError: "Nie udało się załadować podglądu.",
     dbPreviewEmpty: "Brak danych tabelarycznych w tym pliku.",
@@ -535,7 +542,8 @@ const TRANSLATIONS = {
     cheapestAnalogsEmptyNoPricedStock:
       "W menu «Zamienniki» brak wariantów jednocześnie na stanie i z ceną z katalogu.",
     cheapestAnalogsUndo: "Cofnij",
-    cheapestAnalogsUndoTitle: "Cofnij ostatnie podstawienie «Najtańsze analogi»",
+    cheapestAnalogsUndoTitle:
+      "Cofnij ostatnie podstawienie «Najtańsze analogi»",
     cheapestAnalogsUndoSuccess:
       "Cofnięto: przywrócono pozycje sprzed «Najtańsze analogi».",
     searchPlaceholder: "DIN 931 M8x40…",
@@ -550,6 +558,10 @@ const TRANSLATIONS = {
       "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena netto/brutto, suma, waga, status, komentarz. Możesz dodać własne kolumny.",
     reviewConfirm:
       "{{count}} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę przed eksportem.",
+    exportRecognizedOnly:
+      "W ofercie tylko rozpoznane pozycje ({{count}}) — bez wierszy „wymaga weryfikacji”.",
+    recognizedFrom: "Rozpoznano z zapytania",
+    analogSubstituted: "Podstawiono zamiennik z katalogu",
     teachAll: "Do nauki",
     teachAllTitle:
       "Zapisz potwierdzone pozycje do pamięci matchingu (override + embeddingi / few-shot dla LLM)",
@@ -575,7 +587,8 @@ const TRANSLATIONS = {
   },
   bot: {
     title: "AI Prawnik — Publiczny",
-    subtitle: "Informacje o produktach i FAQ. Ceny nie są dostępne na tym kanale.",
+    subtitle:
+      "Informacje o produktach i FAQ. Ceny nie są dostępne na tym kanale.",
     partnerCta: "Zapytaj o dopasowanie partnera",
     partnerModalTitle: "Wniosek o dopasowanie partnera",
     company: "Nazwa firmy",
@@ -595,7 +608,8 @@ const TRANSLATIONS = {
     issueType: "Typ sprawy",
     orderRef: "Numer sprawy / dokumentu",
     description: "Opis sytuacji",
-    descriptionPlaceholder: "Opisz sytuację, okoliczności i oczekiwany wynik...",
+    descriptionPlaceholder:
+      "Opisz sytuację, okoliczności i oczekiwany wynik...",
     photos: "Załączniki",
     cancel: "Anuluj",
     submit: "Wyślij zgłoszenie",

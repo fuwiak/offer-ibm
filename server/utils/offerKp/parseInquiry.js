@@ -75,13 +75,22 @@ function isLikelyPriceToken(token) {
   return false;
 }
 
+// Колонка «Артикул»: голый код ShopDB (8–18 цифр) — идентификатор, не наименование.
+const BARE_ARTICLE_COL_RE = /^(?:арт\.?|art\.?|sku)?\s*[:#№]?\s*(\d{8,18})$/i;
+
 function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   if (!Array.isArray(cols) || cols.length < 2) return null;
 
+  const isBareArticle = (c) => BARE_ARTICLE_COL_RE.test(String(c || "").trim());
   const productCol =
-    cols.find((c) => lineHasHardwareSignals(c)) ||
+    cols.find((c) => !isBareArticle(c) && lineHasHardwareSignals(c)) ||
     cols.find((c) => /\bболт\b/i.test(c) && /\bm\s*\d+/i.test(c)) ||
-    cols.find((c) => /[a-zA-Zа-яА-Я]{4,}/.test(c) && !INQUIRY_UNIT_RE.test(c));
+    cols.find(
+      (c) =>
+        !isBareArticle(c) &&
+        /[a-zA-Zа-яА-Я]{4,}/.test(c) &&
+        !INQUIRY_UNIT_RE.test(c)
+    );
   if (!productCol || isInquiryMetaLine(productCol)) return null;
 
   const unitCol =
@@ -114,6 +123,12 @@ function buildInquiryChunkFromColumns(cols, tableCtx = null) {
   }
 
   const parts = [productCol.replace(/^\d+[.)]\s*/, "").trim()];
+  // Артикул рядом с наименованием → точный SKU-поиск в ShopDB.
+  const articleCol = cols.find((c) => c !== productCol && isBareArticle(c));
+  if (articleCol) {
+    const sku = String(articleCol).trim().match(BARE_ARTICLE_COL_RE)?.[1];
+    if (sku) parts.push(`арт. ${sku}`);
+  }
   if (qtyCol) {
     const qty = String(qtyCol).match(/(\d+(?:[.,]\d+)?)/)?.[1];
     if (qty && (!isLikelyPriceToken(qty) || unitCol || tableCtx?.qtyIdx >= 0)) {

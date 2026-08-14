@@ -17,9 +17,7 @@ import {
   openPdfPreviewFromBlob,
   openStoredFilePreview,
 } from "@/utils/offerKp/openQuoteFilePreview";
-import {
-  openUploadedFilePreview,
-} from "@/utils/offerKp/openUploadedPdfPreview";
+import { openUploadedFilePreview } from "@/utils/offerKp/openUploadedPdfPreview";
 import paths from "@/utils/paths";
 
 export function openQuoteBuilder(ctx) {
@@ -46,11 +44,9 @@ export const HOME_CHAT_PROMPTS = {
   findByDin: "Найди в каталоге ShopDB: болт DIN 933 М8×40",
   findBySku: "Найди товар по артикулу в каталоге purolat.com",
   makeQuote: "Сделай КП по прикреплённой заявке",
-  findAnalogs:
-    "Подбери аналоги DIN/ГОСТ для позиций, которых нет в наличии",
+  findAnalogs: "Подбери аналоги DIN/ГОСТ для позиций, которых нет в наличии",
   checkStock: "Проверь наличие и цены по заявке перед формированием КП",
-  parseInquiry:
-    "Разбери прикреплённую заявку и извлеки позиции крепежа для КП",
+  parseInquiry: "Разбери прикреплённую заявку и извлеки позиции крепежа для КП",
   draftFromList:
     "Сформируй черновик КП по списку позиций из каталога purolat.com",
   exportQuoteDoc:
@@ -59,8 +55,7 @@ export const HOME_CHAT_PROMPTS = {
 };
 
 function draftLines(quoteDraft) {
-  const lines =
-    quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
+  const lines = quoteDraft?.hardwareLines || quoteDraft?.preview?.lines || [];
   return Array.isArray(lines) ? lines : [];
 }
 
@@ -122,7 +117,10 @@ async function downloadStoredQuoteFile(file, offerKp) {
     filename,
   });
   await downloadBlob(blob, filename);
-  if (/\.pdf$/i.test(filename) && typeof offerKp.setQuotePdfUrl === "function") {
+  if (
+    /\.pdf$/i.test(filename) &&
+    typeof offerKp.setQuotePdfUrl === "function"
+  ) {
     openPdfPreviewFromBlob({
       blob,
       filename,
@@ -146,10 +144,9 @@ async function downloadStoredQuoteFile(file, offerKp) {
  * Prefer stored threadQuoteFiles; else generate from quoteDraft + downloadBlob.
  */
 async function downloadDraftFormat(format, offerKp, preferredFile = null) {
-  const existing =
-    preferredFile?.storageFilename
-      ? preferredFile
-      : pickLastQuoteFile(offerKp?.threadQuoteFiles, format);
+  const existing = preferredFile?.storageFilename
+    ? preferredFile
+    : pickLastQuoteFile(offerKp?.threadQuoteFiles, format);
 
   if (existing?.storageFilename) {
     await downloadStoredQuoteFile(existing, offerKp);
@@ -240,7 +237,11 @@ export async function runOfferKpContextAction(action, ctx = {}) {
       const text = String(action.text || "").trim();
       if (!text) return;
       if (sendCommand) {
-        sendCommand({ text, writeMode: "replace", autoSubmit: true });
+        sendCommand({
+          text,
+          writeMode: "replace",
+          autoSubmit: action.autoSubmit !== false,
+        });
         return;
       }
       if (navigate) {
@@ -384,7 +385,12 @@ export function handleOfferKpQuickActionKey(
   const prompt = HOME_CHAT_PROMPTS[key];
   if (prompt) {
     if (sendCommand) {
-      sendCommand({ text: prompt, writeMode: "replace", autoSubmit: true });
+      sendCommand({
+        text: prompt,
+        writeMode: "replace",
+        // «Составить КП» prefills only — operator attaches the file first.
+        autoSubmit: key !== "makeQuote",
+      });
       return;
     }
     if (navigate) {

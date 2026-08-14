@@ -134,6 +134,7 @@ export default function QuoteDraftTable() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [recognizedOnly, setRecognizedOnly] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [columnPromptOpen, setColumnPromptOpen] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState("");
@@ -151,6 +152,20 @@ export default function QuoteDraftTable() {
     () => lines.filter(lineNeedsReview).length,
     [lines]
   );
+  const recognizedLines = useMemo(
+    () => lines.filter((line) => !lineNeedsReview(line)),
+    [lines]
+  );
+  // Stable string — `lines` is a new array every render, so keying the
+  // confirm-reset effect on it uncheckd the box right after each click.
+  const reviewSignature = useMemo(
+    () =>
+      lines
+        .map((line, i) => (lineNeedsReview(line) ? i : null))
+        .filter((i) => i != null)
+        .join(","),
+    [lines]
+  );
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce(
@@ -166,7 +181,7 @@ export default function QuoteDraftTable() {
 
   useEffect(() => {
     setReviewConfirmed(false);
-  }, [lines]);
+  }, [reviewSignature, quoteDraft?.reference]);
 
   useEffect(() => {
     setCheapestAnalogsUndo(null);
@@ -265,14 +280,14 @@ export default function QuoteDraftTable() {
       field === "lineTotalGross"
         ? lineNetTotal(line, vatRate) * (1 + vatRate)
         : field === "unitPriceNet"
-          ? line.unitPriceNet ??
+          ? (line.unitPriceNet ??
             Number(
               ((Number(line.priceWithVat) || 0) / (1 + vatRate)).toFixed(2)
-            )
+            ))
           : field === "lineWeightKg"
             ? lineTotalWeight(line)
             : field.startsWith("custom:")
-              ? line.custom?.[field.slice(7)] ?? ""
+              ? (line.custom?.[field.slice(7)] ?? "")
               : line[field];
     if (field === "lineTotalGross") {
       const qty = Number(line.quantity) || 0;
@@ -283,11 +298,9 @@ export default function QuoteDraftTable() {
         const current = prev.hardwareLines || prev.preview?.lines || [];
         const next = current.map((l, i) =>
           i === index
-            ? recalcLine(
-                { ...l, priceWithVat, lineTotal },
-                vatRate,
-                { preserveLineTotal: true }
-              )
+            ? recalcLine({ ...l, priceWithVat, lineTotal }, vatRate, {
+                preserveLineTotal: true,
+              })
             : l
         );
         const subtotal = next.reduce(
@@ -476,7 +489,11 @@ export default function QuoteDraftTable() {
   function buildTeachPayload(line, index) {
     const sku = String(line.article || line.sku || "").trim();
     const sourceName = String(
-      line.inquiryRaw || line.requestedName || line.name || line.productName || ""
+      line.inquiryRaw ||
+        line.requestedName ||
+        line.name ||
+        line.productName ||
+        ""
     ).trim();
     if (!sourceName) return null;
     const status = String(line.status || "");
@@ -564,7 +581,11 @@ export default function QuoteDraftTable() {
         : isInStockAlternative(alt);
     const status =
       alt.status ||
-      (inStock ? "В наличии" : alt.matchType === "analog" ? "Аналог" : "Аналог");
+      (inStock
+        ? "В наличии"
+        : alt.matchType === "analog"
+          ? "Аналог"
+          : "Аналог");
     const weightFromLive =
       live && live.weightKg != null && Number.isFinite(Number(live.weightKg))
         ? Number(live.weightKg)
@@ -586,10 +607,7 @@ export default function QuoteDraftTable() {
       unitPriceNet: Number(unitPriceNet.toFixed(2)),
       priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
       weightKg,
-      status:
-        live && Number(live.stockCount) > 0
-          ? "В наличии"
-          : status,
+      status: live && Number(live.stockCount) > 0 ? "В наличии" : status,
       kpStatus:
         alt.matchType === "exact" && inStock
           ? "Точное соответствие"
@@ -754,19 +772,26 @@ export default function QuoteDraftTable() {
   }
 
   async function exportFile(kind) {
-    if (busy || (reviewCount > 0 && !reviewConfirmed)) return;
+    const useRecognizedOnly = recognizedOnly && reviewCount > 0;
+    if (busy) return;
+    if (!useRecognizedOnly && reviewCount > 0 && !reviewConfirmed) return;
+    const exportLines = useRecognizedOnly ? recognizedLines : lines;
+    if (!exportLines.length) return;
+    const exportSubtotal = useRecognizedOnly
+      ? exportLines.reduce((sum, line) => sum + lineNetTotal(line, vatRate), 0)
+      : totals.subtotal;
     setBusy(kind);
     try {
       const payload = {
         reference: quoteDraft?.reference || "DRAFT",
         customer: quoteDraft?.customer || {},
-        lines,
-        subtotal: totals.subtotal,
-        total: totals.subtotal,
+        lines: exportLines,
+        subtotal: exportSubtotal,
+        total: exportSubtotal,
         shipping: quoteDraft?.shipping || 0,
         vatRate,
         currency,
-        reviewConfirmed,
+        reviewConfirmed: useRecognizedOnly ? true : reviewConfirmed,
         createdAt: quoteDraft?.doc?.createdAt
           ? new Date(quoteDraft.doc.createdAt)
           : new Date(),
@@ -786,9 +811,9 @@ export default function QuoteDraftTable() {
         const markdown = buildQuoteMarkdown({
           reference: payload.reference,
           customer: payload.customer,
-          lines,
-          subtotal: totals.subtotal,
-          total: totals.subtotal,
+          lines: exportLines,
+          subtotal: exportSubtotal,
+          total: exportSubtotal,
           shipping: payload.shipping,
           vatRate,
           currency,
@@ -826,6 +851,10 @@ export default function QuoteDraftTable() {
       setBusy(null);
     }
   }
+
+  const exportReady = recognizedOnly
+    ? recognizedLines.length > 0
+    : reviewCount === 0 || reviewConfirmed;
 
   if (!lines.length) {
     return (
@@ -897,7 +926,8 @@ export default function QuoteDraftTable() {
               type="button"
               onClick={undoCheapestAnalogs}
               title={t("draftTable.cheapestAnalogsUndoTitle", {
-                defaultValue: "Отменить последнюю подстановку «Дешёвые аналоги»",
+                defaultValue:
+                  "Отменить последнюю подстановку «Дешёвые аналоги»",
               })}
               className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-theme-sidebar-item-hover"
             >
@@ -1086,13 +1116,43 @@ export default function QuoteDraftTable() {
               <tr key={i}>
                 <td>{i + 1}</td>
                 <td className="min-w-[120px]">
+                  {(() => {
+                    const recognized = String(
+                      line.requestedName || line.inquiryRaw || ""
+                    ).trim();
+                    const shown = String(
+                      line.name || line.productName || ""
+                    ).trim();
+                    if (!recognized || recognized === shown) return null;
+                    return (
+                      <span
+                        className="block text-[10px] text-green-700 dark:text-green-400 truncate"
+                        title={t("draftTable.recognizedFrom", {
+                          defaultValue: "Распознано из заявки",
+                        })}
+                      >
+                        {recognized}
+                      </span>
+                    );
+                  })()}
                   <input
                     type="text"
                     value={line.name || line.productName || ""}
                     onChange={(e) =>
                       handleFieldChange(i, "name", e.target.value, line)
                     }
-                    className="w-full bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none"
+                    title={
+                      line.matchType === "analog"
+                        ? t("draftTable.analogSubstituted", {
+                            defaultValue: "Подставлен аналог из каталога",
+                          })
+                        : undefined
+                    }
+                    className={`w-full bg-transparent border-b border-transparent hover:border-theme-sidebar-border focus:border-primary-button outline-none ${
+                      line.matchType === "analog"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : ""
+                    }`}
                   />
                   {line.analogOf && (
                     <span className="block text-[10px] text-amber-600">
@@ -1117,24 +1177,24 @@ export default function QuoteDraftTable() {
                         .map((a, ai) => ({ a, ai }))
                         .filter(({ a }) => a && typeof a === "object")
                         .map(({ a, ai }) => {
-                        const net = altNetPrice(a);
-                        const stock = Number(a.stockCount) || 0;
-                        const priceBit =
-                          net > 0 ? ` · ${net.toFixed(2)}` : " · нет цены";
-                        const stockBit =
-                          stock > 0
-                            ? ` · ${stock} шт`
-                            : isInStockAlternative(a)
-                              ? ""
-                              : " · нет на складе";
-                        return (
-                          <option key={ai} value={ai}>
-                            {(a.name || "").slice(0, 36)} ({a.status}
-                            {priceBit}
-                            {stockBit})
-                          </option>
-                        );
-                      })}
+                          const net = altNetPrice(a);
+                          const stock = Number(a.stockCount) || 0;
+                          const priceBit =
+                            net > 0 ? ` · ${net.toFixed(2)}` : " · нет цены";
+                          const stockBit =
+                            stock > 0
+                              ? ` · ${stock} шт`
+                              : isInStockAlternative(a)
+                                ? ""
+                                : " · нет на складе";
+                          return (
+                            <option key={ai} value={ai}>
+                              {(a.name || "").slice(0, 36)} ({a.status}
+                              {priceBit}
+                              {stockBit})
+                            </option>
+                          );
+                        })}
                     </select>
                   )}
                 </td>
@@ -1247,10 +1307,7 @@ export default function QuoteDraftTable() {
                     min={0}
                     step={0.01}
                     value={Number(
-                      (
-                        lineNetTotal(line, vatRate) *
-                        (1 + vatRate)
-                      ).toFixed(2)
+                      (lineNetTotal(line, vatRate) * (1 + vatRate)).toFixed(2)
                     )}
                     onChange={(e) =>
                       handleFieldChange(
@@ -1373,28 +1430,46 @@ export default function QuoteDraftTable() {
       </div>
 
       {reviewCount > 0 && (
-        <label className="flex items-start gap-2 px-3 py-2 border-t border-amber-500/40 bg-amber-500/10 text-[11px] text-theme-text-primary">
-          <input
-            type="checkbox"
-            checked={reviewConfirmed}
-            onChange={(event) => setReviewConfirmed(event.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            {t("draftTable.reviewConfirm", {
-              count: reviewCount,
-              defaultValue:
-                "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
-            })}
-          </span>
-        </label>
+        <div className="px-3 py-2 border-t border-amber-500/40 bg-amber-500/10 text-[11px] text-theme-text-primary flex flex-col gap-1">
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={reviewConfirmed}
+              disabled={recognizedOnly}
+              onChange={(event) => setReviewConfirmed(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              {t("draftTable.reviewConfirm", {
+                count: reviewCount,
+                defaultValue:
+                  "{{count}} поз. требуют проверки. Подтверждаю ручную проверку перед экспортом.",
+              })}
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={recognizedOnly}
+              onChange={(event) => setRecognizedOnly(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              {t("draftTable.exportRecognizedOnly", {
+                count: recognizedLines.length,
+                defaultValue:
+                  "В КП только распознанные позиции ({{count}}) — без строк «требует проверки».",
+              })}
+            </span>
+          </label>
+        </div>
       )}
 
       <div className="flex items-center gap-2 px-3 py-2 shrink-0 border-t border-theme-sidebar-border">
         <button
           type="button"
           onClick={() => exportFile("docx")}
-          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
+          disabled={!!busy || !exportReady}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-[#0c7d69] text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "docx" ? (
@@ -1407,7 +1482,7 @@ export default function QuoteDraftTable() {
         <button
           type="button"
           onClick={() => exportFile("pdf")}
-          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
+          disabled={!!busy || !exportReady}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-[#cc785c] text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "pdf" ? (
@@ -1420,7 +1495,7 @@ export default function QuoteDraftTable() {
         <button
           type="button"
           onClick={() => exportFile("xlsx")}
-          disabled={!!busy || (reviewCount > 0 && !reviewConfirmed)}
+          disabled={!!busy || !exportReady}
           className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-primary-button text-white text-xs font-medium disabled:opacity-60"
         >
           {busy === "xlsx" ? (

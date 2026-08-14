@@ -1488,8 +1488,61 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const weightKg = lineProductId
     ? await fetchProductWeightKg(lineProductId)
     : 0;
+
+  // Заявка в кг + вес единицы из ShopDB → пересчёт в штуки (кг ÷ кг/шт).
+  // Только при подтверждённой идентичности (exact/analog) и без других
+  // причин ручной проверки — иначе кг остаются как есть с NEEDS_REVIEW.
+  let finalQty = qty;
+  let finalUnit = inquiryLine.unit || "шт";
+  let finalUnitNeedsRecalc = unitNeedsRecalc;
+  let finalLineTotal = lineTotal;
+  let finalStatus = lineStatus;
+  let finalKpStatus = lineKpStatus;
+  let convertedFromKg = null;
+  const otherReviewReasons =
+    (underspecifiedSize && !authoritativeSkuHit) ||
+    (retrieverDisagreement && !authoritativeSkuHit) ||
+    variantAmbiguity ||
+    (matchGates?.gateRejected && !authoritativeSkuHit);
+  if (
+    inquiryLine.unit === "кг" &&
+    weightKg > 0 &&
+    lineProductId &&
+    (displayMatchType === "exact" || displayMatchType === "analog")
+  ) {
+    const pieces = Math.max(1, Math.round(qty / weightKg));
+    convertedFromKg = { kg: qty, unitWeightKg: weightKg, pieces };
+    finalQty = pieces;
+    finalUnit = "шт";
+    if (!otherReviewReasons) {
+      finalUnitNeedsRecalc = false;
+      if (accepted && finalStatus === STATUS.NEEDS_REVIEW) {
+        finalStatus = best.status;
+      }
+      if (finalKpStatus === "Требуется проверка" && accepted) {
+        finalKpStatus = hasPrice
+          ? isAnalog
+            ? "Предложен аналог"
+            : "Точное соответствие"
+          : "Цена по запросу";
+      }
+    }
+    finalLineTotal =
+      lineAllowPrice && hasPrice && !finalUnitNeedsRecalc
+        ? Number((unitPrice * pieces).toFixed(2))
+        : 0;
+    const recalcNoteIdx = commentParts.findIndex((c) =>
+      /Требуется уточнение пересчёта единиц/i.test(c)
+    );
+    if (recalcNoteIdx >= 0 && !finalUnitNeedsRecalc) {
+      commentParts.splice(recalcNoteIdx, 1);
+    }
+    commentParts.push(
+      `Пересчитано из веса: ${qty} кг ÷ ${weightKg} кг/шт = ${pieces} шт (вес единицы из ShopDB)`
+    );
+  }
   const lineWeightKg =
-    inquiryLine.unit === "кг" ? qty : Number((weightKg * qty).toFixed(6));
+    finalUnit === "кг" ? finalQty : Number((weightKg * finalQty).toFixed(6));
 
   const reviewReason = resolveReviewReason({
     accepted:
@@ -1497,7 +1550,7 @@ async function matchInquiryLine(inquiryLine, options = {}) {
       (displayMatchType === "exact" || displayMatchType === "analog"),
     matchType: displayMatchType,
     mismatchReason: best?.mismatchReason || null,
-    unitNeedsRecalc,
+    unitNeedsRecalc: finalUnitNeedsRecalc,
     hasPrice: lineAllowPrice && hasPrice,
     retrieverDisagreement: !!retrieverDisagreement,
     underspecified: underspecifiedSize,
@@ -1515,16 +1568,17 @@ async function matchInquiryLine(inquiryLine, options = {}) {
     requestedName: inquiryLine.name,
     article: accepted && lineProductId ? sanitizeSku(best.sku) : "",
     productId: lineProductId,
-    quantity: qty,
-    unit: inquiryLine.unit || "шт",
+    quantity: finalQty,
+    unit: finalUnit,
     priceWithVat: lineAllowPrice ? priceWithVat : 0,
     unitPriceNet: lineAllowPrice ? unitPrice : 0,
-    lineTotal: lineAllowPrice ? lineTotal : 0,
+    lineTotal: lineAllowPrice ? finalLineTotal : 0,
     weightKg,
     lineWeightKg,
-    status: lineStatus,
-    kpStatus: lineKpStatus,
-    unitNeedsRecalc,
+    status: finalStatus,
+    kpStatus: finalKpStatus,
+    unitNeedsRecalc: finalUnitNeedsRecalc,
+    convertedFromKg,
     matchType: displayMatchType,
     analogOf: accepted && lineProductId ? best.analogOf || null : null,
     similarSuggestion,

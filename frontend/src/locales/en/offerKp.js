@@ -3,7 +3,8 @@ const TRANSLATIONS = {
     name: "Offer KP",
     subtitle: "Commercial proposals",
     tagline: "Automated commercial proposal generation for fasteners",
-    distributor: "AI platform for processing fastener requests and generating proposals.",
+    distributor:
+      "AI platform for processing fastener requests and generating proposals.",
     newConversation: "New conversation",
     goHome: "Go to start screen",
   },
@@ -63,7 +64,8 @@ const TRANSLATIONS = {
     admin: "Admin — full platform control, global KPI dashboard",
     public: "Public — FAQ, product info (no pricing), partner matching",
     partner: "Partner — price list, guided quoting, order tracking",
-    internalSales: "Internal sales — all partner features + manage assigned partners",
+    internalSales:
+      "Internal sales — all partner features + manage assigned partners",
     externalSales: "External sales — commission tracking and export",
     supplier: "Supplier — requests, documents, status updates",
   },
@@ -141,7 +143,8 @@ const TRANSLATIONS = {
     workspaceCreated: "Workspace created.",
     workspaceCreateFailed: "Could not create workspace.",
     workspaceDeleted: "Workspace removed.",
-    workspaceDeleteConfirm: "Remove workspace «{{name}}»? This cannot be undone.",
+    workspaceDeleteConfirm:
+      "Remove workspace «{{name}}»? This cannot be undone.",
     workspaceMembersTitle: "Users in selected workspace",
     saveWorkspaceMembers: "Save workspace members",
     workspaceMembersSaved: "Workspace members updated.",
@@ -294,7 +297,8 @@ const TRANSLATIONS = {
         makeQuote: "Build a quote from the attached inquiry",
         findAnalogs:
           "Find DIN/GOST analogs for positions that are out of stock",
-        checkStock: "Check stock and prices for the inquiry before building the quote",
+        checkStock:
+          "Check stock and prices for the inquiry before building the quote",
         draftSummary: "Show the line summary of the current quote draft",
         exportQuoteDoc:
           "Prepare a quote PDF/DOCX with line items, prices, and stock status",
@@ -374,7 +378,8 @@ const TRANSLATIONS = {
     previous: "Previous",
     next: "Next",
     creating: "Creating…",
-    workspaceCreated: "Workspace created. Configure documents in workspace settings.",
+    workspaceCreated:
+      "Workspace created. Configure documents in workspace settings.",
     visibilityBanner:
       "Interactions between workspaces will respect the visibility and sharing rules defined by the admin in system instructions.",
     documentsIntro:
@@ -395,9 +400,11 @@ const TRANSLATIONS = {
       workspaceNameHint:
         "A dedicated secure environment; users access it only with assigned credentials.",
       description: "Description",
-      descriptionPlaceholder: "Purpose of this workspace for internal reference…",
+      descriptionPlaceholder:
+        "Purpose of this workspace for internal reference…",
       profileType: "Primary profile type",
-      profileTypeHint: "Shapes default instructions and visibility expectations.",
+      profileTypeHint:
+        "Shapes default instructions and visibility expectations.",
       userProfile: "User profile",
       userProfileHint:
         "Pick a profile to pre-fill the system prompt with Offer KP defaults. You can edit the text before saving.",
@@ -407,8 +414,7 @@ const TRANSLATIONS = {
       systemInstructions: "System Instructions",
       systemInstructionsHint:
         "Describe the role of the AI, its objectives, the tone to adopt, and what data must stay isolated.",
-      systemInstructionsPlaceholder:
-        "You are the Offer KP assistant for…",
+      systemInstructionsPlaceholder: "You are the Offer KP assistant for…",
       workspaceModels: "Workspace model(s)",
       workspaceModelsPlaceholder: "Search or select workspace models…",
       addModelHint: "Add:",
@@ -417,11 +423,14 @@ const TRANSLATIONS = {
     },
     options: {
       suggestActions: "Allow AI to suggest actions",
-      suggestActionsDesc: "Proactive quote, order, and follow-up suggestions in chat.",
+      suggestActionsDesc:
+        "Proactive quote, order, and follow-up suggestions in chat.",
       contextualMemory: "Enable contextual memory",
-      contextualMemoryDesc: "Retain thread context within this workspace session.",
+      contextualMemoryDesc:
+        "Retain thread context within this workspace session.",
       strictMode: "Enable strict mode",
-      strictModeDesc: "Refuse answers outside the defined scope and instructions.",
+      strictModeDesc:
+        "Refuse answers outside the defined scope and instructions.",
     },
     errors: {
       nameRequired: "Workspace name is required.",
@@ -446,8 +455,10 @@ const TRANSLATIONS = {
     selectConversation: "Open or start a conversation to see its context.",
     memoryPlaceholder:
       "Optional notes below the Leads inbox block. The last 5 inbound emails are refreshed automatically.",
-    memoryLeadsSection: "Last 5 messages from Leads inbox (read-only, auto-refreshed).",
-    instructionsPlaceholder: "Instructions that apply only to this conversation…",
+    memoryLeadsSection:
+      "Last 5 messages from Leads inbox (read-only, auto-refreshed).",
+    instructionsPlaceholder:
+      "Instructions that apply only to this conversation…",
     onlyYou: "Only you",
     editSection: "Edit {{section}}",
     save: "Save",
@@ -455,7 +466,8 @@ const TRANSLATIONS = {
     capacityUsed: "{{pct}}% of project capacity used",
     fileLines: "{{count}} lines",
     dbPreviewTitle: "Database preview",
-    dbPreviewHint: "First rows from attached spreadsheets — compare with the model's answers.",
+    dbPreviewHint:
+      "First rows from attached spreadsheets — compare with the model's answers.",
     dbPreviewLoading: "Loading rows…",
     dbPreviewLoadError: "Could not load preview.",
     dbPreviewEmpty: "No tabular data in this file.",
@@ -499,7 +511,8 @@ const TRANSLATIONS = {
     parsing: "Recognized {{count}} line(s). Matching against catalog…",
     searching: "ShopDB search: line {{current}} / {{total}} — computing",
     matched: "Matching complete",
-    liveHint: "Results are still being computed — the table will update as lines finish.",
+    liveHint:
+      "Results are still being computed — the table will update as lines finish.",
     waitTable: "Quote draft will appear as lines are matched…",
   },
   draftTable: {
@@ -518,8 +531,7 @@ const TRANSLATIONS = {
     cheapestAnalogsTitle:
       "One click: apply the cheapest in-stock priced option from each line’s Alternatives menu",
     cheapestAnalogsSuccess: "Applied in-stock priced alternatives: {{count}}",
-    cheapestAnalogsEmpty:
-      "No lines to apply analogs to.",
+    cheapestAnalogsEmpty: "No lines to apply analogs to.",
     cheapestAnalogsEmptyOutOfStock:
       "All lines are out of stock — nothing to substitute from in-stock analogs.",
     cheapestAnalogsEmptyAlreadyBest:
@@ -544,15 +556,17 @@ const TRANSLATIONS = {
       "Edit any field: name, SKU, qty, unit, price excl./incl. VAT, total, weight, status, comment. You can add custom columns.",
     reviewConfirm:
       "{{count}} line(s) need review. I confirm manual checks before export.",
+    exportRecognizedOnly:
+      "Export only recognized lines ({{count}}) — skip lines needing review.",
+    recognizedFrom: "Recognized from the inquiry",
+    analogSubstituted: "Catalog analog substituted",
     teachAll: "Teach model",
     teachAllTitle:
       "Save confirmed lines into matching memory (override + embeddings / LLM few-shot)",
     teachLine: "Teach",
     teachLineTitle: "Teach matching (override + embeddings)",
-    teachSuccess:
-      "Taught {{count}}. Matching memory: {{total}} examples.",
-    teachEmpty:
-      "Nothing to teach: need inquiry text and SKU.",
+    teachSuccess: "Taught {{count}}. Matching memory: {{total}} examples.",
+    teachEmpty: "Nothing to teach: need inquiry text and SKU.",
     teachError: "Could not save learning example.",
   },
   modelLoad: {
@@ -569,7 +583,8 @@ const TRANSLATIONS = {
   },
   bot: {
     title: "Offer KP — Public",
-    subtitle: "Product information and FAQ. Pricing is not available on this channel.",
+    subtitle:
+      "Product information and FAQ. Pricing is not available on this channel.",
     partnerCta: "Request partner matching",
     partnerModalTitle: "Partner matching request",
     company: "Company name",
@@ -594,7 +609,8 @@ const TRANSLATIONS = {
     cancel: "Cancel",
     submit: "Submit ticket",
     submitted: "Ticket created",
-    submittedDetail: "Your after-sales ticket has been created and the admin team notified.",
+    submittedDetail:
+      "Your after-sales ticket has been created and the admin team notified.",
   },
   quote: {
     stepProduct: "Select product",
