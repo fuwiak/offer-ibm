@@ -194,11 +194,25 @@ function queryCacheSet(text, vector) {
   );
 }
 
+// Proces-wide mutex na wywołania ONNX: równoległe linie zapytania nie mogą
+// fan-outować wielu sesji embed naraz (SEGV signal 11 na Lainey bez swapu).
+// Dzięki temu matchInquiryLines może bezpiecznie podnieść concurrency linii —
+// SQL/ES idą równolegle, a embed zawsze pojedynczo.
+let embedGate = Promise.resolve();
+function withEmbedLock(task) {
+  const run = embedGate.then(task, task);
+  embedGate = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
 /** Embed query text with cache (model + normalized-query hash). */
 async function embedQueryTextCached(active, text) {
   const cached = queryCacheGet(text);
   if (cached) return cached;
-  const vector = await active.embedTextInput(text);
+  const vector = await withEmbedLock(() => active.embedTextInput(text));
   if (vector?.length) queryCacheSet(text, vector);
   return vector;
 }
@@ -244,7 +258,7 @@ async function computeEmbeddingSimilarities(queryText, candidates) {
 
   try {
     if (toEmbed.length) {
-      const vectors = await active.embedChunks(toEmbed);
+      const vectors = await withEmbedLock(() => active.embedChunks(toEmbed));
       if (Array.isArray(vectors)) {
         toEmbedRows.forEach((c, idx) => {
           if (vectors[idx]) cacheSet(c.id, c.name, vectors[idx]);
@@ -284,7 +298,7 @@ async function embedPassageTexts(texts = []) {
   const prefix = active.embeddingPrefix || "";
   const payloads = texts.map((text) => `${prefix}${String(text || "").trim()}`);
   try {
-    const vectors = await active.embedChunks(payloads);
+    const vectors = await withEmbedLock(() => active.embedChunks(payloads));
     return Array.isArray(vectors) ? vectors : null;
   } catch (error) {
     embedderDisabled = true;

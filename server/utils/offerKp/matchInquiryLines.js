@@ -361,10 +361,11 @@ function resolveMatchConcurrency(lineCount) {
   if (Number.isFinite(envCap) && envCap > 0) {
     return Math.max(1, Math.min(16, envCap));
   }
-  // Default 1 on tight hosts: parallel lines fan out ONNX embeds and caused
-  // offer-kp SEGV (signal 11) mid-stream on Lainey. Raise via env if RAM OK.
+  // Parallel ONNX embeds SEGV-owały na Lainey (signal 11) — embed jest teraz
+  // serializowany globalnym mutexem w embeddingSimilarity.js (withEmbedLock),
+  // więc linie mogą iść równolegle: SQL/ES/Redis konkurentnie, embed po kolei.
   if (lineCount <= 1) return 1;
-  return 1;
+  return 3;
 }
 
 /**
