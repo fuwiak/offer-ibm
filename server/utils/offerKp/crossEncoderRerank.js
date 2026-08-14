@@ -7,6 +7,7 @@ const { pipeline } = require("stream/promises");
 const {
   pinTransformersCacheEnv,
 } = require("../EmbeddingEngines/native/modelDiskCache");
+const { withOnnxLock } = require("../EmbeddingEngines/native/onnxLock");
 
 /**
  * ЭКСПЕРИМЕНТАЛЬНЫЙ cross-encoder reranker поверх уже найденных кандидатов
@@ -213,7 +214,10 @@ async function computeRerankScores(queryText, candidates) {
       padding: true,
       truncation: true,
     });
-    const logits = await runModel(modelBundle, inputs);
+    // Same process-wide ONNX mutex as NativeEmbedder: a reranker session
+    // running concurrently with an embed session SEGVs node on Lainey
+    // (offer-kp killed signal 11 mid-stream → client "network error").
+    const logits = await withOnnxLock(() => runModel(modelBundle, inputs));
     const scores = logits.map(sigmoid);
 
     const result = new Map();

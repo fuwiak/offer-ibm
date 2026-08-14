@@ -261,7 +261,10 @@ class NativeEmbedder {
         }
 
         // Local-only miss (sidecar gap) → one remote pass for JSON only.
-        if (this.modelDownloaded || inspectCachedModel(this.cacheDir, this.model).complete) {
+        if (
+          this.modelDownloaded ||
+          inspectCachedModel(this.cacheDir, this.model).complete
+        ) {
           this.log(
             `cache onnx present but load failed (${fetchResponse.error?.message || "unknown"}) — fetching sidecars from Hub`
           );
@@ -367,7 +370,13 @@ class NativeEmbedder {
         continue;
       }
 
-      data = JSON.stringify(output.tolist());
+      // After an ONNX-level failure (std::bad_array_new_length) transformers
+      // can hand back tensors with BigInt dims — plain stringify then throws
+      // "Do not know how to serialize a BigInt", masking the real error and
+      // permanently disabling the embedder for the process. Convert instead.
+      data = JSON.stringify(output.tolist(), (_key, value) =>
+        typeof value === "bigint" ? Number(value) : value
+      );
       await this.#writeToTempfile(tmpFilePath, data);
       this.log(`Embedded Chunk Group ${idx + 1} of ${chunkLen}`);
       if (chunkLen - 1 !== idx) await this.#writeToTempfile(tmpFilePath, ",");

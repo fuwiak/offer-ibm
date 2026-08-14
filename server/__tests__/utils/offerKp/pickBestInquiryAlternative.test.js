@@ -159,10 +159,10 @@ describe("resolveMatchConcurrency", () => {
     }
   });
 
-  it("defaults to one inquiry line to avoid ONNX SEGV under RAM pressure", () => {
+  it("defaults to 3 parallel lines — ONNX embeds are serialized by the process-wide lock", () => {
     delete process.env.OFFER_KP_MATCH_CONCURRENCY;
     expect(resolveMatchConcurrency(1)).toBe(1);
-    expect(resolveMatchConcurrency(20)).toBe(1);
+    expect(resolveMatchConcurrency(20)).toBe(3);
   });
 
   it("honors OFFER_KP_MATCH_CONCURRENCY when set", () => {
