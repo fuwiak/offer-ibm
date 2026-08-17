@@ -52,7 +52,8 @@ ID товара (shop_product.id): 42
     });
     expect(md).toContain("PUR-20260101-01");
     expect(md).toContain("Rod");
-    expect(md).toContain("НДС 23%");
+    expect(md).toContain("**Итого:**");
+    expect(md).not.toContain("НДС");
   });
 
   it("buildQuoteArtifactsSummary lists file locations", () => {

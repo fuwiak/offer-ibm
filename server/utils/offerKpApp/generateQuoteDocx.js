@@ -111,27 +111,31 @@ function lineArticle(ql) {
   return ql.article || ql.sku || "—";
 }
 
-function lineUnitNet(ql, vatRate) {
-  const qty = Number(ql.quantity) || 0;
-  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
-    return Number(ql.unitPriceNet);
-  }
+function lineUnitGross(ql) {
   if (ql.priceWithVat != null && Number.isFinite(Number(ql.priceWithVat))) {
-    return Number(ql.priceWithVat) / (1 + vatRate);
+    return Number(ql.priceWithVat);
   }
   if (ql.unitPrice != null && Number.isFinite(Number(ql.unitPrice))) {
     return Number(ql.unitPrice);
   }
+  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
+    return Number(ql.unitPriceNet);
+  }
+  const qty = Number(ql.quantity) || 0;
   const total = Number(ql.lineTotal) || 0;
   return qty > 0 ? total / qty : 0;
 }
 
-function lineNetTotal(ql, vatRate) {
+function lineGrossTotal(ql) {
+  const qty = Number(ql.quantity) || 0;
+  const unit = lineUnitGross(ql);
+  if (unit > 0 && qty > 0) {
+    return Number((unit * qty).toFixed(2));
+  }
   if (ql.lineTotal != null && Number.isFinite(Number(ql.lineTotal))) {
     return Number(ql.lineTotal);
   }
-  const qty = Number(ql.quantity) || 0;
-  return qty * lineUnitNet(ql, vatRate);
+  return 0;
 }
 
 /**
@@ -152,21 +156,12 @@ async function generateQuoteDocx(quoteData) {
   const localeDefaults = localeForCountry(customer.country);
   const currency = quoteData.currency || localeDefaults.currency;
   const locale = localeDefaults.locale;
-  const vatRate =
-    typeof quoteData.vatRate === "number"
-      ? quoteData.vatRate
-      : typeof docOverrides.vatRate === "number"
-        ? docOverrides.vatRate
-        : localeDefaults.vatRate;
   const money = makeMoneyFormatter(currency, locale);
-
   const computedSubtotal =
     Number(subtotal) ||
-    lines.reduce((sum, ql) => sum + lineNetTotal(ql, vatRate), 0);
+    lines.reduce((sum, ql) => sum + lineGrossTotal(ql), 0);
   const ship = Number(shipping) || 0;
-  const net = computedSubtotal + ship;
-  const vat = net * vatRate;
-  const grandTotal = net + vat;
+  const grandTotal = computedSubtotal + ship;
 
   const brandCompany = docOverrides.brandCompany || QUOTE_BRAND.companyName;
   const brandTagline = docOverrides.brandTagline || QUOTE_BRAND.tagline;
@@ -304,7 +299,7 @@ async function generateQuoteDocx(quoteData) {
         { width: wQty, fill: headerFill, borders: NO_BORDERS }
       ),
       cell(
-        para(run("Цена/шт", { bold: true, size: 16, color: WHITE }), {
+        para(run("Цена с НДС", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
         { width: wPrice, fill: headerFill, borders: NO_BORDERS }
@@ -320,8 +315,8 @@ async function generateQuoteDocx(quoteData) {
 
   const itemRows = lines.map((ql, i) => {
     const qty = Number(ql.quantity) || 0;
-    const unit = lineUnitNet(ql, vatRate);
-    const sum = lineNetTotal(ql, vatRate);
+    const unit = lineUnitGross(ql);
+    const sum = lineGrossTotal(ql);
     const fill = i % 2 === 1 ? LIGHT : WHITE;
     return new TableRow({
       children: [
@@ -391,8 +386,7 @@ async function generateQuoteDocx(quoteData) {
     rows: [
       totalsRow("Подытог", money(computedSubtotal)),
       totalsRow("Доставка", money(ship)),
-      totalsRow(`НДС (${Math.round(vatRate * 100)}%)`, money(vat)),
-      totalsRow("Итого с НДС", money(grandTotal), {
+      totalsRow("Итого", money(grandTotal), {
         bold: true,
         big: true,
         color: WHITE,

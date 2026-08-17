@@ -1,6 +1,8 @@
 /**
  * Rebuild KP markdown from editable line items (matches server auto-quote layout).
  */
+import { lineGrossTotal, lineUnitGross } from "./quoteLineTotals";
+
 export function buildQuoteMarkdown({
   reference = "DRAFT",
   customer = {},
@@ -9,34 +11,33 @@ export function buildQuoteMarkdown({
   shipping = 0,
   total = 0,
   currency = "RUB",
-  vatRate = 0.2,
 }) {
-  const vatPct = Math.round(vatRate * 100);
-  const taxableNet = Number(total) + Number(shipping);
-  const vatAmount = Number((taxableNet * vatRate).toFixed(2));
   const rows = (Array.isArray(lines) ? lines : [])
     .filter((l) => l && typeof l === "object")
     .map((l, i) => {
       const name = l.name || l.productName || "";
       const qty = l.quantity || 1;
-      const netUnit = Number(
-        l.unitPriceNet ??
-          l.unitPrice ??
-          (qty > 0 ? (Number(l.lineTotal) || 0) / qty : 0)
-      );
-      const price = Number(l.priceWithVat ?? netUnit * (1 + vatRate));
-      const netSum = Number(l.lineTotal ?? qty * netUnit);
-      const sum = Number((netSum * (1 + vatRate)).toFixed(2));
+      const price = lineUnitGross(l);
+      const sum = lineGrossTotal(l);
       return `| ${i + 1} | ${name} | ${l.article || l.sku || ""} | ${qty} | ${l.unit || "шт"} | ${price.toFixed(2)} ${currency} | ${sum.toFixed(2)} ${currency} | ${l.status || "Требует проверки"} | ${l.comment || ""} |`;
     })
     .join("\n");
 
-  // Explicit `customer: null` bypasses default `= {}`.
   const safeCustomer =
     customer && typeof customer === "object" ? customer : {};
   const customerLine = [safeCustomer.name, safeCustomer.country]
     .filter(Boolean)
     .join(" · ");
+
+  const computedSubtotal =
+    Number(subtotal) ||
+    Number(total) ||
+    (Array.isArray(lines) ? lines : []).reduce(
+      (sum, line) => sum + lineGrossTotal(line),
+      0
+    );
+  const ship = Number(shipping) || 0;
+  const grandTotal = computedSubtotal + ship;
 
   return `# Коммерческое предложение ${reference}
 
@@ -49,9 +50,8 @@ export function buildQuoteMarkdown({
 |---|--------------|---------|--------|-----|------------|-------|--------|-------------|
 ${rows || "| — | — | — | — | — | — | — | — | — |"}
 
-**Подытог:** ${Number(subtotal).toFixed(2)} ${currency}  
-**Доставка:** ${Number(shipping).toFixed(2)} ${currency}  
-**НДС ${vatPct}%:** ${vatAmount.toFixed(2)} ${currency}  
-**Итого с НДС:** ${(taxableNet + vatAmount).toFixed(2)} ${currency}
+**Подытог:** ${computedSubtotal.toFixed(2)} ${currency}  
+**Доставка:** ${ship.toFixed(2)} ${currency}  
+**Итого:** ${grandTotal.toFixed(2)} ${currency}
 `;
 }

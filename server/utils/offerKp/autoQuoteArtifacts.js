@@ -138,7 +138,6 @@ function buildMarkdownQuote({
   vatRate,
 }) {
   const { website, companyName, catalogLabel } = QUOTE_BRAND;
-  const vatPct = Math.round(vatRate * 100);
   const { resolveKpStatus, resolveKpComment } = require("./inquiryDraftPrompt");
   const cell = (v) => String(v ?? "—").replace(/\|/g, "/") || "—";
 
@@ -188,8 +187,7 @@ ${rows}
 ${note}
 **Сумма рассчитанных позиций:** ${stats.calculatedSubtotal.toFixed(2)} ${currency}  
 **Доставка:** ${shipping.toFixed(2)} ${currency}  
-**НДС ${vatPct}%:** ${(stats.calculatedSubtotal * vatRate).toFixed(2)} ${currency}  
-**Итог с НДС:** ${(stats.calculatedSubtotal * (1 + vatRate) + shipping).toFixed(2)} ${currency}
+**Итого:** ${(stats.calculatedSubtotal + shipping).toFixed(2)} ${currency}
 
 ## Условия
 

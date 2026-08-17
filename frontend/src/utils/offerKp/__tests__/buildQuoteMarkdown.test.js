@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildQuoteMarkdown } from "../buildQuoteMarkdown";
 
-describe("buildQuoteMarkdown VAT contract", () => {
-  it("keeps line/subtotal net and adds VAT exactly once", () => {
+describe("buildQuoteMarkdown VAT-inclusive contract", () => {
+  it("uses gross line prices and does not add VAT on top", () => {
     const markdown = buildQuoteMarkdown({
       reference: "KP-TEST",
       lines: [
@@ -11,19 +11,18 @@ describe("buildQuoteMarkdown VAT contract", () => {
           quantity: 2,
           unitPriceNet: 100,
           priceWithVat: 120,
-          lineTotal: 200,
+          lineTotal: 240,
           status: "В наличии",
         },
       ],
-      subtotal: 200,
-      total: 200,
-      vatRate: 0.2,
+      subtotal: 240,
+      total: 240,
     });
 
     expect(markdown).toContain("120.00 RUB | 240.00 RUB");
-    expect(markdown).toContain("**Подытог:** 200.00 RUB");
-    expect(markdown).toContain("**НДС 20%:** 40.00 RUB");
-    expect(markdown).toContain("**Итого с НДС:** 240.00 RUB");
-    expect(markdown).not.toContain("288.00");
+    expect(markdown).toContain("**Подытог:** 240.00 RUB");
+    expect(markdown).toContain("**Итого:** 240.00 RUB");
+    expect(markdown).not.toContain("**НДС");
+    expect(markdown).not.toContain("Итого с НДС");
   });
 });

@@ -21,6 +21,12 @@ import { OFFER_KP_QUOTE_STATUSES } from "@/utils/offerKp/quoteFlow";
 import { buildQuoteMarkdown } from "@/utils/offerKp/buildQuoteMarkdown";
 import { localeForCountry } from "@/utils/offerKp/quoteBrand";
 import {
+  lineGrossTotal,
+  lineUnitGross,
+  lineUnitNetReference,
+  recalcLineGross,
+} from "@/utils/offerKp/quoteLineTotals";
+import {
   altNetPrice,
   isInStockAlternative,
   resolveCheapestAnalogsForLines,
@@ -59,18 +65,8 @@ function statusClass(status) {
 const COMMON_UNITS = ["шт", "кг", "м", "компл", "уп"];
 
 function recalcLine(line, vatRate, { preserveLineTotal = false } = {}) {
-  const qty = Number(line.quantity) || 0;
-  const priceWithVat = Number(line.priceWithVat) || 0;
-  const unitPriceNet = priceWithVat / (1 + vatRate);
-  const next = {
-    ...line,
-    quantity: qty,
-    priceWithVat,
-    unitPriceNet: Number(unitPriceNet.toFixed(2)),
-  };
-  if (!preserveLineTotal) {
-    next.lineTotal = Number((qty * unitPriceNet).toFixed(2));
-  }
+  const next = recalcLineGross(line, vatRate, { preserveLineTotal });
+  const qty = Number(next.quantity) || 0;
   if (line.unit === "кг") {
     next.lineWeightKg = qty;
   } else if (
@@ -99,15 +95,6 @@ function lineNeedsReview(line = {}) {
       /требует|требуется|needs review/i.test(status) ||
       ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
   );
-}
-
-function lineNetTotal(line = {}, vatRate) {
-  if (line.lineTotal != null && Number.isFinite(Number(line.lineTotal))) {
-    return Number(line.lineTotal);
-  }
-  const quantity = Number(line.quantity) || 0;
-  const grossUnitPrice = Number(line.priceWithVat) || 0;
-  return Number(((quantity * grossUnitPrice) / (1 + vatRate)).toFixed(2));
 }
 
 function lineTotalWeight(line = {}) {
@@ -169,15 +156,15 @@ export default function QuoteDraftTable() {
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce(
-      (sum, line) => sum + lineNetTotal(line, vatRate),
+      (sum, line) => sum + lineGrossTotal(line),
       0
     );
     const totalWeightKg = lines.reduce(
       (sum, line) => sum + lineTotalWeight(line),
       0
     );
-    return { subtotal, totalWeightKg, grossTotal: subtotal * (1 + vatRate) };
-  }, [lines, vatRate]);
+    return { subtotal, totalWeightKg, grossTotal: subtotal };
+  }, [lines]);
 
   useEffect(() => {
     setReviewConfirmed(false);
@@ -196,7 +183,6 @@ export default function QuoteDraftTable() {
       subtotal: totals.subtotal,
       total: totals.subtotal,
       shipping: quoteDraft?.shipping || 0,
-      vatRate,
       currency,
     });
     setDocPreview((prev) => ({
@@ -227,7 +213,7 @@ export default function QuoteDraftTable() {
           i === index ? recalcLine({ ...l, ...patch }, vatRate, recalcOpts) : l
         );
         const subtotal = next.reduce(
-          (sum, line) => sum + lineNetTotal(line, vatRate),
+          (sum, line) => sum + lineGrossTotal(line),
           0
         );
         const totalWeightKg = next.reduce(
@@ -278,12 +264,9 @@ export default function QuoteDraftTable() {
   const handleFieldChange = (index, field, value, line, opts = {}) => {
     const old =
       field === "lineTotalGross"
-        ? lineNetTotal(line, vatRate) * (1 + vatRate)
+        ? lineGrossTotal(line)
         : field === "unitPriceNet"
-          ? (line.unitPriceNet ??
-            Number(
-              ((Number(line.priceWithVat) || 0) / (1 + vatRate)).toFixed(2)
-            ))
+          ? lineUnitNetReference(line, vatRate)
           : field === "lineWeightKg"
             ? lineTotalWeight(line)
             : field.startsWith("custom:")
@@ -293,7 +276,7 @@ export default function QuoteDraftTable() {
       const qty = Number(line.quantity) || 0;
       const gross = Number(value) || 0;
       const priceWithVat = qty > 0 ? Number((gross / qty).toFixed(2)) : 0;
-      const lineTotal = Number((gross / (1 + vatRate)).toFixed(2));
+      const lineTotal = Number(gross.toFixed(2));
       setQuoteDraft((prev) => {
         const current = prev.hardwareLines || prev.preview?.lines || [];
         const next = current.map((l, i) =>
@@ -304,7 +287,7 @@ export default function QuoteDraftTable() {
             : l
         );
         const subtotal = next.reduce(
-          (sum, row) => sum + lineNetTotal(row, vatRate),
+          (sum, row) => sum + lineGrossTotal(row),
           0
         );
         const totalWeightKg = next.reduce(
@@ -458,7 +441,7 @@ export default function QuoteDraftTable() {
   }
 
   function addFromSearch(product) {
-    const unitPriceNet = Number(product.price) || 0;
+    const priceWithVat = Number(product.price) || 0;
     const line = recalcLine(
       {
         ...EMPTY_LINE,
@@ -467,7 +450,7 @@ export default function QuoteDraftTable() {
         productId: String(product.id),
         productUrl:
           product.productUrl || product.url || product.product_url || undefined,
-        priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
+        priceWithVat,
         status: "Требует проверки",
       },
       vatRate
@@ -603,9 +586,12 @@ export default function QuoteDraftTable() {
       productId: live?.productId || alt.productId || undefined,
       productUrl: alt.productUrl || alt.url || undefined,
       matchType: alt.matchType || "analog",
-      // ShopDB alt.price is net — keep both fields in sync for the table.
-      unitPriceNet: Number(unitPriceNet.toFixed(2)),
-      priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
+      // Цена из каталога уже с НДС.
+      unitPriceNet: lineUnitNetReference(
+        { priceWithVat: Number(unitPriceNet.toFixed(2)) },
+        vatRate
+      ),
+      priceWithVat: Number(unitPriceNet.toFixed(2)),
       weightKg,
       status: live && Number(live.stockCount) > 0 ? "В наличии" : status,
       kpStatus:
@@ -716,7 +702,7 @@ export default function QuoteDraftTable() {
         );
       });
       const subtotal = next.reduce(
-        (sum, line) => sum + lineNetTotal(line, vatRate),
+        (sum, line) => sum + lineGrossTotal(line),
         0
       );
       const totalWeightKg = next.reduce(
@@ -778,7 +764,7 @@ export default function QuoteDraftTable() {
     const exportLines = useRecognizedOnly ? recognizedLines : lines;
     if (!exportLines.length) return;
     const exportSubtotal = useRecognizedOnly
-      ? exportLines.reduce((sum, line) => sum + lineNetTotal(line, vatRate), 0)
+      ? exportLines.reduce((sum, line) => sum + lineGrossTotal(line), 0)
       : totals.subtotal;
     setBusy(kind);
     try {
@@ -1264,15 +1250,7 @@ export default function QuoteDraftTable() {
                     type="number"
                     min={0}
                     step={0.01}
-                    value={
-                      line.unitPriceNet ??
-                      Number(
-                        (
-                          (Number(line.priceWithVat) || 0) /
-                          (1 + vatRate)
-                        ).toFixed(2)
-                      )
-                    }
+                    value={lineUnitNetReference(line, vatRate)}
                     onChange={(e) =>
                       handleFieldChange(
                         i,
@@ -1306,9 +1284,7 @@ export default function QuoteDraftTable() {
                     type="number"
                     min={0}
                     step={0.01}
-                    value={Number(
-                      (lineNetTotal(line, vatRate) * (1 + vatRate)).toFixed(2)
-                    )}
+                    value={Number(lineGrossTotal(line).toFixed(2))}
                     onChange={(e) =>
                       handleFieldChange(
                         i,

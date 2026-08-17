@@ -6,6 +6,11 @@ import OfferKp from "@/models/offerKp";
 import { saveAs } from "file-saver";
 import { AUTH_TOKEN } from "@/utils/constants";
 import { QUOTE_BRAND, localeForCountry } from "@/utils/offerKp/quoteBrand";
+import {
+  lineGrossTotal,
+  lineUnitGross,
+  recalcLineGross,
+} from "@/utils/offerKp/quoteLineTotals";
 import { resolveProductUrl } from "@/utils/offerKp/resolveProductUrl";
 import showToast from "@/utils/toast";
 
@@ -31,42 +36,6 @@ function lineNeedsReview(line = {}) {
       /требует|требуется|needs review/i.test(status) ||
       ["none", "size_mismatch", "spec_mismatch"].includes(line.matchType)
   );
-}
-
-function lineNetTotal(line = {}, vatRate) {
-  if (line.lineTotal != null && Number.isFinite(Number(line.lineTotal))) {
-    return Number(line.lineTotal);
-  }
-  const quantity = Number(line.quantity) || 0;
-  const grossUnitPrice = Number(line.priceWithVat) || 0;
-  return Number(((quantity * grossUnitPrice) / (1 + vatRate)).toFixed(2));
-}
-
-function lineUnitNet(line = {}, vatRate) {
-  const qty = Number(line.quantity) || 0;
-  if (line.unitPriceNet != null && Number.isFinite(Number(line.unitPriceNet))) {
-    return Number(line.unitPriceNet);
-  }
-  if (line.priceWithVat != null && Number.isFinite(Number(line.priceWithVat))) {
-    return Number((Number(line.priceWithVat) / (1 + vatRate)).toFixed(2));
-  }
-  return qty > 0 ? Number((lineNetTotal(line, vatRate) / qty).toFixed(2)) : 0;
-}
-
-function recalcLine(line, vatRate, { preserveLineTotal = false } = {}) {
-  const qty = Number(line.quantity) || 0;
-  const priceWithVat = Number(line.priceWithVat) || 0;
-  const unitPriceNet = priceWithVat / (1 + vatRate);
-  const next = {
-    ...line,
-    quantity: qty,
-    priceWithVat,
-    unitPriceNet: Number(unitPriceNet.toFixed(2)),
-  };
-  if (!preserveLineTotal) {
-    next.lineTotal = Number((qty * unitPriceNet).toFixed(2));
-  }
-  return next;
 }
 
 function defaultDoc() {
@@ -121,12 +90,7 @@ export default function QuotePreview() {
   const {
     currency,
     locale,
-    vatRate: countryVat,
   } = localeForCountry(customer.country);
-  const vatRate =
-    doc.vatRate != null && Number.isFinite(Number(doc.vatRate))
-      ? Number(doc.vatRate)
-      : countryVat;
 
   const reviewCount = useMemo(
     () => lines.filter(lineNeedsReview).length,
@@ -139,7 +103,7 @@ export default function QuotePreview() {
   const syncLines = useCallback(
     (nextLines) => {
       const nextSubtotal = nextLines.reduce(
-        (sum, line) => sum + lineNetTotal(line, vatRate),
+        (sum, line) => sum + lineGrossTotal(line),
         0
       );
       setQuoteDraft((prev) => ({
@@ -154,7 +118,7 @@ export default function QuotePreview() {
         },
       }));
     },
-    [setQuoteDraft, vatRate]
+    [setQuoteDraft]
   );
 
   if (!preview && !lines.length) {
@@ -176,13 +140,11 @@ export default function QuotePreview() {
       .replace(/[\u202f\u00a0]/g, " ");
 
   const subtotal = lines.reduce(
-    (sum, line) => sum + lineNetTotal(line, vatRate),
+    (sum, line) => sum + lineGrossTotal(line),
     0
   );
   const shipping = Number(quoteDraft.shipping ?? preview?.shipping ?? 0) || 0;
-  const net = subtotal + shipping;
-  const vat = net * vatRate;
-  const grandTotal = net + vat;
+  const grandTotal = subtotal + shipping;
 
   const createdAt = doc.createdAt ? new Date(doc.createdAt) : new Date();
   const validUntil = doc.validUntil
@@ -221,7 +183,7 @@ export default function QuotePreview() {
 
   function updateLine(index, patch, opts) {
     const next = lines.map((l, i) =>
-      i === index ? recalcLine({ ...l, ...patch }, vatRate, opts) : l
+      i === index ? recalcLineGross({ ...l, ...patch }, 0.2, opts) : l
     );
     syncLines(next);
   }
@@ -248,19 +210,17 @@ export default function QuotePreview() {
       return;
     }
     if (field === "unitNet") {
-      const unitNet = Number(value) || 0;
-      const priceWithVat = Number((unitNet * (1 + vatRate)).toFixed(2));
-      updateLine(index, { priceWithVat, unitPriceNet: unitNet });
+      const priceWithVat = Number(value) || 0;
+      updateLine(index, { priceWithVat });
       return;
     }
     if (field === "lineTotal") {
       const qty = Number(line.quantity) || 0;
       const lineTotal = Number(value) || 0;
-      const unitNet = qty > 0 ? lineTotal / qty : 0;
-      const priceWithVat = Number((unitNet * (1 + vatRate)).toFixed(2));
+      const priceWithVat = qty > 0 ? Number((lineTotal / qty).toFixed(2)) : 0;
       updateLine(
         index,
-        { priceWithVat, unitPriceNet: Number(unitNet.toFixed(2)), lineTotal },
+        { priceWithVat, lineTotal },
         { preserveLineTotal: true }
       );
       return;
@@ -288,7 +248,6 @@ export default function QuotePreview() {
     shipping,
     subtotal,
     total: subtotal,
-    vatRate,
     currency,
     reviewConfirmed,
     createdAt,
@@ -563,15 +522,15 @@ export default function QuotePreview() {
                 <th>Позиция</th>
                 <th>Артикул</th>
                 <th className="num">Кол-во</th>
-                <th className="num">Цена/шт</th>
+                <th className="num">Цена с НДС</th>
                 <th className="num">Сумма</th>
               </tr>
             </thead>
             <tbody>
               {lines.map((line, i) => {
                 const qty = Number(line.quantity) || 0;
-                const unit = lineUnitNet(line, vatRate);
-                const sum = lineNetTotal(line, vatRate);
+                const unit = lineUnitGross(line);
+                const sum = lineGrossTotal(line);
                 const catalogUrl = resolveProductUrl(line);
                 return (
                   <tr key={i}>
@@ -673,26 +632,8 @@ export default function QuotePreview() {
                 className="offerKp-quote-doc__edit-input offerKp-quote-doc__totals-input"
               />
             </div>
-            <div>
-              <label className="offerKp-quote-doc__vat-edit">
-                <span>НДС (</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round(vatRate * 100)}
-                  onChange={(e) =>
-                    setDocField("vatRate", (Number(e.target.value) || 0) / 100)
-                  }
-                  className="offerKp-quote-doc__edit-input offerKp-quote-doc__vat-input"
-                />
-                <span>%)</span>
-              </label>
-              <span>{money(vat)}</span>
-            </div>
             <div className="offerKp-quote-doc__grand">
-              <span>Итого с НДС</span>
+              <span>Итого</span>
               <span>{money(grandTotal)}</span>
             </div>
           </div>

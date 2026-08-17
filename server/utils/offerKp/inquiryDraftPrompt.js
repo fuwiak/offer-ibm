@@ -167,7 +167,7 @@ function buildQuoteMarkdownFromDraft(draft, opts = {}) {
         : kpStatus === "Цена по запросу"
           ? "Цена по запросу"
           : "—";
-      // Сумма = net × qty (КП без НДС в строках); только для рассчитываемых строк.
+      // Сумма = цена с НДС × qty; каталог purolat.com уже включает НДС.
       const sum =
         hasPrice && isCalculable
           ? Number((unitPrice * Number(qty)).toFixed(2)).toFixed(2)
@@ -186,8 +186,6 @@ function buildQuoteMarkdownFromDraft(draft, opts = {}) {
     })
     .join("\n");
 
-  const vatRate = Number(draft?.vatRate ?? 0.2);
-  const vatAmount = subtotal * vatRate;
   const unpriced = lines.length - pricedCount;
   const note =
     unpriced > 0
@@ -215,8 +213,7 @@ ${note}
 | Нет в базе | ${notInDbCount} |
 | Без цены | ${noPriceCount} |
 | Сумма рассчитанных позиций | ${subtotal.toFixed(2)} RUB |
-| НДС ${Math.round(vatRate * 100)}% | ${vatAmount.toFixed(2)} RUB |
-| **Итог с НДС** | **${(subtotal + vatAmount).toFixed(2)} RUB** |
+| **Итого** | **${subtotal.toFixed(2)} RUB** |
 
 ## Условия
 
