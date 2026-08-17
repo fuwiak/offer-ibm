@@ -5,6 +5,8 @@
  * Mirror of frontend/src/utils/offerKp/pickCheapestAnalog.js (ShopDB-only prices).
  */
 
+const { catalogGross } = require("./catalogPrice");
+
 function isAnalogAlternative(alt = {}) {
   if (!alt || typeof alt !== "object") return false;
   if (alt.matchType === "analog") return true;
@@ -143,7 +145,7 @@ function explainCheapestAnalogsEmpty(lines = []) {
 /**
  * Patch applied to a draft line when selecting a menu alternative (same as UI).
  */
-function altPatchForLine(alt = {}, vatRate = 0.2) {
+function altPatchForLine(alt = {}, _vatRate = 0) {
   if (!alt || typeof alt !== "object") {
     return {
       name: "",
@@ -175,8 +177,8 @@ function altPatchForLine(alt = {}, vatRate = 0.2) {
     sku: alt.sku,
     productId: alt.productId || undefined,
     matchType: alt.matchType || "analog",
-    unitPriceNet: Number(unitPriceNet.toFixed(2)),
-    priceWithVat: Number((unitPriceNet * (1 + vatRate)).toFixed(2)),
+    unitPriceNet: catalogGross(unitPriceNet),
+    priceWithVat: catalogGross(unitPriceNet),
     weightKg,
     status,
     kpStatus:

@@ -13,8 +13,7 @@ const {
   buildDraftFromMatchedLines,
   buildLineMatchErrorFallback,
 } = require("./matchInquiryLines");
-
-const VAT_RATE = 0.2;
+const { catalogGross } = require("./catalogPrice");
 
 /** Local copy — avoid circular require with autoQuoteArtifacts. */
 function parseCatalogBlock(block = "") {
@@ -257,7 +256,7 @@ function applyCatalogEvidenceToLine(line, catalogRows = []) {
   if (!hit) return line;
   const qty = Number(line.quantity) || 1;
   const unitPriceNet = hit.unitPriceNet;
-  const priceWithVat = Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2));
+  const priceWithVat = catalogGross(unitPriceNet);
   return {
     ...line,
     name: hit.name || line.name,

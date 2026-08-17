@@ -40,12 +40,12 @@ QUOTE_BRAND.warrantyNoteDocx = QUOTE_BRAND.warrantyNote;
 function localeForCountry(country = "") {
   const c = String(country).trim().toLowerCase();
   if (["poland", "polska", "pologne", "pl"].includes(c)) {
-    return { currency: "PLN", locale: "pl-PL", vatRate: 0.23 };
+    return { currency: "PLN", locale: "pl-PL", vatRate: 0 };
   }
   if (["russia", "россия", "rossiya", "ru", "rf"].includes(c)) {
-    return { currency: "RUB", locale: "ru-RU", vatRate: 0.2 };
+    return { currency: "RUB", locale: "ru-RU", vatRate: 0 };
   }
-  return { currency: "RUB", locale: "ru-RU", vatRate: 0.2 };
+  return { currency: "RUB", locale: "ru-RU", vatRate: 0 };
 }
 
 function makeMoneyFormatter(currency, locale) {

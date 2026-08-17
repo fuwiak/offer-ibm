@@ -10,8 +10,9 @@
  */
 
 const { resolvePreferredSkuPrice } = require("./priceResolve");
+const { catalogGross } = require("./catalogPrice");
 
-const VAT_RATE = 0.2;
+const VAT_RATE = 0;
 
 function findSkuRowForLine(stock, line = {}) {
   const skus = Array.isArray(stock?.skus) ? stock.skus : [];
@@ -191,9 +192,7 @@ async function refreshDraftPricesFromShopDb(draft, fetchStocks, opts = {}) {
     const qty = Number(line.quantity) || 0;
     const unitNeedsRecalc = !!line.unitNeedsRecalc;
     const unitPriceNet = livePrice;
-    const priceWithVat = unitPriceNet
-      ? Number((unitPriceNet * (1 + vatRate)).toFixed(2))
-      : 0;
+    const priceWithVat = catalogGross(unitPriceNet);
     const lineTotal =
       unitPriceNet > 0 && !unitNeedsRecalc
         ? Number((unitPriceNet * qty).toFixed(2))

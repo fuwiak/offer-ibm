@@ -157,7 +157,7 @@ function stripIllegalPrices(lines = []) {
  * @param {object} draft
  * @param {number} [vatRate]
  */
-function recalcQuoteDraftTotals(draft = {}, vatRate = 0.2) {
+function recalcQuoteDraftTotals(draft = {}, vatRate = 0) {
   const lines = Array.isArray(draft.lines) ? draft.lines : [];
   const subtotal = Number(
     lines

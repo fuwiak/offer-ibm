@@ -83,6 +83,7 @@ const {
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { sanitizeSku } = require("./fabricatedSku");
 const { recordSearchMetric } = require("./searchMetrics");
+const { catalogGross } = require("./catalogPrice");
 const {
   withLineEvidence,
   MATCH_RULES_VERSION,
@@ -123,7 +124,7 @@ function matchEnrichmentEnabled() {
   return matchEnrichmentEnabledFromProfile();
 }
 
-const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0.2);
+const VAT_RATE = Number(process.env.OFFER_KP_VAT_RATE || 0);
 
 // Match identity is user/thread-independent — the same RFQ line resolves to
 // the same product for everyone, so the cache key deliberately drops
@@ -200,9 +201,7 @@ async function hydrateLineCommercial(line) {
     commercial = {
       sku,
       unitPriceNet,
-      priceWithVat: unitPriceNet
-        ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
-        : 0,
+      priceWithVat: catalogGross(unitPriceNet),
       priceSource,
       stockCount: Number(stock.stockCount) || 0,
       allowPrice,
@@ -320,9 +319,7 @@ async function resolveProductCommercial(input = {}) {
     productId,
     sku: resolvedSku,
     unitPriceNet,
-    priceWithVat: allowPrice
-      ? Number((unitPriceNet * (1 + VAT_RATE)).toFixed(2))
-      : 0,
+    priceWithVat: catalogGross(unitPriceNet),
     weightKg,
     stockCount: Number(stock.stockCount) || 0,
     allowPrice,
@@ -1351,11 +1348,8 @@ async function matchInquiryLine(inquiryLine, options = {}) {
   const hasPrice = unitPrice > 0;
   // Ед. изм. заявки ≠ шт → нельзя молча считать кг штуками: сумму не считаем.
   const unitNeedsRecalc = !!inquiryLine.needsReview;
-  const priceWithVat = hasPrice
-    ? Number((unitPrice * (1 + VAT_RATE)).toFixed(2))
-    : 0;
-  // Canonical quote contract: unitPriceNet/lineTotal/subtotal are net values;
-  // priceWithVat is the gross value used by 1C/XLSX and editable UI fields.
+  const priceWithVat = catalogGross(unitPrice);
+  // Catalog price already includes VAT. Цена in UI/PDF = ShopDB number.
   const lineTotal =
     hasPrice && !unitNeedsRecalc ? Number((unitPrice * qty).toFixed(2)) : 0;
 

@@ -74,6 +74,7 @@ describe("draftChatEdit", () => {
     expect(result.applied[0].op).toBe("set_price");
     const updated = result.quoteDraft.hardwareLines[1];
     expect(updated.unitPriceNet).toBe(50);
+    expect(updated.priceWithVat).toBe(50);
     expect(updated.operatorPriceOverride).toBe(true);
     expect(updated.allowPrice).toBe(true);
     expect(updated.lineTotal).toBe(5400);

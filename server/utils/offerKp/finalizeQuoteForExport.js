@@ -26,6 +26,7 @@ const {
   recalcDraftTotals,
   VAT_RATE,
 } = require("./refreshDraftPrices");
+const { catalogGross } = require("./catalogPrice");
 
 function normalizeExportLines(quoteData = {}) {
   if (Array.isArray(quoteData.lines) && quoteData.lines.length) {
@@ -43,12 +44,11 @@ function normalizeExportLines(quoteData = {}) {
   return [];
 }
 
-function mapLineForGenerator(line = {}, vatRate = VAT_RATE) {
+function mapLineForGenerator(line = {}, _vatRate = VAT_RATE) {
   const qty = Math.max(0, Number(line.quantity) || 0);
-  const unitPriceNet = Number(line.unitPriceNet) || 0;
-  const priceWithVat =
-    Number(line.priceWithVat) ||
-    (unitPriceNet > 0 ? Number((unitPriceNet * (1 + vatRate)).toFixed(2)) : 0);
+  const unitPriceNet =
+    catalogGross(line.unitPriceNet) || catalogGross(line.priceWithVat);
+  const priceWithVat = unitPriceNet;
   const lineTotal =
     Number(line.lineTotal) ||
     (unitPriceNet > 0 ? Number((unitPriceNet * qty).toFixed(2)) : 0);

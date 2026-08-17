@@ -31,13 +31,13 @@ export function lineGrossTotal(line = {}) {
 }
 
 /** Справочно: цена без НДС (не используется в итогах). */
-export function lineUnitNetReference(line = {}, vatRate = 0.2) {
+export function lineUnitNetReference(line = {}, vatRate = 0) {
   const gross = lineUnitGross(line);
   if (!gross) return 0;
   return Number((gross / (1 + vatRate)).toFixed(2));
 }
 
-export function recalcLineGross(line, vatRate = 0.2, { preserveLineTotal = false } = {}) {
+export function recalcLineGross(line, vatRate = 0, { preserveLineTotal = false } = {}) {
   const qty = Number(line.quantity) || 0;
   const priceWithVat = lineUnitGross(line);
   const next = {

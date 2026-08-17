@@ -227,6 +227,7 @@ describe("finalizeQuoteForExport", () => {
 
     expect(result.ok).toBe(true);
     expect(result.quoteData.lines[0].unitPriceNet).toBe(33);
+    expect(result.quoteData.lines[0].priceWithVat).toBe(33);
     expect(result.quoteData.lines[0].lineTotal).toBe(99);
     expect(result.quoteData.subtotal).toBe(99);
     expect(result.quoteData.priceSnapshotId).toBeTruthy();

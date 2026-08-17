@@ -198,7 +198,7 @@ async function streamChatWithWorkspace(
     if (isDraftCmd && hasDraft) {
       const vatRate =
         Number(clientQuoteDraft?.vatRate ?? clientQuoteDraft?.preview?.vatRate) ||
-        0.2;
+        0;
       const editResult = applyDraftChatEdits({
         message: commandMessage,
         quoteDraft: clientQuoteDraft,

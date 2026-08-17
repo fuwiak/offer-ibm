@@ -12,6 +12,7 @@ const {
   altPatchForLine,
   explainCheapestAnalogsEmpty,
 } = require("./pickCheapestAnalog");
+const { catalogGross } = require("./catalogPrice");
 
 function normalizeText(value = "") {
   return String(value || "")
@@ -237,34 +238,21 @@ function applyCheapestAnalogsCommand(prev, lines, vatRate) {
   };
 }
 
-function recalcLineTotals(line, vatRate = 0.2) {
+function recalcLineTotals(line, _vatRate = 0) {
   const qty = Math.max(0, Number(line.quantity) || 0);
-  const net = Number(line.unitPriceNet);
-  const gross =
-    Number.isFinite(net) && net > 0
-      ? Number((net * (1 + vatRate)).toFixed(2))
-      : Number(line.priceWithVat) || 0;
-  const unitPriceNet =
-    Number.isFinite(net) && net > 0
-      ? Number(net.toFixed(2))
-      : gross > 0
-        ? Number((gross / (1 + vatRate)).toFixed(2))
-        : 0;
-  const priceWithVat =
-    unitPriceNet > 0
-      ? Number((unitPriceNet * (1 + vatRate)).toFixed(2))
-      : Number(line.priceWithVat) || 0;
-  const lineTotal = Number((qty * unitPriceNet).toFixed(2));
+  const catalog =
+    catalogGross(line.unitPriceNet) || catalogGross(line.priceWithVat);
+  const lineTotal = Number((qty * catalog).toFixed(2));
   return {
     ...line,
-    unitPriceNet,
-    priceWithVat,
+    unitPriceNet: catalog,
+    priceWithVat: catalog,
     lineTotal,
-    allowPrice: unitPriceNet > 0 ? true : line.allowPrice,
+    allowPrice: catalog > 0 ? true : line.allowPrice,
   };
 }
 
-function summarizeDraft(lines = [], vatRate = 0.2) {
+function summarizeDraft(lines = [], vatRate = 0) {
   const subtotal = lines.reduce(
     (sum, line) => sum + (Number(line.lineTotal) || 0),
     0
@@ -298,7 +286,7 @@ function applyDraftChatEdits(input = {}) {
   const vatRate =
     Number.isFinite(Number(input.vatRate)) && Number(input.vatRate) >= 0
       ? Number(input.vatRate)
-      : 0.2;
+      : 0;
   const prev =
     input.quoteDraft && typeof input.quoteDraft === "object"
       ? input.quoteDraft
@@ -406,8 +394,8 @@ function applyDraftChatEdits(input = {}) {
     } else {
       let line = { ...nextLines[index] };
       if (price != null) {
-        line.unitPriceNet = Number(price.toFixed(2));
-        line.priceWithVat = Number((price * (1 + vatRate)).toFixed(2));
+        line.unitPriceNet = catalogGross(price);
+        line.priceWithVat = catalogGross(price);
         line.allowPrice = true;
         line.operatorPriceOverride = true;
         line.status =
