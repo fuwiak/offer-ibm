@@ -81,6 +81,21 @@ describe("canonicalProductText", () => {
     expect(hard).not.toContain("standardFamily");
   });
 
+  it("does not hard-reject ГОСТ 7805 vs DIN 933 analog family", () => {
+    const {
+      buildQuerySignature,
+      buildProductSignature,
+      signatureHardConflicts,
+    } = require("../../../utils/offerKp/canonicalProductText");
+    const hard = signatureHardConflicts(
+      buildQuerySignature("Болт М12-6gx40.88.019 ГОСТ 7805-70"),
+      buildProductSignature({
+        name: "Болт DIN 933 M 12x 40 8.8 оцинк / ГОСТ 7805-70",
+      })
+    );
+    expect(hard).not.toContain("standardFamily");
+  });
+
   it("omits zero placeholder dimensions from ShopDB", () => {
     const text = buildCanonicalProductText({ name: "Гайка DIN 934 M12" }, [
       { name: "Длина", value: "0", unit: "m" },

@@ -2,6 +2,7 @@
 
 const crypto = require("crypto");
 const { parseHardwareQuery } = require("./hardwareQuery");
+const { areStandardsCompatible } = require("./matching/standardGraph");
 
 const FEATURE_ALIASES = {
   standard: ["din/гост/iso", "стандарт"],
@@ -352,7 +353,16 @@ function signatureHardConflicts(querySig, productSig) {
     // 526442006 ≠ 52644 and hard-rejected the live HV bolt/nut.
     const qNum = standardFamilyNumber(query.standardFamily);
     const pNum = standardFamilyNumber(product.standardFamily);
-    if (qNum && pNum && qNum !== pNum) hard.push("standardFamily");
+    // DIN 933 ↔ ГОСТ 7805 is analog, not a hard reject. Digit mismatch
+    // used to demote priced exact/analog hits to «требует проверки».
+    if (
+      qNum &&
+      pNum &&
+      qNum !== pNum &&
+      !areStandardsCompatible(qNum, pNum)
+    ) {
+      hard.push("standardFamily");
+    }
   }
 
   if (

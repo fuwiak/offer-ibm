@@ -84,4 +84,17 @@ describe("product signature", () => {
     expect(result.ok).toBe(false);
     expect(result.hard).toContain("length_mismatch");
   });
+
+  it("keeps ГОСТ 7805 vs DIN 933 analog (does not hard-fail standardFamily)", () => {
+    const product = {
+      name: "Болт DIN 933 M 12x 40 8.8 оцинк / ГОСТ 7805-70",
+      matchType: "analog",
+    };
+    const result = validateCandidate(
+      "Болт М12-6gx40.88.019 ГОСТ 7805-70",
+      product
+    );
+    expect(result.hard).not.toContain("standard_mismatch");
+    expect(result.ok).toBe(true);
+  });
 });
