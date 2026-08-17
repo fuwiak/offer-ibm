@@ -6,6 +6,7 @@
 
 - nginx `:80` → Node app `:3001`
 - systemd: `offer-kp.service`, `offer-kp-collector.service`, `offer-kp-gpu-worker`, `offer-kp-cpu-worker`
+- Elasticsearch w Docker Compose na hoście (`docker/docker-compose.elasticsearch.yml`) → `127.0.0.1:9200`
 - Redis (`redis-server`) + BullMQ: OCR/GPU queue concurrency **1**, matching/export CPU workers
 - код: `/opt/offer-kp/app`
 - данные: `/opt/offer-kp/data`
@@ -70,6 +71,28 @@ OPENROUTER_BASE_URL=http://127.0.0.1:8787/api/v1
 COLLECTOR_HOTDIR=/opt/offer-kp/app/collector/hotdir
 STORAGE_DIR=/opt/offer-kp/data
 ```
+
+### Elasticsearch na Lainey
+
+Etap-1 retriever dla ShopDB działa jako osobny kontener Docker na tym samym hoście:
+
+```bash
+cd /opt/offer-kp/app/docker
+docker compose -f docker-compose.elasticsearch.yml up -d
+curl http://127.0.0.1:9200/_cluster/health
+cd /opt/offer-kp/app/server
+yarn sync:elastic:full
+```
+
+W `server/.env` produkcji deploy utrzymuje:
+
+```
+OFFER_KP_ELASTICSEARCH=1
+ELASTICSEARCH_URL=http://127.0.0.1:9200
+OFFER_KP_ES_INDEX=offerkp-products-v1
+```
+
+ES przyspiesza retrieval (BM25 + filtry → `productId`), ale ceny i stock nadal zawsze hydratują się z ShopDB.
 
 Collector systemd обязан иметь `Environment=STORAGE_DIR=...` (иначе crash loop).
 

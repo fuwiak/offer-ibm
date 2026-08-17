@@ -124,6 +124,7 @@ yarn sync:shopdb-canonical
 - код `/opt/offer-kp/app`, данные `/opt/offer-kp/data`
 - push `main` → GitHub Actions `Deploy Selectel Lainey`
 - вручную: `yarn deploy:lainey`
+- Elasticsearch stage-1 retrieval uruchamia się na Lainey przez `docker/docker-compose.elasticsearch.yml`
 - LLM: одна `qwen/qwen3-vl-8b` в VRAM (не dual swap) — детали в `docker/LAINEY_UI.md`
 - OpenRouter с Lainey часто через egress-proxy
 

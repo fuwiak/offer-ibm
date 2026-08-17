@@ -128,6 +128,25 @@ rsync -az --delete \
   -e "$RSYNC_SSH" \
   ./ "${USER}@${HOST}:${REMOTE_APP}/"
 
+log "==> Ensure remote Elasticsearch (Docker Compose)"
+remote_log "ELASTICSEARCH compose up"
+remote "bash -s" <<EOS
+set -euo pipefail
+cd ${REMOTE_APP}/docker
+if docker compose version >/dev/null 2>&1; then
+  docker compose -f docker-compose.elasticsearch.yml up -d
+else
+  docker-compose -f docker-compose.elasticsearch.yml up -d
+fi
+for i in \$(seq 1 30); do
+  if curl -fsS --max-time 3 http://127.0.0.1:9200/_cluster/health >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+curl -fsS --max-time 5 http://127.0.0.1:9200/_cluster/health || true
+EOS
+
 # Keep a git checkout in sync for offerkp Status commit display
 log "==> git sync ${REMOTE_SRC}"
 remote_log "GIT SYNC ${REMOTE_SRC}"
@@ -211,6 +230,11 @@ for pair in \
   "SHOP_DB_RRF_ANALOG_LIMIT=10" \
   "SHOP_DB_VECTOR_OPTIMIZE_ON_SYNC=0" \
   "SHOP_DB_VECTOR_VERIFY_HASHES_ON_SYNC=0" \
+  "OFFER_KP_ELASTICSEARCH=1" \
+  "ELASTICSEARCH_URL=http://127.0.0.1:9200" \
+  "OFFER_KP_ES_INDEX=offerkp-products-v1" \
+  "OFFER_KP_ES_TIMEOUT_MS=3000" \
+  "OFFER_KP_ES_SYNC_BATCH=500" \
   "OFFER_KP_QUEUE=1" \
   "OFFER_KP_REDIS_URL=redis://127.0.0.1:6379" \
   "OFFER_KP_GPU_WORKER_CONCURRENCY=1" \
@@ -266,6 +290,14 @@ systemctl is-active offer-kp-gpu-worker || true
 systemctl is-active offer-kp-cpu-worker || true
 curl -sS -o /dev/null -w "local / : %{http_code}\\n" --max-time 15 http://127.0.0.1:3001/ || true
 curl -sS -o /dev/null -w "nginx / : %{http_code}\\n" --max-time 15 http://127.0.0.1/ || true
+EOS
+
+log "==> Full Elasticsearch sync on Lainey"
+remote_log "SYNC elastic full"
+remote "bash -s" <<EOS
+set -euo pipefail
+cd ${REMOTE_APP}/server
+yarn sync:elastic:full
 EOS
 
 remote "printf '%s|%s|%s\n' $(printf %q "$GIT_HASH") $(printf %q "$GIT_DATE") $(printf %q "$GIT_SUBJECT") > ${READY_FILE}"
