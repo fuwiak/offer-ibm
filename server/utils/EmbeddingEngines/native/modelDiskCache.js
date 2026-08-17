@@ -181,7 +181,10 @@ function purgeIncompleteOnnx(cacheDir, modelId) {
   const onnxDir = path.join(modelDir, "onnx");
   try {
     for (const name of fs.readdirSync(onnxDir)) {
-      if (!name.includes(".download-") && !name.endsWith(".partial")) continue;
+      // Legacy pid-stamped temps are dead weight; .partial is the live
+      // Range-resume file (downloadFileToDisk) — deleting it forced every
+      // interrupted 470MB pull to restart from byte 0.
+      if (!name.includes(".download-")) continue;
       const p = path.join(onnxDir, name);
       fs.rmSync(p, { force: true });
       removed.push(p);
@@ -206,16 +209,37 @@ async function downloadFileToDisk(url, targetPath, opts = {}) {
   const label = opts.label || path.basename(targetPath);
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  const temporary = `${targetPath}.download-${process.pid}-${Date.now()}`;
+  // Stable partial name + HTTP Range resume: a 470MB pull killed mid-stream
+  // (Ctrl-C, test exit, network drop) used to restart from byte 0 on every
+  // run — "download once, reuse" never happened on flaky links.
+  const temporary = `${targetPath}.partial`;
 
-  const response = await fetch(url, { redirect: "follow" });
+  let offset = 0;
+  try {
+    const st = fs.statSync(temporary);
+    if (st.isFile() && st.size > 0) offset = st.size;
+  } catch {
+    // no partial
+  }
+
+  const headers = offset > 0 ? { Range: `bytes=${offset}-` } : {};
+  const response = await fetch(url, { redirect: "follow", headers });
+  if (offset > 0 && response.status !== 206) {
+    // Server ignored Range (or file changed) — restart clean.
+    offset = 0;
+    fs.rmSync(temporary, { force: true });
+  }
   if (!response.ok || !response.body) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
 
-  const total = Number(response.headers.get("content-length") || 0);
-  let loaded = 0;
+  const total =
+    offset + Number(response.headers.get("content-length") || 0) || 0;
+  let loaded = offset;
   let lastPct = -1;
+  if (offset > 0) {
+    log(`resuming ${label} from ${offset}/${total} bytes`);
+  }
 
   const body = Readable.fromWeb(response.body);
   body.on("data", (chunk) => {
@@ -230,7 +254,10 @@ async function downloadFileToDisk(url, targetPath, opts = {}) {
   });
 
   try {
-    await pipeline(body, fs.createWriteStream(temporary, { flags: "w" }));
+    await pipeline(
+      body,
+      fs.createWriteStream(temporary, { flags: offset > 0 ? "a" : "w" })
+    );
     const size = fs.statSync(temporary).size;
     if (size < minBytes) {
       fs.rmSync(temporary, { force: true });
@@ -239,15 +266,16 @@ async function downloadFileToDisk(url, targetPath, opts = {}) {
       );
     }
     if (total > 0 && size < total * 0.95) {
-      fs.rmSync(temporary, { force: true });
+      // Keep the partial — next attempt resumes instead of starting over.
       throw new Error(
-        `Downloaded ${label} incomplete (${size} of ${total} bytes)`
+        `Downloaded ${label} incomplete (${size} of ${total} bytes) — will resume`
       );
     }
     fs.renameSync(temporary, targetPath);
     return { path: targetPath, size };
   } catch (error) {
-    fs.rmSync(temporary, { force: true });
+    // Network abort mid-stream: keep the partial for Range resume. Only the
+    // too-small stub (validated above) is removed.
     throw error;
   }
 }
