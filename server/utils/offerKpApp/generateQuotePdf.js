@@ -53,27 +53,32 @@ function lineArticle(ql) {
   return ql.article || ql.sku || "—";
 }
 
-function lineUnitNet(ql, vatRate) {
-  const qty = Number(ql.quantity) || 0;
-  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
-    return Number(ql.unitPriceNet);
-  }
+function lineUnitGross(ql) {
+  // Каталог purolat.com — цены уже с НДС; в PDF не выделяем net и не начисляем НДС повторно.
   if (ql.priceWithVat != null && Number.isFinite(Number(ql.priceWithVat))) {
-    return Number(ql.priceWithVat) / (1 + vatRate);
+    return Number(ql.priceWithVat);
   }
   if (ql.unitPrice != null && Number.isFinite(Number(ql.unitPrice))) {
     return Number(ql.unitPrice);
   }
+  if (ql.unitPriceNet != null && Number.isFinite(Number(ql.unitPriceNet))) {
+    return Number(ql.unitPriceNet);
+  }
+  const qty = Number(ql.quantity) || 0;
   const total = Number(ql.lineTotal) || 0;
   return qty > 0 ? total / qty : 0;
 }
 
-function lineNetTotal(ql, vatRate) {
+function lineGrossTotal(ql) {
+  const qty = Number(ql.quantity) || 0;
+  const unit = lineUnitGross(ql);
+  if (unit > 0 && qty > 0) {
+    return Number((unit * qty).toFixed(2));
+  }
   if (ql.lineTotal != null && Number.isFinite(Number(ql.lineTotal))) {
     return Number(ql.lineTotal);
   }
-  const qty = Number(ql.quantity) || 0;
-  return qty * lineUnitNet(ql, vatRate);
+  return 0;
 }
 
 /**
@@ -91,24 +96,14 @@ async function generateQuotePdf(quoteData) {
     doc: docOverrides = {},
   } = quoteData;
 
-  const { currency, vatRate: localeVatRate } = localeForCountry(
-    customer.country
-  );
-  const vatRate =
-    typeof quoteData.vatRate === "number"
-      ? quoteData.vatRate
-      : typeof docOverrides.vatRate === "number"
-        ? docOverrides.vatRate
-        : localeVatRate;
+  const { currency } = localeForCountry(customer.country);
   const fmtMoney = (num) => `${Number(num || 0).toFixed(2)} ${currency}`;
 
   const computedSubtotal =
     Number(subtotal) ||
-    lines.reduce((sum, ql) => sum + lineNetTotal(ql, vatRate), 0);
+    lines.reduce((sum, ql) => sum + lineGrossTotal(ql), 0);
   const ship = Number(shipping) || 0;
-  const net = computedSubtotal + ship;
-  const vat = net * vatRate;
-  const grandTotal = net + vat;
+  const grandTotal = computedSubtotal + ship;
 
   const brandCompany = toPdfSafeText(
     docOverrides.brandCompany || QUOTE_BRAND.companyName
@@ -271,7 +266,7 @@ async function generateQuotePdf(quoteData) {
   txt("Позиция", COL.name + 4, hy, { font: bold, size: 7, color: WHITE });
   txt("Артикул", COL.article + 2, hy, { font: bold, size: 7, color: WHITE });
   rightAlign("Кол-во", COL.unit - 4, hy, { font: bold, size: 7, color: WHITE });
-  rightAlign("Цена/шт", COL.sum - 4, hy, {
+  rightAlign("Цена с НДС", COL.sum - 4, hy, {
     font: bold,
     size: 7,
     color: WHITE,
@@ -296,8 +291,8 @@ async function generateQuotePdf(quoteData) {
       });
     }
     const qty = Number(ql.quantity) || 0;
-    const unit = lineUnitNet(ql, vatRate);
-    const sum = lineNetTotal(ql, vatRate);
+    const unit = lineUnitGross(ql);
+    const sum = lineGrossTotal(ql);
     const ry = y - 10;
     txt(toPdfSafeText(lineName(ql)).slice(0, 42), COL.name + 4, ry, {
       size: 8,
@@ -328,12 +323,6 @@ async function generateQuotePdf(quoteData) {
   y -= 12;
   txt("Доставка", totalsX, y, { size: 8.5, color: GRAY });
   rightAlign(fmtMoney(ship), R - 2, y, { size: 8.5 });
-  y -= 12;
-  txt(`НДС (${Math.round(vatRate * 100)}%)`, totalsX, y, {
-    size: 8.5,
-    color: GRAY,
-  });
-  rightAlign(fmtMoney(vat), R - 2, y, { size: 8.5 });
   y -= 8;
   hline(y);
   y -= 4;
@@ -344,7 +333,7 @@ async function generateQuotePdf(quoteData) {
     height: 18,
     color: HEADER_BG,
   });
-  txt("Итого с НДС", totalsX, y - 12, {
+  txt("Итого", totalsX, y - 12, {
     font: bold,
     size: 9,
     color: WHITE,
