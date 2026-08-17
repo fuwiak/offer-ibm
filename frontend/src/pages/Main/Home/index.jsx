@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { isMobile } from "react-device-detect";
 import { SidebarMobileHeader } from "@/components/Sidebar";
@@ -75,7 +75,19 @@ export default function Home() {
   const [conversationEpoch, setConversationEpoch] = useState(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
 
+  // Intencja "nowa rozmowa" łapana PRZED efektem czyszczącym ?new z URL —
+  // bez niej auto-resume niżej cofałby użytkownika do starego wątku zaraz
+  // po kliknięciu "Nowa rozmowa" (?new znika z searchParams po pierwszym renderze).
+  const newConversationIntentRef = useRef(null);
+  if (newConversationIntentRef.current === null) {
+    newConversationIntentRef.current =
+      searchParams.has("new") ||
+      !!locationState?.newConversation ||
+      !!searchParams.get("action");
+  }
+
   const resetConversation = () => {
+    newConversationIntentRef.current = true;
     setConversationEpoch((n) => n + 1);
     window.dispatchEvent(
       new CustomEvent(PROMPT_INPUT_EVENT, {
@@ -150,6 +162,31 @@ export default function Home() {
     }
     init();
   }, [pathname, t, searchParams.get("space")]);
+
+  // Auto-resume: wejście na "/" bez intencji nowej rozmowy otwiera ostatni
+  // wątek (zapamiętany albo najnowszy) — użytkownik widzi historię ostatniej
+  // konwersacji, nie pusty composer. Brak wątków = zostajemy na home.
+  useEffect(() => {
+    if (pathname !== "/") return undefined;
+    if (workspaceLoading || !workspace?.slug) return undefined;
+    if (newConversationIntentRef.current) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      const { resolveWorkspaceThreadSlug, rememberWorkspaceThread } =
+        await import("@/utils/offerKp/lastWorkspaceThread");
+      const threadSlug = await resolveWorkspaceThreadSlug(workspace.slug);
+      // Zdarzenie "nowa rozmowa" mogło nadejść w trakcie resolve — nie cofaj.
+      if (cancelled || !threadSlug || newConversationIntentRef.current) return;
+      const { openThread } = await import("@/utils/offerKp/conversationNav");
+      rememberWorkspaceThread(workspace.slug, threadSlug);
+      openThread(navigate, workspace.slug, threadSlug, { pathname });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, workspaceLoading, workspace?.slug, navigate]);
 
   useEffect(() => {
     async function handlePaste(e) {
