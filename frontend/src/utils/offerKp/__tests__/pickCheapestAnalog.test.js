@@ -5,6 +5,7 @@ import {
   pickCheapestAnalog,
   resolveCheapestAnalogsForLines,
   explainCheapestAnalogsEmpty,
+  sortAlternativesByName,
 } from "../pickCheapestAnalog";
 
 describe("pickCheapestAnalog", () => {
@@ -154,5 +155,18 @@ describe("pickCheapestAnalog", () => {
     expect(picks).toHaveLength(1);
     expect(picks[0].alt.sku).toBe("SAME");
     expect(picks[0].alt.price).toBe(12);
+  });
+
+  it("sortAlternativesByName orders by product name", () => {
+    const sorted = sortAlternativesByName([
+      { name: "Шайба М10" },
+      { name: "Болт М8" },
+      { name: "Гайка М12" },
+    ]);
+    expect(sorted.map((a) => a.name)).toEqual([
+      "Болт М8",
+      "Гайка М12",
+      "Шайба М10",
+    ]);
   });
 });

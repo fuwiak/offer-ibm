@@ -419,7 +419,15 @@ function slimAlternativeForSse(alt = {}) {
 
 /** Drop null/undefined slots so UI never reads `.name` on a hole. */
 function sanitizeAlternatives(alternatives = []) {
-  return (alternatives || []).filter((alt) => alt && typeof alt === "object");
+  return (alternatives || [])
+    .filter((alt) => alt && typeof alt === "object")
+    .sort((a, b) =>
+      String(a.name || a.productName || "").localeCompare(
+        String(b.name || b.productName || ""),
+        "ru",
+        { numeric: true, sensitivity: "base" }
+      )
+    );
 }
 
 /** Keep SSE quote-progress payloads small (avoids mid-stream network aborts). */

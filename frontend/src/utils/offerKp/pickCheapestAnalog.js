@@ -34,6 +34,19 @@ export function positiveAltPrice(value) {
   return Number.isFinite(price) && price > 0 ? price : 0;
 }
 
+/** Sort alternatives for UI dropdowns — by product name (ru locale). */
+export function sortAlternativesByName(alternatives = []) {
+  return [...(alternatives || [])]
+    .filter((alt) => alt && typeof alt === "object")
+    .sort((a, b) =>
+      String(a.name || a.productName || "").localeCompare(
+        String(b.name || b.productName || ""),
+        "ru",
+        { numeric: true, sensitivity: "base" }
+      )
+    );
+}
+
 /** Net unit price on an alternatives-menu row (ShopDB). */
 export function altNetPrice(alt = {}) {
   if (!alt || typeof alt !== "object") return 0;

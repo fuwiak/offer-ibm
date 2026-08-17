@@ -31,6 +31,7 @@ import {
   isInStockAlternative,
   resolveCheapestAnalogsForLines,
   explainCheapestAnalogsEmpty,
+  sortAlternativesByName,
 } from "@/utils/offerKp/pickCheapestAnalog";
 import { resolveProductUrl } from "@/utils/offerKp/resolveProductUrl";
 import showToast from "@/utils/toast";
@@ -1145,12 +1146,18 @@ export default function QuoteDraftTable() {
                       {line.analogOf}
                     </span>
                   )}
-                  {line.alternatives?.length > 1 && (
+                  {(() => {
+                    const sortedAlternatives = sortAlternativesByName(
+                      line.alternatives
+                    );
+                    if (sortedAlternatives.length <= 1) return null;
+                    return (
                     <select
                       className="mt-0.5 w-full text-[10px] bg-theme-bg-secondary rounded"
                       defaultValue=""
                       onChange={(e) => {
-                        const alt = line.alternatives[Number(e.target.value)];
+                        const alt =
+                          sortedAlternatives[Number(e.target.value)];
                         if (alt) selectAlternative(i, alt);
                       }}
                     >
@@ -1159,10 +1166,7 @@ export default function QuoteDraftTable() {
                           defaultValue: "Аналоги",
                         })}
                       </option>
-                      {line.alternatives
-                        .map((a, ai) => ({ a, ai }))
-                        .filter(({ a }) => a && typeof a === "object")
-                        .map(({ a, ai }) => {
+                      {sortedAlternatives.map((a, ai) => {
                           const net = altNetPrice(a);
                           const stock = Number(a.stockCount) || 0;
                           const priceBit =
@@ -1182,7 +1186,8 @@ export default function QuoteDraftTable() {
                           );
                         })}
                     </select>
-                  )}
+                    );
+                  })()}
                 </td>
                 <td>
                   <span className="inline-flex items-center gap-0.5 max-w-[9rem]">
