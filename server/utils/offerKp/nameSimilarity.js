@@ -91,8 +91,13 @@ function analogCandidateLimit() {
 function hasStructuredMatchSource(product) {
   const sources = product?.shopMatchSources || product?._matchSources;
   if (!sources) return false;
-  if (sources instanceof Set) return sources.has("structured");
-  return Array.isArray(sources) && sources.includes("structured");
+  if (sources instanceof Set) {
+    return sources.has("structured") || sources.has("elastic");
+  }
+  return (
+    Array.isArray(sources) &&
+    (sources.includes("structured") || sources.includes("elastic"))
+  );
 }
 
 function applyCatalogCandidateQuota(searchText, products, limit = 50) {

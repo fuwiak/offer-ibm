@@ -361,11 +361,10 @@ function resolveMatchConcurrency(lineCount) {
   if (Number.isFinite(envCap) && envCap > 0) {
     return Math.max(1, Math.min(16, envCap));
   }
-  // Parallel ONNX embeds SEGV-owały na Lainey (signal 11) — embed jest teraz
-  // serializowany globalnym mutexem w embeddingSimilarity.js (withEmbedLock),
-  // więc linie mogą iść równolegle: SQL/ES/Redis konkurentnie, embed po kolei.
+  // Parallel ONNX embeds SEGV-owały na Lainey — embed is process-wide mutex.
+  // SQL/ES may run in parallel. Prod used to force 1 (66 RFQ lines = minutes).
   if (lineCount <= 1) return 1;
-  return 3;
+  return Math.min(8, lineCount);
 }
 
 /**

@@ -159,10 +159,11 @@ describe("resolveMatchConcurrency", () => {
     }
   });
 
-  it("defaults to 3 parallel lines — ONNX embeds are serialized by the process-wide lock", () => {
+  it("defaults to up to 8 parallel lines — ONNX embeds are serialized by the process-wide lock", () => {
     delete process.env.OFFER_KP_MATCH_CONCURRENCY;
     expect(resolveMatchConcurrency(1)).toBe(1);
-    expect(resolveMatchConcurrency(20)).toBe(3);
+    expect(resolveMatchConcurrency(3)).toBe(3);
+    expect(resolveMatchConcurrency(20)).toBe(8);
   });
 
   it("honors OFFER_KP_MATCH_CONCURRENCY when set", () => {

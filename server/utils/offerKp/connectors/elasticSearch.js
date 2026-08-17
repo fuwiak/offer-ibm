@@ -164,6 +164,61 @@ function buildElasticQuery(terms, parsed = {}, size = 20) {
 }
 
 /**
+ * Tight DIN + diameter + length filter for RFQ lines.
+ * Local ES (~ms) instead of remote ShopDB REGEXP per line.
+ */
+function buildPreciseElasticQuery(parsed = {}, size = 20) {
+  const filter = [];
+  const din = String(parsed?.dinNumbers?.[0] || "").trim();
+  if (din) {
+    filter.push({
+      bool: {
+        should: [
+          { match_phrase: { standard: `DIN ${din}` } },
+          { match_phrase: { name: din } },
+        ],
+        minimum_should_match: 1,
+      },
+    });
+  }
+  const diameter = parsed?.thread?.size ?? parsed?.diameter;
+  if (diameter != null && String(diameter).trim() !== "") {
+    filter.push({ term: { diameter: Number(diameter) } });
+  }
+  const length = parsed?.thread?.length ?? parsed?.dimensions?.b;
+  if (length != null && String(length).trim() !== "") {
+    filter.push({ term: { length: Number(length) } });
+  }
+  if (!filter.length) return null;
+  return {
+    size: Math.max(1, Math.min(80, Number(size) || 20)),
+    _source: false,
+    query: { bool: { filter } },
+  };
+}
+
+async function searchPreciseStructuredViaElastic(parsed, limit) {
+  if (!elasticEnabled()) return null;
+  const body = buildPreciseElasticQuery(parsed, Math.max(limit, 20));
+  if (!body) return null;
+  try {
+    const result = await esFetch(
+      `/${encodeURIComponent(elasticIndexName())}/_search`,
+      { method: "POST", body }
+    );
+    const hits = result?.hits?.hits;
+    if (!Array.isArray(hits) || !hits.length) return [];
+    const ids = hits.map((h) => String(h._id)).filter(Boolean);
+    return hydrateElasticHitsFromShopDb(ids.slice(0, Math.max(limit, 20)));
+  } catch (error) {
+    shopDbLog.skip("elasticsearch precise search unavailable — SQL structured", {
+      error: error?.message || String(error),
+    });
+    return null;
+  }
+}
+
+/**
  * ES → productIds. Nothing else leaves the index (no names, no prices).
  * @returns {Promise<Array<string>|null>} ids, or null = ES unavailable/disabled
  */
@@ -247,8 +302,10 @@ module.exports = {
   elasticIndexName,
   elasticTimeoutMs,
   buildElasticQuery,
+  buildPreciseElasticQuery,
   esFetch,
   searchElasticProductIds,
   hydrateElasticHitsFromShopDb,
   searchProductsViaElastic,
+  searchPreciseStructuredViaElastic,
 };

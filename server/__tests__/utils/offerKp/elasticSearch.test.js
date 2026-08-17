@@ -69,6 +69,18 @@ describe("elasticSearch connector", () => {
     expect(should.some((c) => c.term?.length?.value === 50)).toBe(true);
   });
 
+  it("builds a precise DIN+MxL filter query (no BM25 should-clause)", () => {
+    const {
+      buildPreciseElasticQuery,
+    } = require("../../../utils/offerKp/connectors/elasticSearch");
+    const body = buildPreciseElasticQuery(
+      { dinNumbers: ["912"], thread: { size: "10", length: "25" } },
+      20
+    );
+    expect(body.query.bool.filter.length).toBeGreaterThanOrEqual(3);
+    expect(body.query.bool.should).toBeUndefined();
+  });
+
   it("returns ES ids and hydrates live rows from ShopDB in ES order", async () => {
     process.env.OFFER_KP_ELASTICSEARCH = "1";
     mockEsHits([15231, 999, 42]);

@@ -23,6 +23,9 @@ const { catalogNameKey, catalogNameSqlExpr } = require("./catalogNameKey");
 const shopDbLog = require("./shopDbLog");
 const { searchProductsExtended, searchByStructuredQuery } = require("./shopDbSearch");
 const {
+  searchPreciseStructuredViaElastic,
+} = require("./connectors/elasticSearch");
+const {
   parseHardwareQuery,
   extractSearchTerms,
   scoreProduct,
@@ -614,9 +617,10 @@ async function runProductSearchAgent({
     }
   }
 
-  // Exact catalog title owns identity + price. Skip RRF / embedding /
-  // analog widen — heuristics only when ShopDB has no literal name row.
-  {
+  // Exact catalog title owns identity + price. Skip on precise DIN+MxL RFQ
+  // lines — they never equal the catalog title, and the extra remote SQL
+  // was paid 66× on a typical inquiry.
+  if (!isPreciseStructuredQuery(parsed)) {
     const nameHits = await searchByExactCatalogName(searchText, searchLimit);
     if (nameHits.length) {
       strategies.push("catalog_name_exact");
@@ -651,13 +655,19 @@ async function runProductSearchAgent({
     }
   }
 
-  // Same path as a human looking at ShopDB: DIN + MxL SQL first.
-  // Keyword/ES merge used to bury the 5 DIN 912 M10x25 rows under 300 LIKE hits
-  // and quota then returned [] to the UI.
+  // Precise DIN+MxL: local ES filter first (ms), remote SQL REGEXP only if ES miss.
   if (isPreciseStructuredQuery(parsed)) {
-    const structuredHits = await searchByStructuredQuery(parsed, searchLimit);
+    const structuredLimit = Math.min(40, Math.max(limit, 20));
+    let structuredHits =
+      (await searchPreciseStructuredViaElastic(parsed, structuredLimit)) ||
+      [];
+    let structuredSource = structuredHits.length ? "elastic_structured" : "";
+    if (!structuredHits.length) {
+      structuredHits = await searchByStructuredQuery(parsed, structuredLimit);
+      structuredSource = structuredHits.length ? "structured" : "";
+    }
     if (structuredHits.length) {
-      strategies.push("structured");
+      strategies.push(structuredSource);
       const preferred = preferStrengthClassHits(
         structuredHits,
         parsed.strengthClass
@@ -685,7 +695,7 @@ async function runProductSearchAgent({
         hits: products.length,
         productIds: products.map((p) => p.id),
         titles: products.map((p) => p.name?.slice(0, 60)),
-        earlyExit: "structured",
+        earlyExit: structuredSource,
       });
       const result = {
         products,
@@ -694,7 +704,7 @@ async function runProductSearchAgent({
         parsed,
         signals,
         tablesUsed: [...tablesUsed],
-        earlyExit: "structured",
+        earlyExit: structuredSource,
       };
       setCachedRetrieval(agentCacheKey, result);
       return result;
