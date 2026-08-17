@@ -54,6 +54,20 @@ const STOPWORDS = new Set([
 const PRICE_ONLY_RE =
   /^(jaka\s+)?cena\??$|ile\s+kosztuje|сколько\s+стоит|какая\s+цена|what('s|\s+is)\s+the\s+price/i;
 
+/** Стандартные классы прочности болтов/винтов (ISO 898-1). */
+const STRENGTH_CLASSES = new Set([
+  "3.6",
+  "4.6",
+  "4.8",
+  "5.6",
+  "5.8",
+  "6.8",
+  "8.8",
+  "9.8",
+  "10.9",
+  "12.9",
+]);
+
 /** Ключевые слова типа изделия (корни для поиска в названии). */
 const PRODUCT_TYPE_ROOTS = {
   штанга: ["штанг", "sztyc", "stud"],
@@ -248,6 +262,13 @@ function parseHardwareQuery(message) {
   )) {
     pushStd(m[1]);
   }
+  // Кириллицей: «дин 912», «Дин912» — клиенты пишут стандарт по-русски.
+  // \b не работает перед кириллицей, поэтому явная граница.
+  for (const m of raw.matchAll(
+    /(?:^|[^a-zа-яё0-9])дин\s*[- ]?\s*(\d{1,5})(?:[a-zа-я])?(?![0-9])/gi
+  )) {
+    pushStd(m[1]);
+  }
   // ГОСТ 7805 / ГОСТ Р 7805 — but not «ГОСТ Р ИСО 1207» (handled below).
   for (const m of raw.matchAll(
     /(?:gost|гост)\s*(?:р(?:ф)?\s+)?(?!исо\b|iso\b)[- ]?\s*(\d{4,5})/gi
@@ -349,14 +370,44 @@ function parseHardwareQuery(message) {
     }
   }
 
-  const { thread, pitch, diameter } = parseMetricSpecs(
+  let { thread, pitch, diameter } = parseMetricSpecs(
     normalized,
     productTypes
   );
 
+  // «винт 10x25 дин 912» — голый DxL у резьбового крепежа это сокращение
+  // M10x25. Только болт/винт/шпилька (штифт/шайба — реальные габариты) и не
+  // саморезы ST (там DxL — это ST-диаметр, не метрическая резьба).
+  const THREADED_TYPES = ["болт", "винт", "шпилька"];
+  if (
+    !thread &&
+    dimensions?.a &&
+    dimensions?.b &&
+    !dimensions.c &&
+    productTypes.some((t) => THREADED_TYPES.includes(t)) &&
+    !/(?:^|[^a-z])st\s*\d/i.test(normalized) &&
+    // Есть явный M-токен — размер владеют M-парсеры выше, не голый DxL
+    // (иначе «М16х1,5х150» отдал бы thread 1.5x150 из хвоста).
+    !/\bm\s*\d/i.test(normalized)
+  ) {
+    thread = { size: dimensions.a, length: dimensions.b };
+    if (!diameter) diameter = dimensions.a;
+  }
+
   let strengthClass = null;
-  const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
-  if (strengthMatch) strengthClass = strengthMatch[1];
+  // Известные классы прочности сперва — и через запятую («10,9»), как их
+  // реально пишут в заявках; иначе первым \d.\d мог оказаться шаг резьбы.
+  for (const m of lower.matchAll(/(\d{1,2})[.,](\d)/g)) {
+    const candidate = `${m[1]}.${m[2]}`;
+    if (STRENGTH_CLASSES.has(candidate)) {
+      strengthClass = candidate;
+      break;
+    }
+  }
+  if (!strengthClass) {
+    const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
+    if (strengthMatch) strengthClass = strengthMatch[1];
+  }
 
   const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;
 
