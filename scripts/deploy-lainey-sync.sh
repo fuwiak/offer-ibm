@@ -21,7 +21,17 @@ DEPLOY_LOG="${OFFERKP_DEPLOY_LOG:-/opt/offer-kp/build.log}"
 READY_FILE="${OFFERKP_READY_FILE:-/opt/offer-kp/READY}"
 SKIP_FRONTEND_RAW="$(printf '%s' "${SKIP_FRONTEND:-0}" | tr '[:upper:]' '[:lower:]')"
 
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
+# Keepalives: long remote steps (yarn install, elastic sync) dropped idle SSH
+# sessions ("client_loop: send disconnect: Broken pipe" → exit 255 in CI even
+# though every deploy step had already succeeded).
+SSH_OPTS=(
+  -o BatchMode=yes
+  -o ConnectTimeout=20
+  -o StrictHostKeyChecking=accept-new
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=8
+  -o TCPKeepAlive=yes
+)
 if [[ -f "$SSH_KEY" ]]; then
   SSH_OPTS+=(-i "$SSH_KEY")
 fi
@@ -46,6 +56,21 @@ skip_frontend() {
 
 remote() {
   ssh "${SSH_OPTS[@]}" "${USER}@${HOST}" "$@"
+}
+
+# Exit 255 is an SSH transport failure (dropped connection), not the remote
+# command's own status — retry once for idempotent steps so a disconnect after
+# a successful step does not abort the whole deploy.
+remote_retry() {
+  local rc=0
+  remote "$@" || rc=$?
+  if [ "$rc" -eq 255 ]; then
+    log "ssh transport dropped (255) — retrying once: $*"
+    sleep 3
+    rc=0
+    remote "$@" || rc=$?
+  fi
+  return $rc
 }
 
 remote_log() {
@@ -105,10 +130,13 @@ remote "mkdir -p ${REMOTE_APP} ${REMOTE_SRC} /opt/offer-kp/data"
 RSYNC_EXCLUDES=(
   --exclude node_modules
   --exclude .git
-  --exclude '**/storage/**'
-  --exclude 'server/storage/**'
-  --exclude 'collector/hotdir/**'
-  --exclude 'collector/outputs/**'
+  # Exclude the dirs themselves, not only their contents — otherwise --delete
+  # tries to remove them on the server and spams "cannot delete non-empty
+  # directory" every deploy.
+  --exclude '**/storage'
+  --exclude 'server/storage'
+  --exclude 'collector/hotdir'
+  --exclude 'collector/outputs'
   --exclude '.env'
   --exclude '.env.*'
   --exclude 'cli/offerkp-ops'
@@ -282,25 +310,35 @@ systemctl daemon-reload
 systemctl enable offer-kp-gpu-worker offer-kp-cpu-worker >/dev/null 2>&1 || true
 
 systemctl restart offer-kp offer-kp-collector offer-kp-gpu-worker offer-kp-cpu-worker
-sleep 2
 systemctl is-active offer-kp
 systemctl is-active offer-kp-collector || true
 systemctl is-active redis-server || true
 systemctl is-active offer-kp-gpu-worker || true
 systemctl is-active offer-kp-cpu-worker || true
-curl -sS -o /dev/null -w "local / : %{http_code}\\n" --max-time 15 http://127.0.0.1:3001/ || true
+# Boot (prisma + boot checks) takes longer than a fixed sleep — poll until the
+# server answers instead of printing a misleading 000/502 one-shot probe.
+HEALTH=000
+for i in \$(seq 1 60); do
+  HEALTH=\$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/ 2>/dev/null || printf 000)
+  if [ "\$HEALTH" != "000" ] && [ "\$HEALTH" -lt 500 ]; then
+    break
+  fi
+  sleep 2
+done
+echo "local / : \$HEALTH (after \$((i * 2))s)"
 curl -sS -o /dev/null -w "nginx / : %{http_code}\\n" --max-time 15 http://127.0.0.1/ || true
+if [ "\$HEALTH" = "000" ] || [ "\$HEALTH" -ge 500 ]; then
+  echo "offer-kp did not become healthy on :3001" >&2
+  journalctl -u offer-kp -n 40 --no-pager || true
+  exit 1
+fi
 EOS
 
 log "==> Full Elasticsearch sync on Lainey"
 remote_log "SYNC elastic full"
-remote "bash -s" <<EOS
-set -euo pipefail
-cd ${REMOTE_APP}/server
-yarn sync:elastic:full
-EOS
+remote_retry "cd ${REMOTE_APP}/server && yarn sync:elastic:full"
 
-remote "printf '%s|%s|%s\n' $(printf %q "$GIT_HASH") $(printf %q "$GIT_DATE") $(printf %q "$GIT_SUBJECT") > ${READY_FILE}"
+remote_retry "printf '%s|%s|%s\n' $(printf %q "$GIT_HASH") $(printf %q "$GIT_DATE") $(printf %q "$GIT_SUBJECT") > ${READY_FILE}"
 remote_log "DEPLOY OK ${GIT_HASH}"
 
 log "Done. http://offer-ibm.ru/  ·  offerkp status"
