@@ -159,12 +159,29 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(
       lines.some((l) => l.quantity === 4 && /ГОСТ 7805/i.test(l.name))
     ).toBe(true);
+    const bolt = lines.find((l) => /ГОСТ 7805/i.test(l.name));
+    expect(bolt.thread).toEqual({ size: "12", length: "40" });
+    expect(bolt.strengthClass).toBe("8.8");
     expect(
       lines.some((l) => l.quantity === 75 && /DIN 7500/i.test(l.name))
     ).toBe(true);
     expect(lines.some((l) => l.quantity === 6 && /Гайка/i.test(l.name))).toBe(
       true
     );
+  });
+
+  it("does not stamp кл.пр. onto branded cage nuts from sibling bolts", () => {
+    const text = [
+      "Болт М6-6gx14.88.019 ГОСТ 7805-70\t2",
+      "Гайка СМ230600 (М6) ф.DKC\t36",
+      "Гайка М6-6Н.5.019 ГОСТ 5927-70\t6",
+    ].join("\n");
+    const lines = parseInquiryText(text);
+    const dkc = lines.find((l) => /СМ230600/i.test(l.name));
+    expect(dkc.name).not.toMatch(/кл\.пр/);
+    const gostNut = lines.find((l) => /5927/i.test(l.name));
+    expect(gostNut.strengthClass).toBe("5");
+    expect(gostNut.name).not.toMatch(/кл\.пр\.8/);
   });
 
   it("explodes packed supply RFQ into separate product lines", () => {

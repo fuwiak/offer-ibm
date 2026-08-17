@@ -711,7 +711,7 @@ function tryParseExpectedCsvInquiry(text) {
 // but repeated re-parses of the same RFQ (rematch, draft edits) skip it.
 // Entries are deep-cloned on both sides: callers mutate parsed lines
 // (quantity merge, .thread), shared references would leak across requests.
-const PARSE_CACHE_VERSION = "v4";
+const PARSE_CACHE_VERSION = "v5";
 const PARSE_CACHE_TTL_MS = Math.max(
   60_000,
   parseInt(process.env.OFFER_KP_PARSE_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
@@ -805,6 +805,15 @@ function nutClassFromBoltStrength(strengthClass) {
   return m[1];
 }
 
+/** Cage/brand nuts (DKC СМ…, ф.Schroff) are not hex ГОСТ 5927 — do not stamp кл.пр. */
+function isBrandOrOstNut(text) {
+  const t = String(text || "");
+  if (/\bост\b/i.test(t)) return true;
+  if (/(?:^|[^\p{L}])ф\./u.test(t)) return true;
+  if (/[A-ZА-Я]{2,}\d{4,}/.test(t)) return true;
+  return false;
+}
+
 /**
  * HV set (ГОСТ Р 52644 bolt) implies matching nut ГОСТ Р 52645.
  * Bolt 8.8 / 10.9 on the same diameter implies nut кл.пр.8 / 10.
@@ -855,7 +864,11 @@ function enrichInquiryLinesFromSiblings(lines = []) {
 
     const boltClass = boltClassByDiam.get(size);
     const nutClass = nutClassFromBoltStrength(boltClass);
-    if (nutClass && !parsed.strengthClass) {
+    if (
+      nutClass &&
+      !parsed.strengthClass &&
+      !isBrandOrOstNut(next.raw || next.name)
+    ) {
       const stamp = `кл.пр.${nutClass}`;
       if (!new RegExp(`кл\\.пр\\.?\\s*${nutClass}`).test(next.raw || "")) {
         next = {

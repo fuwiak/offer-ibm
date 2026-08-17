@@ -76,6 +76,23 @@ const STRENGTH_CLASSES = new Set([
   "12.9",
 ]);
 
+/** ГОСТ чертёж: `.88` = 8.8, `.36` = 3.6, `.109` = 10.9. Не длина и не шаг. */
+const GOST_DOTTED_STRENGTH = {
+  36: "3.6",
+  46: "4.6",
+  48: "4.8",
+  56: "5.6",
+  58: "5.8",
+  68: "6.8",
+  88: "8.8",
+  98: "9.8",
+  109: "10.9",
+  129: "12.9",
+};
+
+/** ГОСТ 9.306 коды покрытия, которые в ShopDB ищем как цинк. */
+const GOST_ZINC_COATING = new Set(["013", "016", "019", "026"]);
+
 /** Ключевые слова типа изделия (корни для поиска в названии). */
 const PRODUCT_TYPE_ROOTS = {
   штанга: ["штанг", "sztyc", "stud"],
@@ -88,6 +105,7 @@ const PRODUCT_TYPE_ROOTS = {
   // Гровер = пружинная шайба (DIN 127 / ГОСТ 6402); имя в каталоге часто
   // без слова «шайба» — без синонима constraintValidator даёт product_type_mismatch.
   шайба: ["шайб", "washer", "гровер", "spring washer", "lock washer"],
+  заклепка: ["заклеп", "rivet"],
   анкер: ["анкер", "anchor"],
   шпоночная: ["шпоночн", "шпонк", "keyway", "key steel"],
   сталь: ["сталь", "steel"],
@@ -134,6 +152,24 @@ const STANDARD_IMPLIES_TYPE = {
   "9464": "штифт",
   "3129": "штифт",
   "127": "шайба",
+  "6402": "шайба",
+  "965": "винт",
+  "17475": "винт",
+  "84": "винт",
+  "1491": "винт",
+  "7991": "винт",
+  "10344": "винт",
+  "10337": "винт",
+  "5927": "гайка",
+  "660": "заклепка",
+  "661": "заклепка",
+  "10299": "заклепка",
+  "10300": "заклепка",
+  "6799": "шайба",
+  "11648": "шайба",
+  "9021": "шайба",
+  "7092": "шайба",
+  "7093": "шайба",
   "580": "рым-болт",
   "4751": "рым-болт",
   "8918": "гайка",
@@ -307,6 +343,57 @@ function parseMetricSpecs(normalized, productTypes = []) {
   return { thread, pitch, diameter };
 }
 
+/**
+ * Чертёжное ГОСТ-обозначение (не MxL каталога):
+ *   Болт/винт: М12-6gx40.88.019 → M12×40, 8.8, цинк (6g = допуск, не размер)
+ *   Гайка:     М6-6Н.5.019     → M6, кл.5, цинк
+ * После foldHomoglyphs кириллица Н→n, х→x, М→m.
+ */
+function parseGostDrawingDesignation(normalized) {
+  const n = String(normalized || "");
+  const bolt = n.match(
+    /(?:^|[^a-z0-9])(?:[acs]\.)?m\s*(\d+(?:[.,]\d+)?)\s*-\s*\d+[ghn]\s*x\s*(\d+)(?:\.(\d{2,3}))?(?:\.(\d{2,4}))?/i
+  );
+  if (bolt) {
+    const diameter = bolt[1].replace(",", ".");
+    const strengthClass = GOST_DOTTED_STRENGTH[bolt[3]] || null;
+    const coating = GOST_ZINC_COATING.has(String(bolt[4] || ""))
+      ? "оцинк"
+      : null;
+    return {
+      diameter,
+      thread: { size: diameter, length: bolt[2] },
+      strengthClass,
+      coating,
+    };
+  }
+
+  const nut = n.match(
+    /(?:^|[^a-z0-9])m\s*(\d+(?:[.,]\d+)?)\s*-\s*\d+[ghn]\.(\d{1,2})\.(\d{2,4})/i
+  );
+  if (nut) {
+    const diameter = nut[1].replace(",", ".");
+    const cls = nut[2];
+    return {
+      diameter,
+      thread: null,
+      strengthClass: NUT_PROPERTY_CLASSES.has(cls) ? cls : null,
+      coating: GOST_ZINC_COATING.has(String(nut[3] || "")) ? "оцинк" : null,
+    };
+  }
+
+  return null;
+}
+
+function parseGostWasherDiameter(normalized) {
+  const n = String(normalized || "");
+  const coded = n.match(
+    /(?:^|[^0-9])(?:[acs]\.)?(\d+(?:[.,]\d+)?)\.(0[124])\.(\d{2,4})\b/i
+  );
+  if (coded) return coded[1].replace(",", ".");
+  return null;
+}
+
 function parseHardwareQuery(message) {
   const raw = String(message || "");
   const lower = raw.toLowerCase();
@@ -350,16 +437,23 @@ function parseHardwareQuery(message) {
     pushStd(m[1]);
   }
 
+  const drawing = parseGostDrawingDesignation(normalized);
+
   let dimensions = null;
   // Decimal-aware DxL / DxDxT (3,5x40 / 20x24x1,5). Do not steal the tail of
   // MxL like m3,5x16 → 5x16 (comma is a word boundary in JS \b).
-  const dimMatch =
-    normalized.match(
-      /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
-    ) ||
-    normalized.match(
-      /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
-    );
+  // ГОСТ хвост `.37.10` у заклёпки — длина целое, не 4.37.
+  const dimMatch = drawing
+    ? null
+    : normalized.match(
+        /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
+      ) ||
+      normalized.match(
+        /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+)(?=\.\d{2})/i
+      ) ||
+      normalized.match(
+        /(?<![mм\d.,])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i
+      );
   if (dimMatch) {
     dimensions = {
       a: String(dimMatch[1]).replace(",", "."),
@@ -406,6 +500,7 @@ function parseHardwareQuery(message) {
     "штифт",
     "анкер",
     "рым-болт",
+    "заклепка",
   ]);
   if (productTypes.some((t) => FASTENER_TYPES.has(t))) {
     for (const materialLike of ["сталь", "полоса", "квадрат", "круг"]) {
@@ -431,10 +526,25 @@ function parseHardwareQuery(message) {
     }
   }
 
-  let { thread, pitch, diameter } = parseMetricSpecs(
-    normalized,
-    productTypes
-  );
+  let thread = drawing?.thread || null;
+  let pitch = null;
+  let diameter = drawing?.diameter || null;
+  if (!thread && !diameter) {
+    ({ thread, pitch, diameter } = parseMetricSpecs(normalized, productTypes));
+  } else if (drawing && !thread) {
+    const rest = parseMetricSpecs(normalized, productTypes);
+    if (!pitch) pitch = rest.pitch;
+  }
+
+  if (productTypes.includes("шайба") && !diameter) {
+    diameter = parseGostWasherDiameter(normalized);
+  }
+  if (productTypes.includes("шайба") && !diameter && !dimensions) {
+    const bareWasher = lower.match(
+      /шайб[а-яёa-z]*\s+(?:[асac]\.)?(\d+(?:[.,]\d+)?)/i
+    );
+    if (bareWasher) diameter = bareWasher[1].replace(",", ".");
+  }
 
   if (
     !dinNumbers.length &&
@@ -469,6 +579,7 @@ function parseHardwareQuery(message) {
   // саморезы ST (там DxL — это ST-диаметр, не метрическая резьба).
   const THREADED_TYPES = ["болт", "винт", "шпилька"];
   if (
+    !drawing &&
     !thread &&
     dimensions?.a &&
     dimensions?.b &&
@@ -483,17 +594,23 @@ function parseHardwareQuery(message) {
     if (!diameter) diameter = dimensions.a;
   }
 
-  let strengthClass = null;
+  let strengthClass = drawing?.strengthClass || null;
   // Известные классы прочности сперва — и через запятую («10,9»), как их
   // реально пишут в заявках; иначе первым \d.\d мог оказаться шаг резьбы.
-  for (const m of lower.matchAll(/(\d{1,2})[.,](\d)/g)) {
-    const candidate = `${m[1]}.${m[2]}`;
-    if (STRENGTH_CLASSES.has(candidate)) {
-      strengthClass = candidate;
-      break;
+  if (!strengthClass) {
+    for (const m of lower.matchAll(/(\d{1,2})[.,](\d)/g)) {
+      const candidate = `${m[1]}.${m[2]}`;
+      if (STRENGTH_CLASSES.has(candidate)) {
+        strengthClass = candidate;
+        break;
+      }
     }
   }
-  if (!strengthClass) {
+  if (
+    !strengthClass &&
+    !productTypes.includes("шайба") &&
+    !productTypes.includes("заклепка")
+  ) {
     const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
     if (strengthMatch) strengthClass = strengthMatch[1];
   }
@@ -514,7 +631,9 @@ function parseHardwareQuery(message) {
     }
   }
 
-  const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;
+  const coating =
+    drawing?.coating ||
+    (/оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null);
 
   return {
     dinNumbers,

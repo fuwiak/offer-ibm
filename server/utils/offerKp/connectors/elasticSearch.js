@@ -169,14 +169,16 @@ function buildElasticQuery(terms, parsed = {}, size = 20) {
  */
 function buildPreciseElasticQuery(parsed = {}, size = 20) {
   const filter = [];
-  const din = String(parsed?.dinNumbers?.[0] || "").trim();
-  if (din) {
+  const dins = (parsed?.dinNumbers || [])
+    .map((d) => String(d || "").trim())
+    .filter(Boolean);
+  if (dins.length) {
     filter.push({
       bool: {
-        should: [
+        should: dins.flatMap((din) => [
           { match_phrase: { standard: `DIN ${din}` } },
           { match_phrase: { name: din } },
-        ],
+        ]),
         minimum_should_match: 1,
       },
     });

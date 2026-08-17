@@ -165,6 +165,32 @@ describe("analogRules", () => {
     );
   });
 
+  test("expandGostQueryForCatalogSearch adds DIN without 933→7798 pollution", () => {
+    const {
+      expandGostQueryForCatalogSearch,
+    } = require("../../../utils/offerKp/analogRules");
+    expect(expandGostQueryForCatalogSearch(["7805"])).toEqual(
+      expect.arrayContaining(["7805", "933"])
+    );
+    expect(expandGostQueryForCatalogSearch(["7805"])).not.toContain("7798");
+    expect(expandGostQueryForCatalogSearch(["933"])).toEqual(["933"]);
+    expect(expandGostQueryForCatalogSearch(["5927"])).toEqual(
+      expect.arrayContaining(["5927", "934"])
+    );
+    expect(expandGostQueryForCatalogSearch(["17475"])).toEqual(
+      expect.arrayContaining(["17475", "965"])
+    );
+  });
+
+  test("GOST drawing 7805 line matches DIN 933 M×L in catalog", () => {
+    const result = classifyProductMatch("Болт М12-6gx40.88.019 ГОСТ 7805-70", {
+      name: "Болт DIN 933 M 12x 40 8.8 оцинк / ГОСТ 7805-70",
+      stockCount: 1574,
+    });
+    expect(["exact", "analog"]).toContain(result.matchType);
+    expect(result.matchType).not.toBe("none");
+  });
+
   test("strength class matches both 10,9 and 10.9", () => {
     const catalogComma =
       "Винт DIN  912 M 10x 25 10,9 оцинк П/Р / ГОСТ 11738-84  (50)";

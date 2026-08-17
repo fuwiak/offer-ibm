@@ -81,6 +81,23 @@ describe("elasticSearch connector", () => {
     expect(body.query.bool.should).toBeUndefined();
   });
 
+  it("precise ES filter ORs all dinNumbers (GOST 7805 + DIN 933)", () => {
+    const {
+      buildPreciseElasticQuery,
+    } = require("../../../utils/offerKp/connectors/elasticSearch");
+    const body = buildPreciseElasticQuery(
+      { dinNumbers: ["7805", "933"], thread: { size: "12", length: "40" } },
+      20
+    );
+    const dinFilter = body.query.bool.filter.find((c) => c.bool?.should);
+    const phrases = dinFilter.bool.should.map(
+      (c) => c.match_phrase?.standard || c.match_phrase?.name
+    );
+    expect(phrases).toEqual(
+      expect.arrayContaining(["DIN 7805", "DIN 933", "7805", "933"])
+    );
+  });
+
   it("returns ES ids and hydrates live rows from ShopDB in ES order", async () => {
     process.env.OFFER_KP_ELASTICSEARCH = "1";
     mockEsHits([15231, 999, 42]);

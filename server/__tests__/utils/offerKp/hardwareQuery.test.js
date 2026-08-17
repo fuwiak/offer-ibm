@@ -180,4 +180,68 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(mxl.dimensions).toBeNull();
     expect(mxl.thread).toEqual({ size: "3.5", length: "16" });
   });
+
+  it("parses GOST drawing М12-6gx40.88.019 as M12×40 8.8 zinc, not 6×40.88", () => {
+    const p = parseHardwareQuery("Болт М12-6gx40.88.019 ГОСТ 7805-70");
+    expect(p.thread).toEqual({ size: "12", length: "40" });
+    expect(p.diameter).toBe("12");
+    expect(p.strengthClass).toBe("8.8");
+    expect(p.coating).toBe("оцинк");
+    expect(p.dinNumbers).toContain("7805");
+    expect(p.productTypes).toEqual(["болт"]);
+    expect(p.dimensions).toBeNull();
+  });
+
+  it("parses GOST drawing screws with execution prefix and decimal M", () => {
+    const p = parseHardwareQuery("Винт А.М2,5-6gx8.36.013 ГОСТ 17475-80");
+    expect(p.thread).toEqual({ size: "2.5", length: "8" });
+    expect(p.strengthClass).toBe("3.6");
+    expect(p.dinNumbers).toContain("17475");
+    expect(p.productTypes).toEqual(["винт"]);
+  });
+
+  it("parses GOST nut М6-6Н.5.019 as M6 class 5, not thread 6", () => {
+    const p = parseHardwareQuery("Гайка М6-6Н.5.019 ГОСТ 5927-70");
+    expect(p.diameter).toBe("6");
+    expect(p.thread).toBeNull();
+    expect(p.strengthClass).toBe("5");
+    expect(p.coating).toBe("оцинк");
+    expect(p.dinNumbers).toContain("5927");
+    expect(p.productTypes).toEqual(["гайка"]);
+  });
+
+  it("parses GOST washer А.3.04.026 / 5.04.026 as diameter, not 3.04", () => {
+    const a = parseHardwareQuery("Шайба А.3.04.026 ГОСТ 11371-78");
+    expect(a.diameter).toBe("3");
+    expect(a.strengthClass).toBeNull();
+    expect(a.dinNumbers).toContain("11371");
+
+    const bare = parseHardwareQuery("Шайба 5.04.026 ГОСТ 11371-78");
+    expect(bare.diameter).toBe("5");
+    expect(bare.strengthClass).toBeNull();
+  });
+
+  it("parses grover Шайба 12 65Г 019 ГОСТ 6402 as diameter 12", () => {
+    const p = parseHardwareQuery("Шайба 12 65Г 019 ГОСТ 6402-70");
+    expect(p.diameter).toBe("12");
+    expect(p.dinNumbers).toContain("6402");
+    expect(p.productTypes).toContain("шайба");
+  });
+
+  it("parses rivet 1,6х4.37.10 as 1.6×4, not 1.6×4.37", () => {
+    const p = parseHardwareQuery("Заклепка 1,6х4.37.10 ГОСТ 10299-80");
+    expect(p.dimensions).toEqual({ a: "1.6", b: "4", c: null });
+    expect(p.dinNumbers).toContain("10299");
+    expect(p.productTypes).toContain("заклепка");
+    expect(p.strengthClass).toBeNull();
+  });
+
+  it("parses stud М4-6gx14.109 as M4×14 10.9", () => {
+    const p = parseHardwareQuery(
+      "Шпилька М4-6gx14.109.30ХГСА.016 (АВ8.927.361-73) ОСТ 4ГО.892.006-81"
+    );
+    expect(p.thread).toEqual({ size: "4", length: "14" });
+    expect(p.strengthClass).toBe("10.9");
+    expect(p.productTypes).toContain("шпилька");
+  });
 });

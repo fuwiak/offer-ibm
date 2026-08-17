@@ -39,6 +39,7 @@ const {
   applyMatchPriorityBonus,
   detectAnalogIntent,
   expandDinNumbersWithEquivalents,
+  expandGostQueryForCatalogSearch,
 } = require("./analogRules");
 const {
   nameSimilarityScore,
@@ -503,13 +504,12 @@ async function runProductSearchAgent({
   const analogIntent = detectAnalogIntent(
     `${String(message || "")}\n${searchText}`
   );
-  // Keep requested standards for primary SQL structured search. Expanding
-  // DIN↔GOST here OR-pollutes results (DIN 933 line that also lists GOST 7798
-  // pulled in DIN 931 candidates and wrong cheapest "exact").
+  // Keep requested DIN as-is. GOST-only RFQ adds the catalog DIN (7805→933)
+  // without OR-expanding DIN 933 → 7798 (that pulled DIN 931 cheapest "exact").
   const requestedDinNumbers = [...(parsed.dinNumbers || [])];
+  parsed.dinNumbers = expandGostQueryForCatalogSearch(requestedDinNumbers);
   const expandedDinNumbers =
-    expandDinNumbersWithEquivalents(requestedDinNumbers);
-  parsed.dinNumbers = requestedDinNumbers;
+    expandDinNumbersWithEquivalents(parsed.dinNumbers);
   const terms = extractSearchTerms(searchText);
   const searchTerms =
     terms.length > 0 ? terms : [String(searchText).trim().slice(0, 120)];

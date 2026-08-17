@@ -30,10 +30,10 @@ const ANALOG_RULES = [
   },
   {
     din: "934",
-    analogs: ["5915", "4032"],
+    analogs: ["5915", "4032", "5927"],
     productType: "гайка",
     matchRule: "thread_pitch",
-    label: "DIN 934 → ГОСТ 5915-70, ISO 4032",
+    label: "DIN 934 → ГОСТ 5915-70 / ГОСТ 5927-70, ISO 4032",
   },
   {
     din: "439",
@@ -58,10 +58,10 @@ const ANALOG_RULES = [
   },
   {
     din: "433",
-    analogs: ["10450"],
+    analogs: ["10450", "7092"],
     productType: "шайба",
     matchRule: "diameter_coating",
-    label: "DIN 433 → ГОСТ 10450-78",
+    label: "DIN 433 → ГОСТ 10450-78 / ISO 7092",
   },
   {
     din: "125",
@@ -86,10 +86,66 @@ const ANALOG_RULES = [
   },
   {
     din: "7985",
-    analogs: ["17473"],
+    analogs: ["17473", "10337"],
     productType: "винт",
     matchRule: "thread_coating_strength",
-    label: "DIN 7985 → ГОСТ 17473-80",
+    label: "DIN 7985 → ГОСТ 17473-80 / ГОСТ 10337-80",
+  },
+  {
+    din: "965",
+    analogs: ["17475"],
+    productType: "винт",
+    matchRule: "thread_coating_strength",
+    label: "DIN 965 → ГОСТ 17475-80",
+  },
+  {
+    din: "84",
+    analogs: ["1491"],
+    productType: "винт",
+    matchRule: "thread_coating_strength",
+    label: "DIN 84 → ГОСТ 1491-80",
+  },
+  {
+    din: "7991",
+    analogs: ["10344"],
+    productType: "винт",
+    matchRule: "thread_coating_strength",
+    label: "DIN 7991 → ГОСТ 10344-80",
+  },
+  {
+    din: "127",
+    analogs: ["6402"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 127 → ГОСТ 6402-70",
+  },
+  {
+    din: "9021",
+    analogs: ["7093", "6958"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 9021 → ISO 7093 / ГОСТ 6958-78",
+  },
+  {
+    din: "660",
+    analogs: ["10299"],
+    productType: "заклепка",
+    matchRule: "pin_dimensions",
+    label: "DIN 660 → ГОСТ 10299-80",
+  },
+  {
+    din: "661",
+    analogs: ["10300"],
+    productType: "заклепка",
+    matchRule: "pin_dimensions",
+    label: "DIN 661 → ГОСТ 10300-80",
+  },
+  {
+    din: "6799",
+    analogs: ["11648"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 6799 → ГОСТ 11648-75",
   },
   {
     din: "7978",
@@ -177,11 +233,12 @@ function pitchMatches(nameNorm, diameter, pitch) {
 
 function extractPinDimensions(text) {
   const norm = normalizeForMatch(text);
+  if (/\bm\s*\d+\s*x\s*\d+/i.test(norm)) return null;
+  const dottedGost =
+    norm.match(/\b(\d+(?:[.,]\d+)?)\s*x\s*(\d+)(?=\.\d{2})/i);
   const m =
-    norm.match(/\b(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\b/i) &&
-    !norm.match(/\bm\s*\d+\s*x\s*\d+/i)
-      ? norm.match(/\b(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\b/i)
-      : null;
+    dottedGost ||
+    norm.match(/\b(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\b/i);
   if (!m) return null;
   return {
     diameter: m[1].replace(",", "."),
@@ -404,6 +461,24 @@ function expandDinNumbersWithEquivalents(dinNumbers = []) {
   const out = new Set();
   for (const n of dinNumbers || []) {
     for (const eq of getEquivalentStandards(n)) out.add(String(eq));
+  }
+  return [...out];
+}
+
+/**
+ * RFQ with only ГОСТ/ISO: ShopDB names are DIN-first.
+ * Add the catalog DIN (rule.din), do NOT expand DIN → all GOST
+ * (933 → 7798 pulled DIN 931 and the wrong cheapest "exact").
+ */
+function expandGostQueryForCatalogSearch(dinNumbers = []) {
+  const requested = [
+    ...new Set((dinNumbers || []).map(String).filter(Boolean)),
+  ];
+  const out = new Set(requested);
+  for (const n of requested) {
+    for (const rule of ANALOG_RULES) {
+      if (rule.analogs.map(String).includes(n)) out.add(String(rule.din));
+    }
   }
   return [...out];
 }
@@ -725,6 +800,7 @@ module.exports = {
   getEquivalentStandards,
   detectAnalogIntent,
   expandDinNumbersWithEquivalents,
+  expandGostQueryForCatalogSearch,
   threadMatchesExact,
   pinMatchesExact,
   diameterMatches,
