@@ -20,8 +20,8 @@
     "test:shopdb": "jest __tests__/utils/offerKp --runInBand",
     "sync:shopdb-canonical": "node ../scripts/sync-shopdb-canonical-index.cjs",
     "audit:shopdb-random": "node ../scripts/audit-shopdb-random-sample.cjs",
-    "sync:elastic": "node utils/offerKp/connectors/elasticSync.js",
-    "sync:elastic:full": "node utils/offerKp/connectors/elasticSync.js --full"
+    "sync:elastic": "node -e \"require('./config/loadEnv').loadEnv(); require('./utils/offerKp/connectors/elasticSync').syncElasticCatalog().then((r)=>{console.log(JSON.stringify(r));}).catch((e)=>{console.error('[elasticSync]', e?.message || e); process.exit(1);})\"",
+    "sync:elastic:full": "node -e \"require('./config/loadEnv').loadEnv(); require('./utils/offerKp/connectors/elasticSync').syncElasticCatalog({ full: true }).then((r)=>{console.log(JSON.stringify(r));}).catch((e)=>{console.error('[elasticSync]', e?.message || e); process.exit(1);})\""
   },
   "prisma": {
     "seed": "node prisma/seed.js"
