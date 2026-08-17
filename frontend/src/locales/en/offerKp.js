@@ -520,6 +520,7 @@ const TRANSLATIONS = {
     article: "SKU",
     openProduct: "Open on purolat.com",
     unit: "Unit",
+    price: "Price",
     priceNet: "Price excl. VAT",
     priceVat: "Price w/ VAT",
     sum: "Total",
@@ -553,7 +554,7 @@ const TRANSLATIONS = {
     columnNamePlaceholder: "Column name",
     removeColumn: "Remove column",
     manualHint:
-      "Edit any field: name, SKU, qty, unit, price excl./incl. VAT, total, weight, status, comment. You can add custom columns.",
+      "Edit any field: name, SKU, qty, unit, price, total, weight, status, comment. You can add custom columns.",
     reviewConfirm:
       "{{count}} line(s) need review. I confirm manual checks before export.",
     exportRecognizedOnly:

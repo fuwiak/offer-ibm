@@ -521,6 +521,7 @@ const TRANSLATIONS = {
     article: "Indeks",
     openProduct: "Otwórz na purolat.com",
     unit: "J.m.",
+    price: "Cena",
     priceNet: "Cena netto",
     priceVat: "Cena brutto",
     sum: "Suma",
@@ -555,7 +556,7 @@ const TRANSLATIONS = {
     columnNamePlaceholder: "Nazwa kolumny",
     removeColumn: "Usuń kolumnę",
     manualHint:
-      "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena netto/brutto, suma, waga, status, komentarz. Możesz dodać własne kolumny.",
+      "Edytuj dowolne pole: nazwa, indeks, ilość, j.m., cena, suma, waga, status, komentarz. Możesz dodać własne kolumny.",
     reviewConfirm:
       "{{count}} poz. wymaga weryfikacji. Potwierdzam ręczną kontrolę przed eksportem.",
     exportRecognizedOnly:

@@ -23,7 +23,6 @@ import { localeForCountry } from "@/utils/offerKp/quoteBrand";
 import {
   lineGrossTotal,
   lineUnitGross,
-  lineUnitNetReference,
   recalcLineGross,
 } from "@/utils/offerKp/quoteLineTotals";
 import {
@@ -266,13 +265,11 @@ export default function QuoteDraftTable() {
     const old =
       field === "lineTotalGross"
         ? lineGrossTotal(line)
-        : field === "unitPriceNet"
-          ? lineUnitNetReference(line, vatRate)
-          : field === "lineWeightKg"
-            ? lineTotalWeight(line)
-            : field.startsWith("custom:")
-              ? (line.custom?.[field.slice(7)] ?? "")
-              : line[field];
+        : field === "lineWeightKg"
+          ? lineTotalWeight(line)
+          : field.startsWith("custom:")
+            ? (line.custom?.[field.slice(7)] ?? "")
+            : line[field];
     if (field === "lineTotalGross") {
       const qty = Number(line.quantity) || 0;
       const gross = Number(value) || 0;
@@ -306,12 +303,6 @@ export default function QuoteDraftTable() {
             total: subtotal,
           },
         };
-      });
-    } else if (field === "unitPriceNet") {
-      const net = Number(value) || 0;
-      updateLine(index, {
-        unitPriceNet: Number(net.toFixed(2)),
-        priceWithVat: Number((net * (1 + vatRate)).toFixed(2)),
       });
     } else if (field === "lineWeightKg") {
       updateLine(index, {
@@ -555,7 +546,7 @@ export default function QuoteDraftTable() {
 
   function altPatch(alt, live = null) {
     if (!alt || typeof alt !== "object") return {};
-    const unitPriceNet =
+    const catalogPrice =
       (live && Number(live.unitPriceNet) > 0
         ? Number(live.unitPriceNet)
         : altNetPrice(alt)) || 0;
@@ -588,11 +579,7 @@ export default function QuoteDraftTable() {
       productUrl: alt.productUrl || alt.url || undefined,
       matchType: alt.matchType || "analog",
       // Цена из каталога уже с НДС.
-      unitPriceNet: lineUnitNetReference(
-        { priceWithVat: Number(unitPriceNet.toFixed(2)) },
-        vatRate
-      ),
-      priceWithVat: Number(unitPriceNet.toFixed(2)),
+      priceWithVat: Number(catalogPrice.toFixed(2)),
       weightKg,
       status: live && Number(live.stockCount) > 0 ? "В наличии" : status,
       kpStatus:
@@ -604,7 +591,7 @@ export default function QuoteDraftTable() {
         live?.stockCount != null
           ? Number(live.stockCount) || 0
           : Number(alt.stockCount) || 0,
-      allowPrice: unitPriceNet > 0,
+      allowPrice: catalogPrice > 0,
     };
   }
 
@@ -864,7 +851,7 @@ export default function QuoteDraftTable() {
           <span className="text-[10px] text-theme-text-secondary">
             {t("draftTable.manualHint", {
               defaultValue:
-                "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена без/с НДС, сумма, вес, статус, комментарий. Можно добавить свои колонки.",
+                "Редактируйте любое поле: позиция, артикул, кол-во, ед., цена, сумма, вес, статус, комментарий. Можно добавить свои колонки.",
             })}
           </span>
         </div>
@@ -1065,12 +1052,7 @@ export default function QuoteDraftTable() {
               <th>{t("draftTable.article", { defaultValue: "Артикул" })}</th>
               <th>{t("quote.quantity")}</th>
               <th>{t("draftTable.unit", { defaultValue: "Ед." })}</th>
-              <th>
-                {t("draftTable.priceNet", { defaultValue: "Цена без НДС" })}
-              </th>
-              <th>
-                {t("draftTable.priceVat", { defaultValue: "Цена с НДС" })}
-              </th>
+              <th>{t("draftTable.price", { defaultValue: "Цена" })}</th>
               <th>{t("draftTable.sum", { defaultValue: "Сумма" })}</th>
               <th>{t("draftTable.weight", { defaultValue: "Вес" })}</th>
               <th>{t("draftTable.status", { defaultValue: "Статус" })}</th>
@@ -1255,24 +1237,7 @@ export default function QuoteDraftTable() {
                     type="number"
                     min={0}
                     step={0.01}
-                    value={lineUnitNetReference(line, vatRate)}
-                    onChange={(e) =>
-                      handleFieldChange(
-                        i,
-                        "unitPriceNet",
-                        Number(e.target.value),
-                        line
-                      )
-                    }
-                    className="w-20 bg-transparent border-b border-transparent hover:border-theme-sidebar-border outline-none text-right"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={line.priceWithVat ?? line.unitPrice ?? 0}
+                    value={lineUnitGross(line)}
                     onChange={(e) =>
                       handleFieldChange(
                         i,

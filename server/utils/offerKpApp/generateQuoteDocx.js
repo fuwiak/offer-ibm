@@ -299,7 +299,7 @@ async function generateQuoteDocx(quoteData) {
         { width: wQty, fill: headerFill, borders: NO_BORDERS }
       ),
       cell(
-        para(run("Цена с НДС", { bold: true, size: 16, color: WHITE }), {
+        para(run("Цена", { bold: true, size: 16, color: WHITE }), {
           alignment: AlignmentType.RIGHT,
         }),
         { width: wPrice, fill: headerFill, borders: NO_BORDERS }

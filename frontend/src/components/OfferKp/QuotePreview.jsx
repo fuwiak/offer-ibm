@@ -522,7 +522,7 @@ export default function QuotePreview() {
                 <th>Позиция</th>
                 <th>Артикул</th>
                 <th className="num">Кол-во</th>
-                <th className="num">Цена с НДС</th>
+                <th className="num">Цена</th>
                 <th className="num">Сумма</th>
               </tr>
             </thead>

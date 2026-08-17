@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 /**
- * Экспорт КП в XLSX для загрузки в 1С: Артикул, Количество, Цена с НДС.
+ * Экспорт КП в XLSX для загрузки в 1С: Артикул, Количество, Цена.
  *
  * @param {object} quoteData
  * @param {Array} quoteData.lines — строки черновика
@@ -23,7 +23,7 @@ async function generateQuoteXlsx(quoteData) {
   sheet.columns = [
     { header: "Артикул", key: "article", width: 18 },
     { header: "Количество", key: "quantity", width: 14 },
-    { header: "Цена с НДС", key: "priceWithVat", width: 16 },
+    { header: "Цена", key: "priceWithVat", width: 16 },
     { header: "Наименование", key: "name", width: 40 },
     { header: "Статус", key: "status", width: 18 },
   ];

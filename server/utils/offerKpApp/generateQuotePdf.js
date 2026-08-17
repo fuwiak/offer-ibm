@@ -266,7 +266,7 @@ async function generateQuotePdf(quoteData) {
   txt("Позиция", COL.name + 4, hy, { font: bold, size: 7, color: WHITE });
   txt("Артикул", COL.article + 2, hy, { font: bold, size: 7, color: WHITE });
   rightAlign("Кол-во", COL.unit - 4, hy, { font: bold, size: 7, color: WHITE });
-  rightAlign("Цена с НДС", COL.sum - 4, hy, {
+  rightAlign("Цена", COL.sum - 4, hy, {
     font: bold,
     size: 7,
     color: WHITE,
