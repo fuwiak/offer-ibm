@@ -186,6 +186,10 @@ function normalizeOcrInquiryText(text) {
   let t = stripMessengerExportNoise(text);
   t = t
     .replace(/\u00a0/g, " ")
+    // DOCX/textutil: U+2028/U+2029 \u2014 \u043c\u044f\u0433\u043a\u0438\u0439 \u043f\u0435\u0440\u0435\u043d\u043e\u0441 \u0432\u043d\u0443\u0442\u0440\u0438 \u044f\u0447\u0435\u0439\u043a\u0438 \u0442\u0430\u0431\u043b\u0438\u0446\u044b
+    // (\u00ab\u0428\u043f\u043e\u043d\u043a\u0430 12\u04458\u044550\u2428\u0413\u041e\u0421\u0422 23360-78\u00bb) \u2014 \u0447\u0430\u0441\u0442\u044c \u0442\u043e\u0433\u043e \u0436\u0435 \u043d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u044f, \u043d\u0435
+    // \u0433\u0440\u0430\u043d\u0438\u0446\u0430 \u043f\u043e\u0437\u0438\u0446\u0438\u0439.
+    .replace(/[\u2028\u2029]/g, " ")
     .replace(/[×хХ]/g, "x")
     .replace(/[–—−]/g, "-")
     .replace(/\bD\s*I\s*N\s*(\d+)/gi, "DIN $1")
@@ -244,7 +248,7 @@ function explodePackedHardwareLine(line) {
 
   const qtyHits = [
     ...working.matchAll(
-      /\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|кг|kg)(?=\s|$|[.,;])/gi
+      /\d+(?:[.,]\d+)?\s*(?:штук|шт\.?|pcs|кг|kg)(?=\s|$|[.,;])/gi
     ),
   ];
   // Require multiple quantities — otherwise "Болт … с гайкой 30 кг" would
@@ -330,8 +334,14 @@ function splitInquiryChunks(text) {
       continue;
     }
 
-    // Bare quantity on its own line (Excel/Word export after product name).
-    if (/^\d{2,7}(?:[.,]\d+)?$/.test(trimmed) && chunks.length > 0) {
+    // Bare quantity on its own line (Excel/Word export after product name),
+    // включая «601 шт» и разряды пробелами «63 000 шт» / «406 560 шт».
+    if (
+      /^(?:\d{1,3}(?:[ .]\d{3})+|\d{2,7})(?:[.,]\d+)?(?:\s*(?:штук|шт\.?))?$/iu.test(
+        trimmed
+      ) &&
+      chunks.length > 0
+    ) {
       chunks.push(trimmed);
     }
   }
@@ -350,7 +360,7 @@ function parseInquiryUnit(text) {
   if (/(?:^|\s)\d+(?:[.,]\d+)?\s*(?:кг|kg)(?:\s|$|[.,;])/i.test(raw))
     return "кг";
   if (
-    /(?:^|\s)\d+(?:[.,]\d+)?\s*(?:шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?)(?:\s|$|[.,;])/i.test(
+    /(?:^|\s)\d+(?:[.,]\d+)?\s*(?:штук|шт\.?|pcs|pieces|szt\.?|sztuk|ед\.?|units?)(?:\s|$|[.,;])/i.test(
       raw
     )
   ) {
@@ -443,7 +453,7 @@ function parseQuantity(text) {
   const unit = parseInquiryUnit(raw);
   const withUnit = [
     ...raw.matchAll(
-      /(\d+(?:[.,]\d+)?)(?:\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|литр(?:а|ов)?|тонн(?:а|ы)?)|\s+(?:м\.?\s*п\.?|м|л|т)(?=\s|$|[.,;]))/gi
+      /(\d+(?:[.,]\d+)?)(?:\s*(?:кг|kg|штук|шт\.?|pcs|pieces|szt\.?|sztuk|ед\.?|units?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|литр(?:а|ов)?|тонн(?:а|ы)?)|\s+(?:м\.?\s*п\.?|м|л|т)(?=\s|$|[.,;]))/gi
     ),
   ].at(-1);
   if (withUnit) {
@@ -502,12 +512,12 @@ function parseInquiryLine(lineText) {
     // Quantity may occur before the specification (`--10шт DIN 912 M8x14`).
     // Remove only the quantity token; never discard the specification tail.
     .replace(
-      /\s*[-–—]{1,2}\s*\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)/gi,
+      /\s*[-–—]{1,2}\s*\d+(?:[.,]\d+)?\s*(?:кг|kg|штук|шт\.?|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)/gi,
       " "
     )
     // Хвост «30 кг» / «50 шт» из колонки «Кол-во» — не часть наименования.
     .replace(
-      /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|шт\.?|штук|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|м|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)\s*$/i,
+      /\s+\d+(?:[.,]\d+)?\s*(?:кг|kg|штук|шт\.?|pcs|pieces|szt\.?|sztuk|ед\.?|units?|м\.?\s*п\.?|м|meters?|метр(?:а|ов)?|упак(?:овка)?|уп\.?|pack|л|литр(?:а|ов)?|т|тонн(?:а|ы)?)\s*$/i,
       ""
     )
     // Packed RFQ ordinal glued after qty: "… М10х25-8.8 2." → drop "2."
@@ -670,7 +680,7 @@ function tryParseExpectedCsvInquiry(text) {
 // but repeated re-parses of the same RFQ (rematch, draft edits) skip it.
 // Entries are deep-cloned on both sides: callers mutate parsed lines
 // (quantity merge, .thread), shared references would leak across requests.
-const PARSE_CACHE_VERSION = "v1";
+const PARSE_CACHE_VERSION = "v2";
 const PARSE_CACHE_TTL_MS = Math.max(
   60_000,
   parseInt(process.env.OFFER_KP_PARSE_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
@@ -717,8 +727,55 @@ function parseInquiryText(text) {
   return result;
 }
 
+// Пословная единица измерения на отдельной строке (вертикальная таблица DOCX:
+// «№ / Наименование / ед-ца изм / кол-во» — каждая ячейка своей строкой).
+const BARE_UNIT_LINE_RE = /^(шт|шт\.|штук|м|м\.|кг|кг\.|компл|компл\.|уп|уп\.|п\.?м)$/iu;
+
+/**
+ * Схлопывает вертикальную таблицу (ячейки построчно) в обычные строки заявки:
+ *   41
+ *   Винт М16х35.58.019 ГОСТ 11738-84
+ *   шт
+ *   10
+ * → "Винт М16х35.58.019 ГОСТ 11738-84 10 шт"
+ * Без этого «41» слипался с предыдущей позицией как её количество, а
+ * количество бралось из номера ГОСТа. Триггер узкий: имя + строка-единица +
+ * строка-число; одиночные bare-qty строки (буллет-списки) не трогаем.
+ * @param {string} text normalized inquiry text
+ * @returns {string}
+ */
+function mergeVerticalTableCells(text) {
+  const lines = String(text || "").split("\n");
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const name = lines[i].trim();
+    const unit = (lines[i + 1] || "").trim();
+    const qty = (lines[i + 2] || "").trim();
+    const isNameLine = /\p{L}/u.test(name) && !BARE_UNIT_LINE_RE.test(name);
+    if (
+      isNameLine &&
+      BARE_UNIT_LINE_RE.test(unit) &&
+      /^\d{1,7}(?:[.,]\d+)?$/.test(qty)
+    ) {
+      // Номер строки таблицы перед именем — не количество, убираем.
+      if (out.length && /^\d{1,4}$/.test(out[out.length - 1])) out.pop();
+      out.push(`${name} ${qty} ${unit.replace(/\.$/, "")}`);
+      i += 2;
+      continue;
+    }
+    out.push(name);
+  }
+  return out.join("\n");
+}
+
 function parseInquiryTextUncached(text) {
-  const raw = normalizeOcrInquiryText(String(text || "").trim());
+  const raw = mergeVerticalTableCells(
+    normalizeOcrInquiryText(String(text || "").trim())
+  )
+    // Пары альтернатив «вариант A / Или / вариант B / кол-во» — одна позиция:
+    // количество после варианта B относится к обоим, отдельная строка «Или»
+    // иначе оставляла вариант A с мусорным qty из хвоста наименования.
+    .replace(/\n\s*или\s*\n/gi, " или ");
   if (!raw) return [];
 
   const fromCsv = tryParseExpectedCsvInquiry(String(text || ""));
@@ -731,20 +788,21 @@ function parseInquiryTextUncached(text) {
   }
 
   // Merge bare qty lines onto previous position:
-  //   Гайка … ГОСТ ISO 7040-2014
-  //   28200
+  //   Гайка … ГОСТ ISO 7040-2014          Гайка M2-6H.5 ГОСТ 5915-70
+  //   28200                                601 шт   (и «63 000 шт»)
   const merged = [];
   for (const chunk of chunks) {
-    const bareQty = String(chunk || "")
-      .trim()
-      .match(/^(\d{2,7})$/);
+    const trimmed = String(chunk || "").trim();
+    const bareQty = trimmed.match(
+      /^(\d{1,3}(?:[ .]\d{3})+|\d{2,7})(?:\s*(?:штук|шт\.?))?$/iu
+    );
     if (bareQty && merged.length) {
       const prev = merged[merged.length - 1];
-      const n = Number(bareQty[1]);
+      const n = Number(bareQty[1].replace(/[ .](?=\d{3})/g, ""));
       // Prefer dedicated qty line over year/class digits misread as qty.
       if (Number.isFinite(n) && n > 0) {
         prev.quantity = normalizeInquiryQuantity(n, prev.unit || "шт");
-        prev.raw = `${prev.raw} ${bareQty[1]}`.trim();
+        prev.raw = `${prev.raw} ${trimmed}`.trim();
       }
       continue;
     }
