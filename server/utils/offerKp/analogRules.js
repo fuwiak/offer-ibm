@@ -71,6 +71,20 @@ const ANALOG_RULES = [
     label: "DIN 125 → ГОСТ 11371-78",
   },
   {
+    din: "434",
+    analogs: ["10906"],
+    productType: "шайба",
+    matchRule: "diameter_coating",
+    label: "DIN 434 → ГОСТ 10906-78",
+  },
+  {
+    din: "52644",
+    analogs: ["6914"],
+    productType: "болт",
+    matchRule: "thread_coating_strength",
+    label: "ГОСТ Р 52644 → DIN 6914",
+  },
+  {
     din: "7985",
     analogs: ["17473"],
     productType: "винт",
@@ -150,7 +164,7 @@ function diameterMatches(nameNorm, diameter) {
   const d = String(diameter).replace(".", "[.,]");
   // Do not require \b after digits: "m50x1.5" has no word-boundary between 50 and x.
   return new RegExp(
-    `(?:\\bm\\s*${d}(?![0-9])|\\bd\\s*${d}(?![0-9]))`,
+    `(?:\\bm\\s*${d}(?![0-9])|\\bd\\s*${d}(?![0-9])|[øØ⌀]\\s*${d}(?![0-9]))`,
     "i"
   ).test(nameNorm);
 }

@@ -9,7 +9,7 @@ const LINE_SPLIT_RE = /\n+|;\s*(?=\d)|(?<=\d)\s*[,;]\s*(?=\D)/;
 const HARDWARE_LINE_RE =
   /\bdin\s*\d{3,5}\b|\bgost\s*\d{3,5}\b|\bгост\s*\d{3,5}\b|\bm\s*\d+\s*[x×]\s*\d+|\bm\s*\d+\b|\bd\s*\d+\b|\bштанг|\bшпильк|\bрым|\bболт\s+m|\bболт\s+\d|\bболт\s+.*\b(?:din|гост|gost)\b|\bгайк\w*\s+\d|\bгайк|\bвинт|\bшайб\w*\s+\d|\bшайб|\bштифт|\bарт\.?\s*\d|\bsku\s*[:#]?\s*\d/i;
 const INQUIRY_SKIP_LINE_RE =
-  /^(?:приложение|перечень|№\s*п\/п|наименование\s+товара|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац)/i;
+  /^(?:приложение|перечень|№\s*п\/п|наименование\s+(?:товара|работ)|обозначен(?:ие)?(?:\s*\(.*\))?|артикул|ед\.?\s*изм|кол-?во|количеств|итого|всего|спецификац|sheet\s*:)/i;
 const INQUIRY_UNIT_RE =
   /^(?:кг|kg|шт\.?|pcs|szt\.?|м|м\.|м\.?\s*п\.?|meter|meters|т|упак|уп|pack|л|литр|ед\.?)$/i;
 const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć/i;
@@ -190,7 +190,10 @@ function normalizeOcrInquiryText(text) {
     // (\u00ab\u0428\u043f\u043e\u043d\u043a\u0430 12\u04458\u044550\u2428\u0413\u041e\u0421\u0422 23360-78\u00bb) \u2014 \u0447\u0430\u0441\u0442\u044c \u0442\u043e\u0433\u043e \u0436\u0435 \u043d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u044f, \u043d\u0435
     // \u0433\u0440\u0430\u043d\u0438\u0446\u0430 \u043f\u043e\u0437\u0438\u0446\u0438\u0439.
     .replace(/[\u2028\u2029]/g, " ")
-    .replace(/[×хХ]/g, "x")
+    // × and Cyrillic х between digits = multiply. Do NOT fold uppercase Х
+    // in «ХЛ» (cold-climate steel) — that used to become «xЛ» and miss ShopDB.
+    .replace(/[×]/g, "x")
+    .replace(/(?<=\d)[хХ](?=\d)/g, "x")
     .replace(/[–—−]/g, "-")
     .replace(/\bD\s*I\s*N\s*(\d+)/gi, "DIN $1")
     .replace(/\bG\s*O\s*S\s*T\s*(\d+)/gi, "GOST $1")
@@ -212,9 +215,36 @@ function normalizeOcrInquiryText(text) {
  * @param {string} line
  * @returns {string[]}
  */
+/**
+ * «Гайка + шайба М16» is two catalog SKUs, not one kit.
+ * @param {string} line
+ * @returns {string[]|null}
+ */
+function explodeNutWasherCombo(line) {
+  const raw = String(line || "").trim();
+  const m = raw.match(
+    /^(.*?)(гайк\p{L}*)\s*(?:\+|\/|и)\s*(шайб\p{L}*)(.*)$/iu
+  );
+  if (!m) return null;
+  const rest = [m[1], m[4]]
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  if (!rest) return null;
+  const nut = `Гайка ${rest}`.replace(/\s+/g, " ").trim();
+  const washer = `Шайба ${rest}`.replace(/\s+/g, " ").trim();
+  if (nut.length < 5 || washer.length < 5) return null;
+  return [nut, washer];
+}
+
 function explodePackedHardwareLine(line) {
   const raw = String(line || "").trim();
   if (!raw) return [];
+
+  const combo = explodeNutWasherCombo(raw);
+  if (combo) {
+    return combo.flatMap((piece) => explodePackedHardwareLine(piece));
+  }
 
   // Strip leading politeness / supply-request preface before first product.
   // Avoid \\b — JS word boundaries are ASCII-only and break on Cyrillic.
@@ -269,7 +299,7 @@ function explodePackedHardwareLine(line) {
     // "… 1700 шт. 2.Винт …" → first chunk must not keep the next ordinal "2."
     let chunk = working
       .slice(from, to)
-      .replace(/\s*\d+[.)]\s*$/u, "")
+      .replace(/\s+\d{1,3}\.\s*$/u, "")
       .replace(/^\d+[.)]\s*/u, "")
       .trim();
     if (chunk.length >= 5) parts.push(chunk);
@@ -521,7 +551,8 @@ function parseInquiryLine(lineText) {
       ""
     )
     // Packed RFQ ordinal glued after qty: "… М10х25-8.8 2." → drop "2."
-    .replace(/\s+\d+[.)]\s*$/u, "")
+    // Do NOT use [.)] — that ate «(ГОСТ 52644)» as if 52644) were an ordinal.
+    .replace(/\s+\d{1,3}\.\s*$/u, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+[-–—]+\s*$/, "")
     .trim();
@@ -680,7 +711,7 @@ function tryParseExpectedCsvInquiry(text) {
 // but repeated re-parses of the same RFQ (rematch, draft edits) skip it.
 // Entries are deep-cloned on both sides: callers mutate parsed lines
 // (quantity merge, .thread), shared references would leak across requests.
-const PARSE_CACHE_VERSION = "v2";
+const PARSE_CACHE_VERSION = "v3";
 const PARSE_CACHE_TTL_MS = Math.max(
   60_000,
   parseInt(process.env.OFFER_KP_PARSE_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
@@ -768,6 +799,47 @@ function mergeVerticalTableCells(text) {
   return out.join("\n");
 }
 
+/**
+ * HV set (ГОСТ Р 52644 bolt) implies matching nut ГОСТ Р 52645
+ * when the nut line only says «Гайка М20 10».
+ * @param {object[]} lines
+ * @returns {object[]}
+ */
+function enrichInquiryLinesFromSiblings(lines = []) {
+  const list = Array.isArray(lines) ? lines.filter(Boolean) : [];
+  if (list.length < 2) return list;
+
+  const hvDiameters = new Set();
+  for (const line of list) {
+    const dins = line.dinNumbers || [];
+    if (!dins.map(String).includes("52644")) continue;
+    const size = line.thread?.size || parseHardwareQuery(line.raw || line.name).diameter;
+    if (size) hvDiameters.add(String(size));
+  }
+  if (!hvDiameters.size) return list;
+
+  return list.map((line) => {
+    const types = line.productTypes || [];
+    if (!types.includes("гайка") || (line.dinNumbers || []).length) return line;
+    const parsed = parseHardwareQuery(line.raw || line.name);
+    const size = String(parsed.diameter || line.thread?.size || "");
+    if (!size || !hvDiameters.has(size)) return line;
+    const stamped = /52645/.test(line.raw || "")
+      ? line
+      : {
+          ...line,
+          dinNumbers: [...(line.dinNumbers || []), "52645"],
+          name: /52645/.test(line.name || "")
+            ? line.name
+            : `${line.name} ГОСТ 52645`.trim(),
+          raw: /52645/.test(line.raw || "")
+            ? line.raw
+            : `${line.raw} ГОСТ 52645`.trim(),
+        };
+    return stamped;
+  });
+}
+
 function parseInquiryTextUncached(text) {
   const raw = mergeVerticalTableCells(
     normalizeOcrInquiryText(String(text || "").trim())
@@ -779,12 +851,12 @@ function parseInquiryTextUncached(text) {
   if (!raw) return [];
 
   const fromCsv = tryParseExpectedCsvInquiry(String(text || ""));
-  if (fromCsv?.length) return fromCsv;
+  if (fromCsv?.length) return enrichInquiryLinesFromSiblings(fromCsv);
 
   const chunks = splitInquiryChunks(raw);
   if (chunks.length <= 1) {
     const single = parseInquiryLine(chunks[0] || raw);
-    return single ? [single] : [];
+    return single ? enrichInquiryLinesFromSiblings([single]) : [];
   }
 
   // Merge bare qty lines onto previous position:
@@ -809,7 +881,7 @@ function parseInquiryTextUncached(text) {
     const line = parseInquiryLine(chunk);
     if (line) merged.push(line);
   }
-  return merged;
+  return enrichInquiryLinesFromSiblings(merged);
 }
 
 module.exports = {

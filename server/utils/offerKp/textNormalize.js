@@ -36,6 +36,7 @@ function normalizeSearchText(text) {
     .toLowerCase()
     .replace(/\u00a0/g, " ")
     .replace(/×/g, "x")
+    .replace(/[øØ⌀]/g, "d")
     .replace(/[–—−]/g, "-")
     .replace(/\s+/g, " ")
     .trim();

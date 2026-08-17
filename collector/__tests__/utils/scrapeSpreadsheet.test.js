@@ -36,6 +36,7 @@ describe("scrapeSpreadsheet", () => {
       rowIndex: 2,
       designationIdx: 4,
       qtyIdx: 5,
+      unitIdx: -1,
     });
 
     const text = scrapeSheetData(data);
@@ -76,6 +77,26 @@ describe("scrapeSpreadsheet", () => {
     ]);
     expect(text.startsWith("Sheet: Лист1\n")).toBe(true);
     expect(text).toContain("Болт М6 ГОСТ 7805-70\t8");
+  });
+
+  test("RFQ with Наименование работ + ед.изм + кол-во keeps unit and qty", () => {
+    const data = [
+      ["№", "Наименование работ, материалов", "ед.изм", "кол-во", "цена"],
+      [1, "Болт М20×80 10.9 ХЛ (ГОСТ 52644)", "шт", 3872, null],
+      [2, "Шайба плоская Ø20", "шт", 7744, null],
+      [3, "Гайка + шайба М16", "шт", 5808, null],
+    ];
+    const header = findSpecHeader(data);
+    expect(header).toEqual({
+      rowIndex: 0,
+      designationIdx: 1,
+      qtyIdx: 3,
+      unitIdx: 2,
+    });
+    const text = scrapeSheetData(data);
+    expect(text).toContain("Болт М20×80 10.9 ХЛ (ГОСТ 52644)\tшт\t3872");
+    expect(text).toContain("Шайба плоская Ø20\tшт\t7744");
+    expect(text).not.toMatch(/\tцена\t/i);
   });
 
   test("returns empty string for empty sheet", () => {

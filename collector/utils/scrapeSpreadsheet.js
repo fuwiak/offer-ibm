@@ -7,7 +7,8 @@
 
 const DESIGNATION_HEADER_RE =
   /обозначен|артикул|наименован|designation|article|sku|part\s*no|part\s*#/i;
-const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć|amount|pcs|шт\.?/i;
+const QTY_HEADER_RE = /кол-?во|количеств|qty|ilo[sś]ć|amount/i;
+const UNIT_HEADER_RE = /ед\.?\s*изм|unit/i;
 
 function cellText(cell) {
   if (cell === null || cell === undefined) return "";
@@ -21,7 +22,7 @@ function nonemptyCells(row) {
 /**
  * Ищет строку заголовков с колонками обозначения и количества.
  * @param {Array<Array<*>>} data
- * @returns {{rowIndex: number, designationIdx: number, qtyIdx: number}|null}
+ * @returns {{rowIndex: number, designationIdx: number, qtyIdx: number, unitIdx: number}|null}
  */
 function findSpecHeader(data) {
   if (!Array.isArray(data)) return null;
@@ -31,14 +32,16 @@ function findSpecHeader(data) {
     const row = data[i] || [];
     let designationIdx = -1;
     let qtyIdx = -1;
+    let unitIdx = -1;
     for (let c = 0; c < row.length; c++) {
       const t = cellText(row[c]);
       if (!t) continue;
       if (designationIdx < 0 && DESIGNATION_HEADER_RE.test(t)) designationIdx = c;
       if (qtyIdx < 0 && QTY_HEADER_RE.test(t)) qtyIdx = c;
+      if (unitIdx < 0 && UNIT_HEADER_RE.test(t)) unitIdx = c;
     }
     if (designationIdx >= 0 && qtyIdx >= 0 && designationIdx !== qtyIdx) {
-      return { rowIndex: i, designationIdx, qtyIdx };
+      return { rowIndex: i, designationIdx, qtyIdx, unitIdx };
     }
   }
   return null;
@@ -65,21 +68,24 @@ function scrapeSheetData(data) {
     }
 
     const headerRow = data[header.rowIndex] || [];
-    lines.push(
-      [
-        cellText(headerRow[header.designationIdx]),
-        cellText(headerRow[header.qtyIdx]),
-      ]
-        .filter(Boolean)
-        .join("\t")
-    );
+    const headerCells = [
+      cellText(headerRow[header.designationIdx]),
+      header.unitIdx >= 0 ? cellText(headerRow[header.unitIdx]) : "",
+      cellText(headerRow[header.qtyIdx]),
+    ].filter(Boolean);
+    lines.push(headerCells.join("\t"));
 
     for (let i = header.rowIndex + 1; i < data.length; i++) {
       const row = data[i] || [];
       const designation = cellText(row[header.designationIdx]);
       const qty = cellText(row[header.qtyIdx]);
+      const unit =
+        header.unitIdx >= 0 ? cellText(row[header.unitIdx]) : "";
       if (!designation) continue;
-      lines.push(qty ? `${designation}\t${qty}` : designation);
+      const parts = [designation];
+      if (unit) parts.push(unit);
+      if (qty) parts.push(qty);
+      lines.push(parts.join("\t"));
     }
 
     return lines.join("\n");
@@ -113,6 +119,7 @@ function scrapeWorkbookSheets(sheets) {
 module.exports = {
   DESIGNATION_HEADER_RE,
   QTY_HEADER_RE,
+  UNIT_HEADER_RE,
   cellText,
   nonemptyCells,
   findSpecHeader,

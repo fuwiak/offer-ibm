@@ -54,7 +54,15 @@ const STOPWORDS = new Set([
 const PRICE_ONLY_RE =
   /^(jaka\s+)?cena\??$|ile\s+kosztuje|сколько\s+стоит|какая\s+цена|what('s|\s+is)\s+the\s+price/i;
 
-/** Стандартные классы прочности болтов/винтов (ISO 898-1). */
+/** Класс прочности гайки ISO 898-2 (целое, не 10.9 болта). */
+const NUT_PROPERTY_CLASSES = new Set(["5", "6", "8", "10", "12"]);
+
+/** Разговорные типы шайб → DIN, если стандарт в заявке не назван. */
+const WASHER_COLLOQUIAL_STANDARD = [
+  { re: /плоск/i, din: "125" },
+  { re: /кос(?:ая|ой|ую|ые)|косой/i, din: "434" },
+  { re: /гровер|пружинн/i, din: "127" },
+];
 const STRENGTH_CLASSES = new Set([
   "3.6",
   "4.6",
@@ -109,6 +117,11 @@ const STANDARD_IMPLIES_TYPE = {
   "10450": "шайба",
   "125": "шайба",
   "11371": "шайба",
+  "434": "шайба",
+  "10906": "шайба",
+  "52644": "болт",
+  "52645": "гайка",
+  "52646": "шайба",
   "7985": "винт",
   "17473": "винт",
   "11871": "гайка",
@@ -283,6 +296,10 @@ function parseMetricSpecs(normalized, productTypes = []) {
     if (mOnly) diameter = mOnly[1];
   }
   if (!diameter) {
+    const oval = normalized.match(/[øØ⌀]\s*(\d+(?:[.,]\d+)?)/);
+    if (oval) diameter = oval[1].replace(",", ".");
+  }
+  if (!diameter) {
     const dForm = normalized.match(/\bd\s*(\d+(?:\.\d+)?)\b/i);
     if (dForm) diameter = dForm[1].replace(",", ".");
   }
@@ -419,6 +436,19 @@ function parseHardwareQuery(message) {
     productTypes
   );
 
+  if (
+    !dinNumbers.length &&
+    productTypes.includes("шайба") &&
+    !productTypes.includes("анкер")
+  ) {
+    for (const rule of WASHER_COLLOQUIAL_STANDARD) {
+      if (rule.re.test(lower)) {
+        pushStd(rule.din);
+        break;
+      }
+    }
+  }
+
   // «винт 10x25 дин 912» — голый DxL у резьбового крепежа это сокращение
   // M10x25. Только болт/винт/шпилька (штифт/шайба — реальные габариты) и не
   // саморезы ST (там DxL — это ST-диаметр, не метрическая резьба).
@@ -451,6 +481,22 @@ function parseHardwareQuery(message) {
   if (!strengthClass) {
     const strengthMatch = lower.match(/\b(\d+\.\d+)\b/);
     if (strengthMatch) strengthClass = strengthMatch[1];
+  }
+  if (!strengthClass && productTypes.includes("гайка")) {
+    const labeled = lower.match(
+      /(?:кл\.?\s*пр\.?|класс(?:\s*прочн\w*)?)\s*(\d{1,2})(?:[.,](\d))?/
+    );
+    if (labeled) {
+      strengthClass = labeled[2]
+        ? `${labeled[1]}.${labeled[2]}`
+        : labeled[1];
+    } else {
+      const leftover = lower
+        .replace(/\bm\s*\d+(?:[.,]\d+)?(?:\s*x\s*\d+(?:[.,]\d+)?)?/g, " ")
+        .replace(/\d+(?:[.,]\d+)?\s*(?:шт|штук|кг)\b/g, " ");
+      const bare = leftover.match(/(?:^|\s)(5|6|8|10|12)(?!\.\d)(?:\s|$)/);
+      if (bare && NUT_PROPERTY_CLASSES.has(bare[1])) strengthClass = bare[1];
+    }
   }
 
   const coating = /оцинк|ocynk|\bzn\b|цинк/i.test(lower) ? "оцинк" : null;

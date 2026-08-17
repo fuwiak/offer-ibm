@@ -79,6 +79,22 @@ describe("analogRules", () => {
     expect(result.status).toBe(STATUS.NEEDS_REVIEW);
   });
 
+  test("DIN 434 bevel washer → GOST 10906 analog", () => {
+    const result = classifyProductMatch("Шайба косая Ø20", {
+      name: "Шайба DIN   434 M 20 оцинк / ~ ГОСТ 10906-78  (10)",
+      stockCount: 100,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
+  test("flat Ø20 washer matches DIN 125 M20", () => {
+    const result = classifyProductMatch("Шайба плоская Ø20", {
+      name: "Шайба DIN   125 M 20 оцинк / ГОСТ 11371-78  (100)",
+      stockCount: 100,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
   test("getEquivalentStandards for DIN 934", () => {
     const equiv = getEquivalentStandards("934");
     expect(equiv).toContain("934");

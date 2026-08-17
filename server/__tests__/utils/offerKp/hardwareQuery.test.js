@@ -49,6 +49,24 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     );
   });
 
+  it("parses Ø20 colloquial washers and implies DIN 125 / 434", () => {
+    const flat = parseHardwareQuery("Шайба плоская Ø20");
+    expect(flat.diameter).toBe("20");
+    expect(flat.dinNumbers).toContain("125");
+    expect(flat.productTypes).toContain("шайба");
+
+    const bevel = parseHardwareQuery("Шайба косая Ø20");
+    expect(bevel.diameter).toBe("20");
+    expect(bevel.dinNumbers).toContain("434");
+  });
+
+  it("parses nut property class 10 on «Гайка М20 10»", () => {
+    const p = parseHardwareQuery("Гайка М20 10 3872 шт");
+    expect(p.diameter).toBe("20");
+    expect(p.strengthClass).toBe("10");
+    expect(p.productTypes).toContain("гайка");
+  });
+
   it("parses nut fine pitch M50x1,5 as pitch not length", () => {
     const p = parseHardwareQuery(
       "Гайка ГОСТ 11871-88 M 50x1,5 (6 шлицов) оцинк"

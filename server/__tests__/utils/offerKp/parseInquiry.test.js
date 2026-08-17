@@ -272,4 +272,49 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(lines[0].quantity).toBe(1);
     expect(lines[0].name).toMatch(/\(500\)/);
   });
+
+  it("parses Excel RFQ «запрос кп метизы» TSV into catalog-searchable lines", () => {
+    const text = [
+      "Наименование работ, материалов\tед.изм\tкол-во",
+      "Болт М20×80 10.9 ХЛ (ГОСТ 52644)\tшт\t3872",
+      "Гайка М20 10\tшт\t3872",
+      "Шайба плоская Ø20\tшт\t7744",
+      "Шайба косая Ø20\tшт\t3872",
+      "Болт М16×50 8.8\tшт\t1936",
+      "Гайка + шайба М16\tшт\t5808",
+    ].join("\n");
+
+    const lines = parseInquiryText(text);
+    expect(lines.length).toBe(7);
+
+    const boltHv = lines.find((l) => /52644/.test(l.raw));
+    expect(boltHv).toMatchObject({ quantity: 3872, unit: "шт" });
+    expect(boltHv.name).toMatch(/ГОСТ 52644/);
+    expect(boltHv.name).toMatch(/ХЛ/);
+    expect(boltHv.thread).toEqual({ size: "20", length: "80" });
+
+    const nutHv = lines.find(
+      (l) => /Гайка/i.test(l.name) && /M20|М20/.test(l.name)
+    );
+    expect(nutHv.dinNumbers).toContain("52645");
+    expect(nutHv.quantity).toBe(3872);
+
+    const flat = lines.find((l) => /плоск/i.test(l.name));
+    expect(flat.dinNumbers).toContain("125");
+    expect(flat.quantity).toBe(7744);
+
+    const bevel = lines.find((l) => /кос/i.test(l.name));
+    expect(bevel.dinNumbers).toContain("434");
+
+    const comboNuts = lines.filter(
+      (l) => /Гайка/i.test(l.name) && /M16|М16/.test(l.name)
+    );
+    const comboWashers = lines.filter(
+      (l) => /Шайба/i.test(l.name) && /M16|М16/.test(l.name)
+    );
+    expect(comboNuts.length).toBeGreaterThanOrEqual(1);
+    expect(comboWashers.length).toBeGreaterThanOrEqual(1);
+    expect(comboNuts[0].quantity).toBe(5808);
+    expect(comboWashers[0].quantity).toBe(5808);
+  });
 });
