@@ -36,7 +36,7 @@ const START_QUOTE_PROMPTS = Object.freeze([
 ]);
 
 const PRODUCT_SIGNAL_PATTERNS = [
-  /(?:^|[^\p{L}\p{N}])(?:din|гост|gost|iso)\s*[-№]?\s*\d{3,5}(?:$|[^\p{L}\p{N}])/iu,
+  /(?:^|[^\p{L}\p{N}])(?:din|дин|гост|gost|iso|исо)\s*[-№]?\s*\d{3,5}(?:$|[^\p{L}\p{N}])/iu,
   /(?:^|[^\p{L}\p{N}])м\s*\d+(?:\s*[xх×*]\s*\d+)?(?:$|[^\p{L}\p{N}])/iu,
   /(?:^|[^\p{L}\p{N}])m\s*\d+(?:\s*[xх×*]\s*\d+)?(?:$|[^\p{L}\p{N}])/iu,
   /(?:^|[^\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:шт|штук|кг|метр(?:а|ов)?|м|уп|упак|pack|pcs?)(?:$|[^\p{L}\p{N}])/iu,

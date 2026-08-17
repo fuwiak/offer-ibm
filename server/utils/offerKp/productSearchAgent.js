@@ -21,12 +21,15 @@ const {
 const { getCanonicalCatalogManifest } = require("./canonicalCatalogIndex");
 const { catalogNameKey, catalogNameSqlExpr } = require("./catalogNameKey");
 const shopDbLog = require("./shopDbLog");
+const { searchProductsExtended, searchByStructuredQuery } = require("./shopDbSearch");
 const {
   parseHardwareQuery,
   extractSearchTerms,
   scoreProduct,
   STOPWORDS,
   PRICE_ONLY_RE,
+  isPreciseStructuredQuery,
+  preferStrengthClassHits,
 } = require("./hardwareQuery");
 const {
   applyAnalogScoringPenalty,
@@ -39,7 +42,6 @@ const {
   searchByNameSimilarity,
   applyCatalogCandidateQuota,
 } = require("./nameSimilarity");
-const { searchProductsExtended } = require("./shopDbSearch");
 const {
   isRerankerEnabled,
   computeRerankScores,
@@ -643,6 +645,56 @@ async function runProductSearchAgent({
         signals,
         tablesUsed: [...tablesUsed],
         earlyExit: "catalog_name_exact",
+      };
+      setCachedRetrieval(agentCacheKey, result);
+      return result;
+    }
+  }
+
+  // Same path as a human looking at ShopDB: DIN + MxL SQL first.
+  // Keyword/ES merge used to bury the 5 DIN 912 M10x25 rows under 300 LIKE hits
+  // and quota then returned [] to the UI.
+  if (isPreciseStructuredQuery(parsed)) {
+    const structuredHits = await searchByStructuredQuery(parsed, searchLimit);
+    if (structuredHits.length) {
+      strategies.push("structured");
+      const preferred = preferStrengthClassHits(
+        structuredHits,
+        parsed.strengthClass
+      );
+      products = applyCatalogCandidateQuota(
+        searchText,
+        preferred,
+        Math.max(limit, RETRIEVAL_WINDOW)
+      );
+      if (!products.length) products = preferred;
+      products = rankAgentProducts(
+        products,
+        searchTerms,
+        parsed,
+        skuCodes,
+        message
+      );
+      products = products.slice(0, sqlLimit(limit));
+      const tablesUsed = new Set([TABLES.product, TABLES.category]);
+      for (const p of products) {
+        for (const t of p.shopDbTables || []) tablesUsed.add(t);
+      }
+      shopDbLog.ok("product search agent done", {
+        strategies: [...new Set(strategies)],
+        hits: products.length,
+        productIds: products.map((p) => p.id),
+        titles: products.map((p) => p.name?.slice(0, 60)),
+        earlyExit: "structured",
+      });
+      const result = {
+        products,
+        strategies: [...new Set(strategies)],
+        searchText,
+        parsed,
+        signals,
+        tablesUsed: [...tablesUsed],
+        earlyExit: "structured",
       };
       setCachedRetrieval(agentCacheKey, result);
       return result;

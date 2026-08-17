@@ -21,7 +21,7 @@ const { DETERMINISTIC_MATCH_PROFILE } = require("../matching/algorithmProfile");
 /** Bump when retrieval fusion / candidate window semantics change. */
 const RETRIEVAL_CACHE_VERSION = Math.max(
   1,
-  parseInt(process.env.SHOP_DB_RETRIEVAL_CACHE_VERSION, 10) || 8
+  parseInt(process.env.SHOP_DB_RETRIEVAL_CACHE_VERSION, 10) || 9
 );
 
 const MATCHING_CACHE_VERSION =

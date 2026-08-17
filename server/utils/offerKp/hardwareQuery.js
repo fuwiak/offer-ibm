@@ -145,6 +145,31 @@ function textHasDecimalToken(text, value) {
   ).test(String(text || ""));
 }
 
+/** DIN/ГОСТ + размер — достаточно для SQL structured, без keyword-шума. */
+function isPreciseStructuredQuery(parsed = {}) {
+  const nums = parsed.dinNumbers || [];
+  return nums.length > 0 && Boolean(parsed.thread || parsed.dimensions);
+}
+
+/**
+ * Как ручной разбор: сначала класс прочности из заявки (10,9 = 10.9),
+ * остальные structured-хиты остаются запасными альтернативами.
+ */
+function preferStrengthClassHits(products = [], strengthClass = null) {
+  const list = (products || []).filter((p) => p && typeof p === "object");
+  if (!strengthClass || !list.length) return list;
+  const matched = [];
+  const rest = [];
+  for (const product of list) {
+    if (textHasDecimalToken(product.name || "", strengthClass)) {
+      matched.push(product);
+    } else {
+      rest.push(product);
+    }
+  }
+  return matched.length ? [...matched, ...rest] : list;
+}
+
 function normalizeForMatch(text) {
   // Fine-thread triple first (M16x1,5x150 = diameter × pitch × length):
   // without it "m 16x1,5x150" collapsed to " m16x1.5 x150" and the length was
@@ -608,6 +633,8 @@ module.exports = {
   parseHardwareQuery,
   decimalTokenPattern,
   textHasDecimalToken,
+  isPreciseStructuredQuery,
+  preferStrengthClassHits,
   parseMetricSpecs,
   classifyMetricPair,
   extractSearchTerms,

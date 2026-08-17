@@ -115,4 +115,22 @@ describe("ShopDB BM25F catalog index", () => {
     ).toHaveLength(10);
     expect(selected.some((item) => item.id === 999)).toBe(false);
   });
+
+  it("keeps structured SQL hits when classify would empty the UI list", () => {
+    const structured = {
+      id: 16936,
+      name: "Винт DIN  912 M 10x 25 10.9 оцинк П/Р / ГОСТ 11738-84  (50)",
+      shopMatchSources: ["structured"],
+    };
+    const noise = {
+      id: 35190,
+      name: "Винт DIN  912 M  3x 30 12.9 П/Р / ГОСТ 11738-84  (500)",
+    };
+    const selected = applyCatalogCandidateQuota(
+      "винт без стандарта вообще",
+      [structured, noise],
+      10
+    );
+    expect(selected.map((item) => item.id)).toEqual([16936]);
+  });
 });

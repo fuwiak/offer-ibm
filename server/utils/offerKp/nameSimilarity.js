@@ -88,6 +88,13 @@ function analogCandidateLimit() {
   );
 }
 
+function hasStructuredMatchSource(product) {
+  const sources = product?.shopMatchSources || product?._matchSources;
+  if (!sources) return false;
+  if (sources instanceof Set) return sources.has("structured");
+  return Array.isArray(sources) && sources.includes("structured");
+}
+
 function applyCatalogCandidateQuota(searchText, products, limit = 50) {
   const window = sqlLimit(limit);
   const compatible = [];
@@ -129,10 +136,17 @@ function applyCatalogCandidateQuota(searchText, products, limit = 50) {
     analogCandidateLimit(),
     Math.max(0, window - maxCompatible)
   );
-  return [
+  const selected = [
     ...compatible.slice(0, maxCompatible),
     ...analogs.slice(0, maxAnalogs),
   ].slice(0, window);
+  if (selected.length) return selected;
+
+  // Structured SQL already found DIN+MxL rows. Do not return [] just because
+  // classify missed Cyrillic «дин» or 10,9 vs 10.9 — that emptied the UI.
+  return (products || [])
+    .filter((product) => product && hasStructuredMatchSource(product))
+    .slice(0, window);
 }
 
 const NAME_STOPWORDS = new Set([

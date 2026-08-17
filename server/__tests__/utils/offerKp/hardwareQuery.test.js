@@ -107,6 +107,24 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(textHasDecimalToken("винт 8.8 оцинк", "10.9")).toBe(false);
   });
 
+  it("ranks 10.9 ahead of 8.8/12.9 for a precise DIN+MxL query", () => {
+    const {
+      isPreciseStructuredQuery,
+      preferStrengthClassHits,
+    } = require("../../../utils/offerKp/hardwareQuery");
+    const parsed = parseHardwareQuery("винт 10x25 10,9 дин 912-2000шт");
+    expect(isPreciseStructuredQuery(parsed)).toBe(true);
+    const ranked = preferStrengthClassHits(
+      [
+        { id: 1, name: "Винт DIN  912 M 10x 25  8.8 оцинк" },
+        { id: 2, name: "Винт DIN  912 M 10x 25 10.9 оцинк" },
+        { id: 3, name: "Винт DIN  912 M 10x 25 12.9 оцинк" },
+      ],
+      parsed.strengthClass
+    );
+    expect(ranked[0].id).toBe(2);
+  });
+
   it("parses decimal metric diameter M2,5x10", () => {
     const p = parseHardwareQuery("Винт ИСО 7045 М2,5 х 10 – 4.8");
     expect(p.dinNumbers).toContain("7045");
