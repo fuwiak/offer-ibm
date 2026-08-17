@@ -211,9 +211,12 @@ async function searchPreciseStructuredViaElastic(parsed, limit) {
     const ids = hits.map((h) => String(h._id)).filter(Boolean);
     return hydrateElasticHitsFromShopDb(ids.slice(0, Math.max(limit, 20)));
   } catch (error) {
-    shopDbLog.skip("elasticsearch precise search unavailable — SQL structured", {
-      error: error?.message || String(error),
-    });
+    shopDbLog.skip(
+      "elasticsearch precise search unavailable — SQL structured",
+      {
+        error: error?.message || String(error),
+      }
+    );
     return null;
   }
 }
