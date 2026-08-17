@@ -317,12 +317,16 @@ systemctl is-active offer-kp-gpu-worker || true
 systemctl is-active offer-kp-cpu-worker || true
 # Boot (prisma + boot checks) takes longer than a fixed sleep — poll until the
 # server answers instead of printing a misleading 000/502 one-shot probe.
+# NB: curl prints its -w '%{http_code}' (000) even when the request fails, so
+# no fallback printf — that concatenated into "000000" and slipped past the
+# numeric check as 0 < 500.
 HEALTH=000
 for i in \$(seq 1 60); do
-  HEALTH=\$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/ 2>/dev/null || printf 000)
-  if [ "\$HEALTH" != "000" ] && [ "\$HEALTH" -lt 500 ]; then
-    break
-  fi
+  HEALTH=\$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/ 2>/dev/null || true)
+  case "\$HEALTH" in
+    [1-4][0-9][0-9]) break ;;
+    *) HEALTH=000 ;;
+  esac
   sleep 2
 done
 echo "local / : \$HEALTH (after \$((i * 2))s)"
@@ -336,7 +340,9 @@ EOS
 
 log "==> Full Elasticsearch sync on Lainey"
 remote_log "SYNC elastic full"
-remote_retry "cd ${REMOTE_APP}/server && yarn sync:elastic:full"
+# timeout: belt-and-braces — a sync process that never exits (open DB pool
+# keeping the event loop alive) must not hang the deploy forever.
+remote_retry "cd ${REMOTE_APP}/server && timeout 600 yarn sync:elastic:full"
 
 remote_retry "printf '%s|%s|%s\n' $(printf %q "$GIT_HASH") $(printf %q "$GIT_DATE") $(printf %q "$GIT_SUBJECT") > ${READY_FILE}"
 remote_log "DEPLOY OK ${GIT_HASH}"
