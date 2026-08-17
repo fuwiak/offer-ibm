@@ -711,7 +711,7 @@ function tryParseExpectedCsvInquiry(text) {
 // but repeated re-parses of the same RFQ (rematch, draft edits) skip it.
 // Entries are deep-cloned on both sides: callers mutate parsed lines
 // (quantity merge, .thread), shared references would leak across requests.
-const PARSE_CACHE_VERSION = "v3";
+const PARSE_CACHE_VERSION = "v4";
 const PARSE_CACHE_TTL_MS = Math.max(
   60_000,
   parseInt(process.env.OFFER_KP_PARSE_CACHE_TTL_MS, 10) || 24 * 60 * 60 * 1000
@@ -799,9 +799,15 @@ function mergeVerticalTableCells(text) {
   return out.join("\n");
 }
 
+function nutClassFromBoltStrength(strengthClass) {
+  const m = String(strengthClass || "").match(/^(\d+)(?:\.(\d+))?$/);
+  if (!m) return null;
+  return m[1];
+}
+
 /**
- * HV set (ГОСТ Р 52644 bolt) implies matching nut ГОСТ Р 52645
- * when the nut line only says «Гайка М20 10».
+ * HV set (ГОСТ Р 52644 bolt) implies matching nut ГОСТ Р 52645.
+ * Bolt 8.8 / 10.9 on the same diameter implies nut кл.пр.8 / 10.
  * @param {object[]} lines
  * @returns {object[]}
  */
@@ -810,33 +816,57 @@ function enrichInquiryLinesFromSiblings(lines = []) {
   if (list.length < 2) return list;
 
   const hvDiameters = new Set();
+  const boltClassByDiam = new Map();
   for (const line of list) {
-    const dins = line.dinNumbers || [];
-    if (!dins.map(String).includes("52644")) continue;
-    const size = line.thread?.size || parseHardwareQuery(line.raw || line.name).diameter;
-    if (size) hvDiameters.add(String(size));
+    const types = line.productTypes || [];
+    const parsed = parseHardwareQuery(line.raw || line.name);
+    const size = String(
+      line.thread?.size || parsed.thread?.size || parsed.diameter || ""
+    );
+    if (types.includes("болт") && size && parsed.strengthClass) {
+      boltClassByDiam.set(size, parsed.strengthClass);
+    }
+    if ((line.dinNumbers || []).map(String).includes("52644") && size) {
+      hvDiameters.add(size);
+    }
   }
-  if (!hvDiameters.size) return list;
 
   return list.map((line) => {
     const types = line.productTypes || [];
-    if (!types.includes("гайка") || (line.dinNumbers || []).length) return line;
+    if (!types.includes("гайка")) return line;
     const parsed = parseHardwareQuery(line.raw || line.name);
     const size = String(parsed.diameter || line.thread?.size || "");
-    if (!size || !hvDiameters.has(size)) return line;
-    const stamped = /52645/.test(line.raw || "")
-      ? line
-      : {
-          ...line,
-          dinNumbers: [...(line.dinNumbers || []), "52645"],
-          name: /52645/.test(line.name || "")
-            ? line.name
-            : `${line.name} ГОСТ 52645`.trim(),
-          raw: /52645/.test(line.raw || "")
-            ? line.raw
-            : `${line.raw} ГОСТ 52645`.trim(),
+    if (!size) return line;
+
+    let next = line;
+    const dins = (next.dinNumbers || []).map(String);
+    if (hvDiameters.has(size) && !dins.includes("52645")) {
+      next = {
+        ...next,
+        dinNumbers: ["52645"],
+        name: /52645/.test(next.name || "")
+          ? next.name
+          : `${next.name} ГОСТ 52645`.trim(),
+        raw: /52645/.test(next.raw || "")
+          ? next.raw
+          : `${next.raw} ГОСТ 52645`.trim(),
+      };
+    }
+
+    const boltClass = boltClassByDiam.get(size);
+    const nutClass = nutClassFromBoltStrength(boltClass);
+    if (nutClass && !parsed.strengthClass) {
+      const stamp = `кл.пр.${nutClass}`;
+      if (!new RegExp(`кл\\.пр\\.?\\s*${nutClass}`).test(next.raw || "")) {
+        next = {
+          ...next,
+          strengthClass: nutClass,
+          name: `${next.name} ${stamp}`.trim(),
+          raw: `${next.raw} ${stamp}`.trim(),
         };
-    return stamped;
+      }
+    }
+    return next;
   });
 }
 

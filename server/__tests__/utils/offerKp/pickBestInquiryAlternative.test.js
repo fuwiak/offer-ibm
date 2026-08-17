@@ -57,6 +57,29 @@ describe("pickBestInquiryAlternative", () => {
     expect(best.productId).toBe("2");
   });
 
+  it("silent material RFQ prefers carbon/zinc over stainless", () => {
+    const best = pickBestInquiryAlternative(
+      [
+        {
+          productId: "a4",
+          name: "Шайба DIN 125 M 20 нерж A4",
+          price: 52.08,
+          matchType: "exact",
+          status: STATUS.IN_STOCK,
+        },
+        {
+          productId: "zn",
+          name: "Шайба DIN 125 M 20 оцинк",
+          price: 3.88,
+          matchType: "exact",
+          status: STATUS.IN_STOCK,
+        },
+      ],
+      "Шайба плоская Ø20"
+    );
+    expect(best.productId).toBe("zn");
+  });
+
   it("keeps a literally requested catalog product ahead of a cheaper variant", () => {
     const best = pickBestInquiryAlternative(
       [

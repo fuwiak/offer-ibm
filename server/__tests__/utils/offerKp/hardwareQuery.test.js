@@ -67,6 +67,12 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
     expect(p.productTypes).toContain("гайка");
   });
 
+  it("implies DIN 933 / 934 / 125 when RFQ omits the standard", () => {
+    expect(parseHardwareQuery("Болт М16x50 8.8").dinNumbers).toContain("933");
+    expect(parseHardwareQuery("Гайка М16").dinNumbers).toContain("934");
+    expect(parseHardwareQuery("Шайба М16").dinNumbers).toContain("125");
+  });
+
   it("parses nut fine pitch M50x1,5 as pitch not length", () => {
     const p = parseHardwareQuery(
       "Гайка ГОСТ 11871-88 M 50x1,5 (6 шлицов) оцинк"

@@ -152,6 +152,15 @@ function detectVariantAmbiguity({ queryText, alternatives = [] } = {}) {
       const value =
         field === "material" ? row.material || CARBON_STEEL : row.strengthClass;
       if (!value) continue;
+      // RFQ silent on material → quote carbon/zinc; нерж/латунь stay alternatives.
+      if (
+        field === "material" &&
+        !query.material &&
+        rows.some((r) => !r.material || r.material === CARBON_STEEL) &&
+        value !== CARBON_STEEL
+      ) {
+        continue;
+      }
       if (!buckets.has(value)) buckets.set(value, []);
       buckets.get(value).push(row.price);
     }

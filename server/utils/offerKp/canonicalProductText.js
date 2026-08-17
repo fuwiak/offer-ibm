@@ -99,6 +99,11 @@ function extractStandards(name, featureStandard = "") {
   return [...new Set(values)];
 }
 
+function standardFamilyNumber(value) {
+  const m = String(value || "").match(/(\d{3,5})/);
+  return m ? m[1] : "";
+}
+
 function pickStandardFamily(standards = []) {
   if (!standards.length) return "";
   const din = standards.find((value) => /^DIN\b/i.test(value));
@@ -343,10 +348,10 @@ function signatureHardConflicts(querySig, productSig) {
       cleanValue(v).toUpperCase()
     )
   ) {
-    // Same family number under DIN↔ГОСТ analog is handled elsewhere; here only
-    // reject clearly different families (DIN 933 vs DIN 912).
-    const qNum = String(query.standardFamily).replace(/[^\d]/g, "");
-    const pNum = String(product.standardFamily).replace(/[^\d]/g, "");
+    // ГОСТ Р 52644-2006 vs «ГОСТ 52644»: stripping non-digits used to yield
+    // 526442006 ≠ 52644 and hard-rejected the live HV bolt/nut.
+    const qNum = standardFamilyNumber(query.standardFamily);
+    const pNum = standardFamilyNumber(product.standardFamily);
     if (qNum && pNum && qNum !== pNum) hard.push("standardFamily");
   }
 
@@ -424,6 +429,7 @@ module.exports = {
   buildQuerySignature,
   toProductSignature,
   signatureHardConflicts,
+  standardFamilyNumber,
   signatureIdentityKey,
   signaturesMatchForPricing,
   canonicalTextHash,

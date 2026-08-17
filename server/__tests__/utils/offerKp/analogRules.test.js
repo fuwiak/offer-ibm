@@ -95,6 +95,49 @@ describe("analogRules", () => {
     expect(result.matchType).toBe("exact");
   });
 
+  test("ГОСТ 52644 query matches ГОСТ Р 52644-2006 catalog name", () => {
+    const result = classifyProductMatch(
+      "Болт М20x80 10.9 ХЛ (ГОСТ 52644)",
+      {
+        name: "Болт ГОСТ Р 52644-2006 M 20x 80 10.9 ХЛ  (10)",
+        stockCount: 52,
+      }
+    );
+    expect(result.matchType).toBe("exact");
+  });
+
+  test("unnamed hex bolt M16x50 8.8 matches DIN 933", () => {
+    const result = classifyProductMatch("Болт М16x50 8.8", {
+      name: "Болт DIN  933 M 16x 50  8.8 оцинк / ГОСТ 7798-70 / ГОСТ 7805-70  (25)",
+      stockCount: 740,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
+  test("HV nut ГОСТ 52645 matches catalog yeared name", () => {
+    const result = classifyProductMatch("Гайка М20 10 ГОСТ 52645", {
+      name: "Гайка ГОСТ Р 52645-2006 M 20 кл.пр.10 ХЛ  (25)",
+      stockCount: 1033,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
+  test("unnamed nut M16 кл.пр.8 matches DIN 934", () => {
+    const result = classifyProductMatch("Гайка М16 кл.пр.8", {
+      name: "Гайка DIN  934 M 16 кл.пр.8 оцинк / ГОСТ 5915-70  (50)",
+      stockCount: 100,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
+  test("unnamed washer M16 matches DIN 125", () => {
+    const result = classifyProductMatch("Шайба М16", {
+      name: "Шайба DIN   125 M 16 оцинк / ГОСТ 11371-78  (100)",
+      stockCount: 100,
+    });
+    expect(result.matchType).toBe("exact");
+  });
+
   test("getEquivalentStandards for DIN 934", () => {
     const equiv = getEquivalentStandards("934");
     expect(equiv).toContain("934");

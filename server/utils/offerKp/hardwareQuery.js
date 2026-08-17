@@ -448,6 +448,21 @@ function parseHardwareQuery(message) {
       }
     }
   }
+  // RFQ without DIN/ГОСТ: same defaults a human catalog search uses.
+  if (!dinNumbers.length && productTypes.includes("болт") && thread) {
+    pushStd("933");
+  }
+  if (!dinNumbers.length && productTypes.includes("гайка") && diameter) {
+    pushStd("934");
+  }
+  if (
+    !dinNumbers.length &&
+    productTypes.includes("шайба") &&
+    diameter &&
+    !productTypes.includes("анкер")
+  ) {
+    pushStd("125");
+  }
 
   // «винт 10x25 дин 912» — голый DxL у резьбового крепежа это сокращение
   // M10x25. Только болт/винт/шпилька (штифт/шайба — реальные габариты) и не

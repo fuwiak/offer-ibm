@@ -74,7 +74,12 @@ const {
   signaturesMatchForPricing,
   buildProductSignature,
 } = require("./canonicalProductText");
-const { detectVariantAmbiguity, variantPricingKey } = require("./variantSpecs");
+const {
+  detectVariantAmbiguity,
+  variantPricingKey,
+  extractMaterial,
+  CARBON_STEEL,
+} = require("./variantSpecs");
 const { findGoldenCorrection } = require("./goldenCorrections");
 const { sanitizeSku } = require("./fabricatedSku");
 const { recordSearchMetric } = require("./searchMetrics");
@@ -651,8 +656,16 @@ function pickBestInquiryAlternative(alternatives = [], queryText = "") {
       }
       if (!placed) groups.push([candidate]);
     }
-    // Prefer the group that appears first in ranked pool (identity already decided).
-    const primaryGroup = groups[0] || candidates;
+    // RFQ silent on material → quote carbon/zinc, not нерж/латунь.
+    const queryMaterial = extractMaterial(queryText);
+    let primaryGroup = groups[0] || candidates;
+    if (!queryMaterial) {
+      const carbonGroup = groups.find((group) => {
+        const material = extractMaterial(group[0].name) || CARBON_STEEL;
+        return material === CARBON_STEEL;
+      });
+      if (carbonGroup) primaryGroup = carbonGroup;
+    }
     const byPrice = [...primaryGroup].sort((a, b) => {
       const aPrice = positivePrice(a.price);
       const bPrice = positivePrice(b.price);

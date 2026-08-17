@@ -162,23 +162,24 @@ describe("detectVariantAmbiguity", () => {
     ).toBeNull();
   });
 
-  it("flags carbon steel vs stainless at the same size", () => {
-    const ambiguity = detectVariantAmbiguity({
-      queryText: "Гайка DIN 934 M16 кл.пр.8",
-      alternatives: [
-        {
-          name: "Гайка DIN 934 M16 кл.пр.8 оцинк",
-          price: 7.54,
-          matchType: "exact",
-        },
-        {
-          name: "Гайка DIN 934 M16 кл.пр.8 нерж А4",
-          price: 50.05,
-          matchType: "exact",
-        },
-      ],
-    });
-    expect(ambiguity).toMatchObject({ field: "material" });
+  it("defaults to carbon/zinc when RFQ is silent on material", () => {
+    expect(
+      detectVariantAmbiguity({
+        queryText: "Гайка DIN 934 M16 кл.пр.8",
+        alternatives: [
+          {
+            name: "Гайка DIN 934 M16 кл.пр.8 оцинк",
+            price: 7.54,
+            matchType: "exact",
+          },
+          {
+            name: "Гайка DIN 934 M16 кл.пр.8 нерж А4",
+            price: 50.05,
+            matchType: "exact",
+          },
+        ],
+      })
+    ).toBeNull();
   });
 
   it("ignores candidates that cannot be priced anyway", () => {
@@ -215,6 +216,36 @@ describe("detectVariantAmbiguity", () => {
         alternatives,
       })
     ).not.toBeNull();
+  });
+
+  it("defaults silent washer RFQ to carbon/zinc despite нерж/латунь", () => {
+    expect(
+      detectVariantAmbiguity({
+        queryText: "Шайба плоская Ø20",
+        alternatives: [
+          {
+            name: "Шайба DIN 125 M 20 оцинк / ГОСТ 11371-78",
+            price: 3.88,
+            matchType: "exact",
+          },
+          {
+            name: "Шайба DIN 125 M 20 латунь",
+            price: 18.4,
+            matchType: "exact",
+          },
+          {
+            name: "Шайба DIN 125 M 20 нерж A2",
+            price: 22.1,
+            matchType: "exact",
+          },
+          {
+            name: "Шайба DIN 125 M 20 нерж A4",
+            price: 52.08,
+            matchType: "exact",
+          },
+        ],
+      })
+    ).toBeNull();
   });
 
   it("ignores variants priced within the spread tolerance", () => {

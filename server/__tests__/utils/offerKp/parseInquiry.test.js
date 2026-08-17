@@ -316,5 +316,7 @@ describe("parseInquiry PDF/OCR extraction", () => {
     expect(comboWashers.length).toBeGreaterThanOrEqual(1);
     expect(comboNuts[0].quantity).toBe(5808);
     expect(comboWashers[0].quantity).toBe(5808);
+    expect(comboNuts[0].raw).toMatch(/кл\.пр\.8|8\.8/);
+    expect(comboWashers[0].dinNumbers).toContain("125");
   });
 });

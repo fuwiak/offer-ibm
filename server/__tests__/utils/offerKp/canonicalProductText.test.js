@@ -63,6 +63,24 @@ describe("canonicalProductText", () => {
     ]);
   });
 
+  it("does not hard-reject ГОСТ 52644 vs ГОСТ Р 52644-2006", () => {
+    const {
+      buildQuerySignature,
+      buildProductSignature,
+      signatureHardConflicts,
+      standardFamilyNumber,
+    } = require("../../../utils/offerKp/canonicalProductText");
+    expect(standardFamilyNumber("ГОСТ Р 52644-2006")).toBe("52644");
+    expect(standardFamilyNumber("ГОСТ 52644")).toBe("52644");
+    const hard = signatureHardConflicts(
+      buildQuerySignature("Болт М20x80 10.9 ХЛ (ГОСТ 52644)"),
+      buildProductSignature({
+        name: "Болт ГОСТ Р 52644-2006 M 20x 80 10.9 ХЛ  (10)",
+      })
+    );
+    expect(hard).not.toContain("standardFamily");
+  });
+
   it("omits zero placeholder dimensions from ShopDB", () => {
     const text = buildCanonicalProductText({ name: "Гайка DIN 934 M12" }, [
       { name: "Длина", value: "0", unit: "m" },
