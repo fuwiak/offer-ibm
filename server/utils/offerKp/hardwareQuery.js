@@ -126,6 +126,25 @@ const STANDARD_IMPLIES_TYPE = {
   "8918": "гайка",
 };
 
+/**
+ * RFQ and catalog mix 10,9 / 10.9 (and M2,5 / M2.5). Match either separator.
+ * Integers stay literal (`10` → `10`).
+ */
+function decimalTokenPattern(value) {
+  return String(value || "")
+    .trim()
+    .replace(",", ".")
+    .replace(/(\d+)\.(\d+)/g, "$1[.,]$2");
+}
+
+function textHasDecimalToken(text, value) {
+  const token = String(value || "").trim();
+  if (!token) return false;
+  return new RegExp(
+    `(?:^|[^0-9])${decimalTokenPattern(token)}(?:$|[^0-9])`
+  ).test(String(text || ""));
+}
+
 function normalizeForMatch(text) {
   // Fine-thread triple first (M16x1,5x150 = diameter × pitch × length):
   // without it "m 16x1,5x150" collapsed to " m16x1.5 x150" and the length was
@@ -549,7 +568,12 @@ function scoreProduct(product, parsed, terms) {
     else score -= 15;
   }
 
-  if (parsed.strengthClass && hay.includes(parsed.strengthClass)) score += 15;
+  if (
+    parsed.strengthClass &&
+    textHasDecimalToken(hay, parsed.strengthClass)
+  ) {
+    score += 15;
+  }
 
   if (parsed.coating && /оцинк|zn|цинк/.test(hay)) score += 10;
 
@@ -582,6 +606,8 @@ module.exports = {
   PRODUCT_TYPE_ROOTS,
   normalizeForMatch,
   parseHardwareQuery,
+  decimalTokenPattern,
+  textHasDecimalToken,
   parseMetricSpecs,
   classifyMetricPair,
   extractSearchTerms,

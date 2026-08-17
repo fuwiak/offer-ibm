@@ -1,6 +1,9 @@
 "use strict";
 
-const { parseHardwareQuery } = require("../../../utils/offerKp/hardwareQuery");
+const {
+  parseHardwareQuery,
+  textHasDecimalToken,
+} = require("../../../utils/offerKp/hardwareQuery");
 
 describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
   it("fills in the DIN-implied type when the customer named no type at all", () => {
@@ -88,6 +91,20 @@ describe("parseHardwareQuery — productTypes / STANDARD_IMPLIES_TYPE", () => {
         "Винт ГОСТ Р ИСО 10642-M5x16-12.9"
       ).dinNumbers
     ).toContain("10642");
+  });
+
+  it("parses colloquial «винт 10x25 10,9 дин 912-2000шт» as DIN 912 M10x25 10.9", () => {
+    const p = parseHardwareQuery("винт 10x25 10,9 дин 912-2000шт");
+    expect(p.dinNumbers).toContain("912");
+    expect(p.thread).toEqual({ size: "10", length: "25" });
+    expect(p.strengthClass).toBe("10.9");
+    expect(p.productTypes).toEqual(["винт"]);
+  });
+
+  it("treats 10,9 and 10.9 as the same strength class token", () => {
+    expect(textHasDecimalToken("винт 10,9 оцинк", "10.9")).toBe(true);
+    expect(textHasDecimalToken("винт 10.9 оцинк", "10,9")).toBe(true);
+    expect(textHasDecimalToken("винт 8.8 оцинк", "10.9")).toBe(false);
   });
 
   it("parses decimal metric diameter M2,5x10", () => {

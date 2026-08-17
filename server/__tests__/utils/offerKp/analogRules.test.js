@@ -106,7 +106,38 @@ describe("analogRules", () => {
     );
   });
 
-  test("threadMatchesExact", () => {
+  test("strength class matches both 10,9 and 10.9", () => {
+    const catalogComma =
+      "Винт DIN  912 M 10x 25 10,9 оцинк П/Р / ГОСТ 11738-84  (50)";
+    const catalogDot =
+      "Винт DIN  912 M 10x 25 10.9 оцинк П/Р / ГОСТ 11738-84  (50)";
+    expect(
+      classifyProductMatch("винт DIN 912 M10x25 10,9", {
+        name: catalogDot,
+        stockCount: 10,
+      }).matchType
+    ).toBe("exact");
+    expect(
+      classifyProductMatch("винт DIN 912 M10x25 10.9", {
+        name: catalogComma,
+        stockCount: 10,
+      }).matchType
+    ).toBe("exact");
+    expect(
+      classifyProductMatch("винт DIN 912 M10x25 10,9", {
+        name: catalogComma,
+        stockCount: 10,
+      }).matchType
+    ).toBe("exact");
+  });
+
+  test("threadMatchesExact accepts M2,5 and M2.5", () => {
+    expect(
+      threadMatchesExact("vint m2,5x10", { size: "2.5", length: "10" })
+    ).toBe(true);
+    expect(
+      threadMatchesExact("vint m2.5x10", { size: "2.5", length: "10" })
+    ).toBe(true);
     expect(
       threadMatchesExact("bolt m8x40 zinc", { size: "8", length: "40" })
     ).toBe(true);
@@ -132,6 +163,30 @@ describe("analogRules", () => {
       100
     );
     expect(score931).toBeGreaterThan(score933);
+  });
+
+  test("colloquial «дин 912» + bare 10x25 classifies exact catalog row", () => {
+    const {
+      extractStandardNumbers,
+    } = require("../../../utils/offerKp/analogRules");
+    expect(
+      extractStandardNumbers("винт 10x25 10,9 дин 912-2000шт")
+    ).toContain("912");
+    const result = classifyProductMatch("винт 10x25 10,9 дин 912-2000шт", {
+      name: "Винт DIN  912 M 10x 25 10.9 оцинк П/Р / ГОСТ 11738-84  (50)",
+      stockCount: 50,
+    });
+    expect(result.matchType).toBe("exact");
+    expect(result.status).toBe(STATUS.IN_STOCK);
+  });
+
+  test("same informal query does not exact-match a different strength class", () => {
+    const result = classifyProductMatch("винт 10x25 10,9 дин 912", {
+      name: "Винт DIN  912 M 10x 25  8.8 оцинк П/Р / ГОСТ 11738-84  (50)",
+      stockCount: 50,
+    });
+    expect(result.matchType).toBe("spec_mismatch");
+    expect(result.mismatchReason).toBe("strength_class");
   });
 
   test("GOST 11738 → DIN 912 analog", () => {

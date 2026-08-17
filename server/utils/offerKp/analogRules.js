@@ -6,6 +6,8 @@
 const {
   normalizeForMatch,
   parseHardwareQuery,
+  decimalTokenPattern,
+  textHasDecimalToken,
   PRODUCT_TYPE_ROOTS,
 } = require("./hardwareQuery");
 const { extractMaterial } = require("./variantSpecs");
@@ -107,6 +109,12 @@ const DIN_STANDARD_RE = /\bdin\s*[- ]?\s*(\d{1,5})(?:[a-zа-я])?(?![0-9])/gi;
 function extractStandardNumbers(text) {
   const raw = String(text || "");
   const numbers = new Set();
+  // parseHardwareQuery already understands «дин 912» / «исо 7380».
+  // classifyProductMatch used only Latin `\bdin\b`, so a colloquial RFQ
+  // dropped every structured ShopDB hit (DIN 912 M10x25 10.9 sat in catalog).
+  for (const n of parseHardwareQuery(raw).dinNumbers || []) {
+    if (n) numbers.add(String(n));
+  }
   for (const m of raw.matchAll(DIN_STANDARD_RE)) {
     numbers.add(m[1]);
   }
@@ -224,17 +232,16 @@ function threadMatchesExact(nameNorm, thread) {
   if (!thread) return true;
   // Fine thread is part of the identity: M16x1,5x150 must not match M16x150,
   // and a coarse M16x150 request must not match the fine-pitch product.
+  const size = decimalTokenPattern(thread.size);
+  const length = decimalTokenPattern(thread.length);
   if (thread.pitch) {
-    const p = String(thread.pitch).replace(".", "[.,]");
+    const p = decimalTokenPattern(thread.pitch);
     return new RegExp(
-      `\\bm\\s*${thread.size}\\s*x\\s*${p}\\s*x\\s*${thread.length}\\b`,
+      `\\bm\\s*${size}\\s*x\\s*${p}\\s*x\\s*${length}\\b`,
       "i"
     ).test(nameNorm);
   }
-  const re = new RegExp(
-    `\\bm\\s*${thread.size}\\s*x\\s*${thread.length}\\b`,
-    "i"
-  );
+  const re = new RegExp(`\\bm\\s*${size}\\s*x\\s*${length}\\b`, "i");
   return re.test(nameNorm);
 }
 
@@ -323,9 +330,7 @@ function requestedSpecsMatch(
   }
   if (
     parsed.strengthClass &&
-    !new RegExp(`\\b${parsed.strengthClass.replace(".", "\\.")}\\b`).test(
-      nameNorm
-    )
+    !textHasDecimalToken(nameNorm, parsed.strengthClass)
   ) {
     const requestedRank = strengthRank(parsed.strengthClass);
     const candidateRank = strengthRank(

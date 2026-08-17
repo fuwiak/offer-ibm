@@ -5,7 +5,12 @@
  * P(SKU|features) ≈ prior + Σ log evidence — no full Bayes net required.
  */
 
-const { parseHardwareQuery, normalizeForMatch, PRODUCT_TYPE_ROOTS } = require("../hardwareQuery");
+const {
+  parseHardwareQuery,
+  normalizeForMatch,
+  textHasDecimalToken,
+  PRODUCT_TYPE_ROOTS,
+} = require("../hardwareQuery");
 const {
   extractThread,
   extractStandardNumbers,
@@ -60,10 +65,7 @@ function logEvidenceScore(queryText, product = {}) {
     score += /оцинк|цинк|\bzn\b/i.test(nameNorm) ? 0.6 : -0.4;
   }
   if (parsed.strengthClass) {
-    const re = new RegExp(
-      `\\b${parsed.strengthClass.replace(".", "\\.")}\\b`
-    );
-    score += re.test(nameNorm) ? 0.7 : -0.3;
+    score += textHasDecimalToken(nameNorm, parsed.strengthClass) ? 0.7 : -0.3;
   }
 
   return score;

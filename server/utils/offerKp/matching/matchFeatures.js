@@ -5,7 +5,12 @@
  * Values are numeric; training can later replace heuristic weights.
  */
 
-const { parseHardwareQuery, normalizeForMatch, PRODUCT_TYPE_ROOTS } = require("../hardwareQuery");
+const {
+  parseHardwareQuery,
+  normalizeForMatch,
+  textHasDecimalToken,
+  PRODUCT_TYPE_ROOTS,
+} = require("../hardwareQuery");
 const {
   extractThread,
   extractStandardNumbers,
@@ -91,9 +96,7 @@ function extractMatchFeatures(queryText, alt = {}, product = {}) {
 
   let strengthMatch = 0.5;
   if (parsed.strengthClass) {
-    strengthMatch = new RegExp(
-      `\\b${parsed.strengthClass.replace(".", "\\.")}\\b`
-    ).test(nameNorm)
+    strengthMatch = textHasDecimalToken(nameNorm, parsed.strengthClass)
       ? 1
       : 0;
   }

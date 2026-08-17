@@ -8,6 +8,7 @@
 const {
   normalizeForMatch,
   parseHardwareQuery,
+  textHasDecimalToken,
   PRODUCT_TYPE_ROOTS,
 } = require("../hardwareQuery");
 const {
@@ -197,7 +198,7 @@ function validateCandidate(queryText, product = {}) {
   }
   if (
     parsed.strengthClass &&
-    !new RegExp(`\\b${parsed.strengthClass.replace(".", "\\.")}\\b`).test(nameNorm)
+    !textHasDecimalToken(nameNorm, parsed.strengthClass)
   ) {
     soft.push(SOFT.STRENGTH);
   }
